@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { ref, computed, watch } from "vue";
 import type { Card } from "../../shared/types/card.js";
+import { useVariants, usePokeproxyStatus } from "../composables/usePokeproxy.js";
+import { api } from "../api/client.js";
 
 const props = defineProps<{ card: Card }>();
 const emit = defineEmits<{
@@ -8,17 +10,80 @@ const emit = defineEmits<{
   add: [card: Card];
 }>();
 
+// Variant navigation
+const cardIdRef = computed(() => props.card.id);
+const { data: variants } = useVariants(cardIdRef);
+const variantIndex = ref(0);
+
+// Reset index when card changes
+watch(() => props.card.id, () => { variantIndex.value = 0; });
+
+// When variants load, find the index of the current card
+watch(variants, (v) => {
+  if (!v) return;
+  const idx = v.findIndex((c) => c.id === props.card.id);
+  if (idx >= 0) variantIndex.value = idx;
+});
+
+const currentCard = computed(() => {
+  if (!variants.value?.length) return props.card;
+  return variants.value[variantIndex.value] ?? props.card;
+});
+
+const totalVariants = computed(() => variants.value?.length ?? 1);
+const hasMultipleVariants = computed(() => totalVariants.value > 1);
+
+function prevVariant() {
+  if (variantIndex.value > 0) variantIndex.value--;
+}
+function nextVariant() {
+  if (variantIndex.value < totalVariants.value - 1) variantIndex.value++;
+}
+
+// Pokeproxy status for current variant
+const currentCardId = computed(() => currentCard.value.id);
+const { data: ppStatus } = usePokeproxyStatus(currentCardId);
+
+const hasPokeproxy = computed(() =>
+  ppStatus.value?.hasClean || ppStatus.value?.hasComposite || ppStatus.value?.hasSvg
+);
+
+const pokeproxyImageUrl = computed(() => {
+  if (!ppStatus.value) return null;
+  if (ppStatus.value.hasComposite) return api.pokeproxyImageUrl(currentCard.value.id, "composite");
+  if (ppStatus.value.hasClean) return api.pokeproxyImageUrl(currentCard.value.id, "clean");
+  return null;
+});
+
+const pokeproxySvgUrl = computed(() => {
+  if (!ppStatus.value?.hasSvg) return null;
+  return api.pokeproxySvgUrl(currentCard.value.id);
+});
+
+// Generate clean image
+const generating = ref(false);
+async function generateClean() {
+  generating.value = true;
+  try {
+    await api.pokeproxyGenerate(currentCard.value.id);
+  } catch (e) {
+    console.error("Generate failed:", e);
+  }
+  generating.value = false;
+}
+
+// Tags
 const tags = computed(() =>
   [
-    props.card.isEx && "ex",
-    props.card.isV && "V",
-    props.card.isVmax && "VMAX",
-    props.card.isVstar && "VSTAR",
-    props.card.isAncient && "Ancient",
-    props.card.isFuture && "Future",
-    props.card.isTera && "Tera",
-    props.card.isFullArt && "Full Art",
-    props.card.hasFoil && "Foil",
+    currentCard.value.isEx && "ex",
+    currentCard.value.isV && "V",
+    currentCard.value.isVmax && "VMAX",
+    currentCard.value.isVstar && "VSTAR",
+    currentCard.value.isAncient && "Ancient",
+    currentCard.value.isFuture && "Future",
+    currentCard.value.isTera && "Tera",
+    currentCard.value.isFullArt && "Full Art",
+    currentCard.value.hasFoil && "Foil",
   ].filter(Boolean) as string[]
 );
 </script>
@@ -26,38 +91,94 @@ const tags = computed(() =>
 <template>
   <div class="dialog-overlay" @click="emit('close')">
     <div class="lightbox" @click.stop>
-      <div class="lightbox-image">
-        <img v-if="card.imageUrl" :src="card.imageUrl" :alt="card.name" />
-        <div v-else class="lightbox-placeholder">{{ card.name }}</div>
+      <!-- Variant navigation -->
+      <div v-if="hasMultipleVariants" class="variant-nav">
+        <button class="variant-btn" :disabled="variantIndex <= 0" @click="prevVariant">&lsaquo;</button>
+        <span class="variant-label">
+          Variant {{ variantIndex + 1 }} / {{ totalVariants }}
+          <span class="variant-id">{{ currentCard.setCode }} {{ currentCard.localId }}</span>
+        </span>
+        <button class="variant-btn" :disabled="variantIndex >= totalVariants - 1" @click="nextVariant">&rsaquo;</button>
       </div>
+
+      <!-- Images row -->
+      <div class="lightbox-images">
+        <div class="lightbox-image-col">
+          <div class="image-label">Original</div>
+          <img
+            v-if="currentCard.imageUrl"
+            :src="currentCard.imageUrl"
+            :alt="currentCard.name"
+            class="lightbox-img"
+          />
+          <div v-else class="lightbox-placeholder">{{ currentCard.name }}</div>
+        </div>
+
+        <div v-if="hasPokeproxy" class="lightbox-image-col">
+          <div class="image-label">PokeProxy</div>
+          <img
+            v-if="pokeproxyImageUrl"
+            :src="pokeproxyImageUrl"
+            :alt="`${currentCard.name} (cleaned)`"
+            class="lightbox-img"
+          />
+          <img
+            v-if="pokeproxySvgUrl && !pokeproxyImageUrl"
+            :src="pokeproxySvgUrl"
+            :alt="`${currentCard.name} (SVG)`"
+            class="lightbox-img"
+          />
+        </div>
+
+        <div v-if="pokeproxySvgUrl && pokeproxyImageUrl" class="lightbox-image-col">
+          <div class="image-label">SVG Proxy</div>
+          <img
+            :src="pokeproxySvgUrl"
+            :alt="`${currentCard.name} (SVG)`"
+            class="lightbox-img"
+          />
+        </div>
+      </div>
+
+      <!-- Details -->
       <div class="lightbox-details">
-        <h2>{{ card.name }}</h2>
+        <h2>{{ currentCard.name }}</h2>
         <div class="lightbox-meta">
-          <div><span class="label">Set:</span> {{ card.setName }} ({{ card.setCode }})</div>
-          <div><span class="label">Number:</span> {{ card.localId }}</div>
-          <div><span class="label">Rarity:</span> {{ card.rarity }}</div>
+          <div><span class="label">Set:</span> {{ currentCard.setName }} ({{ currentCard.setCode }})</div>
+          <div><span class="label">Number:</span> {{ currentCard.localId }}</div>
+          <div><span class="label">Rarity:</span> {{ currentCard.rarity }}</div>
           <div>
-            <span class="label">Category:</span> {{ card.category }}{{ card.trainerType ? ` - ${card.trainerType}` : "" }}
+            <span class="label">Category:</span> {{ currentCard.category }}{{ currentCard.trainerType ? ` - ${currentCard.trainerType}` : "" }}
           </div>
-          <div v-if="card.energyTypes.length > 0">
-            <span class="label">Type:</span> {{ card.energyTypes.join(", ") }}
+          <div v-if="currentCard.energyTypes.length > 0">
+            <span class="label">Type:</span> {{ currentCard.energyTypes.join(", ") }}
           </div>
-          <div v-if="card.hp !== undefined">
-            <span class="label">HP:</span> {{ card.hp }}
+          <div v-if="currentCard.hp !== undefined">
+            <span class="label">HP:</span> {{ currentCard.hp }}
           </div>
-          <div v-if="card.stage">
-            <span class="label">Stage:</span> {{ card.stage }}
+          <div v-if="currentCard.stage">
+            <span class="label">Stage:</span> {{ currentCard.stage }}
           </div>
-          <div v-if="card.retreat !== undefined">
-            <span class="label">Retreat:</span> {{ card.retreat }}
+          <div v-if="currentCard.retreat !== undefined">
+            <span class="label">Retreat:</span> {{ currentCard.retreat }}
           </div>
         </div>
         <div v-if="tags.length > 0" class="lightbox-tags">
           <span v-for="t in tags" :key="t" class="lightbox-tag">{{ t }}</span>
         </div>
-        <button class="lightbox-add" @click="emit('add', card)">
-          Add to Decklist
-        </button>
+        <div class="lightbox-actions">
+          <button class="lightbox-add" @click="emit('add', currentCard)">
+            Add to Decklist
+          </button>
+          <button
+            v-if="!hasPokeproxy"
+            class="lightbox-generate"
+            :disabled="generating"
+            @click="generateClean"
+          >
+            {{ generating ? "Generating..." : "Generate Clean" }}
+          </button>
+        </div>
       </div>
     </div>
   </div>

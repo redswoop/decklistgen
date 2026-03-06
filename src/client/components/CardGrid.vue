@@ -3,6 +3,7 @@ import { ref, computed } from "vue";
 import { useFilters } from "../composables/useFilters.js";
 import { useCards } from "../composables/useCards.js";
 import { useDecklist } from "../composables/useDecklist.js";
+import { usePokeproxy, type ImageMode } from "../composables/usePokeproxy.js";
 import CardTile from "./CardTile.vue";
 import type { Card } from "../../shared/types/card.js";
 
@@ -10,6 +11,7 @@ const emit = defineEmits<{ "preview-card": [card: Card] }>();
 
 const { filters } = useFilters();
 const { addCard } = useDecklist();
+const { imageMode, setImageMode } = usePokeproxy();
 const page = ref(1);
 const gridSearch = ref("");
 const { data, isLoading } = useCards(filters, page);
@@ -25,6 +27,12 @@ const totalPages = computed(() =>
 );
 
 const hasFilters = computed(() => !!(filters.sets?.length || filters.era));
+
+const modeOptions: { value: ImageMode; label: string }[] = [
+  { value: "original", label: "Original" },
+  { value: "composite", label: "Cleaned" },
+  { value: "clean", label: "Full Clean" },
+];
 </script>
 
 <template>
@@ -35,6 +43,14 @@ const hasFilters = computed(() => !!(filters.sets?.length || filters.era));
   <div v-else class="card-grid-container">
     <div class="card-grid-header">
       <span>{{ data?.total ?? 0 }} cards found</span>
+      <div class="image-mode-toggle">
+        <button
+          v-for="opt in modeOptions"
+          :key="opt.value"
+          :class="['mode-btn', { active: imageMode === opt.value }]"
+          @click="setImageMode(opt.value)"
+        >{{ opt.label }}</button>
+      </div>
       <input
         v-model="gridSearch"
         type="text"
@@ -48,6 +64,7 @@ const hasFilters = computed(() => !!(filters.sets?.length || filters.era));
         v-for="card in filteredCards"
         :key="card.id"
         :card="card"
+        :image-mode="imageMode"
         @add="addCard"
         @preview="emit('preview-card', $event)"
       />

@@ -110,6 +110,24 @@ export async function loadEra(era: "sv" | "swsh"): Promise<{ loaded: number; set
   return { loaded: total, sets: loadedCodes };
 }
 
+/** Find all variants of a card (same name across loaded cards) */
+export function getVariants(cardId: string): Card[] {
+  const card = cardIndex.get(cardId);
+  if (!card) return [];
+  const variants: Card[] = [];
+  for (const c of cardIndex.values()) {
+    if (c.name === card.name) variants.push(c);
+  }
+  // Sort by set, then localId
+  variants.sort((a, b) => {
+    if (a.setId !== b.setId) return a.setId.localeCompare(b.setId);
+    const aNum = parseInt(a.localId) || 0;
+    const bNum = parseInt(b.localId) || 0;
+    return aNum - bNum;
+  });
+  return variants;
+}
+
 export function getFilterOptions(): FilterOptions {
   const cards = getAllCards();
   const rarities = new Set<string>();

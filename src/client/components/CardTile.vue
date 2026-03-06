@@ -1,11 +1,23 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import type { Card } from "../../shared/types/card.js";
+import { getCardImageUrl, type ImageMode } from "../composables/usePokeproxy.js";
 
-defineProps<{ card: Card }>();
+const props = defineProps<{ card: Card; imageMode: ImageMode }>();
 const emit = defineEmits<{
   add: [card: Card];
   preview: [card: Card];
 }>();
+
+const imgSrc = computed(() => getCardImageUrl(props.card, props.imageMode));
+
+function onImgError(e: Event) {
+  // Fall back to original image if pokeproxy image not available
+  const img = e.target as HTMLImageElement;
+  if (props.imageMode !== "original" && img.src !== props.card.imageUrl) {
+    img.src = props.card.imageUrl;
+  }
+}
 </script>
 
 <template>
@@ -15,10 +27,11 @@ const emit = defineEmits<{
     @click="emit('preview', card)"
   >
     <img
-      v-if="card.imageUrl"
-      :src="card.imageUrl"
+      v-if="imgSrc"
+      :src="imgSrc"
       :alt="card.name"
       loading="lazy"
+      @error="onImgError"
     />
     <div
       v-else

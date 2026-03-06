@@ -43,6 +43,14 @@ export function filtersToParams(filters: CardFilters): Record<string, string> {
   return params;
 }
 
+export interface PokeproxyStatus {
+  cardId: string;
+  hasClean: boolean;
+  hasComposite: boolean;
+  hasSvg: boolean;
+  hasOriginal?: boolean;
+}
+
 export const api = {
   getSets: () => get<SetInfo[]>("/sets"),
   loadSet: (code: string) => post<{ loaded: number; code: string }>(`/sets/${code}/load`, {}),
@@ -55,4 +63,20 @@ export const api = {
   getFilterOptions: () => get<FilterOptions>("/cards/filters"),
   generateDecklist: (entries: DecklistEntry[]) =>
     post<DecklistOutput>("/decklist/generate", { entries }),
+  getVariants: (cardId: string) =>
+    get<{ variants: Card[] }>(`/cards/${cardId}/variants`),
+
+  // PokeProxy endpoints
+  pokeproxyStatus: (cardId: string) =>
+    get<PokeproxyStatus>(`/pokeproxy/status/${cardId}`),
+  pokeproxyBatchStatus: (cardIds: string[]) =>
+    post<Record<string, { hasClean: boolean; hasComposite: boolean; hasSvg: boolean }>>(
+      "/pokeproxy/status/batch", { cardIds }
+    ),
+  pokeproxyImageUrl: (cardId: string, type: "clean" | "composite" = "composite") =>
+    `/api/pokeproxy/image/${cardId}/${type}`,
+  pokeproxySvgUrl: (cardId: string) =>
+    `/api/pokeproxy/svg/${cardId}`,
+  pokeproxyGenerate: (cardId: string) =>
+    post<{ cardId: string; status: string; output?: string }>(`/pokeproxy/generate/${cardId}`, {}),
 };

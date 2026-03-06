@@ -4,6 +4,7 @@ import { serveStatic } from "hono/bun";
 import setsRouter from "./routes/sets.js";
 import cardsRouter from "./routes/cards.js";
 import decklistRouter from "./routes/decklist.js";
+import pokeproxyRouter from "./routes/pokeproxy.js";
 
 const app = new Hono();
 
@@ -13,6 +14,7 @@ app.use("*", cors());
 app.route("/api/sets", setsRouter);
 app.route("/api/cards", cardsRouter);
 app.route("/api/decklist", decklistRouter);
+app.route("/api/pokeproxy", pokeproxyRouter);
 
 // In production, serve static files
 app.use("/*", serveStatic({ root: "./dist/client" }));

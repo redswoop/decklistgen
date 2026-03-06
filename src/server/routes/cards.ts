@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { getAllCards, getCard, getFilterOptions } from "../services/card-store.js";
+import { getAllCards, getCard, getFilterOptions, getVariants } from "../services/card-store.js";
 import { applyFilters } from "../../shared/utils/filter-cards.js";
 import type { CardFilters, SpecialAttribute } from "../../shared/types/filters.js";
 
@@ -43,6 +43,13 @@ app.get("/:id", (c) => {
   const card = getCard(id);
   if (!card) return c.json({ error: "Card not found" }, 404);
   return c.json(card);
+});
+
+app.get("/:id/variants", (c) => {
+  const id = c.req.param("id");
+  const variants = getVariants(id);
+  if (variants.length === 0) return c.json({ error: "Card not found" }, 404);
+  return c.json({ variants });
 });
 
 export default app;
