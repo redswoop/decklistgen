@@ -1,0 +1,60 @@
+<script setup lang="ts">
+import { ref, computed } from "vue";
+import { useFilters } from "../composables/useFilters.js";
+import { useCards } from "../composables/useCards.js";
+import { useDecklist } from "../composables/useDecklist.js";
+import CardTile from "./CardTile.vue";
+import type { Card } from "../../shared/types/card.js";
+
+const emit = defineEmits<{ "preview-card": [card: Card] }>();
+
+const { filters } = useFilters();
+const { addCard } = useDecklist();
+const page = ref(1);
+const gridSearch = ref("");
+const { data, isLoading } = useCards(filters, page);
+
+const filteredCards = computed(() => {
+  if (!data.value?.cards || !gridSearch.value.trim()) return data.value?.cards ?? [];
+  const q = gridSearch.value.toLowerCase();
+  return data.value.cards.filter((card) => card.name.toLowerCase().includes(q));
+});
+
+const totalPages = computed(() =>
+  data.value ? Math.ceil(data.value.total / data.value.pageSize) : 0
+);
+
+const hasFilters = computed(() => !!(filters.sets?.length || filters.era));
+</script>
+
+<template>
+  <div v-if="!hasFilters" class="empty-state">
+    Load a set or era from the sidebar to get started.
+  </div>
+  <div v-else-if="isLoading" class="loading">Loading cards...</div>
+  <div v-else class="card-grid-container">
+    <div class="card-grid-header">
+      <span>{{ data?.total ?? 0 }} cards found</span>
+      <input
+        v-model="gridSearch"
+        type="text"
+        class="grid-search"
+        placeholder="Filter this page..."
+      />
+      <span v-if="totalPages > 1">Page {{ page }} of {{ totalPages }}</span>
+    </div>
+    <div class="card-grid">
+      <CardTile
+        v-for="card in filteredCards"
+        :key="card.id"
+        :card="card"
+        @add="addCard"
+        @preview="emit('preview-card', $event)"
+      />
+    </div>
+    <div v-if="totalPages > 1" class="pagination">
+      <button :disabled="page <= 1" @click="page--">Prev</button>
+      <button :disabled="page >= totalPages" @click="page++">Next</button>
+    </div>
+  </div>
+</template>
