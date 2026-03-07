@@ -4,7 +4,7 @@ import { serveStatic } from "hono/bun";
 import setsRouter from "./routes/sets.js";
 import cardsRouter from "./routes/cards.js";
 import decklistRouter from "./routes/decklist.js";
-import pokeproxyRouter from "./routes/pokeproxy.js";
+import proxyRouter from "./routes/proxy.js";
 
 const app = new Hono();
 
@@ -14,7 +14,7 @@ app.use("*", cors());
 app.route("/api/sets", setsRouter);
 app.route("/api/cards", cardsRouter);
 app.route("/api/decklist", decklistRouter);
-app.route("/api/pokeproxy", pokeproxyRouter);
+app.route("/api/pokeproxy", proxyRouter);
 
 // In production, serve static files
 app.use("/*", serveStatic({ root: "./dist/client" }));
@@ -25,5 +25,4 @@ console.log(`DecklistGen server listening on :${port}`);
 export default {
   port,
   fetch: app.fetch,
-  idleTimeout: 255, // Max allowed by Bun - pokecleaner generation can take a while
 };

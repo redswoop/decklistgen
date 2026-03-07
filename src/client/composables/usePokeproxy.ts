@@ -4,8 +4,16 @@ import { api } from "../lib/client.js";
 
 export type ImageMode = "original" | "clean" | "composite";
 
+// Read initial mode from URL
+function readModeFromUrl(): ImageMode {
+  const p = new URLSearchParams(window.location.search);
+  const m = p.get("mode");
+  if (m === "clean" || m === "composite") return m;
+  return "original";
+}
+
 // Global state
-const imageMode: Ref<ImageMode> = ref("original");
+const imageMode: Ref<ImageMode> = ref(readModeFromUrl());
 const generatingSet = reactive(new Set<string>());
 
 // Status cache: cardId -> availability. Populated by batch queries.
@@ -14,7 +22,14 @@ const statusCache = reactive(new Map<string, { hasClean: boolean; hasComposite: 
 export function usePokeproxy() {
   return {
     imageMode,
-    setImageMode(mode: ImageMode) { imageMode.value = mode; },
+    setImageMode(mode: ImageMode) {
+      imageMode.value = mode;
+      const p = new URLSearchParams(window.location.search);
+      if (mode === "original") p.delete("mode");
+      else p.set("mode", mode);
+      const qs = p.toString();
+      history.replaceState(null, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    },
   };
 }
 

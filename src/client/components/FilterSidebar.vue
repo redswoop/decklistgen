@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { useFilters } from "../composables/useFilters.js";
 import { useSets, useFilterOptions } from "../composables/useCards.js";
@@ -12,6 +12,7 @@ const {
   filters, setSets, setEra, setCategory, setTrainerType,
   setRarities, setEnergyTypes, setSpecialAttrs,
   setFullArt, setFoil, setNameSearch, reset,
+  getPendingSetLoads,
 } = useFilters();
 
 const { data: sets } = useSets();
@@ -20,7 +21,36 @@ const queryClient = useQueryClient();
 
 const loading = ref<string | null>(null);
 const loadingEra = ref(false);
-const sidebarEra = ref("");
+const sidebarEra = ref(filters.era ?? "");
+
+// Auto-load sets restored from URL
+onMounted(async () => {
+  const pending = getPendingSetLoads();
+  if (filters.era && !pending.length) {
+    // Era mode: load entire era
+    loadingEra.value = true;
+    try {
+      await api.loadEra(filters.era);
+      queryClient.invalidateQueries({ queryKey: ["sets"] });
+      queryClient.invalidateQueries({ queryKey: ["filterOptions"] });
+      queryClient.invalidateQueries({ queryKey: ["cards"] });
+    } finally {
+      loadingEra.value = false;
+    }
+  } else if (pending.length) {
+    // Load individual sets
+    for (const code of pending) {
+      try {
+        await api.loadSet(code);
+      } catch (e) {
+        console.warn(`Failed to load set ${code}:`, e);
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ["sets"] });
+    queryClient.invalidateQueries({ queryKey: ["filterOptions"] });
+    queryClient.invalidateQueries({ queryKey: ["cards"] });
+  }
+});
 
 const SPECIAL_ATTRS: SpecialAttribute[] = [
   "ex", "V", "VMAX", "VSTAR", "Ancient", "Future", "Tera",

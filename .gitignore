@@ -3,3 +3,6 @@ dist/
 cache/
 .vite/
 *.tsbuildinfo
+.DS_Store
+pokeproxy/.venv/
+pokeproxy/__pycache__/

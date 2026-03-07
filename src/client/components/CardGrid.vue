@@ -9,10 +9,9 @@ import type { Card } from "../../shared/types/card.js";
 
 const emit = defineEmits<{ "preview-card": [card: Card] }>();
 
-const { filters } = useFilters();
+const { filters, page } = useFilters();
 const { addCard } = useDecklist();
 const { imageMode, setImageMode } = usePokeproxy();
-const page = ref(1);
 const gridSearch = ref("");
 const { data, isLoading } = useCards(filters, page);
 
