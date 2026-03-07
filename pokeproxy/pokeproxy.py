@@ -352,7 +352,7 @@ def fit_attack_header(name, damage, cost_count, head_size, card_w, margin):
     available = card_w - 2 * margin - cost_w - 12  # space for name + gap + damage
 
     name_size = head_size
-    dmg_size = int(head_size * 1.21)
+    dmg_size = int(head_size * 1.05)
     dmg_str = str(damage) if damage else ""
 
     for _ in range(6):  # up to 6 shrink steps
@@ -559,6 +559,37 @@ def is_fullart(card: dict) -> bool:
     return False
 
 
+def _split_name_suffix(name: str, card: dict) -> tuple[str, str]:
+    """Split a card name into base name and suffix (ex/V/VMAX/VSTAR).
+
+    Returns (base_name, suffix) where suffix may be empty.
+    """
+    suffix = get_pokemon_suffix(card)
+    if not suffix:
+        return name, ""
+    # Strip the suffix from the end of the name
+    if suffix == "ex" and name.lower().endswith(" ex"):
+        return name[:-3].rstrip(), "ex"
+    if suffix == "V" and name.endswith(" V"):
+        return name[:-2].rstrip(), "V"
+    if suffix == "VMAX" and name.endswith(" VMAX"):
+        return name[:-5].rstrip(), "VMAX"
+    if suffix == "VSTAR" and name.endswith(" VSTAR"):
+        return name[:-6].rstrip(), "VSTAR"
+    return name, suffix
+
+
+def _split_name_subtitle(name: str) -> tuple[str, str]:
+    """Split a long name into main name + subtitle at parentheses.
+
+    "Professor's Research (Professor Oak)" → ("Professor's Research", "Professor Oak")
+    """
+    m = re.match(r'^(.+?)\s*\((.+?)\)\s*$', name)
+    if m:
+        return m.group(1).strip(), m.group(2).strip()
+    return name, ""
+
+
 def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.7,
                          font_size: int = None, max_cover: float = 0.55,
                          render_header: bool = False) -> str:
@@ -570,7 +601,8 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
     font_size: force body font size in px (None = auto-select 36 or 30).
     max_cover: max fraction of card the overlay can cover (0.0–1.0).
     """
-    name = escape_xml(card.get("name", "Unknown"))
+    raw_name = card.get("name", "Unknown")
+    name = escape_xml(raw_name)
     hp = card.get("hp", "")
     types = card.get("types", [])
     stage = card.get("stage", "")
@@ -601,6 +633,10 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
         else:
             color = "#1860A0"
 
+    suffix = get_pokemon_suffix(card)
+    base_name, name_suffix = _split_name_suffix(raw_name, card)
+    main_name, subtitle = _split_name_subtitle(raw_name)
+
     text_max_w = CARD_W - 2 * MARGIN
 
     # Measure text to determine how much overlay we need
@@ -617,7 +653,6 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
     # Try large (36) first, drop to medium (30) if overlay would cover >50% of card
     BODY_LARGE, BODY_MEDIUM = 36, 30
     if font_size is not None:
-        # Forced font size — skip auto-selection
         BODY_SIZE = font_size
         if has_text:
             head_candidate = int(BODY_SIZE * HEAD_RATIO)
@@ -638,7 +673,7 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
             text_block_h = text_h + text_pad + footer_h
             overlay_top = CARD_H - text_block_h - 40
             if overlay_top >= half_card:
-                break  # fits in bottom half
+                break
         BODY_SIZE = body_candidate
     else:
         text_h = 0
@@ -654,29 +689,72 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
         overlay_top = CARD_H - text_block_h - 40
     overlay_top = max(overlay_top, int(CARD_H * (1.0 - max_cover)))
 
+    # Header height
+    header_h = 100
+
     lines = []
     lines.append(f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 {CARD_W} {CARD_H}" width="{CARD_W}" height="{CARD_H}">')
     lines.append("  <defs>")
-    # Gradient overlay: transparent at top, quickly ramps to near-opaque
+    # Gradient overlay
     lines.append('    <linearGradient id="overlay-grad" x1="0" y1="0" x2="0" y2="1">')
     lines.append(f'      <stop offset="0%" stop-color="#000" stop-opacity="0"/>')
-    lines.append(f'      <stop offset="15%" stop-color="#000" stop-opacity="{overlay_opacity * 0.6:.2f}"/>')
-    lines.append(f'      <stop offset="40%" stop-color="#000" stop-opacity="{overlay_opacity * 0.85:.2f}"/>')
+    lines.append(f'      <stop offset="12%" stop-color="#000" stop-opacity="{overlay_opacity * 0.5:.2f}"/>')
+    lines.append(f'      <stop offset="35%" stop-color="#000" stop-opacity="{overlay_opacity * 0.82:.2f}"/>')
     lines.append(f'      <stop offset="100%" stop-color="#000" stop-opacity="{overlay_opacity:.2f}"/>')
     lines.append('    </linearGradient>')
-    # Header gradient: dark at top, transparent at bottom
+    # Header gradient
     lines.append('    <linearGradient id="header-grad" x1="0" y1="0" x2="0" y2="1">')
-    lines.append(f'      <stop offset="0%" stop-color="#000" stop-opacity="0.7"/>')
+    lines.append(f'      <stop offset="0%" stop-color="#000" stop-opacity="0.75"/>')
+    lines.append(f'      <stop offset="70%" stop-color="#000" stop-opacity="0.4"/>')
     lines.append(f'      <stop offset="100%" stop-color="#000" stop-opacity="0"/>')
     lines.append('    </linearGradient>')
-    # Text shadow filter
+    # Suffix gradient fills — mimic real card metallic/colored suffix styles
+    # "ex" — deep red gradient (italic, lowercase, like real SV ex cards)
+    lines.append('    <linearGradient id="grad-ex" x1="0" y1="0" x2="0" y2="1">')
+    lines.append('      <stop offset="0%" stop-color="#FF3333"/>')
+    lines.append('      <stop offset="50%" stop-color="#CC0000"/>')
+    lines.append('      <stop offset="100%" stop-color="#990000"/>')
+    lines.append('    </linearGradient>')
+    # "V" — silver metallic gradient
+    lines.append('    <linearGradient id="grad-V" x1="0" y1="0" x2="0" y2="1">')
+    lines.append('      <stop offset="0%" stop-color="#E8E8F0"/>')
+    lines.append('      <stop offset="30%" stop-color="#B0B8C8"/>')
+    lines.append('      <stop offset="70%" stop-color="#8890A0"/>')
+    lines.append('      <stop offset="100%" stop-color="#C0C8D8"/>')
+    lines.append('    </linearGradient>')
+    # "VMAX" — rainbow gradient
+    lines.append('    <linearGradient id="grad-VMAX" x1="0" y1="0" x2="1" y2="1">')
+    lines.append('      <stop offset="0%" stop-color="#FF6688"/>')
+    lines.append('      <stop offset="25%" stop-color="#FFAA33"/>')
+    lines.append('      <stop offset="50%" stop-color="#44DDFF"/>')
+    lines.append('      <stop offset="75%" stop-color="#88FF66"/>')
+    lines.append('      <stop offset="100%" stop-color="#DD88FF"/>')
+    lines.append('    </linearGradient>')
+    # "VSTAR" — gold metallic gradient
+    lines.append('    <linearGradient id="grad-VSTAR" x1="0" y1="0" x2="0" y2="1">')
+    lines.append('      <stop offset="0%" stop-color="#FFE666"/>')
+    lines.append('      <stop offset="35%" stop-color="#FFD700"/>')
+    lines.append('      <stop offset="65%" stop-color="#DAA520"/>')
+    lines.append('      <stop offset="100%" stop-color="#FFE066"/>')
+    lines.append('    </linearGradient>')
+    # Text shadow
     lines.append('    <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">')
     lines.append('      <feDropShadow dx="1" dy="1" stdDeviation="1.5" flood-color="#000" flood-opacity="0.7"/>')
     lines.append("    </filter>")
-    lines.append('    <filter id="shadow-title" x="-2%" y="-5%" width="104%" height="110%">')
-    lines.append('      <feDropShadow dx="2" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.8"/>')
-    lines.append("    </filter>")
-    # Clip path for rounded corners
+    # Title text shadow — subtle, just for legibility
+    lines.append(f'    <filter id="title-shadow" x="-3%" y="-8%" width="106%" height="116%">')
+    lines.append(f'      <feDropShadow dx="1.5" dy="2" stdDeviation="1.5" flood-color="#000" flood-opacity="0.8"/>')
+    lines.append(f'    </filter>')
+    # Embossed suffix filter — thick dark outline + slight bevel
+    lines.append(f'    <filter id="suffix-emboss" x="-8%" y="-15%" width="116%" height="130%">')
+    lines.append(f'      <feDropShadow dx="0" dy="1" stdDeviation="0.5" flood-color="#000" flood-opacity="0.9"/>')
+    lines.append(f'      <feDropShadow dx="0" dy="-0.5" stdDeviation="0.3" flood-color="#FFF" flood-opacity="0.3"/>')
+    lines.append(f'    </filter>')
+    # Damage text shadow
+    lines.append(f'    <filter id="dmg-shadow" x="-4%" y="-8%" width="108%" height="116%">')
+    lines.append(f'      <feDropShadow dx="1" dy="1.5" stdDeviation="1" flood-color="#000" flood-opacity="0.8"/>')
+    lines.append(f'    </filter>')
+    # Clip path
     lines.append(f'    <clipPath id="card-clip"><rect width="{CARD_W}" height="{CARD_H}" rx="25" ry="25"/></clipPath>')
     lines.append("  </defs>")
 
@@ -685,44 +763,122 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
     lines.append(f'    <image x="0" y="0" width="{CARD_W}" height="{CARD_H}" preserveAspectRatio="xMidYMid slice"')
     lines.append(f'           href="data:image/png;base64,{image_b64}"/>')
 
-    # Header overlay — always shown so name/HP are readable
-    lines.append(f'    <rect x="0" y="0" width="{CARD_W}" height="120" fill="url(#header-grad)"/>')
+    # Header overlay — taller, more dramatic gradient
+    lines.append(f'    <rect x="0" y="0" width="{CARD_W}" height="{header_h + 40}" fill="url(#header-grad)"/>')
 
     # Bottom gradient overlay for text
     overlay_h = CARD_H - overlay_top
     lines.append(f'    <rect x="0" y="{overlay_top}" width="{CARD_W}" height="{overlay_h}" fill="url(#overlay-grad)"/>')
     lines.append(f'  </g>')
 
-    # Solid black footer strip — covers the card's own copyright/illustrator/rule text
-    footer_strip_h = 90  # tall enough to cover original card's footer area
+    # Solid black footer strip
+    footer_strip_h = 90
     lines.append(f'  <rect x="0" y="{CARD_H - footer_strip_h}" width="{CARD_W}" height="{footer_strip_h}" rx="0" fill="#000" clip-path="url(#card-clip)"/>')
 
     # Card border
-    lines.append(f'  <rect width="{CARD_W}" height="{CARD_H}" rx="25" ry="25" fill="none" stroke="{color}" stroke-width="4"/>')
+    lines.append(f'  <rect width="{CARD_W}" height="{CARD_H}" rx="25" ry="25" fill="none" stroke="{color}" stroke-width="7"/>')
+    lines.append(f'  <rect x="4" y="4" width="{CARD_W - 8}" height="{CARD_H - 8}" rx="21" ry="21" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>')
 
-    # Header: always render name + HP/trainer info
+    # Header rendering
     evolve_from = card.get("evolveFrom", "")
-    right_reserve = 70 if category == "Trainer" else 140
-    name_avail = CARD_W - 30 - right_reserve - 20
-    name_size = fit_name_size(name, 42, name_avail)
-    lines.append(f'  <text x="30" y="57" font-family="{FONT_TITLE}" font-size="{name_size}" font-weight="900" fill="white" filter="url(#shadow-title)">{name}</text>')
-    if evolve_from:
-        lines.append(f'  <text x="30" y="82" font-family="{FONT_BODY}" font-size="18" font-weight="600" fill="rgba(255,255,255,0.7)" font-style="italic" filter="url(#shadow)">Evolves from {escape_xml(evolve_from)}</text>')
+    name_y = 62
+
     if category == "Trainer":
-        tag = escape_xml(trainer_type).upper() if trainer_type else "TRAINER"
-        lines.append(f'  <text x="{CARD_W - 30}" y="57" font-family="{FONT_TITLE}" font-size="30" font-weight="900" fill="rgba(255,255,255,0.8)" text-anchor="end" filter="url(#shadow-title)">{tag}</text>')
+        # --- TRAINER HEADER ---
+        # Small "TRAINER" label top-left, type pill badge top-right
+        lines.append(f'  <text x="30" y="24" font-family="{FONT_BODY}" font-size="14" font-weight="700" fill="rgba(255,255,255,0.5)" letter-spacing="2">TRAINER</text>')
+        if trainer_type:
+            tag = escape_xml(trainer_type).upper()
+            tag_colors = {"SUPPORTER": "#E85020", "STADIUM": "#1A7A3A", "ITEM": "#2080C0", "TOOL": "#2080C0"}
+            tag_fill = tag_colors.get(tag, "#888")
+            tag_w = _measure_width(_TITLE_FACE, tag, 16) + 20
+            tag_x = CARD_W - 30 - tag_w
+            lines.append(f'  <rect x="{tag_x}" y="10" width="{tag_w}" height="24" rx="12" fill="{tag_fill}" opacity="0.9"/>')
+            lines.append(f'  <text x="{tag_x + tag_w // 2}" y="27" font-family="{FONT_TITLE}" font-size="16" font-weight="900" fill="white" text-anchor="middle">{tag}</text>')
+
+        # Name: split at parentheses for two-line layout
+        if subtitle:
+            main_escaped = escape_xml(main_name)
+            sub_escaped = escape_xml(subtitle)
+            main_size = fit_name_size(main_escaped, 48, CARD_W - 60)
+            lines.append(f'  <text x="30" y="{name_y}" font-family="{FONT_TITLE}" font-size="{main_size}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="#000" stroke-width="2.5" stroke-linejoin="round" filter="url(#title-shadow)">{main_escaped}</text>')
+            # Subtitle on second line, smaller, lighter
+            lines.append(f'  <text x="30" y="{name_y + int(main_size * 0.7)}" font-family="{FONT_BODY}" font-size="22" font-weight="600" fill="rgba(255,255,255,0.65)" font-style="italic" filter="url(#shadow)">{sub_escaped}</text>')
+        else:
+            name_size = fit_name_size(name, 48, CARD_W - 60)
+            lines.append(f'  <text x="30" y="{name_y}" font-family="{FONT_TITLE}" font-size="{name_size}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="#000" stroke-width="2.5" stroke-linejoin="round" filter="url(#title-shadow)">{name}</text>')
+
     elif hp:
-        # HP + type energy dot
-        hp_text_x = CARD_W - 30
+        # --- POKEMON HEADER (V/EX/VMAX/VSTAR style) ---
+        # Small type tag badge in upper-left (like real cards)
+        if name_suffix:
+            tag_text = name_suffix.lower() if name_suffix == "ex" else name_suffix
+            tag_size = 14
+            tag_w = _measure_width(_TITLE_FACE, tag_text, tag_size) + 16
+            grad_id = f"grad-{name_suffix}"
+            lines.append(f'  <rect x="18" y="10" width="{tag_w}" height="22" rx="4" fill="url(#{grad_id})" stroke="rgba(0,0,0,0.5)" stroke-width="1.5"/>')
+            lines.append(f'  <text x="{18 + tag_w // 2}" y="26" font-family="{FONT_TITLE}" font-size="{tag_size}" font-weight="900" fill="{"#FFF" if name_suffix == "ex" else "#333"}" text-anchor="middle">{escape_xml(tag_text)}</text>')
+
+        # HP + energy dot on right
+        hp_str = str(hp)
+        hp_size = 50
+        hp_w = _measure_width(_TITLE_FACE, hp_str, hp_size)
+        hp_label_size = 18
+        hp_label_w = _measure_width(_TITLE_FACE, "HP", hp_label_size)
+        dot_r = 18
+        # Layout from right: [dot] gap [HP_num] [HP_label]
+        right_x = CARD_W - 28
         if types:
-            dot_r = 16
-            dot_cx = CARD_W - 30
-            dot_cy = 40
-            lines.append(f'  <circle cx="{dot_cx}" cy="{dot_cy}" r="{dot_r}" fill="{color}" stroke="rgba(255,255,255,0.6)" stroke-width="2"/>')
+            dot_cx = right_x
+            dot_cy = 38
+            lines.append(f'  <circle cx="{dot_cx}" cy="{dot_cy}" r="{dot_r}" fill="{color}" stroke="rgba(255,255,255,0.7)" stroke-width="2.5"/>')
             letter = ENERGY_ABBREV.get(card_type, "?")
-            lines.append(f'  <text x="{dot_cx}" y="{dot_cy + 1}" font-family="Helvetica, Arial, sans-serif" font-size="{int(dot_r * 1.3)}" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="central">{letter}</text>')
-            hp_text_x = dot_cx - dot_r - 8
-        lines.append(f'  <text x="{hp_text_x}" y="57" font-family="{FONT_TITLE}" font-size="38" font-weight="900" fill="white" text-anchor="end" filter="url(#shadow-title)">{hp} HP</text>')
+            lines.append(f'  <text x="{dot_cx}" y="{dot_cy + 1}" font-family="Helvetica, Arial, sans-serif" font-size="{int(dot_r * 1.2)}" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="central">{letter}</text>')
+            right_x = dot_cx - dot_r - 6
+        # HP number — bold, outlined
+        lines.append(f'  <text x="{right_x}" y="{name_y}" font-family="{FONT_TITLE}" font-size="{hp_size}" font-weight="900" fill="white" text-anchor="end" style="paint-order:stroke fill" stroke="#000" stroke-width="3" stroke-linejoin="round" filter="url(#title-shadow)">{escape_xml(hp_str)}</text>')
+        # "HP" label — smaller, above the number
+        hp_num_left = right_x - hp_w
+        lines.append(f'  <text x="{hp_num_left - 4}" y="30" font-family="{FONT_TITLE}" font-size="{hp_label_size}" font-weight="900" fill="rgba(255,255,255,0.7)" text-anchor="end">HP</text>')
+
+        # Name + suffix
+        right_reserve = CARD_W - hp_num_left + hp_label_w + 30
+        name_avail = CARD_W - right_reserve - 20
+
+        if name_suffix:
+            base_escaped = escape_xml(base_name)
+            suffix_escaped = escape_xml(name_suffix)
+            # "ex" is slightly smaller than name, italic; V/VMAX/VSTAR are bolder
+            if name_suffix == "ex":
+                suffix_size_ratio = 0.95
+            else:
+                suffix_size_ratio = 0.85
+            max_name_size = 48
+            test_suffix_size = int(max_name_size * suffix_size_ratio)
+            suffix_w = _measure_width(_TITLE_FACE, name_suffix, test_suffix_size) + 4
+            name_size = fit_name_size(base_name, max_name_size, name_avail - suffix_w)
+            actual_suffix_size = int(name_size * suffix_size_ratio)
+            base_w = _measure_width(_TITLE_FACE, base_name, name_size)
+
+            # Base name — white, outlined
+            lines.append(f'  <text x="30" y="{name_y}" font-family="{FONT_TITLE}" font-size="{name_size}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="#000" stroke-width="2.5" stroke-linejoin="round" filter="url(#title-shadow)">{base_escaped}</text>')
+
+            # Suffix — gradient fill, embossed, styled per type
+            sx = 30 + base_w + 2
+            grad_id = f"grad-{name_suffix}"
+            italic_attr = ' font-style="italic"' if name_suffix == "ex" else ""
+            # Layer 1: thick black outline (via paint-order)
+            # Layer 2: gradient fill on top
+            lines.append(f'  <text x="{sx}" y="{name_y}" font-family="{FONT_TITLE}" font-size="{actual_suffix_size}" font-weight="900" fill="url(#{grad_id})" style="paint-order:stroke fill" stroke="#000" stroke-width="4" stroke-linejoin="round"{italic_attr} filter="url(#suffix-emboss)">{suffix_escaped}</text>')
+        else:
+            # No suffix (illustration rare, etc.) — just large name
+            name_size = fit_name_size(name, 48, name_avail)
+            lines.append(f'  <text x="30" y="{name_y}" font-family="{FONT_TITLE}" font-size="{name_size}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="#000" stroke-width="2.5" stroke-linejoin="round" filter="url(#title-shadow)">{name}</text>')
+    else:
+        name_size = fit_name_size(name, 48, CARD_W - 60)
+        lines.append(f'  <text x="30" y="{name_y}" font-family="{FONT_TITLE}" font-size="{name_size}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="#000" stroke-width="2.5" stroke-linejoin="round" filter="url(#title-shadow)">{name}</text>')
+    if evolve_from:
+        lines.append(f'  <text x="30" y="86" font-family="{FONT_BODY}" font-size="18" font-weight="600" fill="rgba(255,255,255,0.7)" font-style="italic" filter="url(#shadow)">Evolves from {escape_xml(evolve_from)}</text>')
 
     # Text content starts below the overlay top + padding
     y = overlay_top + text_pad + int(BODY_SIZE * 0.5)
@@ -742,10 +898,13 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
         ab_name = escape_xml(ab.get("name", ""))
         ab_effect = ab.get("effect", "")
 
-        # Colored bar behind ability name — opaque enough to read on any artwork
+        # Bold colored bar behind ability name
         bar_h = int(HEAD_SIZE * 1.5)
-        lines.append(f'  <rect x="20" y="{y - int(HEAD_SIZE * 1.07)}" width="{CARD_W - 40}" height="{bar_h}" rx="5" fill="{color}" opacity="0.7"/>')
-        lines.append(f'  <text x="{MARGIN}" y="{y}" font-family="{FONT_TITLE}" font-size="{HEAD_SIZE}" font-weight="900" fill="white" filter="url(#shadow)">{escape_xml(ab_type)}: {ab_name}</text>')
+        bar_y = y - int(HEAD_SIZE * 1.07)
+        lines.append(f'  <rect x="20" y="{bar_y}" width="{CARD_W - 40}" height="{bar_h}" rx="6" fill="{color}" opacity="0.75"/>')
+        # White highlight strip at top of bar
+        lines.append(f'  <rect x="20" y="{bar_y}" width="{CARD_W - 40}" height="3" rx="2" fill="white" opacity="0.25"/>')
+        lines.append(f'  <text x="{MARGIN}" y="{y}" font-family="{FONT_TITLE}" font-size="{HEAD_SIZE}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="rgba(0,0,0,0.4)" stroke-width="2" stroke-linejoin="round" filter="url(#shadow)">{escape_xml(ab_type)}: {ab_name}</text>')
         y += int(HEAD_SIZE * 0.5)
 
         wrapped = ft_wrap(_BODY_FACE, ab_effect, BODY_SIZE, text_max_w)
@@ -762,10 +921,15 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
         damage = atk.get("damage", "")
         effect = atk.get("effect", "")
 
-        bar_h = int(HEAD_SIZE * 1.57)
-        lines.append(f'  <rect x="20" y="{y - int(HEAD_SIZE * 1.0)}" width="{CARD_W - 40}" height="{bar_h}" rx="5" fill="white" opacity="0.1"/>')
+        bar_h = int(HEAD_SIZE * 1.6)
+        bar_y = y - int(HEAD_SIZE * 1.0)
+        # Attack bar: colored with white overlay for depth
+        lines.append(f'  <rect x="20" y="{bar_y}" width="{CARD_W - 40}" height="{bar_h}" rx="6" fill="{color}" opacity="0.2"/>')
+        lines.append(f'  <rect x="20" y="{bar_y}" width="{CARD_W - 40}" height="{bar_h}" rx="6" fill="white" opacity="0.06"/>')
+        # Thin highlight strip
+        lines.append(f'  <rect x="20" y="{bar_y}" width="{CARD_W - 40}" height="2" rx="1" fill="white" opacity="0.15"/>')
 
-        dot_r = max(8, int(HEAD_SIZE * 0.5))
+        dot_r = max(10, int(HEAD_SIZE * 0.55))
         dot_x = MARGIN
         if atk_cost:
             dot_elems, dot_w = render_energy_dots(MARGIN, y + 2, atk_cost, dot_r)
@@ -773,9 +937,11 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
             dot_x = MARGIN + dot_w + 6
 
         atk_name_size, atk_dmg_size = fit_attack_header(atk_name, damage, len(atk_cost), HEAD_SIZE, CARD_W, MARGIN)
-        lines.append(f'  <text x="{dot_x}" y="{y + 2}" font-family="{FONT_TITLE}" font-size="{atk_name_size}" font-weight="900" fill="white" filter="url(#shadow)">{atk_name}</text>')
+        # Attack name
+        lines.append(f'  <text x="{dot_x}" y="{y + 2}" font-family="{FONT_TITLE}" font-size="{atk_name_size}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="rgba(0,0,0,0.3)" stroke-width="1.5" stroke-linejoin="round" filter="url(#shadow)">{atk_name}</text>')
         if damage:
-            lines.append(f'  <text x="{CARD_W - MARGIN}" y="{y + 2}" font-family="{FONT_TITLE}" font-size="{atk_dmg_size}" font-weight="900" fill="#FF6644" text-anchor="end" filter="url(#shadow)">{escape_xml(str(damage))}</text>')
+            # Damage number — same scale as attack name, bold red
+            lines.append(f'  <text x="{CARD_W - MARGIN}" y="{y + 2}" font-family="{FONT_TITLE}" font-size="{atk_dmg_size}" font-weight="900" fill="#FF5533" text-anchor="end" style="paint-order:stroke fill" stroke="#000" stroke-width="2" stroke-linejoin="round" filter="url(#dmg-shadow)">{escape_xml(str(damage))}</text>')
         y += int(HEAD_SIZE * 0.64)
 
         if effect:
@@ -787,7 +953,6 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
         y += int(BODY_SIZE * 1.25)
 
     # Rules text (ex/V/VMAX/VSTAR or trainer rules)
-    suffix = get_pokemon_suffix(card)
     rule_text = ""
     if category == "Pokemon" and suffix in POKEMON_RULES:
         rule_text = POKEMON_RULES[suffix]

@@ -154,11 +154,11 @@ app.post("/status/batch", async (c) => {
 app.get("/image/:cardId/:type", async (c) => {
   const cardId = c.req.param("cardId");
   const type = c.req.param("type");
-  if (type !== "clean" && type !== "composite") {
-    return c.json({ error: "type must be 'clean' or 'composite'" }, 400);
+  if (type !== "clean" && type !== "composite" && type !== "source") {
+    return c.json({ error: "type must be 'clean', 'composite', or 'source'" }, 400);
   }
 
-  const filePath = cachePath(cardId, `_${type}.png`);
+  const filePath = cachePath(cardId, type === "source" ? ".png" : `_${type}.png`);
   if (!existsSync(filePath)) {
     return c.json({ error: "Not found" }, 404);
   }
