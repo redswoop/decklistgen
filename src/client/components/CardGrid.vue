@@ -16,7 +16,9 @@ const gridSearch = ref("");
 const { data, isLoading } = useCards(filters, page);
 
 // Pre-fetch pokeproxy status for visible cards (only when not in original mode)
-const visibleCardIds = computed(() => data.value?.cards?.map((c) => c.id) ?? []);
+const visibleCardIds = computed(() =>
+  imageMode.value !== "original" ? (data.value?.cards?.map((c) => c.id) ?? []) : []
+);
 usePokeproxyBatch(visibleCardIds);
 
 const filteredCards = computed(() => {

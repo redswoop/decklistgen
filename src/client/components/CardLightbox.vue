@@ -29,7 +29,7 @@ watch(variants, (v) => {
   if (!v) return;
   const idx = v.findIndex((c) => c.id === props.card.id);
   if (idx >= 0) variantIndex.value = idx;
-});
+}, { immediate: true });
 
 const currentCard = computed(() => {
   if (!variants.value?.length) return props.card;

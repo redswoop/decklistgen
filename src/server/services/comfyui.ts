@@ -10,7 +10,6 @@ import WebSocket from "ws";
 const COMFYUI_URL = process.env.COMFYUI_URL ?? "http://stormer.local:8188";
 const FLUX_W = 736;
 const FLUX_H = 1024;
-const DEFAULT_MASK_TOP = 0.20;
 const DEFAULT_CLEAN_PROMPT =
   "continue the artwork illustration, extend the scene naturally, " +
   "no text, no writing, no letters, no numbers, no symbols, " +
@@ -339,4 +338,4 @@ export async function ping(): Promise<boolean> {
   }
 }
 
-export { COMFYUI_URL, FLUX_W, FLUX_H, DEFAULT_MASK_TOP };
+export { COMFYUI_URL, FLUX_W, FLUX_H };

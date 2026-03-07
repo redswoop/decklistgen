@@ -10,12 +10,72 @@ import CardLightbox from "./components/CardLightbox.vue";
 import { useDecklist } from "./composables/useDecklist.js";
 import type { Card } from "../shared/types/card.js";
 
+const LAYOUT_KEY = "decklistgen-layout";
+
+interface LayoutState {
+  left: number;
+  center: number;
+  right: number;
+  leftCollapsed: boolean;
+  rightCollapsed: boolean;
+}
+
+const defaults: LayoutState = { left: 15, center: 70, right: 15, leftCollapsed: false, rightCollapsed: false };
+
+function loadLayout(): LayoutState {
+  try {
+    const raw = localStorage.getItem(LAYOUT_KEY);
+    if (raw) return { ...defaults, ...JSON.parse(raw) };
+  } catch {}
+  return { ...defaults };
+}
+
+function saveLayout(partial: Partial<LayoutState>) {
+  const current = loadLayout();
+  Object.assign(current, partial);
+  localStorage.setItem(LAYOUT_KEY, JSON.stringify(current));
+}
+
+const saved = loadLayout();
+
 const { addCard, toText } = useDecklist();
 
 const showExport = ref(false);
 const previewCard = ref<Card | null>(null);
-const leftCollapsed = ref(false);
-const rightCollapsed = ref(false);
+const leftCollapsed = ref(saved.leftCollapsed);
+const rightCollapsed = ref(saved.rightCollapsed);
+const leftSize = ref(saved.left);
+const centerSize = ref(saved.center);
+const rightSize = ref(saved.right);
+
+function onResized(panes: { size: number }[]) {
+  if (!leftCollapsed.value && !rightCollapsed.value && panes.length === 3) {
+    leftSize.value = panes[0].size;
+    centerSize.value = panes[1].size;
+    rightSize.value = panes[2].size;
+    saveLayout({ left: panes[0].size, center: panes[1].size, right: panes[2].size });
+  }
+}
+
+function collapseLeft() {
+  leftCollapsed.value = true;
+  saveLayout({ leftCollapsed: true });
+}
+
+function collapseRight() {
+  rightCollapsed.value = true;
+  saveLayout({ rightCollapsed: true });
+}
+
+function expandLeft() {
+  leftCollapsed.value = false;
+  saveLayout({ leftCollapsed: false });
+}
+
+function expandRight() {
+  rightCollapsed.value = false;
+  saveLayout({ rightCollapsed: false });
+}
 
 function handlePreview(card: Card) {
   previewCard.value = card;
@@ -32,24 +92,24 @@ function handleLightboxAdd(card: Card) {
     <button
       v-if="leftCollapsed"
       class="expand-btn expand-btn-left"
-      @click="leftCollapsed = false"
+      @click="expandLeft"
     >&raquo;</button>
     <button
       v-if="rightCollapsed"
       class="expand-btn expand-btn-right"
-      @click="rightCollapsed = false"
+      @click="expandRight"
     >&laquo;</button>
 
-    <Splitpanes>
-      <Pane v-if="!leftCollapsed" :size="20" :min-size="15">
-        <FilterSidebar @collapse="leftCollapsed = true" />
+    <Splitpanes @resized="onResized">
+      <Pane v-if="!leftCollapsed" :size="leftSize" :min-size="10">
+        <FilterSidebar @collapse="collapseLeft" />
       </Pane>
-      <Pane :min-size="30">
+      <Pane :size="centerSize" :min-size="30">
         <CardGrid @preview-card="handlePreview" />
       </Pane>
-      <Pane v-if="!rightCollapsed" :size="25" :min-size="15">
+      <Pane v-if="!rightCollapsed" :size="rightSize" :min-size="10">
         <DecklistPanel
-          @collapse="rightCollapsed = true"
+          @collapse="collapseRight"
           @export="showExport = true"
         />
       </Pane>
