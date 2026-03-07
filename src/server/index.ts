@@ -25,4 +25,5 @@ console.log(`DecklistGen server listening on :${port}`);
 export default {
   port,
   fetch: app.fetch,
+  idleTimeout: 300, // 5 minutes - pokecleaner generation can take a while
 };
