@@ -51,8 +51,14 @@ TEST_CARDS = [
     ("TrainerStadium",       "sv03-196",    None),    # Town Store
     ("TrainerTool",          "sv02-173",    None),    # Bravery Charm
     ("Trainer FullArt",      "cel25-24",    None),    # Professor's Research (ultra rare)
+    # --- Additional fullart types ---
+    ("PokemonVSTAR",         "swsh12.5-019", None),   # Charizard VSTAR
+    ("PokemonDragon EX",     "sv08.5-073",  None),    # Dragapult ex — Dragon Stage2
+    ("PokemonDragon std",    "sv06.5-045",  None),    # Fraxure — Dragon Stage1 (standard render)
+    ("Pokemon Text-Heavy",   "cel25-21",    None),    # Solgaleo — Stage2, ability + attack
     # --- Energy ---
-    ("EnergyBasic",          "sv06.5-098",  None),    # Basic Darkness Energy
+    ("EnergyBasic Dark",     "sv06.5-098",  None),    # Basic Darkness Energy
+    ("EnergyBasic Metal",    "sv06.5-099",  None),    # Basic Metal Energy
     ("EnergySpecial",        "sv09-190",    None),    # Spiky Energy
 ]
 

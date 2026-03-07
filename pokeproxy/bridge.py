@@ -25,7 +25,9 @@ import base64
 import json
 import sys
 
-from pokeproxy import crop_artwork, generate_svg, generate_fullart_svg
+from pokeproxy import (
+    crop_artwork, generate_svg, generate_fullart_svg, generate_energy_svg,
+)
 
 
 def main():
@@ -44,7 +46,14 @@ def main():
         print("Missing 'card' in input", file=sys.stderr)
         sys.exit(1)
 
-    if is_fullart:
+    category = card.get("category", "")
+
+    if category == "Energy":
+        # Energy cards get their own dedicated renderer
+        image_bytes = base64.b64decode(image_b64)
+        artwork_b64 = crop_artwork(image_bytes)
+        svg = generate_energy_svg(card, artwork_b64)
+    elif is_fullart:
         svg = generate_fullart_svg(
             card,
             image_b64,
@@ -54,7 +63,7 @@ def main():
             render_header=options.get("render_header", False),
         )
     else:
-        # Decode image, crop artwork, then render
+        # Standard card: crop artwork, render with white background
         image_bytes = base64.b64decode(image_b64)
         artwork_b64 = crop_artwork(image_bytes)
         svg = generate_svg(card, artwork_b64)

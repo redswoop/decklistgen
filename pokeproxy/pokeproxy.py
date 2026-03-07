@@ -74,6 +74,37 @@ FONT_TITLE = "'Arial Black', 'Helvetica Neue', Impact, Arial, sans-serif"
 FONT_BODY = "'Helvetica Neue', 'Arial Black', Arial, Helvetica, sans-serif"
 MARGIN = 30
 
+# Rule text for special Pokemon mechanics
+POKEMON_RULES = {
+    "ex": "When this ex is KO'd, opponent takes 2 Prizes.",
+    "V": "When this V is KO'd, opponent takes 2 Prizes.",
+    "VMAX": "When this VMAX is KO'd, opponent takes 3 Prizes.",
+    "VSTAR": "When this VSTAR is KO'd, opponent takes 2 Prizes.",
+}
+
+TRAINER_RULES = {
+    "Supporter": "Play only 1 Supporter per turn.",
+    "Stadium": "Stays in play until replaced.",
+    "Tool": "Attach to a Pokemon. Limit 1 per Pokemon.",
+}
+
+
+def get_pokemon_suffix(card: dict) -> str:
+    """Detect the Pokemon suffix (ex, V, VMAX, VSTAR) from card data."""
+    name = card.get("name", "")
+    stage = card.get("stage", "")
+    suffix = card.get("suffix", "")
+    # Check stage first — VMAX/VSTAR cards often have suffix="V" but stage is more specific
+    if stage in ("VMAX", "VSTAR"):
+        return stage
+    if suffix in ("ex", "EX", "V", "VMAX", "VSTAR"):
+        return suffix
+    if name.lower().endswith(" ex"):
+        return "ex"
+    if name.endswith(" V") and not name.endswith(" IV"):
+        return "V"
+    return ""
+
 # --- FreeType font measurement ---
 # Load the actual fonts used in SVG rendering for accurate text measurement
 _TITLE_FACE = freetype.Face('/System/Library/Fonts/Supplemental/Arial Black.ttf')
@@ -113,7 +144,7 @@ def ft_wrap(face, text, size_px, max_width):
 
 
 def ft_content_height(body_size, head_size, max_width, category,
-                      trainer_effect, abilities, attacks):
+                      trainer_effect, abilities, attacks, card=None):
     """Measure total content height using FreeType. Mirrors the render layout."""
     line_h = int(body_size * 1.25)  # LINE_H = BASE_LINE_H * scale = 30/24 * body
     h = 0
@@ -131,6 +162,19 @@ def ft_content_height(body_size, head_size, max_width, category,
         if effect:
             h += len(ft_wrap(_BODY_FACE, effect, body_size, max_width)) * line_h
         h += int(body_size * 1.25)
+    # Account for rules text (ex/V/VMAX/VSTAR or trainer rules)
+    if card:
+        suffix = get_pokemon_suffix(card)
+        trainer_type = card.get("trainerType", "")
+        rule_text = ""
+        if category == "Pokemon" and suffix in POKEMON_RULES:
+            rule_text = POKEMON_RULES[suffix]
+        elif category == "Trainer" and trainer_type in TRAINER_RULES:
+            rule_text = TRAINER_RULES[trainer_type]
+        if rule_text:
+            rule_size = 16
+            rule_lines = ft_wrap(_BODY_FACE, rule_text, rule_size, max_width)
+            h += 4 + len(rule_lines) * int(rule_size * 1.3)
     return h
 
 
@@ -229,6 +273,7 @@ COMPRESS_RULES = [
     ("from your discard pile into your hand", "from discard to hand"),
     ("from your discard pile into your deck", "from discard to deck"),
     ("from your discard pile", "from discard"),
+    ("in your discard pile", "in discard"),
     ("into your hand", "to hand"),
     # === Boilerplate clauses ===
     ("If you attached Energy to a Pokémon in this way, ", "If so, "),
@@ -251,6 +296,7 @@ COMPRESS_RULES = [
     # === Damage / effects ===
     ("(Don't apply Weakness and Resistance for Benched Pokémon.)", "(Bench damage)"),
     ("(before applying Weakness and Resistance)", ""),
+    ("(after applying Weakness and Resistance)", ""),
     ("This attack does", "Does"),
     ("this attack does", "does"),
     ("more damage for each", "+damage per"),
@@ -276,6 +322,11 @@ COMPRESS_RULES = [
     ("Ability on your turn", "per turn"),
     ("you may draw cards until you have", "draw up to"),
     ("cards in your hand", "cards"),
+    # GX
+    ("(You can't use more than 1 GX attack in a game.)", "(1 GX per game)"),
+    # Stadium third-person
+    ("that player may search their deck for", "they may search deck for"),
+    ("that player shuffles their deck", "they shuffle deck"),
 ]
 
 
@@ -283,9 +334,10 @@ def compress_text(text: str) -> str:
     """Apply shorthand compression rules to card effect text."""
     for pattern, replacement in COMPRESS_RULES:
         text = text.replace(pattern, replacement)
-    # Clean up double spaces
+    # Clean up artifacts from empty replacements
     while "  " in text:
         text = text.replace("  ", " ")
+    text = text.replace(" .", ".").replace(" ,", ",").replace(" )", ")")
     return text.strip()
 
 
@@ -314,6 +366,17 @@ def fit_attack_header(name, damage, cost_count, head_size, card_w, margin):
         dmg_size = int(dmg_size * 0.88)
 
     return name_size, dmg_size
+
+
+def fit_name_size(name: str, max_size: int, available_w: int, min_size: int = 24) -> int:
+    """Shrink card name font size until it fits within available width."""
+    size = max_size
+    while size > min_size:
+        w = _measure_width(_TITLE_FACE, name, size)
+        if w <= available_w:
+            return size
+        size -= 2
+    return min_size
 
 
 def escape_xml(text: str) -> str:
@@ -379,11 +442,11 @@ def render_footer_svg(lines, card, category, card_type, retreat, body_size,
     else:
         weakness = card.get("weaknesses")
         resistance = card.get("resistances")
-        if not weakness and not resistance and card_type in TYPE_MATCHUPS:
+        if card_type in TYPE_MATCHUPS:
             wt, wv, rt, rv = TYPE_MATCHUPS[card_type]
-            if wt:
+            if not weakness and wt:
                 weakness = [{"type": wt, "value": wv}]
-            if rt:
+            if not resistance and rt:
                 resistance = [{"type": rt, "value": rv}]
 
     has_footer = weakness or resistance or retreat
@@ -560,7 +623,7 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
             head_candidate = int(BODY_SIZE * HEAD_RATIO)
             text_h = ft_content_height(
                 BODY_SIZE, head_candidate, text_max_w,
-                category, trainer_effect, abilities, attacks)
+                category, trainer_effect, abilities, attacks, card=card)
             text_block_h = text_h + text_pad + footer_h
             overlay_top = CARD_H - text_block_h - 40
         else:
@@ -571,7 +634,7 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
             head_candidate = int(body_candidate * HEAD_RATIO)
             text_h = ft_content_height(
                 body_candidate, head_candidate, text_max_w,
-                category, trainer_effect, abilities, attacks)
+                category, trainer_effect, abilities, attacks, card=card)
             text_block_h = text_h + text_pad + footer_h
             overlay_top = CARD_H - text_block_h - 40
             if overlay_top >= half_card:
@@ -622,54 +685,44 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
     lines.append(f'    <image x="0" y="0" width="{CARD_W}" height="{CARD_H}" preserveAspectRatio="xMidYMid slice"')
     lines.append(f'           href="data:image/png;base64,{image_b64}"/>')
 
-    # Header overlay for clean images (AI-generated, no card text)
-    if render_header:
-        lines.append(f'    <rect x="0" y="0" width="{CARD_W}" height="120" fill="url(#header-grad)"/>')
+    # Header overlay — always shown so name/HP are readable
+    lines.append(f'    <rect x="0" y="0" width="{CARD_W}" height="120" fill="url(#header-grad)"/>')
 
     # Bottom gradient overlay for text
     overlay_h = CARD_H - overlay_top
     lines.append(f'    <rect x="0" y="{overlay_top}" width="{CARD_W}" height="{overlay_h}" fill="url(#overlay-grad)"/>')
     lines.append(f'  </g>')
 
-    # Solid black footer strip — fully opaque, covers the card's own copyright/illustrator text
-    footer_strip_h = 50
+    # Solid black footer strip — covers the card's own copyright/illustrator/rule text
+    footer_strip_h = 90  # tall enough to cover original card's footer area
     lines.append(f'  <rect x="0" y="{CARD_H - footer_strip_h}" width="{CARD_W}" height="{footer_strip_h}" rx="0" fill="#000" clip-path="url(#card-clip)"/>')
 
     # Card border
     lines.append(f'  <rect width="{CARD_W}" height="{CARD_H}" rx="25" ry="25" fill="none" stroke="{color}" stroke-width="4"/>')
 
-    # Header text for clean images
-    if render_header:
-        lines.append(f'  <text x="30" y="57" font-family="{FONT_TITLE}" font-size="42" font-weight="900" fill="white" filter="url(#shadow-title)">{name}</text>')
-        if category == "Trainer":
-            icon_size = 40
-            icon_x = CARD_W - 30 - icon_size
-            icon_y = 20
-            icon_colors = {"Supporter": "#FFD040", "Stadium": "#50E878", "Item": "#60C8FF", "Tool": "#60C8FF"}
-            icon_fill = icon_colors.get(trainer_type, "#FFD040")
-            if trainer_type == "Supporter":
-                lines.append(f'  <g transform="translate({icon_x},{icon_y})">')
-                lines.append(f'    <circle cx="{icon_size//2}" cy="{int(icon_size*0.28)}" r="{int(icon_size*0.22)}" fill="{icon_fill}"/>')
-                lines.append(f'    <path d="M{int(icon_size*0.15)},{icon_size} Q{int(icon_size*0.15)},{int(icon_size*0.45)} {icon_size//2},{int(icon_size*0.42)} Q{int(icon_size*0.85)},{int(icon_size*0.45)} {int(icon_size*0.85)},{icon_size} Z" fill="{icon_fill}"/>')
-                lines.append(f'  </g>')
-            elif trainer_type in ("Item", "Tool"):
-                r = icon_size // 2
-                cx = icon_x + r
-                cy = icon_y + r
-                lines.append(f'  <circle cx="{cx}" cy="{cy}" r="{r}" fill="{icon_fill}" stroke="white" stroke-width="2"/>')
-                lines.append(f'  <rect x="{cx - r}" y="{cy - 2}" width="{icon_size}" height="4" fill="white"/>')
-                lines.append(f'  <circle cx="{cx}" cy="{cy}" r="{int(r*0.3)}" fill="white" stroke="{icon_fill}" stroke-width="2"/>')
-            elif trainer_type == "Stadium":
-                sx, sy, s = icon_x, icon_y, icon_size
-                lines.append(f'  <polygon points="{sx},{sy + int(s*0.4)} {sx + s//2},{sy + int(s*0.08)} {sx + s},{sy + int(s*0.4)}" fill="{icon_fill}"/>')
-                lines.append(f'  <rect x="{sx + int(s*0.05)}" y="{sy + int(s*0.82)}" width="{int(s*0.9)}" height="{int(s*0.12)}" rx="2" fill="{icon_fill}"/>')
-                cw, ch, ctop = int(s * 0.12), int(s * 0.44), sy + int(s * 0.38)
-                for col_x in [sx + int(s*0.15), sx + s//2 - cw//2, sx + int(s*0.85) - cw]:
-                    lines.append(f'    <rect x="{col_x}" y="{ctop}" width="{cw}" height="{ch}" rx="1" fill="{icon_fill}"/>')
-        elif hp:
-            # Pokemon: HP + type energy dot
-            hp_text = f'{hp} HP'
-            lines.append(f'  <text x="{CARD_W - 30}" y="57" font-family="{FONT_TITLE}" font-size="38" font-weight="900" fill="white" text-anchor="end" filter="url(#shadow-title)">{hp_text}</text>')
+    # Header: always render name + HP/trainer info
+    evolve_from = card.get("evolveFrom", "")
+    right_reserve = 70 if category == "Trainer" else 140
+    name_avail = CARD_W - 30 - right_reserve - 20
+    name_size = fit_name_size(name, 42, name_avail)
+    lines.append(f'  <text x="30" y="57" font-family="{FONT_TITLE}" font-size="{name_size}" font-weight="900" fill="white" filter="url(#shadow-title)">{name}</text>')
+    if evolve_from:
+        lines.append(f'  <text x="30" y="82" font-family="{FONT_BODY}" font-size="18" font-weight="600" fill="rgba(255,255,255,0.7)" font-style="italic" filter="url(#shadow)">Evolves from {escape_xml(evolve_from)}</text>')
+    if category == "Trainer":
+        tag = escape_xml(trainer_type).upper() if trainer_type else "TRAINER"
+        lines.append(f'  <text x="{CARD_W - 30}" y="57" font-family="{FONT_TITLE}" font-size="30" font-weight="900" fill="rgba(255,255,255,0.8)" text-anchor="end" filter="url(#shadow-title)">{tag}</text>')
+    elif hp:
+        # HP + type energy dot
+        hp_text_x = CARD_W - 30
+        if types:
+            dot_r = 16
+            dot_cx = CARD_W - 30
+            dot_cy = 40
+            lines.append(f'  <circle cx="{dot_cx}" cy="{dot_cy}" r="{dot_r}" fill="{color}" stroke="rgba(255,255,255,0.6)" stroke-width="2"/>')
+            letter = ENERGY_ABBREV.get(card_type, "?")
+            lines.append(f'  <text x="{dot_cx}" y="{dot_cy + 1}" font-family="Helvetica, Arial, sans-serif" font-size="{int(dot_r * 1.3)}" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="central">{letter}</text>')
+            hp_text_x = dot_cx - dot_r - 8
+        lines.append(f'  <text x="{hp_text_x}" y="57" font-family="{FONT_TITLE}" font-size="38" font-weight="900" fill="white" text-anchor="end" filter="url(#shadow-title)">{hp} HP</text>')
 
     # Text content starts below the overlay top + padding
     y = overlay_top + text_pad + int(BODY_SIZE * 0.5)
@@ -732,6 +785,21 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
                 markup = energy_inline_svg(wline, BODY_SIZE)
                 lines.append(f'  <text x="{MARGIN}" y="{y}" font-family="{FONT_BODY}" font-size="{BODY_SIZE}" font-weight="700" fill="white" filter="url(#shadow)">{markup}</text>')
         y += int(BODY_SIZE * 1.25)
+
+    # Rules text (ex/V/VMAX/VSTAR or trainer rules)
+    suffix = get_pokemon_suffix(card)
+    rule_text = ""
+    if category == "Pokemon" and suffix in POKEMON_RULES:
+        rule_text = POKEMON_RULES[suffix]
+    elif category == "Trainer" and trainer_type in TRAINER_RULES:
+        rule_text = TRAINER_RULES[trainer_type]
+    if rule_text:
+        rule_size = 16
+        rule_lines = ft_wrap(_BODY_FACE, rule_text, rule_size, text_max_w)
+        y += 4
+        for rl in rule_lines:
+            lines.append(f'  <text x="{MARGIN}" y="{y}" font-family="{FONT_BODY}" font-size="{rule_size}" font-weight="600" fill="rgba(255,255,255,0.6)" font-style="italic" filter="url(#shadow)">{escape_xml(rl)}</text>')
+            y += int(rule_size * 1.3)
 
     render_footer_svg(lines, card, category, card_type, retreat, BODY_SIZE,
                       set_name, local_id, footer_y=CARD_H - 55, sep_offset=18,
@@ -821,7 +889,11 @@ def generate_svg(card: dict, artwork_b64: str) -> str:
     lines.append(f'  <rect x="0" y="40" width="{CARD_W}" height="40" fill="{color}" opacity="0.85"/>')
 
     # Name and HP / trainer type in header
-    lines.append(f'  <text x="30" y="57" font-family="{FONT_TITLE}" font-size="42" font-weight="900" fill="white" filter="url(#shadow-title)">{name}</text>')
+    # Right side takes ~130px (HP text + dot) or ~60px (trainer icon)
+    right_reserve = 70 if category == "Trainer" else 140
+    name_avail = CARD_W - 30 - right_reserve - 20  # left margin + gap
+    name_size = fit_name_size(name, 42, name_avail)
+    lines.append(f'  <text x="30" y="57" font-family="{FONT_TITLE}" font-size="{name_size}" font-weight="900" fill="white" filter="url(#shadow-title)">{name}</text>')
     if category == "Trainer":
         # Trainer type icon in header
         icon_size = 40
@@ -867,17 +939,31 @@ def generate_svg(card: dict, artwork_b64: str) -> str:
             tag = escape_xml(trainer_type).upper() if trainer_type else "TRAINER"
             lines.append(f'  <text x="{CARD_W - 30}" y="57" font-family="{FONT_TITLE}" font-size="30" font-weight="900" fill="{icon_fill}" text-anchor="end" filter="url(#tag-outline)">{tag}</text>')
     elif hp:
-        lines.append(f'  <text x="{CARD_W - 30}" y="57" font-family="{FONT_TITLE}" font-size="38" font-weight="900" fill="white" text-anchor="end" filter="url(#shadow-title)">{hp} HP</text>')
+        # HP text + type energy dot
+        hp_text_x = CARD_W - 30
+        if types:
+            dot_r = 16
+            dot_cx = CARD_W - 30
+            dot_cy = 40
+            lines.append(f'  <circle cx="{dot_cx}" cy="{dot_cy}" r="{dot_r}" fill="{color}" stroke="#fff" stroke-width="2"/>')
+            letter = ENERGY_ABBREV.get(card_type, "?")
+            lines.append(f'  <text x="{dot_cx}" y="{dot_cy + 1}" font-family="Helvetica, Arial, sans-serif" font-size="{int(dot_r * 1.3)}" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="central">{letter}</text>')
+            hp_text_x = dot_cx - dot_r - 8
+        lines.append(f'  <text x="{hp_text_x}" y="57" font-family="{FONT_TITLE}" font-size="38" font-weight="900" fill="white" text-anchor="end" filter="url(#shadow-title)">{hp} HP</text>')
 
     # Subtitle line — Pokémon only (trainers put their type in the header)
+    evolve_from = card.get("evolveFrom", "")
     if category == "Trainer":
         art_y = 85  # no subtitle → artwork moves up
     else:
-        stage_line = f"{stage} {category}" if stage else category
+        stage_line = f"{stage}" if stage else "Basic"
         type_str = " / ".join(types)
         subtitle = f"{stage_line} — {type_str}" if type_str else stage_line
         lines.append(f'  <text x="30" y="105" font-family="{FONT_BODY}" font-size="22" font-weight="700" fill="#444" filter="url(#shadow)">{escape_xml(subtitle)}</text>')
-        art_y = 118  # after subtitle
+        art_y = 118
+        if evolve_from:
+            lines.append(f'  <text x="30" y="125" font-family="{FONT_BODY}" font-size="18" font-weight="600" fill="#888" font-style="italic">Evolves from {escape_xml(evolve_from)}</text>')
+            art_y = 135
 
     # Artwork — full width, height determined by text needs
     art_x = 20
@@ -903,7 +989,7 @@ def generate_svg(card: dict, artwork_b64: str) -> str:
     def _measure(body):
         return ft_content_height(
             body, int(body * HEAD_RATIO), text_max_w,
-            category, trainer_effect, abilities, attacks)
+            category, trainer_effect, abilities, attacks, card=card)
 
     def _best_in_range(lo_body, hi_body):
         """Binary-search for largest body in [lo_body, hi_body] with art >= ART_PREFER."""
@@ -1020,11 +1106,112 @@ def generate_svg(card: dict, artwork_b64: str) -> str:
                 lines.append(f'  <text x="{MARGIN}" y="{y}" font-family="{FONT_BODY}" font-size="{BODY_SIZE}" font-weight="700" fill="#222" filter="url(#shadow)">{markup}</text>')
         y += int(BODY_SIZE * 1.25)
 
+    # Rules text (ex/V/VMAX/VSTAR or trainer rules)
+    suffix = get_pokemon_suffix(card)
+    rule_text = ""
+    if category == "Pokemon" and suffix in POKEMON_RULES:
+        rule_text = POKEMON_RULES[suffix]
+    elif category == "Trainer" and trainer_type in TRAINER_RULES:
+        rule_text = TRAINER_RULES[trainer_type]
+    if rule_text:
+        rule_size = 16
+        rule_lines = ft_wrap(_BODY_FACE, rule_text, rule_size, text_max_w)
+        y += 4
+        for rl in rule_lines:
+            lines.append(f'  <text x="{MARGIN}" y="{y}" font-family="{FONT_BODY}" font-size="{rule_size}" font-weight="600" fill="#999" font-style="italic">{escape_xml(rl)}</text>')
+            y += int(rule_size * 1.3)
+
     render_footer_svg(lines, card, category, card_type, retreat, BODY_SIZE,
                       set_name, local_id, footer_y=CARD_H - 60, sep_offset=20,
                       sep_color="#ccc", fill="#444", retreat_dot_fill="#ddd",
                       info_y=CARD_H - 20, info_fill="#888")
 
+    lines.append("</svg>")
+    return "\n".join(lines)
+
+
+def generate_energy_svg(card: dict, image_b64: str) -> str:
+    """Generate an SVG proxy for an Energy card."""
+    name = escape_xml(card.get("name", "Energy"))
+    types = card.get("types", [])
+    energy_type = types[0] if types else "Colorless"
+    color = TYPE_COLORS.get(energy_type, "#888888")
+    letter = ENERGY_ABBREV.get(energy_type, "E")
+    set_name = card.get("set", {}).get("name", "")
+    local_id = card.get("localId", "")
+    effect = compress_text(card.get("effect", ""))
+
+    lines = []
+    lines.append(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CARD_W} {CARD_H}" width="{CARD_W}" height="{CARD_H}">')
+    lines.append("  <defs>")
+    lines.append(f'    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">')
+    lines.append(f'      <stop offset="0%" stop-color="{color}" stop-opacity="0.15"/>')
+    lines.append(f'      <stop offset="100%" stop-color="{color}" stop-opacity="0.05"/>')
+    lines.append(f"    </linearGradient>")
+    lines.append('    <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">')
+    lines.append('      <feDropShadow dx="1" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.3"/>')
+    lines.append("    </filter>")
+    lines.append("  </defs>")
+
+    # Background
+    lines.append(f'  <rect width="{CARD_W}" height="{CARD_H}" rx="25" ry="25" fill="white"/>')
+    lines.append(f'  <rect width="{CARD_W}" height="{CARD_H}" rx="25" ry="25" fill="url(#bg)" stroke="{color}" stroke-width="4"/>')
+
+    # Header
+    lines.append(f'  <rect x="0" y="0" width="{CARD_W}" height="80" rx="25" ry="25" fill="{color}" opacity="0.85"/>')
+    lines.append(f'  <rect x="0" y="40" width="{CARD_W}" height="40" fill="{color}" opacity="0.85"/>')
+    energy_name_size = fit_name_size(name, 38, CARD_W - 60 - 160)
+    lines.append(f'  <text x="30" y="57" font-family="{FONT_TITLE}" font-size="{energy_name_size}" font-weight="900" fill="white" filter="url(#shadow)">{name}</text>')
+    lines.append(f'  <text x="{CARD_W - 30}" y="57" font-family="{FONT_TITLE}" font-size="30" font-weight="900" fill="white" text-anchor="end" filter="url(#shadow)">ENERGY</text>')
+
+    if effect:
+        # Special Energy: show art + effect text (adaptive art height)
+        BODY_SIZE = 34
+        LINE_H = int(BODY_SIZE * 1.25)
+        text_max_w = CARD_W - 2 * MARGIN
+        wrapped = ft_wrap(_BODY_FACE, effect, BODY_SIZE, text_max_w)
+        text_h = len(wrapped) * LINE_H
+        art_top = 90
+        footer_h = 50  # space for set info
+        padding = 40
+        art_h = max(200, min(500, CARD_H - art_top - text_h - padding * 2 - footer_h))
+        lines.append(f'  <rect x="20" y="{art_top}" width="710" height="{art_h}" rx="10" fill="#000" opacity="0.05"/>')
+        lines.append(f'  <image x="20" y="{art_top}" width="710" height="{art_h}" preserveAspectRatio="xMidYMid slice"')
+        lines.append(f'         href="data:image/png;base64,{image_b64}" clip-path="inset(0 round 10px)"/>')
+
+        y = art_top + art_h + padding
+        for wline in wrapped:
+            y += LINE_H
+            markup = energy_inline_svg(wline, BODY_SIZE)
+            lines.append(f'  <text x="{MARGIN}" y="{y}" font-family="{FONT_BODY}" font-size="{BODY_SIZE}" font-weight="700" fill="#222" filter="url(#shadow)">{markup}</text>')
+    else:
+        # Basic Energy: large centered energy symbol with concentric rings
+        cx, cy = CARD_W // 2, CARD_H // 2 - 20
+        r = 200
+        # Radial gradient for depth
+        lines.append(f'  <defs>')
+        lines.append(f'    <radialGradient id="energy-glow" cx="50%" cy="45%" r="50%">')
+        lines.append(f'      <stop offset="0%" stop-color="{color}" stop-opacity="0.35"/>')
+        lines.append(f'      <stop offset="70%" stop-color="{color}" stop-opacity="0.15"/>')
+        lines.append(f'      <stop offset="100%" stop-color="{color}" stop-opacity="0.05"/>')
+        lines.append(f'    </radialGradient>')
+        lines.append(f'  </defs>')
+        # Outer glow
+        lines.append(f'  <circle cx="{cx}" cy="{cy}" r="{r + 30}" fill="url(#energy-glow)"/>')
+        # Outer ring
+        lines.append(f'  <circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{color}" stroke-width="6" opacity="0.25"/>')
+        # Middle ring
+        lines.append(f'  <circle cx="{cx}" cy="{cy}" r="{r - 20}" fill="{color}" opacity="0.12"/>')
+        lines.append(f'  <circle cx="{cx}" cy="{cy}" r="{r - 20}" fill="none" stroke="{color}" stroke-width="3" opacity="0.35"/>')
+        # Inner filled circle
+        lines.append(f'  <circle cx="{cx}" cy="{cy}" r="{r - 50}" fill="{color}" opacity="0.2" stroke="{color}" stroke-width="4" stroke-opacity="0.5"/>')
+        # Energy letter
+        lines.append(f'  <text x="{cx}" y="{cy + 30}" font-family="{FONT_TITLE}" font-size="220" font-weight="900" fill="{color}" text-anchor="middle" dominant-baseline="central" opacity="0.85">{letter}</text>')
+        # Type name below
+        lines.append(f'  <text x="{cx}" y="{cy + r + 60}" font-family="{FONT_BODY}" font-size="36" font-weight="700" fill="#555" text-anchor="middle">{escape_xml(energy_type)} Energy</text>')
+
+    # Footer
+    lines.append(f'  <text x="{CARD_W // 2}" y="{CARD_H - 20}" font-family="{FONT_BODY}" font-size="18" font-weight="600" fill="#888" text-anchor="middle">{escape_xml(set_name)} {escape_xml(local_id)}</text>')
     lines.append("</svg>")
     return "\n".join(lines)
 

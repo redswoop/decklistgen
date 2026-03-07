@@ -91,7 +91,7 @@ async function generateSvg(cardId: string): Promise<string> {
   }
 
   const fullart = isFullArt(cardData as TcgdexCard);
-  const renderHeader = fullart && status.hasClean && !status.hasComposite;
+  const renderHeader = fullart; // Always show name/HP header on fullart cards
 
   const input = JSON.stringify({
     card: cardData,
