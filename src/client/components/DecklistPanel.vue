@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { useDecklist } from "../composables/useDecklist.js";
+import type { Card } from "../../shared/types/card.js";
 
 const emit = defineEmits<{
   collapse: [];
   export: [];
+  "preview-card": [card: Card];
 }>();
 
 const { items, totalCards, incrementCard, removeCard, clear } = useDecklist();
+
+function openPreview(card: Card) {
+  emit("preview-card", card);
+}
 </script>
 
 <template>
@@ -27,6 +33,7 @@ const { items, totalCards, incrementCard, removeCard, clear } = useDecklist();
         v-for="item in items"
         :key="`${item.setCode}-${item.localId}`"
         class="decklist-item"
+        @click="openPreview(item.card)"
       >
         <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.name" />
         <div
@@ -38,9 +45,9 @@ const { items, totalCards, incrementCard, removeCard, clear } = useDecklist();
           <div class="item-set">{{ item.setCode }} {{ item.localId }}</div>
         </div>
         <div class="item-controls">
-          <button @click="removeCard(item.setCode, item.localId)">-</button>
+          <button @click.stop="removeCard(item.setCode, item.localId)">-</button>
           <span class="item-count">{{ item.count }}</span>
-          <button @click="incrementCard(item.setCode, item.localId)">+</button>
+          <button @click.stop="incrementCard(item.setCode, item.localId)">+</button>
         </div>
       </div>
     </div>

@@ -9,6 +9,7 @@ import {
   generateCleanImage,
   type ImageMode,
 } from "../composables/usePokeproxy.js";
+import { useDecklist } from "../composables/useDecklist.js";
 
 const props = defineProps<{ card: Card; imageMode: ImageMode }>();
 const emit = defineEmits<{
@@ -24,6 +25,9 @@ const generating = computed(() => isGenerating(props.card.id));
 
 const showCleanedImage = computed(() => !isOriginalMode.value && cleanUrl.value);
 const showMissingPlaceholder = computed(() => !isOriginalMode.value && statusLoaded.value && !hasCleaned.value);
+
+const { getDeckCount } = useDecklist();
+const tileDeckCount = computed(() => getDeckCount(props.card.setCode, props.card.localId));
 
 function handleGenerateClick(e: Event) {
   e.stopPropagation();
@@ -65,6 +69,7 @@ function handleGenerateClick(e: Event) {
       </template>
     </div>
 
+    <span v-if="tileDeckCount" class="tile-deck-badge">{{ tileDeckCount }}</span>
     <div class="card-name">{{ card.name }}</div>
     <button
       class="card-add-btn"

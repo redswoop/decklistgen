@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { Splitpanes, Pane } from "splitpanes";
 import "splitpanes/dist/splitpanes.css";
 import FilterSidebar from "./components/FilterSidebar.vue";
@@ -38,10 +38,19 @@ function saveLayout(partial: Partial<LayoutState>) {
 
 const saved = loadLayout();
 
-const { addCard, toText } = useDecklist();
+const { items, toText } = useDecklist();
 
 const showExport = ref(false);
 const previewCard = ref<Card | null>(null);
+const previewSource = ref<'grid' | 'deck'>('grid');
+const gridSearchCards = ref<Card[]>([]);
+
+const effectiveSearchCards = computed(() => {
+  if (previewSource.value === 'deck') {
+    return items.value.map(i => i.card);
+  }
+  return gridSearchCards.value;
+});
 const leftCollapsed = ref(saved.leftCollapsed);
 const rightCollapsed = ref(saved.rightCollapsed);
 const leftSize = ref(saved.left);
@@ -77,14 +86,17 @@ function expandRight() {
   saveLayout({ rightCollapsed: false });
 }
 
-function handlePreview(card: Card) {
+function handlePreview(card: Card, cards: Card[]) {
   previewCard.value = card;
+  gridSearchCards.value = cards;
+  previewSource.value = 'grid';
 }
 
-function handleLightboxAdd(card: Card) {
-  addCard(card);
-  previewCard.value = null;
+function handleDeckPreview(card: Card) {
+  previewCard.value = card;
+  previewSource.value = 'deck';
 }
+
 </script>
 
 <template>
@@ -111,6 +123,7 @@ function handleLightboxAdd(card: Card) {
         <DecklistPanel
           @collapse="collapseRight"
           @export="showExport = true"
+          @preview-card="handleDeckPreview"
         />
       </Pane>
     </Splitpanes>
@@ -123,8 +136,9 @@ function handleLightboxAdd(card: Card) {
     <CardLightbox
       v-if="previewCard"
       :card="previewCard"
+      :search-cards="effectiveSearchCards"
+      :source="previewSource"
       @close="previewCard = null"
-      @add="handleLightboxAdd"
     />
   </div>
 </template>

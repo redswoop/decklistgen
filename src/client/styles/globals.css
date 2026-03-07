@@ -241,6 +241,24 @@ body {
   transform: scale(1.1);
 }
 
+.tile-deck-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: #e94560;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  z-index: 1;
+}
+
 /* Tile placeholder (no image) */
 .tile-placeholder {
   aspect-ratio: 5/7;
@@ -337,10 +355,11 @@ body {
   padding: 6px 8px;
   border-radius: 4px;
   font-size: 13px;
+  cursor: pointer;
 }
 
 .decklist-item:hover {
-  background: rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.08);
 }
 
 .decklist-item img {
@@ -531,6 +550,7 @@ body {
 
 /* Lightbox */
 .lightbox {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -538,27 +558,84 @@ body {
   border: 1px solid #0f3460;
   border-radius: 12px;
   padding: 24px;
-  max-width: 1000px;
-  max-height: 90vh;
+  width: 1200px;
+  height: 90vh;
   overflow-y: auto;
 }
 
-/* Variant navigation */
-.variant-nav {
+.lightbox-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  color: #7f8fa6;
+  font-size: 20px;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.lightbox-close:hover {
+  background: #e94560;
+  color: white;
+}
+
+/* Lightbox header: card nav + info */
+.lightbox-header {
+  display: flex;
+  align-items: center;
   gap: 16px;
 }
 
-.variant-btn {
-  width: 36px;
-  height: 36px;
+.lightbox-card-info {
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+}
+
+.lightbox-source-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #e94560;
+  margin-bottom: 2px;
+}
+
+.lightbox-card-info h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.lightbox-card-meta {
+  font-size: 13px;
+  color: #7f8fa6;
+}
+
+.lightbox-card-meta .meta-sep {
+  color: #0f3460;
+}
+
+.lightbox-card-set {
+  font-size: 12px;
+  color: #e94560;
+  margin-top: 2px;
+}
+
+.nav-btn {
+  width: 40px;
+  height: 40px;
   border: 1px solid #0f3460;
   border-radius: 50%;
   background: #1a1a2e;
   color: #e0e0e0;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
@@ -566,28 +643,24 @@ body {
   justify-content: center;
   transition: background 0.15s;
   line-height: 1;
+  flex-shrink: 0;
 }
 
-.variant-btn:hover:not(:disabled) {
+.nav-btn:hover:not(:disabled) {
   background: #0f3460;
 }
 
-.variant-btn:disabled {
+.nav-btn:disabled {
   opacity: 0.3;
   cursor: default;
 }
 
-.variant-label {
-  font-size: 13px;
-  color: #7f8fa6;
-  text-align: center;
-}
-
-.variant-id {
-  display: block;
-  font-size: 11px;
-  color: #e94560;
-  margin-top: 2px;
+/* Lightbox body: images + variant sidebar */
+.lightbox-body {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Images row */
@@ -595,6 +668,7 @@ body {
   display: flex;
   gap: 16px;
   justify-content: center;
+  flex: 1;
 }
 
 .lightbox-image-col {
@@ -616,6 +690,16 @@ body {
   width: 260px;
   border-radius: 8px;
   display: block;
+}
+
+.lightbox-img-clickable {
+  cursor: pointer;
+  transition: opacity 0.15s, box-shadow 0.15s;
+}
+
+.lightbox-img-clickable:hover {
+  opacity: 0.85;
+  box-shadow: 0 0 0 2px #e94560;
 }
 
 .lightbox-placeholder {
@@ -691,33 +775,101 @@ body {
   font-weight: 600;
 }
 
-.lightbox-details {
+/* Variant sidebar */
+.variant-sidebar {
+  width: 120px;
+  flex-shrink: 0;
+  border-left: 1px solid #0f3460;
+  padding-left: 16px;
+}
+
+.variant-sidebar-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7f8fa6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.variant-sidebar-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  max-height: 450px;
+  overflow-y: auto;
 }
 
-.lightbox-details h2 {
-  font-size: 20px;
-  font-weight: 700;
+.variant-item {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 4px;
+  transition: background 0.15s;
+  text-align: center;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
 }
 
-.lightbox-meta {
+.variant-item:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.variant-item.active {
+  background: rgba(233, 69, 96, 0.15);
+  outline-color: #e94560;
+}
+
+.variant-item-img {
+  width: 100%;
+  border-radius: 4px;
+  display: block;
+}
+
+.variant-item-placeholder {
+  width: 100%;
+  aspect-ratio: 5/7;
+  background: #1a1a2e;
+  border-radius: 4px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 20px;
-  font-size: 13px;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #7f8fa6;
 }
 
-.lightbox-meta .label {
+.variant-item-thumb {
+  position: relative;
+}
+
+.variant-item-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e94560;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.variant-item-label {
+  font-size: 10px;
   color: #7f8fa6;
-  font-weight: 600;
+  margin-top: 2px;
 }
 
 .lightbox-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  justify-content: center;
+  margin-top: 6px;
 }
 
 .lightbox-tag {
@@ -731,7 +883,7 @@ body {
 .lightbox-actions {
   display: flex;
   gap: 8px;
-  margin-top: 4px;
+  justify-content: center;
 }
 
 .lightbox-add {
@@ -749,24 +901,36 @@ body {
   background: #c23152;
 }
 
-.lightbox-generate {
-  padding: 10px 16px;
-  background: #0f3460;
-  border: none;
-  border-radius: 6px;
-  color: #e0e0e0;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
+.lightbox-deck-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.lightbox-generate:hover:not(:disabled) {
+.deck-ctrl-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: #0f3460;
+  color: #e0e0e0;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.deck-ctrl-btn:hover {
   background: #1a4a8a;
 }
 
-.lightbox-generate:disabled {
-  opacity: 0.5;
-  cursor: default;
+.deck-ctrl-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e94560;
 }
 
 /* Loading */

@@ -7,7 +7,7 @@ import { usePokeproxy, usePokeproxyBatch, type ImageMode } from "../composables/
 import CardTile from "./CardTile.vue";
 import type { Card } from "../../shared/types/card.js";
 
-const emit = defineEmits<{ "preview-card": [card: Card] }>();
+const emit = defineEmits<{ "preview-card": [card: Card, cards: Card[]] }>();
 
 const { filters, page } = useFilters();
 const { addCard } = useDecklist();
@@ -71,7 +71,7 @@ const modeOptions: { value: ImageMode; label: string }[] = [
         :card="card"
         :image-mode="imageMode"
         @add="addCard"
-        @preview="emit('preview-card', $event)"
+        @preview="emit('preview-card', $event, filteredCards)"
       />
     </div>
     <div v-if="totalPages > 1" class="pagination">
