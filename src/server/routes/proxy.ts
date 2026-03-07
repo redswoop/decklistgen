@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { getCard } from "../services/card-store.js";
 import { cleanCardImage } from "../services/comfyui.js";
+import { isFullArt } from "../../shared/utils/detect-fullart.js";
+import type { TcgdexCard } from "../../shared/types/card.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
 const POKEPROXY_DIR = join(import.meta.dir, "../../../pokeproxy");
@@ -42,9 +44,6 @@ async function ensureSourceImage(cardId: string): Promise<boolean> {
 
 /** Spawn pokeproxy bridge.py to generate an SVG */
 async function generateSvg(cardId: string): Promise<string> {
-  const card = getCard(cardId);
-  if (!card) throw new Error(`Card not found: ${cardId}`);
-
   // Check file availability once
   const status = getStatus(cardId);
   const hasSource = hasFile(cardId, ".png");
@@ -68,13 +67,14 @@ async function generateSvg(cardId: string): Promise<string> {
   const imageData = await readFile(imagePath);
   const imageBase64 = imageData.toString("base64");
 
-  // Load the card's cached JSON to get full TCGdex data for the renderer
+  // Load card data: prefer cached JSON, fall back to card store
   const jsonPath = cachePath(cardId, ".json");
   let cardData: Record<string, unknown>;
   if (existsSync(jsonPath)) {
     cardData = JSON.parse(await readFile(jsonPath, "utf-8"));
   } else {
-    // Fallback: construct minimal card data from our normalized card
+    const card = getCard(cardId);
+    if (!card) throw new Error(`Card not found: ${cardId}`);
     cardData = {
       id: card.id,
       localId: card.localId,
@@ -90,13 +90,13 @@ async function generateSvg(cardId: string): Promise<string> {
     };
   }
 
-  const isFullart = card.isFullArt;
-  const renderHeader = isFullart && status.hasClean && !status.hasComposite;
+  const fullart = isFullArt(cardData as TcgdexCard);
+  const renderHeader = fullart && status.hasClean && !status.hasComposite;
 
   const input = JSON.stringify({
     card: cardData,
     image_base64: imageBase64,
-    is_fullart: isFullart,
+    is_fullart: fullart,
     options: {
       render_header: renderHeader,
     },

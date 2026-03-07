@@ -440,7 +440,33 @@ def render_footer_svg(lines, card, category, card_type, retreat, body_size,
 
 
 def is_fullart(card: dict) -> bool:
-    """Detect if a card is a full-art variant (artwork spans the entire card)."""
+    """Detect if a card is a full-art variant (artwork spans the entire card).
+
+    Full-art cards include:
+    - All ex/EX Pokemon (SV-era ex always have full-bleed art)
+    - All V/VMAX/VSTAR Pokemon
+    - High-rarity cards (illustration rare, ultra rare, etc.)
+    - Secret rares (card number above official set count)
+    """
+    name = card.get("name", "")
+    stage = card.get("stage", "")
+    category = card.get("category", "")
+
+    # All ex/EX Pokemon have full-bleed art
+    if category == "Pokemon" and (
+        name.lower().endswith(" ex")
+        or stage in ("VMAX", "VSTAR")
+        or card.get("suffix") in ("ex", "EX", "V", "VMAX", "VSTAR")
+    ):
+        return True
+
+    # V cards (check suffix or name)
+    if category == "Pokemon" and (
+        card.get("suffix") == "V"
+        or (name.endswith(" V") and not name.endswith(" IV"))
+    ):
+        return True
+
     rarity = (card.get("rarity") or "").lower()
     fullart_rarities = [
         "illustration rare",
@@ -453,9 +479,11 @@ def is_fullart(card: dict) -> bool:
         "amazing rare",     # SWSH amazing rares
         "rare vmax",        # alt-art VMAX
         "rare vstar",       # VSTAR
+        "double rare",      # SV-era ex cards
     ]
     if any(r in rarity for r in fullart_rarities):
         return True
+
     # Card number above official set count is usually a secret/full-art
     card_count = card.get("set", {}).get("cardCount", {})
     official = card_count.get("official", 999)
