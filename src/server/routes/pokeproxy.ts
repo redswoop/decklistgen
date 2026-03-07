@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
+import { getCard } from "../services/card-store.js";
 
 const POKEPROXY_DIR = process.env.POKEPROXY_DIR ?? "/Users/armen/src/pokeproxy";
 const POKEPROXY_CACHE = join(POKEPROXY_DIR, "cache");
@@ -87,16 +88,13 @@ app.post("/generate/:cardId", async (c) => {
   // We need the source image in pokeproxy cache. Check if it's there.
   const srcExists = existsSync(join(POKEPROXY_CACHE, `${cardId}.png`));
   if (!srcExists) {
-    // Try to download it first via TCGdex
-    // The card ID format is like sv06.5-036, image URL is https://assets.tcgdex.net/en/{setId}/{localId}/high.png
-    const parts = cardId.match(/^(.+)-(\d+)$/);
-    if (!parts) return c.json({ error: "Invalid card ID format" }, 400);
-    const [, setId, localId] = parts;
-    const imageUrl = `https://assets.tcgdex.net/en/${setId}/${localId}/high.png`;
+    // Get the image URL from the card store (it has the correct full URL)
+    const card = getCard(cardId);
+    if (!card?.imageUrl) return c.json({ error: `Card not loaded or has no image: ${cardId}` }, 400);
+
     try {
-      const resp = await fetch(imageUrl, { headers: { "User-Agent": "DecklistGen/1.0" } });
-      if (!resp.ok) return c.json({ error: "Failed to fetch source image" }, 500);
-      const { writeFile, mkdir } = await import("node:fs/promises");
+      const resp = await fetch(card.imageUrl, { headers: { "User-Agent": "DecklistGen/1.0" } });
+      if (!resp.ok) return c.json({ error: `Failed to fetch source image: ${resp.status}` }, 500);
       await mkdir(POKEPROXY_CACHE, { recursive: true });
       await writeFile(join(POKEPROXY_CACHE, `${cardId}.png`), Buffer.from(await resp.arrayBuffer()));
     } catch (e: any) {
@@ -106,7 +104,10 @@ app.post("/generate/:cardId", async (c) => {
 
   // Spawn pokecleaner
   return new Promise<Response>((resolve) => {
-    const proc = spawn("python3", [
+    // Use pokeproxy's venv Python if available, else system python3
+    const venvPython = join(POKEPROXY_DIR, ".venv", "bin", "python");
+    const pythonBin = existsSync(venvPython) ? venvPython : "python3";
+    const proc = spawn(pythonBin, [
       join(POKEPROXY_DIR, "pokecleaner.py"),
       cardId,
       "--server", FRAMEHOUSE_URL,
