@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import type { Card } from "../../shared/types/card.js";
-import { useVariants, usePokeproxyStatus } from "../composables/usePokeproxy.js";
+import {
+  useVariants,
+  usePokeproxyStatus,
+  isGenerating,
+  generateCleanImage,
+} from "../composables/usePokeproxy.js";
 import { api } from "../lib/client.js";
 
 const props = defineProps<{ card: Card }>();
@@ -15,10 +20,8 @@ const cardIdRef = computed(() => props.card.id);
 const { data: variants } = useVariants(cardIdRef);
 const variantIndex = ref(0);
 
-// Reset index when card changes
 watch(() => props.card.id, () => { variantIndex.value = 0; });
 
-// When variants load, find the index of the current card
 watch(variants, (v) => {
   if (!v) return;
   const idx = v.findIndex((c) => c.id === props.card.id);
@@ -44,32 +47,26 @@ function nextVariant() {
 const currentCardId = computed(() => currentCard.value.id);
 const { data: ppStatus } = usePokeproxyStatus(currentCardId);
 
-const hasPokeproxy = computed(() =>
-  ppStatus.value?.hasClean || ppStatus.value?.hasComposite || ppStatus.value?.hasSvg
+const hasCleanedImage = computed(() =>
+  ppStatus.value?.hasClean || ppStatus.value?.hasComposite
 );
 
-const pokeproxyImageUrl = computed(() => {
+const cleanedImageUrl = computed(() => {
   if (!ppStatus.value) return null;
   if (ppStatus.value.hasComposite) return api.pokeproxyImageUrl(currentCard.value.id, "composite");
   if (ppStatus.value.hasClean) return api.pokeproxyImageUrl(currentCard.value.id, "clean");
   return null;
 });
 
-const pokeproxySvgUrl = computed(() => {
+const svgUrl = computed(() => {
   if (!ppStatus.value?.hasSvg) return null;
   return api.pokeproxySvgUrl(currentCard.value.id);
 });
 
-// Generate clean image
-const generating = ref(false);
-async function generateClean() {
-  generating.value = true;
-  try {
-    await api.pokeproxyGenerate(currentCard.value.id);
-  } catch (e) {
-    console.error("Generate failed:", e);
-  }
-  generating.value = false;
+const generating = computed(() => isGenerating(currentCard.value.id));
+
+function handleGenerate() {
+  generateCleanImage(currentCard.value.id);
 }
 
 // Tags
@@ -101,8 +98,9 @@ const tags = computed(() =>
         <button class="variant-btn" :disabled="variantIndex >= totalVariants - 1" @click="nextVariant">&rsaquo;</button>
       </div>
 
-      <!-- Images row -->
+      <!-- Images row: always show Original + PokeProxy columns -->
       <div class="lightbox-images">
+        <!-- Original -->
         <div class="lightbox-image-col">
           <div class="image-label">Original</div>
           <img
@@ -114,26 +112,34 @@ const tags = computed(() =>
           <div v-else class="lightbox-placeholder">{{ currentCard.name }}</div>
         </div>
 
-        <div v-if="hasPokeproxy" class="lightbox-image-col">
-          <div class="image-label">PokeProxy</div>
+        <!-- Cleaned / Placeholder -->
+        <div class="lightbox-image-col">
+          <div class="image-label">Cleaned</div>
+          <!-- Has cleaned image -->
           <img
-            v-if="pokeproxyImageUrl"
-            :src="pokeproxyImageUrl"
+            v-if="hasCleanedImage && cleanedImageUrl"
+            :src="cleanedImageUrl"
             :alt="`${currentCard.name} (cleaned)`"
             class="lightbox-img"
           />
-          <img
-            v-if="pokeproxySvgUrl && !pokeproxyImageUrl"
-            :src="pokeproxySvgUrl"
-            :alt="`${currentCard.name} (SVG)`"
-            class="lightbox-img"
-          />
+          <!-- Generating spinner -->
+          <div v-else-if="generating" class="lightbox-placeholder lightbox-generating" @click="handleGenerate">
+            <div class="generate-spinner"></div>
+            <div class="generate-text">Generating via Framehouse...</div>
+          </div>
+          <!-- Click to generate -->
+          <div v-else class="lightbox-placeholder lightbox-clickable" @click="handleGenerate">
+            <div class="generate-icon">+</div>
+            <div class="generate-label">Click to Generate</div>
+            <div class="generate-sublabel">via Framehouse</div>
+          </div>
         </div>
 
-        <div v-if="pokeproxySvgUrl && pokeproxyImageUrl" class="lightbox-image-col">
+        <!-- SVG proxy (if available) -->
+        <div v-if="svgUrl" class="lightbox-image-col">
           <div class="image-label">SVG Proxy</div>
           <img
-            :src="pokeproxySvgUrl"
+            :src="svgUrl"
             :alt="`${currentCard.name} (SVG)`"
             class="lightbox-img"
           />
@@ -169,14 +175,6 @@ const tags = computed(() =>
         <div class="lightbox-actions">
           <button class="lightbox-add" @click="emit('add', currentCard)">
             Add to Decklist
-          </button>
-          <button
-            v-if="!hasPokeproxy"
-            class="lightbox-generate"
-            :disabled="generating"
-            @click="generateClean"
-          >
-            {{ generating ? "Generating..." : "Generate Clean" }}
           </button>
         </div>
       </div>

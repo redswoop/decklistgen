@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { Card } from "../../shared/types/card.js";
-import { getCardImageUrl, type ImageMode } from "../composables/usePokeproxy.js";
+import {
+  getCardImageUrl,
+  hasCleanedImage,
+  hasStatusLoaded,
+  isGenerating,
+  generateCleanImage,
+  type ImageMode,
+} from "../composables/usePokeproxy.js";
 
 const props = defineProps<{ card: Card; imageMode: ImageMode }>();
 const emit = defineEmits<{
@@ -9,7 +16,19 @@ const emit = defineEmits<{
   preview: [card: Card];
 }>();
 
-const imgSrc = computed(() => getCardImageUrl(props.card, props.imageMode));
+const isOriginalMode = computed(() => props.imageMode === "original");
+const cleanUrl = computed(() => getCardImageUrl(props.card, props.imageMode));
+const statusLoaded = computed(() => hasStatusLoaded(props.card.id));
+const hasCleaned = computed(() => hasCleanedImage(props.card.id));
+const generating = computed(() => isGenerating(props.card.id));
+
+const showCleanedImage = computed(() => !isOriginalMode.value && cleanUrl.value);
+const showMissingPlaceholder = computed(() => !isOriginalMode.value && statusLoaded.value && !hasCleaned.value);
+
+function handleGenerateClick(e: Event) {
+  e.stopPropagation();
+  generateCleanImage(props.card.id);
+}
 </script>
 
 <template>
@@ -18,27 +37,34 @@ const imgSrc = computed(() => getCardImageUrl(props.card, props.imageMode));
     :title="`${card.name} (${card.rarity})`"
     @click="emit('preview', card)"
   >
+    <!-- Cleaned image available -->
     <img
-      v-if="imgSrc"
-      :src="imgSrc"
+      v-if="showCleanedImage"
+      :src="cleanUrl!"
       :alt="card.name"
       loading="lazy"
     />
-    <div
-      v-else
-      :style="{
-        aspectRatio: '5/7',
-        background: '#0f3460',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '11px',
-        padding: '8px',
-        textAlign: 'center',
-      }"
-    >
+    <!-- Original image (default or fallback) -->
+    <img
+      v-else-if="card.imageUrl && (isOriginalMode || !statusLoaded)"
+      :src="card.imageUrl"
+      :alt="card.name"
+      loading="lazy"
+    />
+    <!-- No image placeholder -->
+    <div v-else class="tile-placeholder">
       {{ card.name }}
     </div>
+
+    <!-- "Not cleaned" overlay when in cleaned mode but no cleaned version -->
+    <div v-if="showMissingPlaceholder" class="tile-missing-overlay" @click.stop="handleGenerateClick">
+      <div v-if="generating" class="tile-spinner"></div>
+      <template v-else>
+        <div class="tile-missing-icon">+</div>
+        <div class="tile-missing-text">Generate</div>
+      </template>
+    </div>
+
     <div class="card-name">{{ card.name }}</div>
     <button
       class="card-add-btn"

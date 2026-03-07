@@ -1,54 +1,49 @@
-import { ref, computed, watch, type Ref } from "vue";
-import { useQuery } from "@tanstack/vue-query";
+import { ref, reactive, computed, type Ref } from "vue";
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../lib/client.js";
 
 export type ImageMode = "original" | "clean" | "composite";
 
-// Global toggle state shared across components
+// Global state
 const imageMode: Ref<ImageMode> = ref("original");
+const generatingSet = reactive(new Set<string>());
 
-// Cache of which cards have pokeproxy assets
-const statusCache = new Map<string, { hasClean: boolean; hasComposite: boolean; hasSvg: boolean }>();
+// Status cache: cardId -> availability. Populated by batch queries.
+const statusCache = reactive(new Map<string, { hasClean: boolean; hasComposite: boolean; hasSvg: boolean }>());
 
 export function usePokeproxy() {
-  function setImageMode(mode: ImageMode) {
-    imageMode.value = mode;
-  }
-
-  return { imageMode, setImageMode };
+  return {
+    imageMode,
+    setImageMode(mode: ImageMode) { imageMode.value = mode; },
+  };
 }
 
-/** Batch-fetch pokeproxy status for a list of cards, populating the cache */
+/** Always batch-fetch pokeproxy status for visible cards */
 export function usePokeproxyBatch(cardIds: Ref<string[]>) {
-  const query = useQuery({
-    queryKey: computed(() => ["pokeproxy-batch", cardIds.value]),
+  return useQuery({
+    queryKey: computed(() => ["pokeproxy-batch", ...cardIds.value]),
     queryFn: async () => {
-      // Only fetch IDs we haven't cached yet
-      const uncached = cardIds.value.filter((id) => !statusCache.has(id));
-      if (uncached.length > 0) {
-        const results = await api.pokeproxyBatchStatus(uncached);
-        for (const [id, status] of Object.entries(results)) {
-          statusCache.set(id, status);
-        }
+      const ids = cardIds.value;
+      if (ids.length === 0) return {};
+      const results = await api.pokeproxyBatchStatus(ids);
+      for (const [id, s] of Object.entries(results)) {
+        statusCache.set(id, s);
       }
-      // Return full status map for current cards
-      const out: Record<string, { hasClean: boolean; hasComposite: boolean; hasSvg: boolean }> = {};
-      for (const id of cardIds.value) {
-        out[id] = statusCache.get(id) ?? { hasClean: false, hasComposite: false, hasSvg: false };
-      }
-      return out;
+      return results;
     },
-    enabled: computed(() => cardIds.value.length > 0 && imageMode.value !== "original"),
-    staleTime: 300_000,
+    enabled: computed(() => cardIds.value.length > 0),
+    staleTime: 60_000,
   });
-
-  return query;
 }
 
 export function usePokeproxyStatus(cardId: Ref<string | undefined>) {
   return useQuery({
     queryKey: computed(() => ["pokeproxy-status", cardId.value]),
-    queryFn: () => api.pokeproxyStatus(cardId.value!),
+    queryFn: async () => {
+      const result = await api.pokeproxyStatus(cardId.value!);
+      statusCache.set(cardId.value!, result);
+      return result;
+    },
     enabled: computed(() => !!cardId.value),
   });
 }
@@ -61,18 +56,50 @@ export function useVariants(cardId: Ref<string | undefined>) {
   });
 }
 
-export function getCardImageUrl(card: { id: string; imageUrl: string }, mode: ImageMode): string {
+/** Check if a card has a cleaned image available */
+export function hasCleanedImage(cardId: string): boolean {
+  const s = statusCache.get(cardId);
+  return !!(s?.hasClean || s?.hasComposite);
+}
+
+/** Check if status has been fetched for a card */
+export function hasStatusLoaded(cardId: string): boolean {
+  return statusCache.has(cardId);
+}
+
+/** Check if a card is currently being generated */
+export function isGenerating(cardId: string): boolean {
+  return generatingSet.has(cardId);
+}
+
+/** Get the image URL, respecting mode and availability */
+export function getCardImageUrl(card: { id: string; imageUrl: string }, mode: ImageMode): string | null {
   if (mode === "original") return card.imageUrl;
 
-  const status = statusCache.get(card.id);
-  if (!status) return card.imageUrl; // Not checked yet, use original
+  const s = statusCache.get(card.id);
+  if (!s) return null; // Status not loaded yet
 
-  if (mode === "composite" && status.hasComposite) {
-    return api.pokeproxyImageUrl(card.id, "composite");
-  }
-  if (mode === "clean" && status.hasClean) {
-    return api.pokeproxyImageUrl(card.id, "clean");
-  }
+  if (mode === "composite" && s.hasComposite) return api.pokeproxyImageUrl(card.id, "composite");
+  if (mode === "clean" && s.hasClean) return api.pokeproxyImageUrl(card.id, "clean");
+  // Fallback: try the other cleaned type
+  if (s.hasComposite) return api.pokeproxyImageUrl(card.id, "composite");
+  if (s.hasClean) return api.pokeproxyImageUrl(card.id, "clean");
 
-  return card.imageUrl; // Fallback to original if not available
+  return null; // Not available
+}
+
+/** Trigger generation and refresh status when done */
+export async function generateCleanImage(cardId: string) {
+  if (generatingSet.has(cardId)) return;
+  generatingSet.add(cardId);
+  try {
+    await api.pokeproxyGenerate(cardId);
+    // Refresh status
+    const newStatus = await api.pokeproxyStatus(cardId);
+    statusCache.set(cardId, newStatus);
+  } catch (e) {
+    console.error("Generate failed:", e);
+  } finally {
+    generatingSet.delete(cardId);
+  }
 }

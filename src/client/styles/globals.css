@@ -241,6 +241,67 @@ body {
   transform: scale(1.1);
 }
 
+/* Tile placeholder (no image) */
+.tile-placeholder {
+  aspect-ratio: 5/7;
+  background: #0f3460;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  padding: 8px;
+  text-align: center;
+}
+
+/* "Not cleaned" overlay on tiles */
+.tile-missing-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tile-missing-overlay:hover {
+  background: rgba(233, 69, 96, 0.5);
+}
+
+.tile-missing-icon {
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(255,255,255,0.6);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.8);
+}
+
+.tile-missing-text {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Tile spinner */
+.tile-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255,255,255,0.2);
+  border-top-color: #e94560;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
 /* Decklist Panel */
 .decklist-panel {
   background: #16213e;
@@ -563,9 +624,71 @@ body {
   background: #0f3460;
   border-radius: 8px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   font-size: 14px;
+}
+
+.lightbox-clickable {
+  cursor: pointer;
+  border: 2px dashed #7f8fa6;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.lightbox-clickable:hover {
+  border-color: #e94560;
+  background: #0f3460cc;
+}
+
+.generate-icon {
+  width: 48px;
+  height: 48px;
+  border: 3px solid #7f8fa6;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: #7f8fa6;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.lightbox-clickable:hover .generate-icon {
+  color: #e94560;
+  border-color: #e94560;
+}
+
+.generate-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.generate-sublabel {
+  font-size: 11px;
+  color: #7f8fa6;
+}
+
+.lightbox-generating {
+  border: 2px solid #e94560;
+}
+
+.generate-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255,255,255,0.15);
+  border-top-color: #e94560;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.generate-text {
+  font-size: 12px;
+  color: #e94560;
+  font-weight: 600;
 }
 
 .lightbox-details {
@@ -751,4 +874,9 @@ body {
 
 .splitpanes__splitter:hover {
   background: #1a4a8a !important;
+}
+
+/* Spinner animation */
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
