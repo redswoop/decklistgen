@@ -107,11 +107,11 @@ export function getCardImageUrl(card: { id: string; imageUrl: string }, mode: Im
 let _queryClient: ReturnType<typeof useQueryClient> | null = null;
 
 /** Trigger generation and refresh status when done */
-export async function generateCleanImage(cardId: string) {
+export async function generateCleanImage(cardId: string, force = false) {
   if (generatingSet.has(cardId)) return;
   generatingSet.add(cardId);
   try {
-    await api.pokeproxyGenerate(cardId);
+    await api.pokeproxyGenerate(cardId, force);
     // Refresh status in both statusCache and TanStack Query
     const newStatus = await api.pokeproxyStatus(cardId);
     statusCache.set(cardId, newStatus);
@@ -122,6 +122,10 @@ export async function generateCleanImage(cardId: string) {
   } finally {
     generatingSet.delete(cardId);
   }
+}
+
+export async function regenerateSvg(cardId: string) {
+  await api.pokeproxyRegenerateSvg(cardId);
 }
 
 /** Must be called from a component setup to capture the query client */

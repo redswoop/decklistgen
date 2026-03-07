@@ -203,11 +203,28 @@ app.get("/svg/:cardId", async (c) => {
   }
 });
 
-/** Generate cleaned image via ComfyUI (direct, no framehouse) */
+/** Force-regenerate an SVG proxy card */
+app.post("/svg/:cardId/regenerate", async (c) => {
+  const cardId = c.req.param("cardId");
+  const svgPath = cachePath(cardId, ".svg");
+  if (existsSync(svgPath)) {
+    await unlink(svgPath);
+  }
+  try {
+    const svg = await generateSvg(cardId);
+    await mkdir(CACHE_DIR, { recursive: true });
+    await writeFile(svgPath, svg);
+    return c.json({ cardId, status: "regenerated" });
+  } catch (e: any) {
+    return c.json({ cardId, status: "failed", error: e.message }, 500);
+  }
+});
+
 app.post("/generate/:cardId", async (c) => {
   const cardId = c.req.param("cardId");
+  const force = c.req.query("force") === "true";
 
-  if (hasFile(cardId, "_composite.png")) {
+  if (!force && hasFile(cardId, "_composite.png")) {
     return c.json({ cardId, status: "already_exists" });
   }
 
