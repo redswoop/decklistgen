@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { existsSync } from "node:fs";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { getCard } from "../services/card-store.js";
@@ -45,13 +45,17 @@ async function generateSvg(cardId: string): Promise<string> {
   const card = getCard(cardId);
   if (!card) throw new Error(`Card not found: ${cardId}`);
 
+  // Check file availability once
+  const status = getStatus(cardId);
+  const hasSource = hasFile(cardId, ".png");
+
   // Get the best available image for this card
   let imagePath: string;
-  if (hasFile(cardId, "_composite.png")) {
+  if (status.hasComposite) {
     imagePath = cachePath(cardId, "_composite.png");
-  } else if (hasFile(cardId, "_clean.png")) {
+  } else if (status.hasClean) {
     imagePath = cachePath(cardId, "_clean.png");
-  } else if (hasFile(cardId, ".png")) {
+  } else if (hasSource) {
     imagePath = cachePath(cardId, ".png");
   } else {
     // Download it
@@ -87,8 +91,7 @@ async function generateSvg(cardId: string): Promise<string> {
   }
 
   const isFullart = card.isFullArt;
-  const useCleanedBg = isFullart && (hasFile(cardId, "_composite.png") || hasFile(cardId, "_clean.png"));
-  const renderHeader = isFullart && hasFile(cardId, "_clean.png") && !hasFile(cardId, "_composite.png");
+  const renderHeader = isFullart && status.hasClean && !status.hasComposite;
 
   const input = JSON.stringify({
     card: cardData,
@@ -222,13 +225,18 @@ app.post("/generate/:cardId", async (c) => {
   try {
     const cleanBase64 = await cleanCardImage(srcBase64);
 
-    // Save clean image
+    // Save clean image (composite = clean until proper compositing is added)
+    const cleanBuffer = Buffer.from(cleanBase64, "base64");
     await mkdir(CACHE_DIR, { recursive: true });
-    await writeFile(cachePath(cardId, "_clean.png"), Buffer.from(cleanBase64, "base64"));
-
-    // For now, composite = clean (proper top-20% compositing requires image lib)
-    // TODO: Add sharp or canvas for proper compositing
-    await writeFile(cachePath(cardId, "_composite.png"), Buffer.from(cleanBase64, "base64"));
+    const writes: Promise<void>[] = [
+      writeFile(cachePath(cardId, "_clean.png"), cleanBuffer),
+      writeFile(cachePath(cardId, "_composite.png"), cleanBuffer),
+    ];
+    // Invalidate stale SVG so it regenerates with the cleaned image
+    if (hasFile(cardId, ".svg")) {
+      writes.push(unlink(cachePath(cardId, ".svg")));
+    }
+    await Promise.all(writes);
 
     return c.json({ cardId, status: "generated" });
   } catch (e: any) {

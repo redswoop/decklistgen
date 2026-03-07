@@ -6,8 +6,11 @@ import {
   usePokeproxyStatus,
   isGenerating,
   generateCleanImage,
+  useGenerationQueryClient,
 } from "../composables/usePokeproxy.js";
 import { api } from "../lib/client.js";
+
+useGenerationQueryClient();
 
 const props = defineProps<{ card: Card }>();
 const emit = defineEmits<{
@@ -58,12 +61,26 @@ const cleanedImageUrl = computed(() => {
   return null;
 });
 
-const svgUrl = computed(() => {
-  if (!ppStatus.value?.hasSvg) return null;
-  return api.pokeproxySvgUrl(currentCard.value.id);
-});
+const svgCacheBust = ref(0);
+const svgUrl = computed(() => `${api.pokeproxySvgUrl(currentCard.value.id)}?v=${svgCacheBust.value}`);
+
+const svgLoading = ref(true);
+const svgError = ref(false);
+function onSvgLoad() { svgLoading.value = false; svgError.value = false; }
+function onSvgError() { svgLoading.value = false; svgError.value = true; }
+
+watch(currentCardId, () => { svgLoading.value = true; svgError.value = false; });
 
 const generating = computed(() => isGenerating(currentCard.value.id));
+
+// When generation finishes (generating goes false→true→false), refresh SVG
+watch(generating, (now, was) => {
+  if (was && !now) {
+    svgLoading.value = true;
+    svgError.value = false;
+    svgCacheBust.value++;
+  }
+});
 
 function handleGenerate() {
   generateCleanImage(currentCard.value.id);
@@ -112,8 +129,8 @@ const tags = computed(() =>
           <div v-else class="lightbox-placeholder">{{ currentCard.name }}</div>
         </div>
 
-        <!-- Cleaned / Placeholder -->
-        <div class="lightbox-image-col">
+        <!-- Cleaned / Placeholder (full-art only) -->
+        <div v-if="currentCard.isFullArt" class="lightbox-image-col">
           <div class="image-label">Cleaned</div>
           <!-- Has cleaned image -->
           <img
@@ -125,23 +142,33 @@ const tags = computed(() =>
           <!-- Generating spinner -->
           <div v-else-if="generating" class="lightbox-placeholder lightbox-generating" @click="handleGenerate">
             <div class="generate-spinner"></div>
-            <div class="generate-text">Generating via Framehouse...</div>
+            <div class="generate-text">Generating via ComfyUI...</div>
           </div>
           <!-- Click to generate -->
           <div v-else class="lightbox-placeholder lightbox-clickable" @click="handleGenerate">
             <div class="generate-icon">+</div>
             <div class="generate-label">Click to Generate</div>
-            <div class="generate-sublabel">via Framehouse</div>
+            <div class="generate-sublabel">via ComfyUI</div>
           </div>
         </div>
 
-        <!-- SVG proxy (if available) -->
-        <div v-if="svgUrl" class="lightbox-image-col">
+        <!-- SVG proxy (always shown, renders on-the-fly) -->
+        <div class="lightbox-image-col">
           <div class="image-label">SVG Proxy</div>
+          <div v-if="svgLoading && !svgError" class="lightbox-placeholder">
+            <div class="generate-spinner"></div>
+            <div class="generate-text">Rendering SVG...</div>
+          </div>
+          <div v-if="svgError" class="lightbox-placeholder">
+            <div class="generate-label">SVG Failed</div>
+          </div>
           <img
+            v-show="!svgLoading && !svgError"
             :src="svgUrl"
             :alt="`${currentCard.name} (SVG)`"
             class="lightbox-img"
+            @load="onSvgLoad"
+            @error="onSvgError"
           />
         </div>
       </div>

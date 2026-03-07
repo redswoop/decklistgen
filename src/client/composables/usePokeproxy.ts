@@ -103,18 +103,28 @@ export function getCardImageUrl(card: { id: string; imageUrl: string }, mode: Im
   return null; // Not available
 }
 
+/** Shared query client reference, set lazily on first use */
+let _queryClient: ReturnType<typeof useQueryClient> | null = null;
+
 /** Trigger generation and refresh status when done */
 export async function generateCleanImage(cardId: string) {
   if (generatingSet.has(cardId)) return;
   generatingSet.add(cardId);
   try {
     await api.pokeproxyGenerate(cardId);
-    // Refresh status
+    // Refresh status in both statusCache and TanStack Query
     const newStatus = await api.pokeproxyStatus(cardId);
     statusCache.set(cardId, newStatus);
+    _queryClient?.invalidateQueries({ queryKey: ["pokeproxy-status", cardId] });
+    _queryClient?.invalidateQueries({ queryKey: ["pokeproxy-batch"] });
   } catch (e) {
     console.error("Generate failed:", e);
   } finally {
     generatingSet.delete(cardId);
   }
+}
+
+/** Must be called from a component setup to capture the query client */
+export function useGenerationQueryClient() {
+  _queryClient = useQueryClient();
 }
