@@ -223,6 +223,9 @@ app.post("/svg/:cardId/regenerate", async (c) => {
 app.post("/generate/:cardId", async (c) => {
   const cardId = c.req.param("cardId");
   const force = c.req.query("force") === "true";
+  const seedParam = c.req.query("seed");
+  // Use provided seed, or random on force, or default 42
+  const seed = seedParam ? parseInt(seedParam, 10) : force ? Math.floor(Math.random() * 999999) : 42;
 
   if (!force && hasFile(cardId, "_composite.png")) {
     return c.json({ cardId, status: "already_exists" });
@@ -240,7 +243,7 @@ app.post("/generate/:cardId", async (c) => {
   const srcBase64 = srcData.toString("base64");
 
   try {
-    const cleanBase64 = await cleanCardImage(srcBase64);
+    const cleanBase64 = await cleanCardImage(srcBase64, seed);
 
     // Save clean image (composite = clean until proper compositing is added)
     const cleanBuffer = Buffer.from(cleanBase64, "base64");
@@ -255,7 +258,7 @@ app.post("/generate/:cardId", async (c) => {
     }
     await Promise.all(writes);
 
-    return c.json({ cardId, status: "generated" });
+    return c.json({ cardId, status: "generated", seed });
   } catch (e: any) {
     return c.json({ cardId, status: "failed", error: e.message }, 500);
   }

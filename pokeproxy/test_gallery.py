@@ -585,13 +585,14 @@ def build_html(results, cleaned=False):
         if (!currentCardId) return;
         const cardId = currentCardId;
         setButtons(false);
-        setStatus(force ? 'Force re-cleaning via ComfyUI...' : 'Cleaning via ComfyUI...');
+        setStatus(force ? 'Force re-cleaning (random seed) via ComfyUI...' : 'Cleaning via ComfyUI...');
         try {{
             const url = SERVER + '/api/pokeproxy/generate/' + cardId + (force ? '?force=true' : '');
             const resp = await fetch(url, {{ method: 'POST' }});
             const data = await resp.json();
             if (data.status === 'generated' || data.status === 'already_exists') {{
-                setStatus('Clean done (' + data.status + '). Regenerating SVG...');
+                const seedInfo = data.seed != null ? ' (seed ' + data.seed + ')' : '';
+                setStatus('Clean done' + seedInfo + '. Regenerating SVG...');
                 await doRegenInner(cardId);
             }} else {{
                 setStatus('Clean failed: ' + (data.error || data.status));

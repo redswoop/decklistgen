@@ -11,9 +11,11 @@ const COMFYUI_URL = process.env.COMFYUI_URL ?? "http://stormer.local:8188";
 const FLUX_W = 736;
 const FLUX_H = 1024;
 const DEFAULT_CLEAN_PROMPT =
-  "continue the artwork illustration, extend the scene naturally, " +
-  "no text, no writing, no letters, no numbers, no symbols, " +
-  "clean artwork only, high quality illustration";
+  "Pokemon trading card artwork without any text, titles, numbers, HP, " +
+  "attack names, energy symbols, or card UI elements. " +
+  "Paint over all text areas with the surrounding illustration style. " +
+  "Seamless full-bleed artwork, high quality, detailed illustration, " +
+  "no words, no letters, no writing, no symbols, clean art only";
 
 interface WorkflowNode {
   inputs: Record<string, unknown>;
