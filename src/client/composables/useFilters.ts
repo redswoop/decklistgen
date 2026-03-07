@@ -72,6 +72,11 @@ function readUrl() {
 // Read URL on module init
 readUrl();
 
+// Reset page to 1 when any filter changes
+watch(() => ({ ...filters }), () => {
+  page.value = 1;
+}, { deep: true });
+
 // Write URL on any state change
 let writeTimer: ReturnType<typeof setTimeout>;
 watch([() => ({ ...filters }), page], () => {
