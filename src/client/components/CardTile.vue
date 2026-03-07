@@ -10,14 +10,6 @@ const emit = defineEmits<{
 }>();
 
 const imgSrc = computed(() => getCardImageUrl(props.card, props.imageMode));
-
-function onImgError(e: Event) {
-  // Fall back to original image if pokeproxy image not available
-  const img = e.target as HTMLImageElement;
-  if (props.imageMode !== "original" && img.src !== props.card.imageUrl) {
-    img.src = props.card.imageUrl;
-  }
-}
 </script>
 
 <template>
@@ -31,7 +23,6 @@ function onImgError(e: Event) {
       :src="imgSrc"
       :alt="card.name"
       loading="lazy"
-      @error="onImgError"
     />
     <div
       v-else

@@ -3,7 +3,7 @@ import { ref, computed } from "vue";
 import { useFilters } from "../composables/useFilters.js";
 import { useCards } from "../composables/useCards.js";
 import { useDecklist } from "../composables/useDecklist.js";
-import { usePokeproxy, type ImageMode } from "../composables/usePokeproxy.js";
+import { usePokeproxy, usePokeproxyBatch, type ImageMode } from "../composables/usePokeproxy.js";
 import CardTile from "./CardTile.vue";
 import type { Card } from "../../shared/types/card.js";
 
@@ -15,6 +15,10 @@ const { imageMode, setImageMode } = usePokeproxy();
 const page = ref(1);
 const gridSearch = ref("");
 const { data, isLoading } = useCards(filters, page);
+
+// Pre-fetch pokeproxy status for visible cards (only when not in original mode)
+const visibleCardIds = computed(() => data.value?.cards?.map((c) => c.id) ?? []);
+usePokeproxyBatch(visibleCardIds);
 
 const filteredCards = computed(() => {
   if (!data.value?.cards || !gridSearch.value.trim()) return data.value?.cards ?? [];
