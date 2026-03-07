@@ -3,7 +3,7 @@ import { ref, computed } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { useFilters } from "../composables/useFilters.js";
 import { useSets, useFilterOptions } from "../composables/useCards.js";
-import { api } from "../api/client.js";
+import { api } from "../lib/client.js";
 import type { SpecialAttribute } from "../../shared/types/filters.js";
 
 const emit = defineEmits<{ collapse: [] }>();

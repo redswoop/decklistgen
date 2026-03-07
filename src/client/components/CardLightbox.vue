@@ -2,7 +2,7 @@
 import { ref, computed, watch } from "vue";
 import type { Card } from "../../shared/types/card.js";
 import { useVariants, usePokeproxyStatus } from "../composables/usePokeproxy.js";
-import { api } from "../api/client.js";
+import { api } from "../lib/client.js";
 
 const props = defineProps<{ card: Card }>();
 const emit = defineEmits<{

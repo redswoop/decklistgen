@@ -1,6 +1,6 @@
 import { ref, watch, computed, type Ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { api } from "../api/client.js";
+import { api } from "../lib/client.js";
 import type { CardFilters } from "../../shared/types/filters.js";
 
 function useDebouncedRef(source: () => string | undefined, delay: number) {

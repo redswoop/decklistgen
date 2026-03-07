@@ -1,6 +1,6 @@
 import { ref, type Ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { api } from "../api/client.js";
+import { api } from "../lib/client.js";
 
 export type ImageMode = "original" | "clean" | "composite";
 
