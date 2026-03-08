@@ -78,10 +78,25 @@ function formatSetLabel(code: string) {
   return `${info.name} (${info.tcgdexId})`;
 }
 
-function handleEraChange(e: Event) {
+async function handleEraChange(e: Event) {
   const val = (e.target as HTMLSelectElement).value;
   sidebarEra.value = val;
-  setEra((val as "sv" | "swsh") || undefined);
+  const era = (val as "sv" | "swsh") || undefined;
+  if (era) {
+    loadingEra.value = true;
+    try {
+      await api.loadEra(era);
+      queryClient.invalidateQueries({ queryKey: ["sets"] });
+      queryClient.invalidateQueries({ queryKey: ["filterOptions"] });
+      queryClient.invalidateQueries({ queryKey: ["cards"] });
+      setEra(era);
+      setSets([]);
+    } finally {
+      loadingEra.value = false;
+    }
+  } else {
+    setEra(undefined);
+  }
 }
 
 async function handleLoadSet(code: string) {
@@ -107,22 +122,6 @@ function handleSetSelectChange(e: Event) {
 
 function handleRemoveSet(code: string) {
   setSets((filters.sets ?? []).filter((s) => s !== code));
-}
-
-async function handleLoadEra() {
-  const era = sidebarEra.value;
-  if (era !== "sv" && era !== "swsh") return;
-  loadingEra.value = true;
-  try {
-    await api.loadEra(era);
-    queryClient.invalidateQueries({ queryKey: ["sets"] });
-    queryClient.invalidateQueries({ queryKey: ["filterOptions"] });
-    queryClient.invalidateQueries({ queryKey: ["cards"] });
-    setEra(era);
-    setSets([]);
-  } finally {
-    loadingEra.value = false;
-  }
 }
 
 function handleNameInput(e: Event) {
@@ -168,20 +167,11 @@ function handleFoilChange(e: Event) {
 <template>
   <div class="sidebar">
     <h2>Era</h2>
-    <select :value="sidebarEra" @change="handleEraChange">
+    <select :value="sidebarEra" :disabled="loadingEra" @change="handleEraChange">
       <option value="">All Eras</option>
-      <option value="sv">Scarlet &amp; Violet</option>
-      <option value="swsh">Sword &amp; Shield</option>
+      <option value="sv">{{ loadingEra && sidebarEra === "sv" ? "Loading SV..." : "Scarlet &amp; Violet" }}</option>
+      <option value="swsh">{{ loadingEra && sidebarEra === "swsh" ? "Loading SWSH..." : "Sword &amp; Shield" }}</option>
     </select>
-    <button
-      v-if="sidebarEra"
-      :disabled="loadingEra"
-      @click="handleLoadEra"
-    >
-      {{ loadingEra
-        ? `Loading ${sidebarEra === "sv" ? "SV" : "SWSH"} era...`
-        : `Load all ${sidebarEra === "sv" ? "SV" : "SWSH"} sets` }}
-    </button>
 
     <h2>Sets</h2>
     <select value="" :disabled="!!loading" @change="handleSetSelectChange">

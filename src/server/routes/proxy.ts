@@ -81,18 +81,20 @@ async function ensureSourceImage(cardId: string): Promise<boolean> {
 
 /** Render SVG using the template engine. */
 async function generateSvgFromTemplate(cardId: string): Promise<string> {
-  // Get best available image
-  let imagePath: string | null = null;
+  // Get best available image (optional — SVG can render without artwork)
+  let imageB64 = "";
   for (const suffix of ["_composite.png", "_clean.png", ".png"]) {
     const p = cachePath(cardId, suffix);
-    if (existsSync(p)) { imagePath = p; break; }
+    if (existsSync(p)) {
+      imageB64 = (await readFile(p)).toString("base64");
+      break;
+    }
   }
-  if (!imagePath) {
-    if (!(await ensureSourceImage(cardId))) throw new Error(`No image available for ${cardId}`);
-    imagePath = cachePath(cardId, ".png");
+  if (!imageB64) {
+    if (await ensureSourceImage(cardId)) {
+      imageB64 = (await readFile(cachePath(cardId, ".png"))).toString("base64");
+    }
   }
-
-  const imageB64 = (await readFile(imagePath)).toString("base64");
 
   // Load card data
   await ensureCardLoaded(cardId);

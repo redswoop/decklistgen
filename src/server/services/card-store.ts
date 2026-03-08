@@ -53,6 +53,7 @@ export async function loadSet(setCode: string): Promise<number> {
   const rawCards = await fetchSetCards(tcgdexId);
   let count = 0;
   for (const raw of rawCards) {
+    if (raw.stage === "V-UNION") continue;
     const card = normalizeCard(raw, code);
     if (!cardIndex.has(card.id)) {
       cardIndex.set(card.id, card);
