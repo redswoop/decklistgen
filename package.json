@@ -9,7 +9,8 @@
     "dev:client": "vite src/client",
     "build": "vite build && bun build src/server/index.ts --outdir dist/server --target bun",
     "start": "bun dist/server/index.js",
-    "cli": "bun cli/index.ts"
+    "cli": "bun cli/index.ts",
+    "test": "bun test"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
