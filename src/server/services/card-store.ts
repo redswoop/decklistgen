@@ -19,7 +19,7 @@ function normalizeCard(raw: TcgdexCard, setCode: string): Card {
     id: raw.id,
     localId: raw.localId,
     name: raw.name,
-    imageUrl: raw.image ? `${raw.image}/high.png` : "",
+    imageBase: raw.image ?? "",
     category,
     trainerType: raw.trainerType as Card["trainerType"],
     rarity: raw.rarity ?? "Unknown",

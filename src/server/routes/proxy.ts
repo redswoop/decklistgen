@@ -6,6 +6,7 @@ import { getCard, loadSet, isSetLoaded } from "../services/card-store.js";
 import { cleanCardImage } from "../services/comfyui.js";
 import { getPromptForCard, saveCardPrompt } from "../services/prompt-db.js";
 import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
+import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import { isFullArt } from "../../shared/utils/detect-fullart.js";
 import type { TcgdexCard } from "../../shared/types/card.js";
 import { resetIconIds, renderFromTemplate } from "../services/pokeproxy/templates/index.js";
@@ -70,9 +71,10 @@ async function ensureSourceImage(cardId: string): Promise<boolean> {
 
   await ensureCardLoaded(cardId);
   const card = getCard(cardId);
-  if (!card?.imageUrl) return false;
+  if (!card?.imageBase) return false;
 
-  const resp = await fetch(card.imageUrl, { headers: { "User-Agent": "DecklistGen/1.0" } });
+  const imageUrl = cardImageUrl(card.imageBase, "high");
+  const resp = await fetch(imageUrl, { headers: { "User-Agent": "DecklistGen/1.0" } });
   if (!resp.ok) return false;
 
   await mkdir(CACHE_DIR, { recursive: true });

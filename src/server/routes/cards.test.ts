@@ -81,6 +81,6 @@ describe("GET /cards/:id/detail", () => {
     expect(detail.setCode).toBeDefined();
     expect(detail.category).toBe("Pokemon");
     expect(detail.hp).toBe(130);
-    expect(detail.imageUrl).toBeDefined();
+    expect(detail.imageBase).toBeDefined();
   });
 });

@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { api } from "../lib/client.js";
 import { useDecklist, type DecklistItem } from "../composables/useDecklist.js";
 import type { LimitlessPlayer, ImportResult } from "../../shared/types/decklist.js";
+import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 
 const emit = defineEmits<{ close: [] }>();
 
@@ -47,7 +48,7 @@ async function fetchPlayers() {
         localId: r.card.localId,
         count: r.count,
         name: r.card.name,
-        imageUrl: r.card.imageUrl,
+        imageUrl: cardImageUrl(r.card.imageBase, "low"),
         card: r.card,
       }));
 
@@ -107,7 +108,7 @@ async function doImport() {
       localId: r.card.localId,
       count: r.count,
       name: r.card.name,
-      imageUrl: r.card.imageUrl,
+      imageUrl: cardImageUrl(r.card.imageBase, "low"),
       card: r.card,
     }));
 

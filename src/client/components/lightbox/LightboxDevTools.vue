@@ -2,6 +2,7 @@
 import { ref, watch } from "vue";
 import type { Card } from "../../../shared/types/card.js";
 import { api } from "../../lib/client.js";
+import { cardImageUrl } from "../../../shared/utils/card-image-url.js";
 
 const props = defineProps<{
   currentCard: Card;
@@ -101,8 +102,8 @@ function cancelEdit() {
         <div class="dev-img-col">
           <div class="dev-label">Original</div>
           <img
-            v-if="currentCard.imageUrl"
-            :src="currentCard.imageUrl"
+            v-if="currentCard.imageBase"
+            :src="cardImageUrl(currentCard.imageBase, 'high')"
             :alt="currentCard.name"
             class="dev-img"
           />

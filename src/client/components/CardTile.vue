@@ -7,6 +7,7 @@ import {
   hasStatusLoaded,
   type ImageMode,
 } from "../composables/usePokeproxy.js";
+import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import { useDecklist } from "../composables/useDecklist.js";
 
 const props = defineProps<{ card: Card; imageMode: ImageMode }>();
@@ -15,7 +16,7 @@ const emit = defineEmits<{
   preview: [card: Card];
 }>();
 
-const imageUrl = computed(() => getCardImageUrl(props.card, props.imageMode));
+const imageUrl = computed(() => getCardImageUrl(props.card, props.imageMode, "low"));
 const statusLoaded = computed(() => hasStatusLoaded(props.card.id));
 const showCleanBadge = computed(() => props.imageMode === "proxy" && hasCleanedImage(props.card.id));
 
@@ -38,8 +39,8 @@ const tileDeckCount = computed(() => getDeckCount(props.card.setCode, props.card
     />
     <!-- Fallback while status loading in proxy mode -->
     <img
-      v-else-if="card.imageUrl"
-      :src="card.imageUrl"
+      v-else-if="card.imageBase"
+      :src="cardImageUrl(card.imageBase, 'low')"
       :alt="card.name"
       loading="lazy"
     />

@@ -7,7 +7,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     id: "test-001",
     localId: "001",
     name: "Test Card",
-    imageUrl: "",
+    imageBase: "",
     category: "Pokemon",
     rarity: "Common",
     energyTypes: ["Fire"],

@@ -1,6 +1,7 @@
 import { ref, computed, watch } from "vue";
 import type { Card } from "../../shared/types/card.js";
 import type { DecklistEntry } from "../../shared/types/decklist.js";
+import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 
 export interface DecklistItem extends DecklistEntry {
   imageUrl: string;
@@ -19,7 +20,21 @@ const DECK_SIZE = 60;
 function loadItems(): DecklistItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const items: DecklistItem[] = JSON.parse(raw);
+      // Migrate old imageUrl -> imageBase
+      for (const item of items) {
+        if ((item.card as any).imageUrl && !item.card.imageBase) {
+          item.card.imageBase = (item.card as any).imageUrl.replace(/\/(high|low)\.png$/, "");
+          delete (item.card as any).imageUrl;
+        }
+        // Also migrate the DecklistItem imageUrl to low-res
+        if (item.imageUrl && item.card.imageBase) {
+          item.imageUrl = cardImageUrl(item.card.imageBase, "low");
+        }
+      }
+      return items;
+    }
   } catch {}
   return [];
 }
@@ -43,7 +58,7 @@ export function useDecklist() {
         localId: card.localId,
         count: 1,
         name: card.name,
-        imageUrl: card.imageUrl,
+        imageUrl: cardImageUrl(card.imageBase, "low"),
         card,
       });
     }

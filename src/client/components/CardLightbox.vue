@@ -12,6 +12,7 @@ import {
 import { useCardDetail } from "../composables/useCardDetail.js";
 import { api } from "../lib/client.js";
 import { useDecklist } from "../composables/useDecklist.js";
+import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import CardZoom from "./lightbox/CardZoom.vue";
 import LightboxDevTools from "./lightbox/LightboxDevTools.vue";
 import LightboxProxySettings from "./lightbox/LightboxProxySettings.vue";
@@ -107,8 +108,8 @@ const cleanedImageUrl = computed(() => {
   return null;
 });
 
-// Background art: cleaned image if available, else original
-const bgImageUrl = computed(() => cleanedImageUrl.value ?? currentCard.value.imageUrl ?? null);
+// Background art: cleaned image if available, else original (low-res, decorative blur)
+const bgImageUrl = computed(() => cleanedImageUrl.value ?? (cardImageUrl(currentCard.value.imageBase, "low") || null));
 
 // Proxy settings for current card
 const currentProxySettings = computed(() =>
@@ -178,9 +179,9 @@ function onProxySettingsChange() {
 // Zoom
 const showZoom = ref(false);
 const zoomImageUrl = computed(() => {
-  // Show SVG proxy if loaded, else original
+  // Show SVG proxy if loaded, else original (high-res for full detail)
   if (!svgLoading.value && !svgError.value) return svgUrl.value;
-  return currentCard.value.imageUrl;
+  return cardImageUrl(currentCard.value.imageBase, "high");
 });
 
 // Keyboard: Escape/arrows
@@ -252,8 +253,8 @@ function energyColor(type: string): string {
           <div class="lb-card-image" @click="showZoom = true">
             <!-- Original art as stable base layer (no layout shift) -->
             <img
-              v-if="currentCard.imageUrl"
-              :src="currentCard.imageUrl"
+              v-if="currentCard.imageBase"
+              :src="cardImageUrl(currentCard.imageBase, 'high')"
               :alt="currentCard.name"
               class="lb-img"
             />
@@ -282,7 +283,7 @@ function energyColor(type: string): string {
               :class="['lb-variant', { active: i === variantIndex }]"
               @click="variantIndex = i"
             >
-              <img v-if="v.imageUrl" :src="v.imageUrl" class="lb-variant-img" />
+              <img v-if="v.imageBase" :src="cardImageUrl(v.imageBase, 'low')" class="lb-variant-img" />
               <div v-else class="lb-variant-placeholder">?</div>
               <span v-if="getDeckCount(v.setCode, v.localId)" class="lb-variant-badge">
                 {{ getDeckCount(v.setCode, v.localId) }}

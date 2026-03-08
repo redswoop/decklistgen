@@ -1,6 +1,7 @@
 import { ref, reactive, computed, type Ref } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../lib/client.js";
+import { cardImageUrl, type CardImageResolution } from "../../shared/utils/card-image-url.js";
 
 export type ImageMode = "original" | "proxy";
 
@@ -88,8 +89,12 @@ export function isGenerating(cardId: string): boolean {
 }
 
 /** Get the image URL, respecting mode and availability */
-export function getCardImageUrl(card: { id: string; imageUrl: string }, mode: ImageMode): string | null {
-  if (mode === "original") return card.imageUrl;
+export function getCardImageUrl(
+  card: { id: string; imageBase: string },
+  mode: ImageMode,
+  resolution: CardImageResolution = "high",
+): string | null {
+  if (mode === "original") return cardImageUrl(card.imageBase, resolution);
 
   const s = statusCache.get(card.id);
   if (!s) return null; // Status not loaded yet
@@ -98,7 +103,7 @@ export function getCardImageUrl(card: { id: string; imageUrl: string }, mode: Im
   if (s.hasComposite) return api.pokeproxyImageUrl(card.id, "composite");
   if (s.hasClean) return api.pokeproxyImageUrl(card.id, "clean");
 
-  return card.imageUrl; // Fall back to original art
+  return cardImageUrl(card.imageBase, resolution); // Fall back to original art
 }
 
 /** Shared query client reference, set lazily on first use */

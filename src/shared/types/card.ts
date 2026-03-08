@@ -3,7 +3,7 @@ export interface Card {
   id: string;              // "sv06.5-036"
   localId: string;         // "036"
   name: string;            // "Okidogi ex"
-  imageUrl: string;
+  imageBase: string;
   category: "Pokemon" | "Trainer" | "Energy";
   trainerType?: "Item" | "Supporter" | "Stadium" | "Tool";
   rarity: string;
