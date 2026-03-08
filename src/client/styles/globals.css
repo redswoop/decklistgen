@@ -251,6 +251,24 @@ body {
   transform: scale(1.1);
 }
 
+.tile-clean-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(46, 160, 67, 0.9);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  pointer-events: none;
+}
+
 .tile-deck-badge {
   position: absolute;
   top: 6px;
@@ -279,55 +297,6 @@ body {
   font-size: 11px;
   padding: 8px;
   text-align: center;
-}
-
-/* "Not cleaned" overlay on tiles */
-.tile-missing-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.tile-missing-overlay:hover {
-  background: rgba(233, 69, 96, 0.5);
-}
-
-.tile-missing-icon {
-  width: 32px;
-  height: 32px;
-  border: 2px solid rgba(255,255,255,0.6);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  font-weight: 700;
-  color: rgba(255,255,255,0.8);
-}
-
-.tile-missing-text {
-  font-size: 10px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.7);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-/* Tile spinner */
-.tile-spinner {
-  width: 28px;
-  height: 28px;
-  border: 3px solid rgba(255,255,255,0.2);
-  border-top-color: #e94560;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
 }
 
 /* Decklist Panel */

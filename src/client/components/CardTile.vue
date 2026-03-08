@@ -5,8 +5,6 @@ import {
   getCardImageUrl,
   hasCleanedImage,
   hasStatusLoaded,
-  isGenerating,
-  generateCleanImage,
   type ImageMode,
 } from "../composables/usePokeproxy.js";
 import { useDecklist } from "../composables/useDecklist.js";
@@ -17,22 +15,12 @@ const emit = defineEmits<{
   preview: [card: Card];
 }>();
 
-const isOriginalMode = computed(() => props.imageMode === "original");
-const cleanUrl = computed(() => getCardImageUrl(props.card, props.imageMode));
+const imageUrl = computed(() => getCardImageUrl(props.card, props.imageMode));
 const statusLoaded = computed(() => hasStatusLoaded(props.card.id));
-const hasCleaned = computed(() => hasCleanedImage(props.card.id));
-const generating = computed(() => isGenerating(props.card.id));
-
-const showCleanedImage = computed(() => !isOriginalMode.value && cleanUrl.value);
-const showMissingPlaceholder = computed(() => !isOriginalMode.value && statusLoaded.value && !hasCleaned.value);
+const showCleanBadge = computed(() => props.imageMode === "proxy" && hasCleanedImage(props.card.id));
 
 const { getDeckCount } = useDecklist();
 const tileDeckCount = computed(() => getDeckCount(props.card.setCode, props.card.localId));
-
-function handleGenerateClick(e: Event) {
-  e.stopPropagation();
-  generateCleanImage(props.card.id);
-}
 </script>
 
 <template>
@@ -41,16 +29,16 @@ function handleGenerateClick(e: Event) {
     :title="`${card.name} (${card.rarity})`"
     @click="emit('preview', card)"
   >
-    <!-- Cleaned image available -->
+    <!-- Card image (resolved by mode) -->
     <img
-      v-if="showCleanedImage"
-      :src="cleanUrl!"
+      v-if="imageUrl"
+      :src="imageUrl"
       :alt="card.name"
       loading="lazy"
     />
-    <!-- Original image (default or fallback) -->
+    <!-- Fallback while status loading in proxy mode -->
     <img
-      v-else-if="card.imageUrl && (isOriginalMode || !statusLoaded)"
+      v-else-if="card.imageUrl"
       :src="card.imageUrl"
       :alt="card.name"
       loading="lazy"
@@ -60,15 +48,7 @@ function handleGenerateClick(e: Event) {
       {{ card.name }}
     </div>
 
-    <!-- "Not cleaned" overlay when in cleaned mode but no cleaned version -->
-    <div v-if="showMissingPlaceholder" class="tile-missing-overlay" @click.stop="handleGenerateClick">
-      <div v-if="generating" class="tile-spinner"></div>
-      <template v-else>
-        <div class="tile-missing-icon">+</div>
-        <div class="tile-missing-text">Generate</div>
-      </template>
-    </div>
-
+    <span v-if="showCleanBadge" class="tile-clean-badge">&#x2713;</span>
     <span v-if="tileDeckCount" class="tile-deck-badge">{{ tileDeckCount }}</span>
     <div class="card-name">{{ card.name }}</div>
     <button

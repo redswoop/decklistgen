@@ -2,13 +2,13 @@ import { ref, reactive, computed, type Ref } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../lib/client.js";
 
-export type ImageMode = "original" | "clean" | "composite";
+export type ImageMode = "original" | "proxy";
 
 // Read initial mode from URL
 function readModeFromUrl(): ImageMode {
   const p = new URLSearchParams(window.location.search);
   const m = p.get("mode");
-  if (m === "clean" || m === "composite") return m;
+  if (m === "proxy" || m === "clean" || m === "composite") return "proxy";
   return "original";
 }
 
@@ -26,7 +26,7 @@ export function usePokeproxy() {
       imageMode.value = mode;
       const p = new URLSearchParams(window.location.search);
       if (mode === "original") p.delete("mode");
-      else p.set("mode", mode);
+      else p.set("mode", "proxy");
       const qs = p.toString();
       history.replaceState(null, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
     },
@@ -94,13 +94,11 @@ export function getCardImageUrl(card: { id: string; imageUrl: string }, mode: Im
   const s = statusCache.get(card.id);
   if (!s) return null; // Status not loaded yet
 
-  if (mode === "composite" && s.hasComposite) return api.pokeproxyImageUrl(card.id, "composite");
-  if (mode === "clean" && s.hasClean) return api.pokeproxyImageUrl(card.id, "clean");
-  // Fallback: try the other cleaned type
+  // Prefer composite, then clean, then fall back to original
   if (s.hasComposite) return api.pokeproxyImageUrl(card.id, "composite");
   if (s.hasClean) return api.pokeproxyImageUrl(card.id, "clean");
 
-  return null; // Not available
+  return card.imageUrl; // Fall back to original art
 }
 
 /** Shared query client reference, set lazily on first use */

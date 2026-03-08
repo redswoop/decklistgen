@@ -157,8 +157,7 @@ usePokeproxyBatch(visibleCardIds);
 
 const modeOptions: { value: ImageMode; label: string }[] = [
   { value: "original", label: "Original" },
-  { value: "composite", label: "Cleaned" },
-  { value: "clean", label: "Full Clean" },
+  { value: "proxy", label: "Proxy" },
 ];
 
 const groupByOptions: { value: GroupBy; label: string }[] = [
