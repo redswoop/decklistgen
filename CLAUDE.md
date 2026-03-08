@@ -56,11 +56,12 @@ data/              # Persistent data files (prompts.json etc.)
 
 - **Docker image**: `skywarp75/decklistgen`
 - **Architecture**: Always build for `linux/amd64`
-- **Build command**:
+- **Deploy command**:
   ```bash
-  docker buildx build --platform linux/amd64 -t skywarp75/decklistgen:latest --push .
+  bun run deploy
   ```
-- The Dockerfile clones from GitHub at build time — push your changes before building
+  This pushes to GitHub, builds with cache-bust, and pushes the image to Docker Hub.
+- The Dockerfile clones from GitHub at build time — changes must be committed before deploying
 - **Environment variables**: `PORT` (default 3001), `COMFYUI_URL`
 - **Volumes**: `/app/cache`, `/app/data`
 
