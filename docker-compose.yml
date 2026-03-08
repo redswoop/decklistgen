@@ -1,0 +1,11 @@
+services:
+  decklistgen:
+    image: skywarp75/decklistgen:latest
+    ports:
+      - "1996:3001"
+    environment:
+      - COMFYUI_URL=http://192.168.4.246:8188
+    volumes:
+      - /volume1/docker/decklistgen/app/cache:/app/cache
+      - /volume1/docker/decklistgen/app/data:/app/data
+    restart: unless-stopped

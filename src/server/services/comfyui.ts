@@ -7,7 +7,7 @@
 
 import WebSocket from "ws";
 
-const COMFYUI_URL = process.env.COMFYUI_URL ?? "http://stormer.local:8188";
+const COMFYUI_URL = (process.env.COMFYUI_URL ?? "http://stormer.local:8188").replace(/\/+$/, "");
 const FLUX_W = 736;
 const FLUX_H = 1024;
 const FALLBACK_PROMPT =
