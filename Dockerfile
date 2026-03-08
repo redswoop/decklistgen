@@ -1,42 +1,46 @@
+# ── Stage 1: Clone + Build ───────────────────────────────────
 FROM oven/bun:1-debian AS builder
 
-WORKDIR /app
-
-# Install Node.js for Vite build
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+# Install git + Node.js (needed for Vite build)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ca-certificates curl \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Install JS dependencies
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+WORKDIR /app
+ARG CACHEBUST=0
+ARG GIT_REF=main
+# Reference CACHEBUST so BuildKit actually invalidates the cache
+RUN echo "bust=${CACHEBUST}" \
+    && git clone --depth 1 --branch ${GIT_REF} --single-branch \
+       https://github.com/redswoop/decklistgen.git . \
+    && bun install --frozen-lockfile \
+    && npx vite build src/client
 
-# Copy source for client build
-COPY tsconfig.json ./
-COPY src/ src/
-
-# Build client (Vite)
-RUN npx vite build src/client
-
-# --- Production stage ---
+# ── Stage 2: Production ─────────────────────────────────────
 FROM oven/bun:1-debian
 
 WORKDIR /app
 
+# Install fonts for SVG text measurement (opentype.js needs a system font)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install JS deps (production only)
-COPY package.json bun.lock ./
+COPY --from=builder /app/package.json /app/bun.lock ./
 RUN bun install --frozen-lockfile --production
 
 # Copy built client from builder
 COPY --from=builder /app/dist/client dist/client
 
 # Copy server source (runs directly via Bun, not bundled)
-COPY tsconfig.json ./
-COPY src/ src/
+COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/src/ src/
 
 # Copy data files (prompts.json etc.)
-COPY data/ data/
+COPY --from=builder /app/data/ data/
 
 # Persistent volumes
 VOLUME ["/app/cache", "/app/data"]
