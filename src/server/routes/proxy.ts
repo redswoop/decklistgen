@@ -10,6 +10,7 @@ import { isFullArt } from "../../shared/utils/detect-fullart.js";
 import type { TcgdexCard } from "../../shared/types/card.js";
 import { resetIconIds, renderFromTemplate } from "../services/pokeproxy/templates/index.js";
 import type { TemplateName } from "../services/pokeproxy/templates/index.js";
+import { renderEnergyPreviewSvg } from "../services/pokeproxy/energy-preview.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
 
@@ -123,6 +124,17 @@ async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions):
 }
 
 const app = new Hono();
+
+/** Energy glyph color preview — all 11 types in a row */
+app.get("/energy-preview", (c) => {
+  const svg = renderEnergyPreviewSvg();
+  return new Response(svg, {
+    headers: {
+      "Content-Type": "image/svg+xml",
+      "Cache-Control": "public, max-age=86400",
+    },
+  });
+});
 
 /** Check what proxy assets exist for a card */
 app.get("/status/:cardId", (c) => {

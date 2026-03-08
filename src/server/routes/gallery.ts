@@ -6,6 +6,7 @@ import { getPromptForCard, saveCardPrompt } from "../services/prompt-db.js";
 import { getCard, loadSet, isSetLoaded } from "../services/card-store.js";
 import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
 import type { TcgdexCard } from "../../shared/types/card.js";
+import { renderEnergyPreviewSvg } from "../services/pokeproxy/energy-preview.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
 
@@ -302,6 +303,21 @@ function galleryHtml(): string {
     background: none;
     border: none;
   }
+  .energy-preview-section {
+    margin: 0 auto 24px;
+    max-width: 900px;
+  }
+  .energy-preview-section h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #888;
+    margin-bottom: 8px;
+  }
+  .energy-preview-section img {
+    width: 100%;
+    display: block;
+  }
   .lightbox-close:hover { color: #fff; }
   .lightbox-title {
     font-size: 18px;
@@ -403,6 +419,10 @@ function galleryHtml(): string {
 <body>
   <h1>Pokeproxy Gallery</h1>
   <div class="subtitle">Loading cards...</div>
+  <div class="energy-preview-section">
+    <h2>Energy Glyphs</h2>
+    ${renderEnergyPreviewSvg()}
+  </div>
   <div class="gallery" id="gallery"></div>
 
   <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">

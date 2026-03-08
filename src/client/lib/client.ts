@@ -111,6 +111,7 @@ export const api = {
     const qs = params.toString();
     return qs ? `${base}?${qs}` : base;
   },
+  pokeproxyEnergyPreviewUrl: () => `/api/pokeproxy/energy-preview`,
   pokeproxyGenerate: (cardId: string, force = false) =>
     post<{ cardId: string; status: string; output?: string }>(`/pokeproxy/generate/${cardId}${force ? "?force=true" : ""}`, {}),
   pokeproxyRegenerateSvg: (cardId: string) =>

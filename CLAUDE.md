@@ -64,6 +64,10 @@ data/              # Persistent data files (prompts.json etc.)
 - **Environment variables**: `PORT` (default 3001), `COMFYUI_URL`
 - **Volumes**: `/app/cache`, `/app/data`
 
+## Gallery
+
+The `/gallery/` endpoint (`src/server/routes/gallery.ts`) is the place to preview and evaluate all visual samples — rendered cards, energy glyphs, etc. When adding new visual elements or previews, add them to the gallery page, not the main client app.
+
 ## Git
 
 - Commit messages: short imperative summary (e.g., "Add pokemon search endpoint")
