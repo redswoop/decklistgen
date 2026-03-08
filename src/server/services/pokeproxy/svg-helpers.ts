@@ -5,10 +5,10 @@
 
 import {
   CARD_W, TYPE_MATCHUPS, ENERGY_COLORS,
-  FONT_TITLE, FONT_BODY, MARGIN,
+  FONT_BODY, MARGIN,
 } from "./constants.js";
 import { renderTypeIcon } from "./type-icons.js";
-import { measureWidth, fitNameSize, getPokemonSuffix } from "./text.js";
+import { fitNameSize, getPokemonSuffix } from "./text.js";
 
 export function escapeXml(text: string): string {
   return text
@@ -50,14 +50,19 @@ export function energyInlineSvg(text: string, fontSize: number): string {
   const escaped = escapeXml(text);
   return escaped.replace(/\{([A-Z])\}/g, (_match, letter: string) => {
     const color = ENERGY_COLORS[letter] ?? "#888";
-    return `<tspan fill="${color}" font-size="${Math.floor(fontSize * 1.1)}">&#x25CF;</tspan>`;
+    // Dragon 'N' renders "LEGEND" in EssentiarumTCG — use colored circle instead
+    if (letter === "N") {
+      return `<tspan fill="${color}" font-size="${Math.floor(fontSize * 1.1)}">&#x25CF;</tspan>`;
+    }
+    return `<tspan font-family="EssentiarumTCG" fill="${color}" font-size="${Math.floor(fontSize * 1.1)}">${letter}</tspan>`;
   });
 }
 
 /**
- * Render a line of text with inline energy icons as proper glassy circles.
- * Splits text at {X} tokens and renders text segments + renderTypeIcon() inline.
- * Pushes SVG elements into `lines`. Returns nothing.
+ * Render a line of text with inline energy glyphs from the EssentiarumTCG font.
+ * Energy tokens {X} become <tspan> elements with the font glyph, keeping the
+ * entire line as a single <text> element. When `justifyWidth` is provided,
+ * SVG-native `textLength` + `lengthAdjust="spacing"` handles justification.
  */
 export function renderTextLineWithEnergy(
   lines: string[],
@@ -68,43 +73,31 @@ export function renderTextLineWithEnergy(
   fontFamily: string,
   fill: string,
   filterAttr: string,
+  justifyWidth?: number,
 ): void {
-  // If no energy tokens, render as simple text
-  if (!text.includes("{")) {
-    lines.push(`  <text x="${x}" y="${y}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="700" fill="${fill}"${filterAttr}>${escapeXml(text)}</text>`);
-    return;
-  }
-
-  // Split into segments: text and {X} tokens
-  const parts = text.split(/(\{[A-Z]\})/);
-  const iconR = Math.floor(fontSize * 0.4);
-  const iconDiam = iconR * 2;
-  const iconGap = Math.max(2, Math.floor(fontSize * 0.1));
-  let cx = x;
-
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    const m = part.match(/^\{([A-Z])\}$/);
-    if (m) {
-      // Energy icon — small gap, then glassy circle, then small gap
-      cx += iconGap;
-      const iconCx = cx + iconR;
-      const iconCy = y - Math.floor(fontSize * 0.32);
-      lines.push(`  ${renderTypeIcon(iconCx, iconCy, iconR, m[1])}`);
-      cx += iconDiam + iconGap;
-    } else if (part) {
-      // Text segment — trim spaces adjacent to energy icons
-      let seg = part;
-      // If previous part was an icon, trim leading space
-      if (i > 0 && parts[i - 1].match(/^\{[A-Z]\}$/)) seg = seg.replace(/^ /, "");
-      // If next part is an icon, trim trailing space
-      if (i < parts.length - 1 && parts[i + 1]?.match(/^\{[A-Z]\}$/)) seg = seg.replace(/ $/, "");
-      if (seg) {
-        lines.push(`  <text x="${cx}" y="${y}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="700" fill="${fill}"${filterAttr}>${escapeXml(seg)}</text>`);
-        cx += measureWidth("body", seg, fontSize);
-      }
+  // Build inner content with energy glyphs as <tspan> elements
+  const inner = text.replace(/\{([A-Z])\}/g, (_match, letter: string) => {
+    const color = ENERGY_COLORS[letter] ?? "#888";
+    const glyphSize = Math.floor(fontSize * 1.1);
+    // Dragon 'N' renders "LEGEND" in EssentiarumTCG — use colored circle instead
+    if (letter === "N") {
+      return `<tspan fill="${color}" font-size="${glyphSize}">&#x25CF;</tspan>`;
     }
-  }
+    return `<tspan font-family="EssentiarumTCG" fill="${color}" font-size="${glyphSize}">${letter}</tspan>`;
+  });
+
+  // Escape XML in text segments (but not in our <tspan> tags)
+  const escaped = inner.replace(/(<tspan[^>]*>[^<]*<\/tspan>)|([^<]+)/g, (_m, tspan: string | undefined, plain: string | undefined) => {
+    if (tspan) return tspan;
+    return escapeXml(plain ?? "");
+  });
+
+  const justify = justifyWidth && justifyWidth > 0;
+  const justifyAttrs = justify
+    ? ` textLength="${justifyWidth}" lengthAdjust="spacing"`
+    : "";
+
+  lines.push(`  <text x="${x}" y="${y}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="700" fill="${fill}"${filterAttr}${justifyAttrs}>${escaped}</text>`);
 }
 
 /** Shrink ability header text to fit within available width. */

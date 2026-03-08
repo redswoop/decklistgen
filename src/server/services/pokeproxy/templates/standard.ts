@@ -11,7 +11,7 @@ import {
 } from "../constants.js";
 import { getFontStyle, renderTypeIcon } from "../type-icons.js";
 import {
-  escapeXml, energyInlineSvg, renderTextLineWithEnergy, renderEnergyDots,
+  escapeXml, renderTextLineWithEnergy, renderEnergyDots,
   renderFooterSvg, fitAbilityHeader,
 } from "../svg-helpers.js";
 import { measureWidth, ftWrap, fitAttackHeader, fitNameSize } from "../text.js";
@@ -167,9 +167,10 @@ export function render(props: CardProps): string {
   // ── Trainer / Energy effect text ──
   if ((category === "Trainer" || category === "Energy") && trainerEffect) {
     const wrapped = ftWrap("body", trainerEffect, BODY_SIZE, textMaxW);
-    for (const wline of wrapped) {
+    for (let i = 0; i < wrapped.length; i++) {
       y += LINE_H;
-      renderTextLineWithEnergy(lines, wline, MARGIN, y, BODY_SIZE, FONT_BODY, "#222", ' filter="url(#shadow)"');
+      const justify = i < wrapped.length - 1 ? textMaxW : undefined;
+      renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "#222", ' filter="url(#shadow)"', justify);
     }
     y += Math.floor(BODY_SIZE * 0.83);
   }
@@ -188,9 +189,10 @@ export function render(props: CardProps): string {
     y += Math.floor(HEAD_SIZE * 0.5);
 
     const wrapped = ftWrap("body", abEffect, BODY_SIZE, textMaxW);
-    for (const wline of wrapped) {
+    for (let i = 0; i < wrapped.length; i++) {
       y += LINE_H;
-      renderTextLineWithEnergy(lines, wline, MARGIN, y, BODY_SIZE, FONT_BODY, "#222", ' filter="url(#shadow)"');
+      const justify = i < wrapped.length - 1 ? textMaxW : undefined;
+      renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "#222", ' filter="url(#shadow)"', justify);
     }
     y += Math.floor(BODY_SIZE * 1.46);
   }
@@ -225,9 +227,10 @@ export function render(props: CardProps): string {
 
     if (effect) {
       const wrapped = ftWrap("body", effect, BODY_SIZE, textMaxW);
-      for (const wline of wrapped) {
+      for (let i = 0; i < wrapped.length; i++) {
         y += LINE_H;
-        renderTextLineWithEnergy(lines, wline, MARGIN, y, BODY_SIZE, FONT_BODY, "#222", ' filter="url(#shadow)"');
+        const justify = i < wrapped.length - 1 ? textMaxW : undefined;
+        renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "#222", ' filter="url(#shadow)"', justify);
       }
     }
     y += Math.floor(BODY_SIZE * 1.25);
