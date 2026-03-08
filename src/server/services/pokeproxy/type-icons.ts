@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // Load font as base64 for SVG embedding
-const FONT_PATH = join(import.meta.dir, "../../../../pokeproxy/fonts/EssentiarumTCG.otf");
+const FONT_PATH = join(import.meta.dir, "./fonts/EssentiarumTCG.otf");
 const FONT_B64 = readFileSync(FONT_PATH).toString("base64");
 
 const FONT_STYLE =

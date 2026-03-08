@@ -370,7 +370,7 @@ describe("SVG snapshots", () => {
 // ─── Image rendering tests (SVG → PNG via resvg) ───
 
 import { join } from "node:path";
-const FONT_DIR = join(import.meta.dir, "../../../../pokeproxy/fonts");
+const FONT_DIR = join(import.meta.dir, "./fonts");
 
 function renderSvgToPng(svg: string): Buffer {
   const resvg = new Resvg(svg, {

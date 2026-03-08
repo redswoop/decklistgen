@@ -18,7 +18,7 @@ import { renderFromTemplate } from "./templates/index.js";
 import type { TemplateName } from "./templates/index.js";
 
 const OUT_DIR = join(import.meta.dir, "../../../../cache/samples");
-const FONT_DIR = join(import.meta.dir, "../../../../pokeproxy/fonts");
+const FONT_DIR = join(import.meta.dir, "./fonts");
 mkdirSync(OUT_DIR, { recursive: true });
 
 // 1x1 white PNG placeholder

@@ -1,5 +1,5 @@
 /**
- * PokeProxy SVG renderer — TypeScript port of pokeproxy.py.
+ * PokeProxy SVG renderer.
  *
  * Three render modes:
  *   - generateSvg: standard cards (white bg, cropped artwork)

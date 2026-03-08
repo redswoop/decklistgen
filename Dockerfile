@@ -24,25 +24,9 @@ FROM oven/bun:1-debian
 
 WORKDIR /app
 
-# Python + system libs + fonts for pokeproxy (Pillow, freetype-py)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip python3-venv \
-    libfreetype6 libfreetype6-dev \
-    libjpeg62-turbo libpng16-16 zlib1g \
-    fonts-liberation fonts-dejavu-core \
-    && rm -rf /var/lib/apt/lists/*
-
 # Install JS deps (production only)
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
-
-# Python venv for pokeproxy
-COPY pokeproxy/requirements.txt pokeproxy/requirements.txt
-RUN python3 -m venv pokeproxy/.venv \
-    && pokeproxy/.venv/bin/pip install --no-cache-dir -r pokeproxy/requirements.txt
-
-# Copy pokeproxy source + fonts
-COPY pokeproxy/ pokeproxy/
 
 # Copy built client from builder
 COPY --from=builder /app/dist/client dist/client

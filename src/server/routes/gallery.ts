@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { existsSync, readFileSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { isFullArt } from "../../shared/utils/detect-fullart.js";
 import { getPromptForCard, saveCardPrompt } from "../services/prompt-db.js";
@@ -15,7 +14,7 @@ function loadCachedCard(cardId: string): Record<string, unknown> | null {
   const jsonPath = join(CACHE_DIR, `${cardId}.json`);
   if (!existsSync(jsonPath)) return null;
   try {
-    const text = require("node:fs").readFileSync(jsonPath, "utf-8");
+    const text = readFileSync(jsonPath, "utf-8");
     return JSON.parse(text);
   } catch {
     return null;
@@ -162,32 +161,6 @@ function galleryHtml(): string {
     color: #aaa;
     font-size: 13px;
     margin-bottom: 12px;
-  }
-  .toolbar {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: 24px;
-  }
-  .toolbar button {
-    padding: 6px 16px;
-    border: 2px solid #444;
-    border-radius: 6px;
-    background: transparent;
-    color: #aaa;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .toolbar button.active {
-    border-color: #f39c12;
-    color: #f39c12;
-    background: rgba(243, 156, 18, 0.1);
-  }
-  .toolbar button:hover:not(.active) {
-    border-color: #888;
-    color: #ccc;
   }
   .gallery {
     display: flex;
@@ -430,10 +403,6 @@ function galleryHtml(): string {
 <body>
   <h1>Pokeproxy Gallery</h1>
   <div class="subtitle">Loading cards...</div>
-  <div class="toolbar">
-    <button id="btn-python" class="active" onclick="setRenderer('python')">Python Renderer</button>
-    <button id="btn-template" onclick="setRenderer('template')">Template Renderer</button>
-  </div>
   <div class="gallery" id="gallery"></div>
 
   <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
@@ -452,12 +421,8 @@ function galleryHtml(): string {
           <img id="lightbox-clean" src="" />
         </div>
         <div class="lightbox-panel">
-          <div class="lightbox-panel-label">Python</div>
-          <div class="lightbox-svg" id="lightbox-svg-python"></div>
-        </div>
-        <div class="lightbox-panel">
-          <div class="lightbox-panel-label">Template</div>
-          <div class="lightbox-svg" id="lightbox-svg-template"></div>
+          <div class="lightbox-panel-label">SVG</div>
+          <div class="lightbox-svg" id="lightbox-svg"></div>
         </div>
       </div>
       <div class="lightbox-bottom">
@@ -475,25 +440,9 @@ function galleryHtml(): string {
 <script>
 let currentCardId = null;
 let cardData = {};
-let currentRenderer = 'python'; // 'python' or 'template'
-
-function setRenderer(renderer) {
-  currentRenderer = renderer;
-  document.getElementById('btn-python').classList.toggle('active', renderer === 'python');
-  document.getElementById('btn-template').classList.toggle('active', renderer === 'template');
-  // Reload all SVGs with new renderer
-  for (const cardId of Object.keys(cardData)) {
-    loadSvg(cardId);
-  }
-  // Update lightbox if open
-  if (currentCardId) {
-    loadLightboxSvg(currentCardId);
-  }
-}
 
 function svgUrl(cardId) {
-  const base = '/api/pokeproxy/svg/' + cardId + '?t=' + Date.now();
-  return currentRenderer === 'template' ? base + '&renderer=template' : base;
+  return '/api/pokeproxy/svg/' + cardId + '?t=' + Date.now();
 }
 
 async function init() {
@@ -554,8 +503,7 @@ async function loadSvg(cardId) {
 }
 
 async function loadLightboxSvg(cardId) {
-  loadLightboxPanel('lightbox-svg-python', '/api/pokeproxy/svg/' + cardId + '?t=' + Date.now());
-  loadLightboxPanel('lightbox-svg-template', '/api/pokeproxy/svg/' + cardId + '?t=' + Date.now() + '&renderer=template');
+  loadLightboxPanel('lightbox-svg', '/api/pokeproxy/svg/' + cardId + '?t=' + Date.now());
 }
 
 async function loadLightboxPanel(elId, url) {

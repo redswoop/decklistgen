@@ -1,8 +1,5 @@
 /**
- * PokeProxy SVG renderer — TypeScript port.
- *
- * Replaces the Python subprocess (bridge.py → pokeproxy.py).
- * Direct function calls, no subprocess overhead.
+ * PokeProxy SVG renderer — TypeScript.
  */
 
 export { generateFullartSvg, generateStandardSvg, generateBasicEnergySvg, generatePrintHtml, resetIconIds } from "./renderer.js";
