@@ -14,12 +14,13 @@ import {
   renderFooterSvg, fitAbilityHeader,
 } from "../svg-helpers.js";
 import { measureWidth, ftWrap, fitAttackHeader, fitNameSize } from "../text.js";
+import { renderSuffixLogo } from "../logos.js";
 
 export function render(props: CardProps): string {
   const {
     name, rawName, baseName, nameSuffix, mainName, subtitle, suffix,
     hp, types, cardType, color, category, trainerType,
-    evolveFrom, retreat, setName, localId,
+    stage, evolveFrom, retreat, setName, localId,
     trainerEffect, abilities, attacks,
     layout, imageB64, card,
   } = props;
@@ -141,15 +142,92 @@ export function render(props: CardProps): string {
       const nameSize = fitNameSize(name, 48, CARD_W - 60);
       lines.push(`  <text x="30" y="${nameY}" font-family="${FONT_TITLE}" font-size="${nameSize}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="#000" stroke-width="2.5" stroke-linejoin="round" filter="url(#title-shadow)">${name}</text>`);
     }
+  } else if (hp && nameSuffix === "V") {
+    // ── V card: large decorative V logo in top-left corner ──
+    // Logo renders after border (on top of everything), pushed into the corner
+    const bigLogoH = 280;
+    const [bigLogoSvg] = renderSuffixLogo("V", -50, -38, bigLogoH);
+    lines.push(`  <g opacity="0.7" clip-path="url(#card-clip)">${bigLogoSvg}</g>`);
+
+    // Stage label overlaid on the V
+    const stageLine = stage || "Basic";
+    lines.push(`  <text x="50" y="26" font-family="${FONT_TITLE}" font-size="18" font-weight="900" fill="white" letter-spacing="1" style="paint-order:stroke fill" stroke="#000" stroke-width="2" stroke-linejoin="round" filter="url(#shadow)">${escapeXml(stageLine.toUpperCase())}</text>`);
+
+    // HP + energy dot (right side)
+    const hpStr = String(hp);
+    const hpSize = 50;
+    const hpW = measureWidth("title", hpStr, hpSize);
+    const hpLabelSize = 18;
+    const dotR = 28;
+    let rightX = CARD_W - 32;
+    if (types.length) {
+      lines.push(`  ${renderTypeIcon(rightX, 42, dotR, cardType)}`);
+      rightX -= dotR + 6;
+    }
+    lines.push(`  <text x="${rightX}" y="${nameY}" font-family="${FONT_TITLE}" font-size="${hpSize}" font-weight="900" fill="white" text-anchor="end" style="paint-order:stroke fill" stroke="#000" stroke-width="3" stroke-linejoin="round" filter="url(#title-shadow)">${escapeXml(hpStr)}</text>`);
+    const hpNumLeft = rightX - hpW;
+    lines.push(`  <text x="${hpNumLeft - 4}" y="30" font-family="${FONT_TITLE}" font-size="${hpLabelSize}" font-weight="900" fill="rgba(255,255,255,0.7)" text-anchor="end">HP</text>`);
+
+    // Name with inline V logo suffix — inset further right and down
+    const nameVX = 150;
+    const nameVY = 72;
+    const rightReserve = CARD_W - hpNumLeft + measureWidth("title", "HP", hpLabelSize) + 30;
+    const nameAvail = CARD_W - rightReserve - nameVX + 10;
+    const baseEscaped = escapeXml(baseName);
+    const inlineLogoH = Math.floor(48 * 0.85);
+    const [, inlineLogoW] = renderSuffixLogo("V", 0, 0, inlineLogoH);
+    const nameSize = fitNameSize(baseName, 48, nameAvail - inlineLogoW - 6);
+    const baseW = measureWidth("title", baseName, nameSize);
+    lines.push(`  <text x="${nameVX}" y="${nameVY}" font-family="${FONT_TITLE}" font-size="${nameSize}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="#000" stroke-width="2.5" stroke-linejoin="round" filter="url(#title-shadow)">${baseEscaped}</text>`);
+    const sx = nameVX + baseW + 2;
+    const inlineLogoY = nameVY - inlineLogoH + Math.floor(inlineLogoH * 0.12);
+    const [inlineLogoSvg] = renderSuffixLogo("V", sx, inlineLogoY, inlineLogoH, "url(#title-shadow)");
+    lines.push(`  ${inlineLogoSvg}`);
+  } else if (hp && nameSuffix === "ex") {
+    // ── ex card: inline ex logo next to name only (no top-left badge) ──
+    // HP + energy dot
+    const hpStr = String(hp);
+    const hpSize = 50;
+    const hpW = measureWidth("title", hpStr, hpSize);
+    const hpLabelSize = 18;
+    const hpLabelW = measureWidth("title", "HP", hpLabelSize);
+    const dotR = 28;
+    let rightX = CARD_W - 32;
+    if (types.length) {
+      lines.push(`  ${renderTypeIcon(rightX, 42, dotR, cardType)}`);
+      rightX -= dotR + 6;
+    }
+    lines.push(`  <text x="${rightX}" y="${nameY}" font-family="${FONT_TITLE}" font-size="${hpSize}" font-weight="900" fill="white" text-anchor="end" style="paint-order:stroke fill" stroke="#000" stroke-width="3" stroke-linejoin="round" filter="url(#title-shadow)">${escapeXml(hpStr)}</text>`);
+    const hpNumLeft = rightX - hpW;
+    lines.push(`  <text x="${hpNumLeft - 4}" y="30" font-family="${FONT_TITLE}" font-size="${hpLabelSize}" font-weight="900" fill="rgba(255,255,255,0.7)" text-anchor="end">HP</text>`);
+
+    const rightReserve = CARD_W - hpNumLeft + hpLabelW + 30;
+    const nameAvail = CARD_W - rightReserve - 20;
+    const baseEscaped = escapeXml(baseName);
+    // Size logo to overshoot text above and below, matching real TCG cards (~1.5x font size)
+    const EX_LOGO_RATIO = 1.5;
+    // First pass: estimate logo width at max name size to reserve space
+    const estLogoH = Math.round(48 * EX_LOGO_RATIO);
+    const [, estLogoW] = renderSuffixLogo("ex", 0, 0, estLogoH);
+    const nameSize = fitNameSize(baseName, 48, nameAvail - estLogoW - 4);
+    // Final logo height matched to actual name size
+    const logoH = Math.round(nameSize * EX_LOGO_RATIO);
+    const baseW = measureWidth("title", baseName, nameSize);
+    lines.push(`  <text x="30" y="${nameY}" font-family="${FONT_TITLE}" font-size="${nameSize}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="#000" stroke-width="2.5" stroke-linejoin="round" filter="url(#title-shadow)">${baseEscaped}</text>`);
+    const sx = 30 + baseW + 4;
+    // Align logo bottom to text baseline, extending upward
+    const logoY = nameY - logoH + Math.floor(logoH * 0.28);
+    const [logoSvg] = renderSuffixLogo("ex", sx, logoY, logoH, "url(#title-shadow)");
+    lines.push(`  ${logoSvg}`);
   } else if (hp) {
-    // Pokemon header
+    // Pokemon header (VMAX/VSTAR or plain)
     if (nameSuffix) {
-      const tagText = nameSuffix === "ex" ? nameSuffix.toLowerCase() : nameSuffix;
+      const tagText = nameSuffix;
       const tagSize = 14;
       const tagW = measureWidth("title", tagText, tagSize) + 16;
       const gradId = `grad-${nameSuffix}`;
       lines.push(`  <rect x="18" y="10" width="${tagW}" height="22" rx="4" fill="url(#${gradId})" stroke="rgba(0,0,0,0.5)" stroke-width="1.5"/>`);
-      lines.push(`  <text x="${18 + tagW / 2}" y="26" font-family="${FONT_TITLE}" font-size="${tagSize}" font-weight="900" fill="${nameSuffix === "ex" ? "#FFF" : "#333"}" text-anchor="middle">${escapeXml(tagText)}</text>`);
+      lines.push(`  <text x="${18 + tagW / 2}" y="26" font-family="${FONT_TITLE}" font-size="${tagSize}" font-weight="900" fill="#333" text-anchor="middle">${escapeXml(tagText)}</text>`);
     }
     // HP + energy dot
     const hpStr = String(hp);
@@ -173,7 +251,7 @@ export function render(props: CardProps): string {
     if (nameSuffix) {
       const baseEscaped = escapeXml(baseName);
       const suffixEscaped = escapeXml(nameSuffix);
-      const suffixSizeRatio = nameSuffix === "ex" ? 0.95 : 0.85;
+      const suffixSizeRatio = 0.85;
       const maxNameSize = 48;
       const testSuffixSize = Math.floor(maxNameSize * suffixSizeRatio);
       const suffixW = measureWidth("title", nameSuffix, testSuffixSize) + 4;
@@ -183,8 +261,7 @@ export function render(props: CardProps): string {
       lines.push(`  <text x="30" y="${nameY}" font-family="${FONT_TITLE}" font-size="${nameSize}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="#000" stroke-width="2.5" stroke-linejoin="round" filter="url(#title-shadow)">${baseEscaped}</text>`);
       const sx = 30 + baseW + 2;
       const gradId = `grad-${nameSuffix}`;
-      const italicAttr = nameSuffix === "ex" ? ' font-style="italic"' : "";
-      lines.push(`  <text x="${sx}" y="${nameY}" font-family="${FONT_TITLE}" font-size="${actualSuffixSize}" font-weight="900" fill="url(#${gradId})" style="paint-order:stroke fill" stroke="#000" stroke-width="4" stroke-linejoin="round"${italicAttr} filter="url(#suffix-emboss)">${suffixEscaped}</text>`);
+      lines.push(`  <text x="${sx}" y="${nameY}" font-family="${FONT_TITLE}" font-size="${actualSuffixSize}" font-weight="900" fill="url(#${gradId})" style="paint-order:stroke fill" stroke="#000" stroke-width="4" stroke-linejoin="round" filter="url(#suffix-emboss)">${suffixEscaped}</text>`);
     } else {
       const nameSize = fitNameSize(name, 48, nameAvail);
       lines.push(`  <text x="30" y="${nameY}" font-family="${FONT_TITLE}" font-size="${nameSize}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="#000" stroke-width="2.5" stroke-linejoin="round" filter="url(#title-shadow)">${name}</text>`);
@@ -194,7 +271,9 @@ export function render(props: CardProps): string {
     lines.push(`  <text x="30" y="${nameY}" font-family="${FONT_TITLE}" font-size="${nameSize}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="#000" stroke-width="2.5" stroke-linejoin="round" filter="url(#title-shadow)">${name}</text>`);
   }
   if (evolveFrom) {
-    lines.push(`  <text x="30" y="86" font-family="${FONT_BODY}" font-size="18" font-weight="600" fill="rgba(255,255,255,0.7)" font-style="italic" filter="url(#shadow)">Evolves from ${escapeXml(evolveFrom)}</text>`);
+    const stageLine = stage || "Stage 1";
+    const evolveLine = `${stageLine} — Evolves from ${evolveFrom}`;
+    lines.push(`  <text x="30" y="88" font-family="${FONT_BODY}" font-size="22" font-weight="600" fill="rgba(255,255,255,0.7)" font-style="italic" filter="url(#shadow)">${escapeXml(evolveLine)}</text>`);
   }
 
   // ── Text content ──

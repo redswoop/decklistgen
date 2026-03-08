@@ -8,8 +8,7 @@ import { getPromptForCard } from "../services/prompt-db.js";
 import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
 import { isFullArt } from "../../shared/utils/detect-fullart.js";
 import type { TcgdexCard } from "../../shared/types/card.js";
-import { resetIconIds } from "../services/pokeproxy/renderer.js";
-import { renderFromTemplate } from "../services/pokeproxy/templates/index.js";
+import { resetIconIds, renderFromTemplate } from "../services/pokeproxy/templates/index.js";
 import type { TemplateName } from "../services/pokeproxy/templates/index.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");

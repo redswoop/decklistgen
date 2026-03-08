@@ -1,15 +1,21 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { Resvg } from "@resvg/resvg-js";
-import {
-  generateStandardSvg,
-  generateFullartSvg,
-  generateBasicEnergySvg,
-  resetIconIds,
-} from "./renderer.js";
+import { renderFromTemplate, resetIconIds } from "./templates/index.js";
+import type { TemplateName } from "./templates/index.js";
 
 // Tiny 1x1 white PNG as placeholder image (base64)
 const TINY_PNG =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
+
+function renderStandard(card: Record<string, unknown>) {
+  return renderFromTemplate("standard", card, TINY_PNG);
+}
+function renderFullart(card: Record<string, unknown>) {
+  return renderFromTemplate("fullart", card, TINY_PNG);
+}
+function renderBasicEnergy(card: Record<string, unknown>) {
+  return renderFromTemplate("basic-energy", card, TINY_PNG);
+}
 
 // ─── Test card fixtures ───
 
@@ -204,7 +210,7 @@ describe("standard renderer", () => {
   beforeEach(() => resetIconIds());
 
   test("basic pokemon produces valid SVG", () => {
-    const svg = generateStandardSvg(CARDS.basicPokemon, TINY_PNG);
+    const svg = renderStandard(CARDS.basicPokemon);
     expect(svg).toStartWith("<svg");
     expect(svg).toEndWith("</svg>");
     expect(svg).toContain("Sprigatito");
@@ -213,39 +219,36 @@ describe("standard renderer", () => {
   });
 
   test("stage 1 pokemon shows evolution line", () => {
-    const svg = generateStandardSvg(CARDS.stage1Pokemon, TINY_PNG);
+    const svg = renderStandard(CARDS.stage1Pokemon);
     expect(svg).toContain("Evolves from Sprigatito");
     expect(svg).toContain("Fragrant Flower Garden");
   });
 
   test("trainer item renders correctly", () => {
-    const svg = generateStandardSvg(CARDS.trainerItem, TINY_PNG);
+    const svg = renderStandard(CARDS.trainerItem);
     expect(svg).toContain("Rare Candy");
-    // Should not have HP
     expect(svg).not.toContain(" HP</text>");
   });
 
-  test("trainer supporter renders name and subtitle split", () => {
-    const svg = generateStandardSvg(CARDS.trainerSupporter, TINY_PNG);
+  test("trainer supporter renders name", () => {
+    const svg = renderStandard(CARDS.trainerSupporter);
     expect(svg).toContain("Professor");
   });
 
   test("trainer stadium renders correctly", () => {
-    const svg = generateStandardSvg(CARDS.trainerStadium, TINY_PNG);
+    const svg = renderStandard(CARDS.trainerStadium);
     expect(svg).toContain("Artazon");
   });
 
   test("text-heavy pokemon fits without error", () => {
-    const svg = generateStandardSvg(CARDS.textHeavyPokemon, TINY_PNG);
+    const svg = renderStandard(CARDS.textHeavyPokemon);
     expect(svg).toContain("Pressure");
     expect(svg).toContain("Psyburn");
     expect(svg).toContain("Psystrike");
   });
 
   test("text compression is applied", () => {
-    const svg = generateStandardSvg(CARDS.trainerTool, TINY_PNG);
-    // "is Knocked Out by damage from an attack from your opponent's Pokémon"
-    // should be compressed to "is KO'd by opponent"
+    const svg = renderStandard(CARDS.trainerTool);
     expect(svg).toContain("KO");
     expect(svg).not.toContain("Knocked Out");
   });
@@ -254,66 +257,63 @@ describe("standard renderer", () => {
 describe("fullart renderer", () => {
   beforeEach(() => resetIconIds());
 
-  test("ex pokemon renders with suffix badge", () => {
-    const svg = generateFullartSvg(CARDS.exPokemon, TINY_PNG);
+  test("ex pokemon renders with ex logo", () => {
+    const svg = renderFullart(CARDS.exPokemon);
     expect(svg).toStartWith("<svg");
     expect(svg).toContain("Arcanine");
-    expect(svg).toContain("grad-ex");
     expect(svg).toContain("280");
   });
 
-  test("V pokemon renders correctly", () => {
-    const svg = generateFullartSvg(CARDS.vPokemon, TINY_PNG);
+  test("V pokemon renders with big V logo", () => {
+    const svg = renderFullart(CARDS.vPokemon);
     expect(svg).toContain("Zacian");
-    expect(svg).toContain("grad-V");
+    expect(svg).toContain("BASIC");
     expect(svg).toContain("Intrepid Sword");
+    // Should contain embedded V logo image
+    expect(svg).toContain("data:image/png;base64,");
   });
 
   test("VMAX pokemon renders with VMAX badge", () => {
-    const svg = generateFullartSvg(CARDS.vmaxPokemon, TINY_PNG);
+    const svg = renderFullart(CARDS.vmaxPokemon);
     expect(svg).toContain("Flygon");
     expect(svg).toContain("grad-VMAX");
-    expect(svg).toContain("Evolves from Flygon V");
   });
 
   test("VSTAR pokemon renders with VSTAR badge", () => {
-    const svg = generateFullartSvg(CARDS.vstarPokemon, TINY_PNG);
+    const svg = renderFullart(CARDS.vstarPokemon);
     expect(svg).toContain("Leafeon");
     expect(svg).toContain("grad-VSTAR");
   });
 
   test("dragon type renders dragon icon paths", () => {
-    const svg = generateFullartSvg(CARDS.dragonPokemon, TINY_PNG);
+    const svg = renderFullart(CARDS.dragonPokemon);
     expect(svg).toContain("Giratina");
-    // Dragon icons use SVG path fallback instead of font glyph
     expect(svg).toContain("#576fbc");
   });
 
-  test("special energy renders as fullart with ENERGY header", () => {
-    const svg = generateFullartSvg(CARDS.specialEnergy, TINY_PNG);
+  test("special energy renders with ENERGY header", () => {
+    const svg = renderFullart(CARDS.specialEnergy);
     expect(svg).toContain("ENERGY");
     expect(svg).toContain("SPECIAL");
     expect(svg).toContain("Spiky Energy");
   });
 
   test("trainer supporter renders with subtitle split", () => {
-    const svg = generateFullartSvg(CARDS.trainerSupporter, TINY_PNG);
+    const svg = renderFullart(CARDS.trainerSupporter);
     expect(svg).toContain("TRAINER");
     expect(svg).toContain("SUPPORTER");
     expect(svg).toContain("Professor");
-    // Subtitle (Professor Sada) should render on second line
     expect(svg).toContain("Professor Sada");
   });
 
   test("rules text rendered for ex pokemon", () => {
-    const svg = generateFullartSvg(CARDS.exPokemon, TINY_PNG);
+    const svg = renderFullart(CARDS.exPokemon);
     expect(svg).toContain("KO");
     expect(svg).toContain("2 Prizes");
   });
 
   test("weakness/resistance rendered for typed pokemon", () => {
-    const svg = generateFullartSvg(CARDS.exPokemon, TINY_PNG);
-    // Fire weakness is Water ×2
+    const svg = renderFullart(CARDS.exPokemon);
     expect(svg).toContain("×2");
   });
 });
@@ -322,17 +322,15 @@ describe("basic energy renderer", () => {
   beforeEach(() => resetIconIds());
 
   test("renders minimal SVG with full card image", () => {
-    const svg = generateBasicEnergySvg(CARDS.basicEnergy, TINY_PNG);
+    const svg = renderBasicEnergy(CARDS.basicEnergy);
     expect(svg).toStartWith("<svg");
     expect(svg).toEndWith("</svg>");
     expect(svg).toContain("Shrouded Fable");
-    // Should NOT contain ability/attack bars
     expect(svg).not.toContain("font-weight=\"900\"");
   });
 
   test("uses correct type color for border", () => {
-    const svg = generateBasicEnergySvg(CARDS.basicEnergy, TINY_PNG);
-    // Darkness type color
+    const svg = renderBasicEnergy(CARDS.basicEnergy);
     expect(svg).toContain("#3E2D68");
   });
 });
@@ -344,25 +342,25 @@ describe("SVG snapshots", () => {
 
   test("standard pokemon SVG is deterministic", () => {
     resetIconIds();
-    const svg1 = generateStandardSvg(CARDS.basicPokemon, TINY_PNG);
+    const svg1 = renderStandard(CARDS.basicPokemon);
     resetIconIds();
-    const svg2 = generateStandardSvg(CARDS.basicPokemon, TINY_PNG);
+    const svg2 = renderStandard(CARDS.basicPokemon);
     expect(svg1).toBe(svg2);
   });
 
   test("fullart SVG is deterministic", () => {
     resetIconIds();
-    const svg1 = generateFullartSvg(CARDS.exPokemon, TINY_PNG);
+    const svg1 = renderFullart(CARDS.exPokemon);
     resetIconIds();
-    const svg2 = generateFullartSvg(CARDS.exPokemon, TINY_PNG);
+    const svg2 = renderFullart(CARDS.exPokemon);
     expect(svg1).toBe(svg2);
   });
 
   test("basic energy SVG is deterministic", () => {
     resetIconIds();
-    const svg1 = generateBasicEnergySvg(CARDS.basicEnergy, TINY_PNG);
+    const svg1 = renderBasicEnergy(CARDS.basicEnergy);
     resetIconIds();
-    const svg2 = generateBasicEnergySvg(CARDS.basicEnergy, TINY_PNG);
+    const svg2 = renderBasicEnergy(CARDS.basicEnergy);
     expect(svg1).toBe(svg2);
   });
 });
@@ -381,7 +379,6 @@ function renderSvgToPng(svg: string): Buffer {
 }
 
 function pngDimensions(png: Buffer): { width: number; height: number } {
-  // PNG header: width at offset 16, height at offset 20 (big-endian uint32)
   return {
     width: png.readUInt32BE(16),
     height: png.readUInt32BE(20),
@@ -392,23 +389,21 @@ describe("SVG → PNG rendering", () => {
   beforeEach(() => resetIconIds());
 
   test("standard pokemon renders to valid PNG", () => {
-    const svg = generateStandardSvg(CARDS.basicPokemon, TINY_PNG);
+    const svg = renderStandard(CARDS.basicPokemon);
     const png = renderSvgToPng(svg);
     expect(png.length).toBeGreaterThan(100);
-    // Check PNG magic bytes
     expect(png[0]).toBe(0x89);
-    expect(png[1]).toBe(0x50); // P
-    expect(png[2]).toBe(0x4e); // N
-    expect(png[3]).toBe(0x47); // G
+    expect(png[1]).toBe(0x50);
+    expect(png[2]).toBe(0x4e);
+    expect(png[3]).toBe(0x47);
     const dims = pngDimensions(png);
     expect(dims.width).toBe(375);
-    // Card ratio is 5:7, so height ≈ 525
     expect(dims.height).toBeGreaterThan(500);
     expect(dims.height).toBeLessThan(550);
   });
 
   test("fullart ex renders to valid PNG", () => {
-    const svg = generateFullartSvg(CARDS.exPokemon, TINY_PNG);
+    const svg = renderFullart(CARDS.exPokemon);
     const png = renderSvgToPng(svg);
     expect(png[0]).toBe(0x89);
     const dims = pngDimensions(png);
@@ -416,7 +411,7 @@ describe("SVG → PNG rendering", () => {
   });
 
   test("basic energy renders to valid PNG", () => {
-    const svg = generateBasicEnergySvg(CARDS.basicEnergy, TINY_PNG);
+    const svg = renderBasicEnergy(CARDS.basicEnergy);
     const png = renderSvgToPng(svg);
     expect(png[0]).toBe(0x89);
     const dims = pngDimensions(png);
@@ -424,31 +419,25 @@ describe("SVG → PNG rendering", () => {
   });
 
   test("all card types render without error", () => {
-    const results: Record<string, { svgLen: number; pngLen: number; width: number; height: number }> = {};
-
+    const TEMPLATE_MAP: Record<string, TemplateName> = {};
     for (const [label, card] of Object.entries(CARDS)) {
-      resetIconIds();
       const category = (card as any).category;
       const isEnergy = category === "Energy";
       const isBasicEnergy = isEnergy && (card as any).energyType === "Normal";
       const isFullart = !isBasicEnergy && (
         (card as any).suffix || (card as any).rarity?.toLowerCase().includes("rare") || isEnergy
       );
+      TEMPLATE_MAP[label] = isBasicEnergy ? "basic-energy" : isFullart ? "fullart" : "standard";
+    }
 
-      let svg: string;
-      if (isBasicEnergy) {
-        svg = generateBasicEnergySvg(card, TINY_PNG);
-      } else if (isFullart) {
-        svg = generateFullartSvg(card, TINY_PNG);
-      } else {
-        svg = generateStandardSvg(card, TINY_PNG);
-      }
-
+    const results: Record<string, { svgLen: number; pngLen: number; width: number; height: number }> = {};
+    for (const [label, card] of Object.entries(CARDS)) {
+      resetIconIds();
+      const svg = renderFromTemplate(TEMPLATE_MAP[label], card, TINY_PNG);
       const png = renderSvgToPng(svg);
       const dims = pngDimensions(png);
       results[label] = { svgLen: svg.length, pngLen: png.length, ...dims };
-
-      expect(png[0]).toBe(0x89); // valid PNG
+      expect(png[0]).toBe(0x89);
       expect(dims.width).toBe(375);
     }
 
@@ -462,11 +451,11 @@ describe("SVG → PNG rendering", () => {
 
   test("same input produces identical PNG output", () => {
     resetIconIds();
-    const svg1 = generateStandardSvg(CARDS.basicPokemon, TINY_PNG);
+    const svg1 = renderStandard(CARDS.basicPokemon);
     const png1 = renderSvgToPng(svg1);
 
     resetIconIds();
-    const svg2 = generateStandardSvg(CARDS.basicPokemon, TINY_PNG);
+    const svg2 = renderStandard(CARDS.basicPokemon);
     const png2 = renderSvgToPng(svg2);
 
     expect(Buffer.compare(png1, png2)).toBe(0);

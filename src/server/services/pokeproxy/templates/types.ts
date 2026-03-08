@@ -1,4 +1,11 @@
-/** Shared types for template-based card renderers. */
+/** Shared types for card renderers. */
+
+export interface FullartOptions {
+  overlayOpacity?: number;
+  fontSize?: number;
+  maxCover?: number;
+  renderHeader?: boolean;
+}
 
 export interface CardProps {
   // Identity

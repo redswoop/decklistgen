@@ -2,12 +2,13 @@
  * Template registry — dispatches card rendering to the appropriate template.
  */
 
-import type { CardProps, SolvedLayout } from "./types.js";
+import type { CardProps, SolvedLayout, FullartOptions } from "./types.js";
 import { prepareCardProps, solveStandardLayout, solveFullartLayout } from "../card-prep.js";
 import { render as renderStandard } from "./standard.js";
 import { render as renderFullart } from "./fullart.js";
 import { render as renderBasicEnergy } from "./basic-energy.js";
-import type { FullartOptions } from "../renderer.js";
+
+export { resetIconIds } from "../type-icons.js";
 
 export type TemplateName = "standard" | "fullart" | "basic-energy";
 
@@ -54,4 +55,50 @@ export function renderFromTemplate(
   return template(props);
 }
 
-export type { CardProps, SolvedLayout } from "./types.js";
+export function generatePrintHtml(cards: [number, string][]): string {
+  const parts: string[] = [];
+  parts.push(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>PokeProxy - Print Sheet</title>
+<style>
+  @page { size: letter; margin: 0.25in; }
+  body { margin: 0; padding: 0.25in; }
+  .card-grid {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+  }
+  .card {
+    width: 2.5in;
+    height: 3.5in;
+    page-break-inside: avoid;
+    overflow: hidden;
+  }
+  .card svg {
+    width: 100%;
+    height: 100%;
+  }
+  @media print {
+    body { padding: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="card-grid">
+`);
+  for (const [count, svgContent] of cards) {
+    const svgClean = svgContent.replace(/<\?xml[^?]*\?>\s*/g, "");
+    for (let i = 0; i < count; i++) {
+      parts.push(`<div class="card">${svgClean}</div>\n`);
+    }
+  }
+  parts.push(`</div>
+</body>
+</html>
+`);
+  return parts.join("");
+}
+
+export type { CardProps, SolvedLayout, FullartOptions } from "./types.js";

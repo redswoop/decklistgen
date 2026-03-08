@@ -15,10 +15,11 @@ import {
   renderFooterSvg, fitAbilityHeader,
 } from "../svg-helpers.js";
 import { measureWidth, ftWrap, fitAttackHeader, fitNameSize } from "../text.js";
+import { renderSuffixLogo } from "../logos.js";
 
 export function render(props: CardProps): string {
   const {
-    name, rawName, suffix,
+    name, rawName, baseName, nameSuffix, suffix,
     hp, types, cardType, color, category, trainerType,
     evolveFrom, stage, retreat, setName, localId,
     trainerEffect, abilities, attacks,
@@ -69,8 +70,20 @@ export function render(props: CardProps): string {
   // ── Name and HP/trainer type ──
   const rightReserve = category === "Trainer" ? 70 : 140;
   const nameAvail = CARD_W - 30 - rightReserve - 20;
-  const nameSize = fitNameSize(name, 42, nameAvail);
-  lines.push(`  <text x="30" y="57" font-family="${FONT_TITLE}" font-size="${nameSize}" font-weight="900" fill="white" filter="url(#shadow-title)">${name}</text>`);
+  if (nameSuffix && (nameSuffix === "V" || nameSuffix === "ex")) {
+    const logoH = Math.floor(42 * 0.9);
+    const [, logoW] = renderSuffixLogo(nameSuffix, 0, 0, logoH);
+    const nameSize = fitNameSize(escapeXml(baseName), 42, nameAvail - logoW - 4);
+    const baseW = measureWidth("title", baseName, nameSize);
+    lines.push(`  <text x="30" y="57" font-family="${FONT_TITLE}" font-size="${nameSize}" font-weight="900" fill="white" filter="url(#shadow-title)">${escapeXml(baseName)}</text>`);
+    const sx = 30 + baseW + 4;
+    const logoY = 57 - logoH + Math.floor(logoH * 0.15);
+    const [logoSvg] = renderSuffixLogo(nameSuffix, sx, logoY, logoH, "url(#shadow-title)");
+    lines.push(`  ${logoSvg}`);
+  } else {
+    const nameSize = fitNameSize(name, 42, nameAvail);
+    lines.push(`  <text x="30" y="57" font-family="${FONT_TITLE}" font-size="${nameSize}" font-weight="900" fill="white" filter="url(#shadow-title)">${name}</text>`);
+  }
 
   if (category === "Trainer") {
     const iconSize = 40;
@@ -128,11 +141,11 @@ export function render(props: CardProps): string {
   } else {
     const stageLine = stage || "Basic";
     const typeStr = types.join(" / ");
-    const subtitleText = typeStr ? `${stageLine} — ${typeStr}` : stageLine;
+    const parts = [stageLine];
+    if (evolveFrom) parts.push(`Evolves from ${evolveFrom}`);
+    if (typeStr) parts.push(typeStr);
+    const subtitleText = parts.join(" — ");
     lines.push(`  <text x="30" y="105" font-family="${FONT_BODY}" font-size="22" font-weight="700" fill="#444" filter="url(#shadow)">${escapeXml(subtitleText)}</text>`);
-    if (evolveFrom) {
-      lines.push(`  <text x="30" y="125" font-family="${FONT_BODY}" font-size="18" font-weight="600" fill="#888" font-style="italic">Evolves from ${escapeXml(evolveFrom)}</text>`);
-    }
   }
 
   // ── Artwork (SVG-cropped to art region) ──
