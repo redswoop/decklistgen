@@ -15,7 +15,7 @@ function useDebouncedRef(source: () => string | undefined, delay: number) {
   return debounced;
 }
 
-export function useCards(filters: CardFilters, page: Ref<number>) {
+export function useCards(filters: CardFilters, page: Ref<number>, pageSize = 60) {
   const debouncedName = useDebouncedRef(() => filters.nameSearch, 300);
 
   return useQuery({
@@ -23,10 +23,18 @@ export function useCards(filters: CardFilters, page: Ref<number>) {
       "cards",
       { ...filters, nameSearch: debouncedName.value },
       page.value,
+      pageSize,
     ]),
     queryFn: () =>
-      api.getCards({ ...filters, nameSearch: debouncedName.value }, page.value),
-    enabled: computed(() => !!(filters.sets?.length || filters.era)),
+      api.getCards({ ...filters, nameSearch: debouncedName.value }, page.value, pageSize),
+    enabled: computed(() => {
+      // Query if era/sets are selected, or if any other filter is active
+      // (server may already have cards loaded from this session)
+      if (filters.sets?.length || filters.era) return true;
+      return !!(filters.category || filters.rarities?.length || filters.energyTypes?.length
+        || filters.specialAttributes?.length || filters.nameSearch || filters.trainerType
+        || filters.isFullArt || filters.hasFoil);
+    }),
   });
 }
 
