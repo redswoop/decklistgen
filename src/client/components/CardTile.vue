@@ -10,7 +10,18 @@ import {
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import { useDecklist } from "../composables/useDecklist.js";
 
-const props = defineProps<{ card: Card; imageMode: ImageMode }>();
+const props = withDefaults(defineProps<{
+  card: Card;
+  imageMode: ImageMode;
+  /** Override count badge (e.g., from deck view). When undefined, uses deck count. */
+  count?: number;
+  /** Hide the add-to-deck button */
+  hideAdd?: boolean;
+}>(), {
+  count: undefined,
+  hideAdd: false,
+});
+
 const emit = defineEmits<{
   add: [card: Card];
   preview: [card: Card];
@@ -21,7 +32,9 @@ const statusLoaded = computed(() => hasStatusLoaded(props.card.id));
 const showCleanBadge = computed(() => props.imageMode === "proxy" && hasCleanedImage(props.card.id));
 
 const { getDeckCount } = useDecklist();
-const tileDeckCount = computed(() => getDeckCount(props.card.setCode, props.card.localId));
+const tileDeckCount = computed(() =>
+  props.count !== undefined ? props.count : getDeckCount(props.card.setCode, props.card.localId)
+);
 </script>
 
 <template>
@@ -53,6 +66,7 @@ const tileDeckCount = computed(() => getDeckCount(props.card.setCode, props.card
     <span v-if="tileDeckCount" class="tile-deck-badge">{{ tileDeckCount }}</span>
     <div class="card-name">{{ card.name }}</div>
     <button
+      v-if="!hideAdd"
       class="card-add-btn"
       title="Add to decklist"
       @click.stop="emit('add', card)"

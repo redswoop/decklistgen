@@ -5,17 +5,34 @@ import { useFilters } from "../composables/useFilters.js";
 import { useCards } from "../composables/useCards.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { usePokeproxy, usePokeproxyBatch, type ImageMode } from "../composables/usePokeproxy.js";
+import { useEraLoader } from "../composables/useEraLoader.js";
 import CardTile from "./CardTile.vue";
 import type { Card } from "../../shared/types/card.js";
 
+const props = withDefaults(defineProps<{
+  /** External card array — skips API query when provided */
+  cards?: Card[];
+  /** Count map (cardId → count) to show on tiles instead of deck counts */
+  cardCounts?: Record<string, number>;
+  /** Hide the add-to-deck button on tiles */
+  hideAdd?: boolean;
+  /** Header label override (replaces "X cards") */
+  headerLabel?: string;
+}>(), {
+  cards: undefined,
+  cardCounts: undefined,
+  hideAdd: false,
+  headerLabel: undefined,
+});
+
 const emit = defineEmits<{ "preview-card": [card: Card, cards: Card[]] }>();
 
-const { filters } = useFilters();
+const { filters, setNameSearch } = useFilters();
 const { addCard } = useDecklist();
 const { imageMode, setImageMode } = usePokeproxy();
-const gridSearch = ref("");
+const { loadingEra, loadEra } = useEraLoader();
 
-// Fetch all matching cards (no pagination)
+// Only query API when no external cards provided
 const localPage = ref(1);
 const { data, isLoading } = useCards(filters, localPage, 99999);
 
@@ -56,19 +73,25 @@ const cardWidth = computed(() => {
 
 const cardRowHeight = computed(() => Math.ceil(cardWidth.value * 7 / 5) + GAP);
 
-// Filter
-const allCards = computed(() => data.value?.cards ?? []);
-const filteredCards = computed(() => {
-  if (!gridSearch.value.trim()) return allCards.value;
-  const q = gridSearch.value.toLowerCase();
-  return allCards.value.filter((c) => c.name.toLowerCase().includes(q));
+// External or queried cards
+const isExternalMode = computed(() => !!props.cards);
+const allCardsRaw = computed(() => props.cards ?? data.value?.cards ?? []);
+
+// Local search filter (for external mode)
+const localSearch = ref("");
+const allCards = computed(() => {
+  const cards = allCardsRaw.value;
+  if (!isExternalMode.value || !localSearch.value) return cards;
+  const q = localSearch.value.toLowerCase();
+  return cards.filter((c) => c.name.toLowerCase().includes(q));
 });
 
-const hasAnyFilter = computed(() =>
-  !!(filters.sets?.length || filters.era || filters.category || filters.rarities?.length
+const hasAnyFilter = computed(() => {
+  if (isExternalMode.value) return true; // always show grid in external mode
+  return !!(filters.sets?.length || filters.era || filters.category || filters.rarities?.length
     || filters.energyTypes?.length || filters.specialAttributes?.length
-    || filters.nameSearch || filters.trainerType || filters.isFullArt || filters.hasFoil)
-);
+    || filters.nameSearch || filters.trainerType || filters.isFullArt || filters.hasFoil);
+});
 
 // Grouping
 type VirtualRow =
@@ -103,7 +126,7 @@ function chunkCards(cards: Card[], perRow: number): VirtualRow[] {
 }
 
 const virtualRows = computed(() => {
-  const cards = filteredCards.value;
+  const cards = allCards.value;
   const perRow = cardsPerRow.value;
 
   if (groupBy.value === "none") {
@@ -167,19 +190,133 @@ const groupByOptions: { value: GroupBy; label: string }[] = [
   { value: "rarity", label: "Rarity" },
   { value: "category", label: "Category" },
 ];
+
+// Search input handler
+function handleSearchInput(e: Event) {
+  const val = (e.target as HTMLInputElement).value;
+  if (isExternalMode.value) {
+    localSearch.value = val;
+  } else {
+    setNameSearch(val);
+  }
+}
+
+function clearSearch() {
+  if (isExternalMode.value) {
+    localSearch.value = "";
+  } else {
+    setNameSearch("");
+  }
+}
+
+const searchValue = computed(() =>
+  isExternalMode.value ? localSearch.value : (filters.nameSearch ?? "")
+);
+
+const displayLabel = computed(() => {
+  if (props.headerLabel) return props.headerLabel;
+  return `${allCards.value.length} cards`;
+});
+
+// Skeleton rows for loading state
+const skeletonCount = computed(() => cardsPerRow.value * 2);
+
+function handleAdd(card: Card) {
+  if (!props.hideAdd) addCard(card);
+}
+
+function getCount(card: Card): number | undefined {
+  return props.cardCounts?.[card.id];
+}
 </script>
 
 <template>
-  <div v-if="!hasAnyFilter" class="empty-state">
-    Select an era from the sidebar to get started.
+  <!-- Welcome state: no filters active (only in API mode) -->
+  <div v-if="!isExternalMode && !hasAnyFilter" class="welcome-state">
+    <div class="welcome-card">
+      <div class="welcome-title">Pokemon TCG Card Browser</div>
+      <div class="welcome-subtitle">Load an era to browse cards</div>
+      <div class="welcome-buttons">
+        <button
+          class="welcome-btn welcome-btn-sv"
+          :disabled="loadingEra"
+          @click="loadEra('sv')"
+        >
+          <span class="welcome-btn-label">Scarlet &amp; Violet</span>
+        </button>
+        <button
+          class="welcome-btn welcome-btn-swsh"
+          :disabled="loadingEra"
+          @click="loadEra('swsh')"
+        >
+          <span class="welcome-btn-label">Sword &amp; Shield</span>
+        </button>
+      </div>
+      <div v-if="loadingEra" class="welcome-loading">
+        <div class="era-progress"><div class="era-progress-bar" /></div>
+      </div>
+      <div class="welcome-hint">or pick individual sets from the sidebar</div>
+    </div>
   </div>
-  <div v-else-if="!isLoading && allCards.length === 0 && !filters.era && !filters.sets?.length" class="empty-state">
+
+  <!-- Loading skeleton (API mode only) -->
+  <div v-else-if="!isExternalMode && isLoading" class="card-grid-wrapper">
+    <div class="card-grid-header">
+      <span class="card-count">Loading...</span>
+      <div class="grid-search-wrap">
+        <input type="text" class="grid-search" placeholder="Search cards..." disabled />
+      </div>
+      <select class="group-by-select" disabled>
+        <option>Set</option>
+      </select>
+      <div class="image-mode-toggle">
+        <button class="mode-btn active">Original</button>
+        <button class="mode-btn">Proxy</button>
+      </div>
+    </div>
+    <div class="skeleton-grid" :style="{ padding: `${PADDING}px`, gap: `${GAP}px` }">
+      <div
+        v-for="i in skeletonCount"
+        :key="i"
+        class="skeleton-card"
+        :style="{ width: `${cardWidth}px`, height: `${Math.ceil(cardWidth * 7 / 5)}px` }"
+      />
+    </div>
+  </div>
+
+  <!-- Empty state (external mode) -->
+  <div v-else-if="isExternalMode && allCardsRaw.length === 0" class="empty-state">
+    No cards in this deck.
+  </div>
+
+  <!-- No cards loaded (API mode) -->
+  <div v-else-if="!isExternalMode && allCards.length === 0 && !filters.era && !filters.sets?.length" class="empty-state">
     No cards loaded. Select an era to load cards first.
   </div>
-  <div v-else-if="isLoading" class="loading">Loading cards...</div>
+
+  <!-- Main grid -->
   <div v-else class="card-grid-wrapper">
     <div class="card-grid-header">
-      <span>{{ filteredCards.length }} cards</span>
+      <span class="card-count">{{ displayLabel }}</span>
+      <div class="grid-search-wrap">
+        <input
+          type="text"
+          class="grid-search"
+          placeholder="Search cards..."
+          :value="searchValue"
+          @input="handleSearchInput"
+        />
+        <button
+          v-if="searchValue"
+          class="grid-search-clear"
+          @click="clearSearch"
+        >&times;</button>
+      </div>
+      <select v-model="groupBy" class="group-by-select">
+        <option v-for="opt in groupByOptions" :key="opt.value" :value="opt.value">
+          {{ opt.label }}
+        </option>
+      </select>
       <div class="image-mode-toggle">
         <button
           v-for="opt in modeOptions"
@@ -188,17 +325,6 @@ const groupByOptions: { value: GroupBy; label: string }[] = [
           @click="setImageMode(opt.value)"
         >{{ opt.label }}</button>
       </div>
-      <select v-model="groupBy" class="group-by-select">
-        <option v-for="opt in groupByOptions" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
-      <input
-        v-model="gridSearch"
-        type="text"
-        class="grid-search"
-        placeholder="Filter cards..."
-      />
     </div>
     <div ref="scrollRef" class="card-grid-scroll">
       <div :style="{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }">
@@ -237,8 +363,10 @@ const groupByOptions: { value: GroupBy; label: string }[] = [
               :key="card.id"
               :card="card"
               :image-mode="imageMode"
+              :count="getCount(card)"
+              :hide-add="hideAdd"
               :style="{ width: `${cardWidth}px`, flexShrink: 0 }"
-              @add="addCard"
+              @add="handleAdd"
               @preview="emit('preview-card', $event, orderedCards)"
             />
           </div>

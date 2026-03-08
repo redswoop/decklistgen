@@ -1,27 +1,33 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import { Splitpanes, Pane } from "splitpanes";
-import "splitpanes/dist/splitpanes.css";
+import { ref, computed, onUnmounted } from "vue";
 import FilterSidebar from "./components/FilterSidebar.vue";
 import CardGrid from "./components/CardGrid.vue";
 import DecklistPanel from "./components/DecklistPanel.vue";
+import DeckManagerSidebar from "./components/DeckManagerSidebar.vue";
+import DeckView from "./components/DeckView.vue";
 import ExportDialog from "./components/ExportDialog.vue";
 import ImportDialog from "./components/ImportDialog.vue";
+import SaveDeckDialog from "./components/SaveDeckDialog.vue";
 import CardLightbox from "./components/CardLightbox.vue";
 import { useDecklist } from "./composables/useDecklist.js";
+import { useDecks } from "./composables/useDecks.js";
+import { useRoute } from "./composables/useRoute.js";
 import type { Card } from "../shared/types/card.js";
 
+// View + deck selection synced to URL hash
+const { currentView, selectedDeckId } = useRoute();
+
+// Layout persistence
 const LAYOUT_KEY = "decklistgen-layout";
 
 interface LayoutState {
   left: number;
-  center: number;
   right: number;
   leftCollapsed: boolean;
   rightCollapsed: boolean;
 }
 
-const defaults: LayoutState = { left: 15, center: 70, right: 15, leftCollapsed: false, rightCollapsed: false };
+const defaults: LayoutState = { left: 15, right: 15, leftCollapsed: false, rightCollapsed: false };
 
 function loadLayout(): LayoutState {
   try {
@@ -39,13 +45,16 @@ function saveLayout(partial: Partial<LayoutState>) {
 
 const saved = loadLayout();
 
-const { items, toText } = useDecklist();
+const { items, toText, currentDeckName, toDeckCards, markSaved, importSource, importedAt } = useDecklist();
+const { createDeck } = useDecks();
 
 const showExport = ref(false);
 const showImport = ref(false);
+const showSaveDeck = ref(false);
 const previewCard = ref<Card | null>(null);
 const previewSource = ref<'grid' | 'deck'>('grid');
 const gridSearchCards = ref<Card[]>([]);
+
 
 const effectiveSearchCards = computed(() => {
   if (previewSource.value === 'deck') {
@@ -53,20 +62,55 @@ const effectiveSearchCards = computed(() => {
   }
   return gridSearchCards.value;
 });
+
 const leftCollapsed = ref(saved.leftCollapsed);
 const rightCollapsed = ref(saved.rightCollapsed);
-const leftSize = ref(saved.left);
-const centerSize = ref(saved.center);
-const rightSize = ref(saved.right);
+const leftPct = ref(saved.left);
+const rightPct = ref(saved.right);
 
-function onResized(panes: { size: number }[]) {
-  if (!leftCollapsed.value && !rightCollapsed.value && panes.length === 3) {
-    leftSize.value = panes[0].size;
-    centerSize.value = panes[1].size;
-    rightSize.value = panes[2].size;
-    saveLayout({ left: panes[0].size, center: panes[1].size, right: panes[2].size });
+// --- Drag-to-resize ---
+const dragging = ref<'left' | 'right' | null>(null);
+let dragStartX = 0;
+let dragStartPct = 0;
+
+function startDrag(side: 'left' | 'right', e: MouseEvent) {
+  e.preventDefault();
+  dragging.value = side;
+  dragStartX = e.clientX;
+  dragStartPct = side === 'left' ? leftPct.value : rightPct.value;
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+}
+
+function onDragMove(e: MouseEvent) {
+  const container = document.querySelector('.layout') as HTMLElement | null;
+  if (!container) return;
+  const totalWidth = container.clientWidth;
+  const dx = e.clientX - dragStartX;
+  const dPct = (dx / totalWidth) * 100;
+
+  if (dragging.value === 'left') {
+    leftPct.value = Math.max(10, Math.min(40, dragStartPct + dPct));
+  } else {
+    rightPct.value = Math.max(10, Math.min(40, dragStartPct - dPct));
   }
 }
+
+function onDragEnd() {
+  dragging.value = null;
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+  saveLayout({ left: leftPct.value, right: rightPct.value });
+}
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+});
 
 function collapseLeft() {
   leftCollapsed.value = true;
@@ -99,38 +143,104 @@ function handleDeckPreview(card: Card) {
   previewSource.value = 'deck';
 }
 
+async function handleSaveDeck(name: string) {
+  showSaveDeck.value = false;
+  const deck = await createDeck({
+    name,
+    cards: toDeckCards(),
+    importedAt: importedAt.value ?? undefined,
+    importSource: importSource.value ?? undefined,
+  });
+  markSaved(deck.id, deck.name);
+}
+
+function handleSelectDeck(id: string) {
+  selectedDeckId.value = id;
+}
 </script>
 
 <template>
   <div class="app">
-    <button
-      v-if="leftCollapsed"
-      class="expand-btn expand-btn-left"
-      @click="expandLeft"
-    >&raquo;</button>
-    <button
-      v-if="rightCollapsed"
-      class="expand-btn expand-btn-right"
-      @click="expandRight"
-    >&laquo;</button>
+    <!-- Navigation bar -->
+    <div class="app-nav">
+      <span class="app-nav-title">DecklistGen</span>
+      <div class="app-nav-tabs">
+        <button
+          :class="['app-nav-tab', { active: currentView === 'browse' }]"
+          @click="currentView = 'browse'"
+        >Browse</button>
+        <button
+          :class="['app-nav-tab', { active: currentView === 'decks' }]"
+          @click="currentView = 'decks'"
+        >Decks</button>
+      </div>
+    </div>
 
-    <Splitpanes @resized="onResized">
-      <Pane v-if="!leftCollapsed" :size="leftSize" :min-size="10">
-        <FilterSidebar @collapse="collapseLeft" />
-      </Pane>
-      <Pane :size="centerSize" :min-size="30">
-        <CardGrid @preview-card="handlePreview" />
-      </Pane>
-      <Pane v-if="!rightCollapsed" :size="rightSize" :min-size="10">
-        <DecklistPanel
-          @collapse="collapseRight"
-          @export="showExport = true"
-          @import="showImport = true"
-          @preview-card="handleDeckPreview"
+    <!-- Main content area -->
+    <div class="app-content">
+      <button
+        v-if="leftCollapsed"
+        class="expand-btn expand-btn-left"
+        @click="expandLeft"
+      >&raquo;</button>
+      <button
+        v-if="rightCollapsed"
+        class="expand-btn expand-btn-right"
+        @click="expandRight"
+      >&laquo;</button>
+
+      <div class="layout" :class="{ 'is-dragging': dragging }">
+        <!-- Left pane -->
+        <div v-if="!leftCollapsed" class="layout-pane layout-side" :style="{ width: leftPct + '%' }">
+          <FilterSidebar v-if="currentView === 'browse'" @collapse="collapseLeft" />
+          <DeckManagerSidebar
+            v-else
+            :selected-deck-id="selectedDeckId"
+            @select-deck="handleSelectDeck"
+            @collapse="collapseLeft"
+            @import="showImport = true"
+          />
+        </div>
+
+        <!-- Left divider -->
+        <div
+          v-if="!leftCollapsed"
+          class="layout-divider"
+          @mousedown="startDrag('left', $event)"
         />
-      </Pane>
-    </Splitpanes>
 
+        <!-- Center pane — always flex:1, absorbs all freed space -->
+        <div class="layout-pane layout-center">
+          <CardGrid v-if="currentView === 'browse'" @preview-card="handlePreview" />
+          <DeckView
+            v-else
+            :deck-id="selectedDeckId"
+            @preview-card="handlePreview"
+            @export="showExport = true"
+          />
+        </div>
+
+        <!-- Right divider -->
+        <div
+          v-if="!rightCollapsed"
+          class="layout-divider"
+          @mousedown="startDrag('right', $event)"
+        />
+
+        <!-- Right pane -->
+        <div v-if="!rightCollapsed" class="layout-pane layout-side" :style="{ width: rightPct + '%' }">
+          <DecklistPanel
+            @collapse="collapseRight"
+            @export="showExport = true"
+            @import="showImport = true"
+            @save="showSaveDeck = true"
+            @preview-card="handleDeckPreview"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Dialogs -->
     <ImportDialog
       v-if="showImport"
       @close="showImport = false"
@@ -139,6 +249,12 @@ function handleDeckPreview(card: Card) {
       v-if="showExport"
       :text="toText()"
       @close="showExport = false"
+    />
+    <SaveDeckDialog
+      v-if="showSaveDeck"
+      :initial-name="currentDeckName || ''"
+      @save="handleSaveDeck"
+      @close="showSaveDeck = false"
     />
     <CardLightbox
       v-if="previewCard"

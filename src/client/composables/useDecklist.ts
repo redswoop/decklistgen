@@ -1,6 +1,7 @@
 import { ref, computed, watch } from "vue";
 import type { Card } from "../../shared/types/card.js";
 import type { DecklistEntry } from "../../shared/types/decklist.js";
+import type { DeckCard, SavedDeck } from "../../shared/types/deck.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 
 export interface DecklistItem extends DecklistEntry {
@@ -15,6 +16,7 @@ export interface DeckStats {
 }
 
 const STORAGE_KEY = "decklistgen-decklist";
+const META_KEY = "decklistgen-deck-meta";
 const DECK_SIZE = 60;
 
 function loadItems(): DecklistItem[] {
@@ -39,11 +41,49 @@ function loadItems(): DecklistItem[] {
   return [];
 }
 
+interface DeckMeta {
+  deckId: string | null;
+  deckName: string;
+  importSource: string | null;
+  importedAt: string | null;
+  lastSavedSnapshot: string;
+}
+
+function loadMeta(): DeckMeta {
+  try {
+    const raw = localStorage.getItem(META_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { deckId: null, deckName: "", importSource: null, importedAt: null, lastSavedSnapshot: "" };
+}
+
 const items = ref<DecklistItem[]>(loadItems());
+const meta = loadMeta();
+const currentDeckId = ref<string | null>(meta.deckId);
+const currentDeckName = ref(meta.deckName);
+const importSource = ref<string | null>(meta.importSource);
+const importedAt = ref<string | null>(meta.importedAt);
+const lastSavedSnapshot = ref(meta.lastSavedSnapshot);
 
 watch(items, (val) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(val));
 }, { deep: true });
+
+function saveMeta() {
+  localStorage.setItem(META_KEY, JSON.stringify({
+    deckId: currentDeckId.value,
+    deckName: currentDeckName.value,
+    importSource: importSource.value,
+    importedAt: importedAt.value,
+    lastSavedSnapshot: lastSavedSnapshot.value,
+  }));
+}
+
+watch([currentDeckId, currentDeckName, importSource, importedAt, lastSavedSnapshot], saveMeta);
+
+function currentSnapshot(): string {
+  return JSON.stringify(items.value.map((i) => ({ s: i.setCode, l: i.localId, c: i.count })));
+}
 
 export function useDecklist() {
   function addCard(card: Card) {
@@ -85,11 +125,21 @@ export function useDecklist() {
 
   function clear() {
     items.value = [];
+    currentDeckId.value = null;
+    currentDeckName.value = "";
+    importSource.value = null;
+    importedAt.value = null;
+    lastSavedSnapshot.value = "";
   }
 
-  function importDeck(newItems: DecklistItem[], mode: "merge" | "replace") {
+  function importDeck(newItems: DecklistItem[], mode: "merge" | "replace", source?: string) {
     if (mode === "replace") {
       items.value = newItems;
+      importSource.value = source ?? null;
+      importedAt.value = new Date().toISOString();
+      currentDeckId.value = null;
+      currentDeckName.value = "";
+      lastSavedSnapshot.value = "";
       return;
     }
     // Merge: add counts for matching cards, append new ones
@@ -103,6 +153,39 @@ export function useDecklist() {
         items.value.push({ ...incoming });
       }
     }
+    if (source && !importSource.value) {
+      importSource.value = source;
+      importedAt.value = new Date().toISOString();
+    }
+  }
+
+  /** Load a saved deck into the working deck */
+  function loadSavedDeck(deck: SavedDeck) {
+    items.value = deck.cards.map((dc) => ({
+      setCode: dc.card.setCode,
+      localId: dc.card.localId,
+      count: dc.count,
+      name: dc.card.name,
+      imageUrl: cardImageUrl(dc.card.imageBase, "low"),
+      card: dc.card,
+    }));
+    currentDeckId.value = deck.id;
+    currentDeckName.value = deck.name;
+    importSource.value = deck.importSource ?? null;
+    importedAt.value = deck.importedAt ?? null;
+    lastSavedSnapshot.value = currentSnapshot();
+  }
+
+  /** Mark the current deck as just-saved */
+  function markSaved(deckId: string, name: string) {
+    currentDeckId.value = deckId;
+    currentDeckName.value = name;
+    lastSavedSnapshot.value = currentSnapshot();
+  }
+
+  /** Get DeckCard[] for saving to server */
+  function toDeckCards(): DeckCard[] {
+    return items.value.map((i) => ({ count: i.count, card: i.card }));
   }
 
   const totalCards = computed(() =>
@@ -114,6 +197,11 @@ export function useDecklist() {
     if (t === DECK_SIZE) return "#2ea043";
     if (t > DECK_SIZE) return "#e94560";
     return "#d29922";
+  });
+
+  const isDirty = computed(() => {
+    if (!currentDeckId.value) return items.value.length > 0;
+    return currentSnapshot() !== lastSavedSnapshot.value;
   });
 
   const stats = computed<DeckStats>(() => {
@@ -167,5 +255,9 @@ export function useDecklist() {
     items, addCard, incrementCard, removeCard, clear, importDeck,
     totalCards, countColor, stats, DECK_SIZE,
     toText, isInDeck, getDeckCount,
+    // Deck management
+    currentDeckId, currentDeckName, isDirty,
+    importSource, importedAt,
+    loadSavedDeck, markSaved, toDeckCards,
   };
 }

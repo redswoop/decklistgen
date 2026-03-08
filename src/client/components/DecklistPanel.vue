@@ -1,18 +1,29 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useDecklist } from "../composables/useDecklist.js";
+import { useDecks } from "../composables/useDecks.js";
 import type { Card } from "../../shared/types/card.js";
 
 const emit = defineEmits<{
   collapse: [];
   export: [];
   import: [];
+  save: [];
   "preview-card": [card: Card];
 }>();
 
-const { items, totalCards, countColor, stats, DECK_SIZE, incrementCard, removeCard, clear } = useDecklist();
+const {
+  items, totalCards, countColor, stats, DECK_SIZE,
+  incrementCard, removeCard, clear,
+  currentDeckId, currentDeckName, isDirty,
+  importSource, importedAt,
+  toDeckCards, markSaved,
+} = useDecklist();
+
+const { createDeck, updateDeck } = useDecks();
 
 const expandedSections = ref<Record<string, boolean>>({});
+const saving = ref(false);
 
 function toggle(section: string) {
   expandedSections.value[section] = !expandedSections.value[section];
@@ -21,21 +32,61 @@ function toggle(section: string) {
 function openPreview(card: Card) {
   emit("preview-card", card);
 }
+
+async function handleSave() {
+  if (items.value.length === 0) return;
+  saving.value = true;
+  try {
+    if (currentDeckId.value) {
+      // Update existing deck
+      await updateDeck({
+        id: currentDeckId.value,
+        data: {
+          name: currentDeckName.value,
+          cards: toDeckCards(),
+        },
+      });
+      markSaved(currentDeckId.value, currentDeckName.value);
+    } else {
+      // New deck — emit to show save dialog
+      emit("save");
+      saving.value = false;
+      return;
+    }
+  } catch (e) {
+    console.error("Save failed:", e);
+  } finally {
+    saving.value = false;
+  }
+}
 </script>
 
 <template>
   <div class="decklist-panel">
     <div class="decklist-header">
-      <h3>Decklist</h3>
+      <h3>{{ currentDeckName || 'Decklist' }}</h3>
       <span class="deck-count" :style="{ color: countColor }">
         {{ totalCards }}/{{ DECK_SIZE }}
       </span>
+      <button class="decklist-collapse-btn" @click="emit('collapse')">&rsaquo;</button>
     </div>
+
+    <!-- Deck info bar -->
+    <div v-if="currentDeckName" class="deck-info-bar">
+      <span v-if="isDirty" class="deck-dirty-badge">Unsaved</span>
+      <span v-if="importSource" class="deck-import-source" :title="importSource">
+        {{ importSource.length > 30 ? importSource.slice(0, 30) + '...' : importSource }}
+      </span>
+    </div>
+
     <div class="decklist-actions">
       <button class="btn-import" @click="emit('import')">Import</button>
       <template v-if="items.length > 0">
-        <button class="btn-clear" @click="clear()">Clear</button>
+        <button class="btn-save" :disabled="saving || (!isDirty && !!currentDeckId)" @click="handleSave">
+          {{ saving ? 'Saving...' : (currentDeckId ? 'Save' : 'Save As...') }}
+        </button>
         <button class="btn-export" @click="emit('export')">Export</button>
+        <button class="btn-clear" @click="clear()">Clear</button>
       </template>
     </div>
     <div class="decklist-items">
@@ -116,7 +167,5 @@ function openPreview(card: Card) {
         <span class="stats-chevron" style="visibility: hidden">&nbsp;</span>
       </div>
     </div>
-
-    <button class="collapse-btn" @click="emit('collapse')">Collapse &raquo;</button>
   </div>
 </template>

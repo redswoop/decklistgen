@@ -3,6 +3,7 @@ import type { CardFilters } from "../../shared/types/filters.js";
 import type { FilterOptions } from "../../shared/types/filters.js";
 import type { DecklistEntry, DecklistOutput, LimitlessPlayer, ImportResult } from "../../shared/types/decklist.js";
 import type { ProxySettings } from "../../shared/types/proxy-settings.js";
+import type { SavedDeck, DeckSummary, DeckCard } from "../../shared/types/deck.js";
 
 const BASE = "/api";
 
@@ -35,6 +36,12 @@ async function put<T>(path: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+  return resp.json();
+}
+
+async function del<T>(path: string): Promise<T> {
+  const resp = await fetch(BASE + path, { method: "DELETE" });
   if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
   return resp.json();
 }
@@ -126,4 +133,17 @@ export const api = {
     }>(`/pokeproxy/prompt/${cardId}`),
   pokeproxySavePrompt: (cardId: string, prompt: string) =>
     put<{ cardId: string; status: string }>(`/pokeproxy/prompt/${cardId}`, { prompt }),
+
+  // Deck management endpoints
+  listDecks: () => get<DeckSummary[]>("/decks"),
+  getDeck: (id: string) => get<SavedDeck>(`/decks/${id}`),
+  createDeck: (data: { name: string; cards: DeckCard[]; importedAt?: string; importSource?: string }) =>
+    post<SavedDeck>("/decks", data),
+  updateDeck: (id: string, data: Partial<SavedDeck>) =>
+    put<SavedDeck>(`/decks/${id}`, data),
+  deleteDeck: (id: string) => del<{ ok: boolean }>(`/decks/${id}`),
+  copyDeck: (id: string, name?: string) =>
+    post<SavedDeck>(`/decks/${id}/copy`, { name }),
+  diversifyDeck: (id: string) =>
+    post<SavedDeck>(`/decks/${id}/diversify`, {}),
 };

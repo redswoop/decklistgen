@@ -2,12 +2,14 @@
 import { ref } from "vue";
 import { api } from "../lib/client.js";
 import { useDecklist, type DecklistItem } from "../composables/useDecklist.js";
+import { useDecks } from "../composables/useDecks.js";
 import type { LimitlessPlayer, ImportResult } from "../../shared/types/decklist.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 
 const emit = defineEmits<{ close: [] }>();
 
-const { importDeck } = useDecklist();
+const { importDeck, markSaved } = useDecklist();
+const { createDeck } = useDecks();
 
 const tab = ref<"url" | "paste">("url");
 const mode = ref<"replace" | "merge">("replace");
@@ -34,6 +36,23 @@ function filteredPlayers() {
   );
 }
 
+/** Auto-save imported cards as a deck on the server */
+async function autoSaveDeck(items: DecklistItem[], source: string, deckName?: string) {
+  const name = deckName || source || "Imported deck";
+  try {
+    const deck = await createDeck({
+      name,
+      cards: items.map((i) => ({ count: i.count, card: i.card })),
+      importedAt: new Date().toISOString(),
+      importSource: source || undefined,
+    });
+    markSaved(deck.id, deck.name);
+  } catch (e) {
+    // Auto-save is best-effort — don't block the import on failure
+    console.warn("Auto-save deck failed:", e);
+  }
+}
+
 async function fetchPlayers() {
   error.value = "";
   success.value = "";
@@ -52,15 +71,17 @@ async function fetchPlayers() {
         card: r.card,
       }));
 
-      importDeck(newItems, mode.value);
+      const source = urlInput.value.trim();
+      importDeck(newItems, mode.value, source);
+      await autoSaveDeck(newItems, source);
 
       const total = result.cards.reduce((s, c) => s + c.count, 0);
       if (result.unresolved && result.unresolved.length > 0) {
         const names = result.unresolved.map((u) => `${u.count}x ${u.name}`).join(", ");
         error.value = `Could not resolve: ${names}`;
-        success.value = `Imported ${total} cards.`;
+        success.value = `Imported ${total} cards (saved).`;
       } else {
-        success.value = `Imported ${total} cards.`;
+        success.value = `Imported ${total} cards (saved).`;
       }
       loading.value = false;
       return;
@@ -87,6 +108,7 @@ async function doImport() {
   loading.value = true;
   try {
     let result: ImportResult;
+    let deckName: string | undefined;
     if (tab.value === "url") {
       if (!selectedPlayer.value) {
         error.value = "Select a player first.";
@@ -94,6 +116,11 @@ async function doImport() {
         return;
       }
       result = await api.importLimitlessDeck(tournamentId.value, selectedPlayer.value);
+      // Use player name + deck archetype as the deck name
+      const player = players.value.find((p) => p.name === selectedPlayer.value);
+      deckName = player?.deckName
+        ? `${player.deckName} (${selectedPlayer.value})`
+        : selectedPlayer.value;
     } else {
       if (!pasteText.value.trim()) {
         error.value = "Paste a decklist first.";
@@ -101,6 +128,7 @@ async function doImport() {
         return;
       }
       result = await api.importText(pasteText.value);
+      deckName = "Pasted deck";
     }
 
     const newItems: DecklistItem[] = result.cards.map((r) => ({
@@ -112,14 +140,16 @@ async function doImport() {
       card: r.card,
     }));
 
-    importDeck(newItems, mode.value);
+    const source = tab.value === "url" ? urlInput.value.trim() : "Pasted decklist";
+    importDeck(newItems, mode.value, source);
+    await autoSaveDeck(newItems, source, deckName);
 
     const total = result.cards.reduce((s, c) => s + c.count, 0);
     if (result.unresolved.length > 0) {
       const names = result.unresolved.map((u) => `${u.count}x ${u.name}`).join(", ");
       error.value = `Could not resolve: ${names}`;
     }
-    success.value = `Imported ${total} cards.`;
+    success.value = `Imported ${total} cards (saved).`;
   } catch (e: any) {
     error.value = e.message || "Import failed";
   } finally {
