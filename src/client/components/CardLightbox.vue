@@ -91,30 +91,18 @@ const cleanedImageUrl = computed(() => {
   return null;
 });
 
-// Python SVG
-const pythonSvgUrl = computed(() => {
+// SVG Proxy
+const svgUrl = computed(() => {
   const base = api.pokeproxySvgUrl(currentCard.value.id);
   return `${base}?v=${svgCacheBust.value}`;
 });
-const pythonLoading = ref(true);
-const pythonError = ref(false);
-function onPythonLoad() { pythonLoading.value = false; pythonError.value = false; }
-function onPythonError() { pythonLoading.value = false; pythonError.value = true; }
-
-// Template SVG
-const templateSvgUrl = computed(() => {
-  const base = api.pokeproxySvgUrl(currentCard.value.id, "template");
-  const sep = base.includes("?") ? "&" : "?";
-  return `${base}${sep}v=${svgCacheBust.value}`;
-});
-const templateLoading = ref(true);
-const templateError = ref(false);
-function onTemplateLoad() { templateLoading.value = false; templateError.value = false; }
-function onTemplateError() { templateLoading.value = false; templateError.value = true; }
+const svgLoading = ref(true);
+const svgError = ref(false);
+function onSvgLoad() { svgLoading.value = false; svgError.value = false; }
+function onSvgError() { svgLoading.value = false; svgError.value = true; }
 
 watch(currentCardId, () => {
-  pythonLoading.value = true; pythonError.value = false;
-  templateLoading.value = true; templateError.value = false;
+  svgLoading.value = true; svgError.value = false;
 });
 
 const generating = computed(() => isGenerating(currentCard.value.id));
@@ -123,8 +111,7 @@ watch(generating, (now, was) => {
   if (was && !now) {
     cleanCacheBust.value++;
     svgCacheBust.value++;
-    pythonLoading.value = true; pythonError.value = false;
-    templateLoading.value = true; templateError.value = false;
+    svgLoading.value = true; svgError.value = false;
   }
 });
 
@@ -140,8 +127,7 @@ const svgRegenerating = ref(false);
 async function handleRegenerateSvg() {
   if (svgRegenerating.value) return;
   svgRegenerating.value = true;
-  pythonLoading.value = true; pythonError.value = false;
-  templateLoading.value = true; templateError.value = false;
+  svgLoading.value = true; svgError.value = false;
   try {
     await regenerateSvg(currentCard.value.id);
     svgCacheBust.value++;
@@ -249,46 +235,26 @@ const tags = computed(() =>
             </div>
           </div>
 
-          <!-- SVG Proxy (Python) -->
+          <!-- SVG Proxy -->
           <div class="lightbox-image-col">
-            <div class="image-label">SVG (Python)</div>
-            <div v-if="(pythonLoading || svgRegenerating) && !pythonError" class="lightbox-placeholder">
+            <div class="image-label">SVG Proxy</div>
+            <div v-if="(svgLoading || svgRegenerating) && !svgError" class="lightbox-placeholder">
               <div class="generate-spinner"></div>
               <div class="generate-text">{{ svgRegenerating ? 'Regenerating...' : 'Rendering...' }}</div>
             </div>
-            <div v-if="pythonError" class="lightbox-placeholder lightbox-clickable" @click="handleRegenerateSvg">
+            <div v-if="svgError" class="lightbox-placeholder lightbox-clickable" @click="handleRegenerateSvg">
               <div class="generate-label">SVG Failed</div>
               <div class="generate-sublabel">Click to retry</div>
             </div>
             <img
-              v-show="!pythonLoading && !pythonError && !svgRegenerating"
-              :src="pythonSvgUrl"
-              :alt="`${currentCard.name} (Python SVG)`"
+              v-show="!svgLoading && !svgError && !svgRegenerating"
+              :src="svgUrl"
+              :alt="`${currentCard.name} (SVG)`"
               class="lightbox-img lightbox-img-clickable"
               title="Click to regenerate SVG"
               @click="handleRegenerateSvg"
-              @load="onPythonLoad"
-              @error="onPythonError"
-            />
-          </div>
-
-          <!-- SVG Proxy (Template) -->
-          <div class="lightbox-image-col">
-            <div class="image-label">SVG (Template)</div>
-            <div v-if="(templateLoading || svgRegenerating) && !templateError" class="lightbox-placeholder">
-              <div class="generate-spinner"></div>
-              <div class="generate-text">{{ svgRegenerating ? 'Regenerating...' : 'Rendering...' }}</div>
-            </div>
-            <div v-if="templateError" class="lightbox-placeholder">
-              <div class="generate-label">Template Failed</div>
-            </div>
-            <img
-              v-show="!templateLoading && !templateError && !svgRegenerating"
-              :src="templateSvgUrl"
-              :alt="`${currentCard.name} (Template SVG)`"
-              class="lightbox-img"
-              @load="onTemplateLoad"
-              @error="onTemplateError"
+              @load="onSvgLoad"
+              @error="onSvgError"
             />
           </div>
         </div>
