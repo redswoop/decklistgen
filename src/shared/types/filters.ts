@@ -18,4 +18,5 @@ export interface FilterOptions {
   energyTypes: string[];
   sets: Array<{ code: string; name: string }>;
   trainerTypes: string[];
+  availableAttributes: SpecialAttribute[];
 }

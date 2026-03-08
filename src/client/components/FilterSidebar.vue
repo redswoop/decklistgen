@@ -162,6 +162,16 @@ function handleFullArtChange(e: Event) {
 function handleFoilChange(e: Event) {
   setFoil((e.target as HTMLInputElement).checked ? true : undefined);
 }
+
+const isPokemonCategory = computed(() =>
+  !filters.category || filters.category === "Pokemon"
+);
+
+const isAttrEnabled = (attr: SpecialAttribute) =>
+  isPokemonCategory.value
+  && (filterOpts.value?.availableAttributes?.includes(attr) ?? false);
+
+const isEnergyTypeEnabled = computed(() => isPokemonCategory.value);
 </script>
 
 <template>
@@ -223,17 +233,27 @@ function handleFoilChange(e: Event) {
       <option v-for="r in filterOpts?.rarities" :key="r" :value="r">{{ r }}</option>
     </select>
 
-    <h2>Energy Type</h2>
-    <select :value="filters.energyTypes?.[0] ?? ''" @change="handleEnergyTypeChange">
+    <h2 :class="{ disabled: !isEnergyTypeEnabled }">Energy Type</h2>
+    <select
+      :value="filters.energyTypes?.[0] ?? ''"
+      :disabled="!isEnergyTypeEnabled"
+      :class="{ disabled: !isEnergyTypeEnabled }"
+      @change="handleEnergyTypeChange"
+    >
       <option value="">All</option>
       <option v-for="t in filterOpts?.energyTypes" :key="t" :value="t">{{ t }}</option>
     </select>
 
     <h2>Attributes</h2>
-    <label v-for="attr in SPECIAL_ATTRS" :key="attr">
+    <label
+      v-for="attr in SPECIAL_ATTRS"
+      :key="attr"
+      :class="{ disabled: !isAttrEnabled(attr) }"
+    >
       <input
         type="checkbox"
         :checked="filters.specialAttributes?.includes(attr) ?? false"
+        :disabled="!isAttrEnabled(attr)"
         @change="handleCheckboxAttr(attr, $event)"
       />
       {{ attr }}

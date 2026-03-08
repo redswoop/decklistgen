@@ -1,5 +1,5 @@
 import type { Card, TcgdexCard } from "../../shared/types/card.js";
-import type { FilterOptions } from "../../shared/types/filters.js";
+import type { FilterOptions, SpecialAttribute } from "../../shared/types/filters.js";
 import { SET_MAP, REVERSE_SET_MAP, getEra } from "../../shared/constants/set-codes.js";
 import { isEx, isV, isVmax, isVstar, isAncient, isFuture, isTera } from "../../shared/utils/detect-attributes.js";
 import { isFullArt } from "../../shared/utils/detect-fullart.js";
@@ -177,10 +177,20 @@ export function getFilterOptions(): FilterOptions {
     if (!sets.has(card.setCode)) sets.set(card.setCode, card.setName);
   }
 
+  const attrChecks: Array<[SpecialAttribute, keyof Card]> = [
+    ["ex", "isEx"], ["V", "isV"], ["VMAX", "isVmax"], ["VSTAR", "isVstar"],
+    ["Ancient", "isAncient"], ["Future", "isFuture"], ["Tera", "isTera"],
+  ];
+  const availableAttributes: SpecialAttribute[] = [];
+  for (const [attr, field] of attrChecks) {
+    if (cards.some((c) => c[field])) availableAttributes.push(attr);
+  }
+
   return {
     rarities: Array.from(rarities).sort(),
     energyTypes: Array.from(energyTypes).sort(),
     trainerTypes: Array.from(trainerTypes).sort(),
     sets: Array.from(sets.entries()).map(([code, name]) => ({ code, name })),
+    availableAttributes,
   };
 }

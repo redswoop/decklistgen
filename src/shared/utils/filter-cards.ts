@@ -6,9 +6,17 @@ export function applyFilters(cards: Card[], filters: CardFilters): Card[] {
     if (filters.sets?.length && !filters.sets.includes(card.setCode)) return false;
     if (filters.era && card.era !== filters.era) return false;
     if (filters.category && card.category !== filters.category) return false;
-    if (filters.trainerType && card.trainerType !== filters.trainerType) return false;
+    if (filters.trainerType) {
+      if (!filters.category || filters.category === "Trainer") {
+        if (card.trainerType !== filters.trainerType) return false;
+      }
+    }
     if (filters.rarities?.length && !filters.rarities.includes(card.rarity)) return false;
-    if (filters.energyTypes?.length && !filters.energyTypes.some((t) => card.energyTypes.includes(t))) return false;
+    if (filters.energyTypes?.length) {
+      if (!filters.category || filters.category === "Pokemon") {
+        if (!filters.energyTypes.some((t) => card.energyTypes.includes(t))) return false;
+      }
+    }
     if (filters.isFullArt !== undefined && card.isFullArt !== filters.isFullArt) return false;
     if (filters.hasFoil !== undefined && card.hasFoil !== filters.hasFoil) return false;
 
@@ -18,16 +26,18 @@ export function applyFilters(cards: Card[], filters: CardFilters): Card[] {
     }
 
     if (filters.specialAttributes?.length) {
-      const attrMap: Record<string, boolean> = {
-        ex: card.isEx,
-        V: card.isV,
-        VMAX: card.isVmax,
-        VSTAR: card.isVstar,
-        Ancient: card.isAncient,
-        Future: card.isFuture,
-        Tera: card.isTera,
-      };
-      if (!filters.specialAttributes.some((attr) => attrMap[attr])) return false;
+      if (!filters.category || filters.category === "Pokemon") {
+        const attrMap: Record<string, boolean> = {
+          ex: card.isEx,
+          V: card.isV,
+          VMAX: card.isVmax,
+          VSTAR: card.isVstar,
+          Ancient: card.isAncient,
+          Future: card.isFuture,
+          Tera: card.isTera,
+        };
+        if (!filters.specialAttributes.some((attr) => attrMap[attr])) return false;
+      }
     }
 
     return true;
