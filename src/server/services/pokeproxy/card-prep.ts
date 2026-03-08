@@ -82,6 +82,7 @@ function measureContent(
 export function solveStandardLayout(
   card: Record<string, unknown>,
   artY: number,
+  opts?: { fontSize?: number },
 ): SolvedLayout {
   const category = (card.category as string) ?? "Pokemon";
   const trainerEffect = compressText((card.effect as string) ?? "");
@@ -123,7 +124,16 @@ export function solveStandardLayout(
   let bodySize: number;
   let artHeight: number;
 
-  if (hasText) {
+  if (opts?.fontSize != null) {
+    // Font size override: use the specified size, compute art height from remaining space
+    bodySize = opts.fontSize;
+    if (hasText) {
+      const th = _measure(bodySize);
+      artHeight = Math.max(ART_H_MIN, Math.min(ART_H_MAX, space - th));
+    } else {
+      artHeight = ART_H_MAX;
+    }
+  } else if (hasText) {
     const textHLarge = _measure(BODY_LARGE);
 
     if (textHLarge <= space - ART_H_MAX) {

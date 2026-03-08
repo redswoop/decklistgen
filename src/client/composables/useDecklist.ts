@@ -7,7 +7,14 @@ export interface DecklistItem extends DecklistEntry {
   card: Card;
 }
 
+export interface DeckStats {
+  pokemon: { total: number; basic: number; stage1: number; stage2: number; ex: number; v: number };
+  trainer: { total: number; supporter: number; item: number; stadium: number; tool: number };
+  energy: { total: number };
+}
+
 const STORAGE_KEY = "decklistgen-decklist";
+const DECK_SIZE = 60;
 
 function loadItems(): DecklistItem[] {
   try {
@@ -65,9 +72,67 @@ export function useDecklist() {
     items.value = [];
   }
 
+  function importDeck(newItems: DecklistItem[], mode: "merge" | "replace") {
+    if (mode === "replace") {
+      items.value = newItems;
+      return;
+    }
+    // Merge: add counts for matching cards, append new ones
+    for (const incoming of newItems) {
+      const existing = items.value.find(
+        (i) => i.setCode === incoming.setCode && i.localId === incoming.localId
+      );
+      if (existing) {
+        existing.count += incoming.count;
+      } else {
+        items.value.push({ ...incoming });
+      }
+    }
+  }
+
   const totalCards = computed(() =>
     items.value.reduce((sum, i) => sum + i.count, 0)
   );
+
+  const countColor = computed(() => {
+    const t = totalCards.value;
+    if (t === DECK_SIZE) return "#2ea043";
+    if (t > DECK_SIZE) return "#e94560";
+    return "#d29922";
+  });
+
+  const stats = computed<DeckStats>(() => {
+    const result: DeckStats = {
+      pokemon: { total: 0, basic: 0, stage1: 0, stage2: 0, ex: 0, v: 0 },
+      trainer: { total: 0, supporter: 0, item: 0, stadium: 0, tool: 0 },
+      energy: { total: 0 },
+    };
+
+    for (const item of items.value) {
+      const c = item.card;
+      const n = item.count;
+
+      if (c.category === "Pokemon") {
+        result.pokemon.total += n;
+        const stage = c.stage?.toLowerCase() ?? "";
+        if (stage === "basic") result.pokemon.basic += n;
+        else if (stage === "stage1") result.pokemon.stage1 += n;
+        else if (stage === "stage2") result.pokemon.stage2 += n;
+        if (c.isEx) result.pokemon.ex += n;
+        if (c.isV || c.isVmax || c.isVstar) result.pokemon.v += n;
+      } else if (c.category === "Trainer") {
+        result.trainer.total += n;
+        if (c.trainerType === "Supporter") result.trainer.supporter += n;
+        else if (c.trainerType === "Item") result.trainer.item += n;
+        else if (c.trainerType === "Stadium") result.trainer.stadium += n;
+        else if (c.trainerType === "Tool") result.trainer.tool += n;
+      } else if (c.category === "Energy") {
+        result.energy.total += n;
+      }
+    }
+
+    return result;
+  });
 
   function toText() {
     return items.value
@@ -83,5 +148,9 @@ export function useDecklist() {
     return items.value.find((i) => i.setCode === setCode && i.localId === localId)?.count ?? 0;
   }
 
-  return { items, addCard, incrementCard, removeCard, clear, totalCards, toText, isInDeck, getDeckCount };
+  return {
+    items, addCard, incrementCard, removeCard, clear, importDeck,
+    totalCards, countColor, stats, DECK_SIZE,
+    toText, isInDeck, getDeckCount,
+  };
 }

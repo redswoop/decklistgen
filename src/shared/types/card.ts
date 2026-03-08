@@ -26,6 +26,28 @@ export interface Card {
   hasFoil: boolean;
 }
 
+export interface CardAttack {
+  name: string;
+  cost: string[];
+  damage?: string;
+  effect?: string;
+}
+
+export interface CardAbility {
+  name: string;
+  type: string;  // "Ability", "Talent"
+  effect: string;
+}
+
+export interface CardDetail extends Card {
+  attacks: CardAttack[];
+  abilities: CardAbility[];
+  weaknesses: Array<{ type: string; value: string }>;
+  resistances: Array<{ type: string; value: string }>;
+  description?: string;
+  evolveFrom?: string;
+}
+
 /** Raw card from TCGdex API */
 export interface TcgdexCard {
   id: string;
@@ -50,8 +72,12 @@ export interface TcgdexCard {
     name: string;
     cardCount?: { official?: number; total?: number };
   };
-  abilities?: Array<{ name: string; effect: string }>;
-  attacks?: Array<{ name: string; effect?: string }>;
+  abilities?: Array<{ name: string; type?: string; effect: string }>;
+  attacks?: Array<{ name: string; cost?: string[]; damage?: string | number; effect?: string }>;
+  weaknesses?: Array<{ type: string; value: string }>;
+  resistances?: Array<{ type: string; value: string }>;
+  description?: string;
+  evolveFrom?: string;
 }
 
 /** Set info from TCGdex API */

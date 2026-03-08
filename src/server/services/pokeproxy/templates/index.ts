@@ -48,7 +48,7 @@ export function renderFromTemplate(
       artY = 118;
       if (evolveFrom) artY = 135;
     }
-    layout = solveStandardLayout(card, artY);
+    layout = solveStandardLayout(card, artY, { fontSize: opts?.fontSize });
   }
 
   const props = prepareCardProps(card, imageB64, layout);

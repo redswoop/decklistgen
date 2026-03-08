@@ -1,7 +1,8 @@
-import type { Card, SetInfo } from "../../shared/types/card.js";
+import type { Card, CardDetail, SetInfo } from "../../shared/types/card.js";
 import type { CardFilters } from "../../shared/types/filters.js";
 import type { FilterOptions } from "../../shared/types/filters.js";
-import type { DecklistEntry, DecklistOutput } from "../../shared/types/decklist.js";
+import type { DecklistEntry, DecklistOutput, LimitlessPlayer, ImportResult } from "../../shared/types/decklist.js";
+import type { ProxySettings } from "../../shared/types/proxy-settings.js";
 
 const BASE = "/api";
 
@@ -21,6 +22,16 @@ async function get<T>(path: string, params?: Record<string, string>): Promise<T>
 async function post<T>(path: string, body: unknown): Promise<T> {
   const resp = await fetch(BASE + path, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+  return resp.json();
+}
+
+async function put<T>(path: string, body: unknown): Promise<T> {
+  const resp = await fetch(BASE + path, {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
@@ -63,6 +74,22 @@ export const api = {
   getFilterOptions: () => get<FilterOptions>("/cards/filters"),
   generateDecklist: (entries: DecklistEntry[]) =>
     post<DecklistOutput>("/decklist/generate", { entries }),
+  importLimitlessPlayers: (url: string) =>
+    post<{
+      directImport?: boolean;
+      cards?: ImportResult["cards"];
+      unresolved?: ImportResult["unresolved"];
+      tournamentId?: string;
+      tournamentName?: string;
+      playerCount?: number;
+      players?: LimitlessPlayer[];
+    }>("/decklist/import/limitless/players", { url }),
+  importLimitlessDeck: (tournamentId: string, playerName: string) =>
+    post<ImportResult>("/decklist/import/limitless/deck", { tournamentId, playerName }),
+  importText: (text: string) =>
+    post<ImportResult>("/decklist/import/text", { text }),
+  getCardDetail: (cardId: string) =>
+    get<CardDetail>(`/cards/${cardId}/detail`),
   getVariants: (cardId: string) =>
     get<{ variants: Card[] }>(`/cards/${cardId}/variants`),
 
@@ -75,10 +102,27 @@ export const api = {
     ),
   pokeproxyImageUrl: (cardId: string, type: "clean" | "composite" = "composite") =>
     `/api/pokeproxy/image/${cardId}/${type}`,
-  pokeproxySvgUrl: (cardId: string, renderer?: string) =>
-    renderer ? `/api/pokeproxy/svg/${cardId}?renderer=${renderer}` : `/api/pokeproxy/svg/${cardId}`,
+  pokeproxySvgUrl: (cardId: string, settings?: ProxySettings) => {
+    const base = `/api/pokeproxy/svg/${cardId}`;
+    if (!settings) return base;
+    const params = new URLSearchParams();
+    if (settings.fontSize != null) params.set("fontSize", String(settings.fontSize));
+    if (settings.maxCover != null) params.set("maxCover", String(settings.maxCover));
+    const qs = params.toString();
+    return qs ? `${base}?${qs}` : base;
+  },
   pokeproxyGenerate: (cardId: string, force = false) =>
     post<{ cardId: string; status: string; output?: string }>(`/pokeproxy/generate/${cardId}${force ? "?force=true" : ""}`, {}),
   pokeproxyRegenerateSvg: (cardId: string) =>
     post<{ cardId: string; status: string }>(`/pokeproxy/svg/${cardId}/regenerate`, {}),
+  pokeproxyGetPrompt: (cardId: string) =>
+    get<{
+      cardId: string;
+      ruleName: string;
+      prompt: string | null;
+      skip: boolean;
+      lastUsed: { prompt?: string; seed?: number; rule?: string } | null;
+    }>(`/pokeproxy/prompt/${cardId}`),
+  pokeproxySavePrompt: (cardId: string, prompt: string) =>
+    put<{ cardId: string; status: string }>(`/pokeproxy/prompt/${cardId}`, { prompt }),
 };

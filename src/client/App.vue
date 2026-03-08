@@ -6,6 +6,7 @@ import FilterSidebar from "./components/FilterSidebar.vue";
 import CardGrid from "./components/CardGrid.vue";
 import DecklistPanel from "./components/DecklistPanel.vue";
 import ExportDialog from "./components/ExportDialog.vue";
+import ImportDialog from "./components/ImportDialog.vue";
 import CardLightbox from "./components/CardLightbox.vue";
 import { useDecklist } from "./composables/useDecklist.js";
 import type { Card } from "../shared/types/card.js";
@@ -41,6 +42,7 @@ const saved = loadLayout();
 const { items, toText } = useDecklist();
 
 const showExport = ref(false);
+const showImport = ref(false);
 const previewCard = ref<Card | null>(null);
 const previewSource = ref<'grid' | 'deck'>('grid');
 const gridSearchCards = ref<Card[]>([]);
@@ -123,11 +125,16 @@ function handleDeckPreview(card: Card) {
         <DecklistPanel
           @collapse="collapseRight"
           @export="showExport = true"
+          @import="showImport = true"
           @preview-card="handleDeckPreview"
         />
       </Pane>
     </Splitpanes>
 
+    <ImportDialog
+      v-if="showImport"
+      @close="showImport = false"
+    />
     <ExportDialog
       v-if="showExport"
       :text="toText()"

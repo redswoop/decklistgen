@@ -112,6 +112,40 @@ export async function loadEra(era: "sv" | "swsh"): Promise<{ loaded: number; set
 }
 
 /** Find all variants of a card (same name across loaded cards) */
+/** Find a card by PTCGL set code and card number (handles zero-padding differences) */
+export function findCardBySetAndNumber(setCode: string, number: string): Card | undefined {
+  const code = setCode.toUpperCase();
+  const tcgdexId = SET_MAP[code];
+  if (!tcgdexId) return undefined;
+
+  // Try exact ID match
+  const exact = cardIndex.get(`${tcgdexId}-${number}`);
+  if (exact) return exact;
+
+  // Try zero-padded
+  const padded = number.padStart(3, "0");
+  const paddedCard = cardIndex.get(`${tcgdexId}-${padded}`);
+  if (paddedCard) return paddedCard;
+
+  // Numeric fallback: search cards in this set
+  const num = parseInt(number);
+  if (!isNaN(num)) {
+    for (const c of cardIndex.values()) {
+      if (c.setCode === code && parseInt(c.localId) === num) return c;
+    }
+  }
+  return undefined;
+}
+
+/** Find a card by name across all loaded sets */
+export function findCardByName(name: string): Card | undefined {
+  const lower = name.toLowerCase();
+  for (const c of cardIndex.values()) {
+    if (c.name.toLowerCase() === lower) return c;
+  }
+  return undefined;
+}
+
 export function getVariants(cardId: string): Card[] {
   const card = cardIndex.get(cardId);
   if (!card) return [];

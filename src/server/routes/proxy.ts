@@ -4,7 +4,7 @@ import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { getCard, loadSet, isSetLoaded } from "../services/card-store.js";
 import { cleanCardImage } from "../services/comfyui.js";
-import { getPromptForCard } from "../services/prompt-db.js";
+import { getPromptForCard, saveCardPrompt } from "../services/prompt-db.js";
 import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
 import { isFullArt } from "../../shared/utils/detect-fullart.js";
 import type { TcgdexCard } from "../../shared/types/card.js";
@@ -79,8 +79,13 @@ async function ensureSourceImage(cardId: string): Promise<boolean> {
   return true;
 }
 
+interface SvgRenderOptions {
+  fontSize?: number;
+  maxCover?: number;
+}
+
 /** Render SVG using the template engine. */
-async function generateSvgFromTemplate(cardId: string): Promise<string> {
+async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions): Promise<string> {
   // Get best available image (optional — SVG can render without artwork)
   let imageB64 = "";
   for (const suffix of ["_composite.png", "_clean.png", ".png"]) {
@@ -109,7 +114,12 @@ async function generateSvgFromTemplate(cardId: string): Promise<string> {
   else templateName = "standard";
 
   resetIconIds();
-  return renderFromTemplate(templateName, cardData, imageB64);
+
+  const renderOpts: import("../services/pokeproxy/templates/index.js").FullartOptions = {};
+  if (opts?.fontSize != null) renderOpts.fontSize = opts.fontSize;
+  if (opts?.maxCover != null) renderOpts.maxCover = opts.maxCover;
+
+  return renderFromTemplate(templateName, cardData, imageB64, renderOpts);
 }
 
 const app = new Hono();
@@ -155,8 +165,12 @@ app.get("/image/:cardId/:type", async (c) => {
 /** Serve an SVG proxy card */
 app.get("/svg/:cardId", async (c) => {
   const cardId = c.req.param("cardId");
+  const query = c.req.query();
+  const svgOpts: SvgRenderOptions = {};
+  if (query.fontSize) svgOpts.fontSize = parseFloat(query.fontSize);
+  if (query.maxCover) svgOpts.maxCover = parseFloat(query.maxCover);
   try {
-    const svg = await generateSvgFromTemplate(cardId);
+    const svg = await generateSvgFromTemplate(cardId, svgOpts);
     return new Response(svg, {
       headers: {
         "Content-Type": "image/svg+xml",
@@ -172,6 +186,42 @@ app.get("/svg/:cardId", async (c) => {
 app.post("/svg/:cardId/regenerate", (c) => {
   const cardId = c.req.param("cardId");
   return c.json({ cardId, status: "regenerated" });
+});
+
+/** Get the resolved prompt for a card */
+app.get("/prompt/:cardId", async (c) => {
+  const cardId = c.req.param("cardId");
+  await ensureCardLoaded(cardId);
+  const cardData = loadCardData(cardId);
+  const result = getPromptForCard(cardData);
+
+  // Also check if there's a previous generation's metadata
+  let lastUsed: { prompt?: string; seed?: number; rule?: string } | null = null;
+  const metaPath = cachePath(cardId, "_clean_meta.json");
+  if (existsSync(metaPath)) {
+    try {
+      lastUsed = JSON.parse(readFileSync(metaPath, "utf-8"));
+    } catch {}
+  }
+
+  return c.json({
+    cardId,
+    ruleName: result.ruleName,
+    prompt: result.prompt,
+    skip: result.skip,
+    lastUsed,
+  });
+});
+
+/** Save a card-specific prompt override */
+app.put("/prompt/:cardId", async (c) => {
+  const cardId = c.req.param("cardId");
+  const { prompt } = await c.req.json<{ prompt: string }>();
+  if (!prompt || typeof prompt !== "string") {
+    return c.json({ error: "prompt is required" }, 400);
+  }
+  saveCardPrompt(cardId, prompt);
+  return c.json({ cardId, status: "saved" });
 });
 
 app.post("/generate/:cardId", async (c) => {

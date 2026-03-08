@@ -16,4 +16,8 @@ V-UNION cards (e.g., Pikachu V-UNION) are 4 physical cards that combine into one
 Energy cards need a lot of work.  They dont regenerate properly, rares aren't handled too well, etc.
 
 
+## Card Type Tags
+Things like Basic, Stadium, etc, especially on full-art cards, need a lot of love.
 
+## Dynamax
+??

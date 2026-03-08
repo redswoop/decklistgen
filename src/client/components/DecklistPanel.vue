@@ -1,14 +1,22 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import { useDecklist } from "../composables/useDecklist.js";
 import type { Card } from "../../shared/types/card.js";
 
 const emit = defineEmits<{
   collapse: [];
   export: [];
+  import: [];
   "preview-card": [card: Card];
 }>();
 
-const { items, totalCards, incrementCard, removeCard, clear } = useDecklist();
+const { items, totalCards, countColor, stats, DECK_SIZE, incrementCard, removeCard, clear } = useDecklist();
+
+const expandedSections = ref<Record<string, boolean>>({});
+
+function toggle(section: string) {
+  expandedSections.value[section] = !expandedSections.value[section];
+}
 
 function openPreview(card: Card) {
   emit("preview-card", card);
@@ -19,11 +27,16 @@ function openPreview(card: Card) {
   <div class="decklist-panel">
     <div class="decklist-header">
       <h3>Decklist</h3>
-      <span :style="{ fontSize: '13px', color: '#7f8fa6' }">{{ totalCards }} cards</span>
+      <span class="deck-count" :style="{ color: countColor }">
+        {{ totalCards }}/{{ DECK_SIZE }}
+      </span>
     </div>
-    <div v-if="items.length > 0" class="decklist-actions">
-      <button class="btn-clear" @click="clear()">Clear</button>
-      <button class="btn-export" @click="emit('export')">Export</button>
+    <div class="decklist-actions">
+      <button class="btn-import" @click="emit('import')">Import</button>
+      <template v-if="items.length > 0">
+        <button class="btn-clear" @click="clear()">Clear</button>
+        <button class="btn-export" @click="emit('export')">Export</button>
+      </template>
     </div>
     <div class="decklist-items">
       <div v-if="items.length === 0" class="empty-state">
@@ -51,6 +64,59 @@ function openPreview(card: Card) {
         </div>
       </div>
     </div>
+
+    <!-- Stats box -->
+    <div v-if="items.length > 0" class="deck-stats">
+      <div class="stats-row" @click="toggle('pokemon')">
+        <span class="stats-label">Pokemon</span>
+        <span class="stats-count">{{ stats.pokemon.total }}</span>
+        <span class="stats-chevron">{{ expandedSections.pokemon ? '\u25BC' : '\u25B6' }}</span>
+      </div>
+      <div v-if="expandedSections.pokemon" class="stats-sub">
+        <div v-if="stats.pokemon.basic" class="stats-sub-row">
+          <span>Basic</span><span>{{ stats.pokemon.basic }}</span>
+        </div>
+        <div v-if="stats.pokemon.stage1" class="stats-sub-row">
+          <span>Stage 1</span><span>{{ stats.pokemon.stage1 }}</span>
+        </div>
+        <div v-if="stats.pokemon.stage2" class="stats-sub-row">
+          <span>Stage 2</span><span>{{ stats.pokemon.stage2 }}</span>
+        </div>
+        <div v-if="stats.pokemon.ex" class="stats-sub-row">
+          <span>ex</span><span>{{ stats.pokemon.ex }}</span>
+        </div>
+        <div v-if="stats.pokemon.v" class="stats-sub-row">
+          <span>V/VMAX/VSTAR</span><span>{{ stats.pokemon.v }}</span>
+        </div>
+      </div>
+
+      <div class="stats-row" @click="toggle('trainer')">
+        <span class="stats-label">Trainer</span>
+        <span class="stats-count">{{ stats.trainer.total }}</span>
+        <span class="stats-chevron">{{ expandedSections.trainer ? '\u25BC' : '\u25B6' }}</span>
+      </div>
+      <div v-if="expandedSections.trainer" class="stats-sub">
+        <div v-if="stats.trainer.supporter" class="stats-sub-row">
+          <span>Supporter</span><span>{{ stats.trainer.supporter }}</span>
+        </div>
+        <div v-if="stats.trainer.item" class="stats-sub-row">
+          <span>Item</span><span>{{ stats.trainer.item }}</span>
+        </div>
+        <div v-if="stats.trainer.stadium" class="stats-sub-row">
+          <span>Stadium</span><span>{{ stats.trainer.stadium }}</span>
+        </div>
+        <div v-if="stats.trainer.tool" class="stats-sub-row">
+          <span>Tool</span><span>{{ stats.trainer.tool }}</span>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <span class="stats-label">Energy</span>
+        <span class="stats-count">{{ stats.energy.total }}</span>
+        <span class="stats-chevron" style="visibility: hidden">&nbsp;</span>
+      </div>
+    </div>
+
     <button class="collapse-btn" @click="emit('collapse')">Collapse &raquo;</button>
   </div>
 </template>
