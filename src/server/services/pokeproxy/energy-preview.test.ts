@@ -18,15 +18,38 @@ describe("renderEnergyPreviewSvg", () => {
     expect(svg).toContain('font-family: "EssentiarumTCG"');
   });
 
-  it("contains correct energy color values", () => {
+  it("contains dark palette colors (standard section)", () => {
     const svg = renderEnergyPreviewSvg();
-    const expectedColors = [
-      "#439837", "#e4613e", "#3099e1", "#dfbc28", "#e96c8c",
-      "#e49021", "#4f4747", "#74b0cb", "#e18ce1", "#576fbc", "#828282",
+    const darkColors = [
+      "#2d7a25", "#c0351a", "#1a6db8", "#b89200", "#b8306a",
+      "#a86420", "#2a1f3d", "#4a7a8f", "#b840b8", "#3a4e9a", "#5a5a5a",
     ];
-    for (const color of expectedColors) {
+    for (const color of darkColors) {
       expect(svg).toContain(color);
     }
+  });
+
+  it("contains light palette colors (full-art section)", () => {
+    const svg = renderEnergyPreviewSvg();
+    const lightColors = [
+      "#6bdb5a", "#ff8866", "#5cc0ff", "#ffe04a", "#ff88b0",
+      "#ffb84a", "#9080b8", "#a0d8ee", "#ffaaff", "#8899ee", "#b8b8b8",
+    ];
+    for (const color of lightColors) {
+      expect(svg).toContain(color);
+    }
+  });
+
+  it("has Standard section with light background", () => {
+    const svg = renderEnergyPreviewSvg();
+    expect(svg).toContain('>Standard</text>');
+    expect(svg).toContain('fill="#f5f5f5"');
+  });
+
+  it("has Full-art section with dark background", () => {
+    const svg = renderEnergyPreviewSvg();
+    expect(svg).toContain('>Full-art</text>');
+    expect(svg).toContain('fill="#1a1a2e"');
   });
 
   it("contains inline font glyphs for non-Dragon types", () => {
@@ -39,7 +62,6 @@ describe("renderEnergyPreviewSvg", () => {
 
   it("uses filled circle for Dragon inline glyph", () => {
     const svg = renderEnergyPreviewSvg();
-    // Dragon uses ● (&#x25CF;) instead of font glyph
     expect(svg).toContain("&#x25CF;");
   });
 

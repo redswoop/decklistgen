@@ -83,7 +83,32 @@ async function ensureSourceImage(cardId: string): Promise<boolean> {
 interface SvgRenderOptions {
   fontSize?: number;
   maxCover?: number;
+  synth?: boolean;
 }
+
+/** Synthetic attacks/abilities that exercise all 11 energy glyph types. */
+const SYNTH_ATTACKS = [
+  {
+    name: "Prismatic Burst",
+    cost: ["Grass", "Fire", "Water", "Colorless"],
+    damage: "150",
+    effect: "Discard a {L}{P}{F} Energy from this Pokémon.",
+  },
+  {
+    name: "Shadow Forge",
+    cost: ["Darkness", "Metal", "Dragon"],
+    damage: "90+",
+    effect: "This attack does 20 more damage for each {Y}{N}{C} Energy attached to this Pokémon.",
+  },
+];
+
+const SYNTH_ABILITIES = [
+  {
+    type: "Ability",
+    name: "Elemental Veil",
+    effect: "Attacks that cost {G}{R}{W} Energy do 30 less damage to this Pokémon. If it has {L}{P}{F}{D}{M}{Y}{N}{C} attached, prevent all effects.",
+  },
+];
 
 /** Render SVG using the template engine. */
 async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions): Promise<string> {
@@ -105,6 +130,12 @@ async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions):
   // Load card data
   await ensureCardLoaded(cardId);
   const cardData = loadCardData(cardId);
+
+  // Synth mode: keep real art/metadata, replace text with glyph-exercising attacks
+  if (opts?.synth) {
+    cardData.attacks = SYNTH_ATTACKS;
+    cardData.abilities = SYNTH_ABILITIES;
+  }
 
   // Determine template
   const fullart = isFullArt(cardData as TcgdexCard);
@@ -181,6 +212,7 @@ app.get("/svg/:cardId", async (c) => {
   const svgOpts: SvgRenderOptions = {};
   if (query.fontSize) svgOpts.fontSize = parseFloat(query.fontSize);
   if (query.maxCover) svgOpts.maxCover = parseFloat(query.maxCover);
+  if (query.synth != null) svgOpts.synth = true;
   try {
     const svg = await generateSvgFromTemplate(cardId, svgOpts);
     return new Response(svg, {

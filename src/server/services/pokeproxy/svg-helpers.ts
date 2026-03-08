@@ -7,6 +7,7 @@ import {
   CARD_W, TYPE_MATCHUPS, ENERGY_COLORS,
   FONT_BODY, MARGIN,
 } from "./constants.js";
+import type { EnergyPalette } from "./constants.js";
 import { renderTypeIcon } from "./type-icons.js";
 import { fitNameSize, getPokemonSuffix } from "./text.js";
 
@@ -46,18 +47,6 @@ export function renderEnergyDots(
   return [elems, cx - x + 6];
 }
 
-export function energyInlineSvg(text: string, fontSize: number): string {
-  const escaped = escapeXml(text);
-  return escaped.replace(/\{([A-Z])\}/g, (_match, letter: string) => {
-    const color = ENERGY_COLORS[letter] ?? "#888";
-    // Dragon 'N' renders "LEGEND" in EssentiarumTCG — use colored circle instead
-    if (letter === "N") {
-      return `<tspan fill="${color}" font-size="${Math.floor(fontSize * 1.1)}">&#x25CF;</tspan>`;
-    }
-    return `<tspan font-family="EssentiarumTCG" fill="${color}" font-size="${Math.floor(fontSize * 1.1)}">${letter}</tspan>`;
-  });
-}
-
 /**
  * Render a line of text with inline energy glyphs from the EssentiarumTCG font.
  * Energy tokens {X} become <tspan> elements with the font glyph, keeping the
@@ -74,10 +63,12 @@ export function renderTextLineWithEnergy(
   fill: string,
   filterAttr: string,
   justifyWidth?: number,
+  palette?: EnergyPalette,
 ): void {
+  const pal = palette ?? ENERGY_COLORS;
   // Build inner content with energy glyphs as <tspan> elements
   const inner = text.replace(/\{([A-Z])\}/g, (_match, letter: string) => {
-    const color = ENERGY_COLORS[letter] ?? "#888";
+    const color = pal[letter] ?? "#888";
     const glyphSize = Math.floor(fontSize * 1.1);
     // Dragon 'N' renders "LEGEND" in EssentiarumTCG — use colored circle instead
     if (letter === "N") {

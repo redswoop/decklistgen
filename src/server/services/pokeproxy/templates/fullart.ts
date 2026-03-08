@@ -8,6 +8,7 @@ import {
   CARD_W, CARD_H, FONT_TITLE, FONT_BODY, MARGIN,
   POKEMON_RULES, TRAINER_RULES,
 } from "../constants.js";
+import { getLightPalette } from "../energy-palette-store.js";
 import { getFontStyle, renderTypeIcon } from "../type-icons.js";
 import {
   escapeXml, renderTextLineWithEnergy, renderEnergyDots,
@@ -31,6 +32,7 @@ export function render(props: CardProps): string {
   const headerH = 100;
   const textPad = 50;
 
+  const energyPalette = getLightPalette();
   const lines: string[] = [];
 
   // ── SVG open + defs ──
@@ -285,7 +287,7 @@ export function render(props: CardProps): string {
     for (let i = 0; i < wrapped.length; i++) {
       y += LINE_H;
       const justify = i < wrapped.length - 1 ? textMaxW : undefined;
-      renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "white", ' filter="url(#shadow)"', justify);
+      renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "white", ' filter="url(#shadow)"', justify, energyPalette);
     }
     y += Math.floor(BODY_SIZE * 0.83);
   }
@@ -308,7 +310,7 @@ export function render(props: CardProps): string {
     for (let i = 0; i < wrapped.length; i++) {
       y += LINE_H;
       const justify = i < wrapped.length - 1 ? textMaxW : undefined;
-      renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "white", ' filter="url(#shadow)"', justify);
+      renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "white", ' filter="url(#shadow)"', justify, energyPalette);
     }
     y += Math.floor(BODY_SIZE * 1.46);
   }
@@ -348,7 +350,7 @@ export function render(props: CardProps): string {
       for (let i = 0; i < wrapped.length; i++) {
         y += LINE_H;
         const justify = i < wrapped.length - 1 ? textMaxW : undefined;
-        renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "white", ' filter="url(#shadow)"', justify);
+        renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "white", ' filter="url(#shadow)"', justify, energyPalette);
       }
     }
     y += Math.floor(BODY_SIZE * 1.25);

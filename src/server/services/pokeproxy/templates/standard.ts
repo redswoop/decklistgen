@@ -9,6 +9,7 @@ import {
   POKEMON_RULES, TRAINER_RULES,
   ART_TOP, ART_BOTTOM, ART_LEFT, ART_RIGHT,
 } from "../constants.js";
+import { getDarkPalette } from "../energy-palette-store.js";
 import { getFontStyle, renderTypeIcon } from "../type-icons.js";
 import {
   escapeXml, renderTextLineWithEnergy, renderEnergyDots,
@@ -29,6 +30,7 @@ export function render(props: CardProps): string {
   const textMaxW = CARD_W - 2 * MARGIN;
   const ART_PAD = 40;
 
+  const energyPalette = getDarkPalette();
   const lines: string[] = [];
   lines.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CARD_W} ${CARD_H}" width="${CARD_W}" height="${CARD_H}">`);
   lines.push("  <defs>");
@@ -170,7 +172,7 @@ export function render(props: CardProps): string {
     for (let i = 0; i < wrapped.length; i++) {
       y += LINE_H;
       const justify = i < wrapped.length - 1 ? textMaxW : undefined;
-      renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "#222", ' filter="url(#shadow)"', justify);
+      renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "#222", ' filter="url(#shadow)"', justify, energyPalette);
     }
     y += Math.floor(BODY_SIZE * 0.83);
   }
@@ -192,7 +194,7 @@ export function render(props: CardProps): string {
     for (let i = 0; i < wrapped.length; i++) {
       y += LINE_H;
       const justify = i < wrapped.length - 1 ? textMaxW : undefined;
-      renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "#222", ' filter="url(#shadow)"', justify);
+      renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "#222", ' filter="url(#shadow)"', justify, energyPalette);
     }
     y += Math.floor(BODY_SIZE * 1.46);
   }
@@ -230,7 +232,7 @@ export function render(props: CardProps): string {
       for (let i = 0; i < wrapped.length; i++) {
         y += LINE_H;
         const justify = i < wrapped.length - 1 ? textMaxW : undefined;
-        renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "#222", ' filter="url(#shadow)"', justify);
+        renderTextLineWithEnergy(lines, wrapped[i], MARGIN, y, BODY_SIZE, FONT_BODY, "#222", ' filter="url(#shadow)"', justify, energyPalette);
       }
     }
     y += Math.floor(BODY_SIZE * 1.25);
