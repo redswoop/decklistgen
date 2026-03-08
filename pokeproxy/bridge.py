@@ -26,7 +26,7 @@ import json
 import sys
 
 from pokeproxy import (
-    crop_artwork, generate_svg, generate_fullart_svg, generate_energy_svg,
+    crop_artwork, generate_svg, generate_fullart_svg, generate_basic_energy_svg,
 )
 
 
@@ -49,10 +49,19 @@ def main():
     category = card.get("category", "")
 
     if category == "Energy":
-        # Energy cards get their own dedicated renderer
-        image_bytes = base64.b64decode(image_b64)
-        artwork_b64 = crop_artwork(image_bytes)
-        svg = generate_energy_svg(card, artwork_b64)
+        effect = card.get("effect", "")
+        if effect:
+            # Special Energy: full-art style with effect text overlay
+            svg = generate_fullart_svg(
+                card,
+                image_b64,
+                overlay_opacity=options.get("overlay_opacity", 0.7),
+                font_size=options.get("font_size"),
+                max_cover=options.get("max_cover", 0.55),
+            )
+        else:
+            # Basic Energy: just show the full card image
+            svg = generate_basic_energy_svg(card, image_b64)
     elif is_fullart:
         svg = generate_fullart_svg(
             card,

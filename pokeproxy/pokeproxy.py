@@ -11,6 +11,8 @@ import re
 
 import freetype
 
+from type_icons import render_type_icon, get_font_style
+
 # Pokemon card dimensions: 2.5" x 3.5" at 300dpi = 750x1050
 # We'll use a standard card ratio for SVG
 CARD_W = 750
@@ -107,8 +109,35 @@ def get_pokemon_suffix(card: dict) -> str:
 
 # --- FreeType font measurement ---
 # Load the actual fonts used in SVG rendering for accurate text measurement
-_TITLE_FACE = freetype.Face('/System/Library/Fonts/Supplemental/Arial Black.ttf')
-_BODY_FACE = freetype.Face('/System/Library/Fonts/HelveticaNeue.ttc', 1)  # Bold
+import platform as _platform
+import os as _os
+
+def _find_font(candidates):
+    """Return the first font path that exists."""
+    for path in candidates:
+        if _os.path.exists(path):
+            return path
+    raise FileNotFoundError(f"No font found, tried: {candidates}")
+
+if _platform.system() == "Darwin":
+    _TITLE_FONT = '/System/Library/Fonts/Supplemental/Arial Black.ttf'
+    _BODY_FONT = '/System/Library/Fonts/HelveticaNeue.ttc'
+    _BODY_FACE_INDEX = 1  # Bold
+else:
+    _TITLE_FONT = _find_font([
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+        '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+    ])
+    _BODY_FONT = _find_font([
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+        '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+    ])
+    _BODY_FACE_INDEX = 0
+
+_TITLE_FACE = freetype.Face(_TITLE_FONT)
+_BODY_FACE = freetype.Face(_BODY_FONT, _BODY_FACE_INDEX)
 
 
 def _measure_width(face, text, size_px):
@@ -148,7 +177,7 @@ def ft_content_height(body_size, head_size, max_width, category,
     """Measure total content height using FreeType. Mirrors the render layout."""
     line_h = int(body_size * 1.25)  # LINE_H = BASE_LINE_H * scale = 30/24 * body
     h = 0
-    if category == "Trainer" and trainer_effect:
+    if category in ("Trainer", "Energy") and trainer_effect:
         h += len(ft_wrap(_BODY_FACE, trainer_effect, body_size, max_width)) * line_h
         h += int(body_size * 0.83)  # 20/24 * body_size
     for ab in abilities:
@@ -207,17 +236,17 @@ def crop_artwork(image_data: bytes) -> str:
 
 
 ENERGY_COLORS = {
-    "Grass": "#3B9B2F", "G": "#3B9B2F",
-    "Fire": "#D4301A", "R": "#D4301A",
-    "Water": "#2980C0", "W": "#2980C0",
-    "Lightning": "#E8A800", "L": "#E8A800",
-    "Psychic": "#A8318C", "P": "#A8318C",
-    "Fighting": "#A0522D", "F": "#A0522D",
-    "Darkness": "#3E2D68", "D": "#3E2D68",
-    "Metal": "#8A8A9A", "M": "#8A8A9A",
-    "Fairy": "#D44D8A", "Y": "#D44D8A",
-    "Dragon": "#5B2DA0", "N": "#5B2DA0",
-    "Colorless": "#8A8A70", "C": "#8A8A70",
+    "Grass": "#439837", "G": "#439837",
+    "Fire": "#e4613e", "R": "#e4613e",
+    "Water": "#3099e1", "W": "#3099e1",
+    "Lightning": "#dfbc28", "L": "#dfbc28",
+    "Psychic": "#e96c8c", "P": "#e96c8c",
+    "Fighting": "#e49021", "F": "#e49021",
+    "Darkness": "#4f4747", "D": "#4f4747",
+    "Metal": "#74b0cb", "M": "#74b0cb",
+    "Fairy": "#e18ce1", "Y": "#e18ce1",
+    "Dragon": "#576fbc", "N": "#576fbc",
+    "Colorless": "#828282", "C": "#828282",
 }
 
 
@@ -400,17 +429,12 @@ def wrap_text(text: str, max_chars: int) -> list[str]:
     return lines
 
 
-def render_energy_dots(x: int, y: int, cost: list[str], radius: int) -> tuple[list[str], int]:
-    """Render energy cost as colored circles. Returns (svg_elements, new_x)."""
+def render_energy_dots(x: int, center_y: int, cost: list[str], radius: int) -> tuple[list[str], int]:
+    """Render energy cost as type icons centered at center_y. Returns (svg_elements, total_width)."""
     elems = []
     cx = x + radius
-    cy = y - radius + 2  # vertically center with text baseline
     for energy in cost:
-        c = ENERGY_COLORS.get(energy, "#888")
-        elems.append(f'  <circle cx="{cx}" cy="{cy}" r="{radius}" fill="{c}" stroke="#333" stroke-width="1.5"/>')
-        # White letter inside the dot
-        letter = ENERGY_ABBREV.get(energy, "?")
-        elems.append(f'  <text x="{cx}" y="{cy + 1}" font-family="Helvetica, Arial, sans-serif" font-size="{int(radius * 1.3)}" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="central">{letter}</text>')
+        elems.append(f'  {render_type_icon(cx, center_y, radius, energy)}')
         cx += radius * 2 + 4
     return elems, cx - x + 6  # total width consumed
 
@@ -435,7 +459,7 @@ def render_footer_svg(lines, card, category, card_type, retreat, body_size,
                       set_name, local_id, *, footer_y, sep_offset, sep_color,
                       fill, retreat_dot_fill, info_y, info_fill):
     """Render card footer: weakness/resistance icons, retreat dots, and set info."""
-    if category == "Trainer":
+    if category in ("Trainer", "Energy"):
         weakness = None
         resistance = None
         retreat = 0
@@ -465,8 +489,7 @@ def render_footer_svg(lines, card, category, card_type, retreat, body_size,
             tx = int(footer_x) + tri_s
             lines.append(f'  <polygon points="{tx - tri_s},{int(mid_y - tri_s)} {tx + tri_s},{int(mid_y - tri_s)} {tx},{int(mid_y + tri_s)}" fill="{fill}" filter="url(#shadow)"/>')
             footer_x += tri_s * 2 + 6
-            wcolor = ENERGY_COLORS.get(wtype, "#888")
-            lines.append(f'  <circle cx="{int(footer_x + dot_r)}" cy="{int(mid_y)}" r="{dot_r}" fill="{wcolor}" stroke="#333" stroke-width="1.5"/>')
+            lines.append(f'  {render_type_icon(int(footer_x + dot_r), int(mid_y), dot_r, wtype)}')
             footer_x += dot_r * 2 + 4
             lines.append(f'  <text x="{int(footer_x)}" y="{footer_y}" font-family="{FONT_BODY}" font-size="{body_size}" font-weight="700" fill="{fill}" filter="url(#shadow)">{escape_xml(wval)}</text>')
             footer_x += body_size * 2.5
@@ -478,8 +501,7 @@ def render_footer_svg(lines, card, category, card_type, retreat, body_size,
             tx = int(footer_x) + tri_s
             lines.append(f'  <polygon points="{tx},{int(mid_y - tri_s)} {tx + tri_s},{int(mid_y + tri_s)} {tx - tri_s},{int(mid_y + tri_s)}" fill="{fill}" filter="url(#shadow)"/>')
             footer_x += tri_s * 2 + 6
-            rcolor = ENERGY_COLORS.get(rtype, "#888")
-            lines.append(f'  <circle cx="{int(footer_x + dot_r)}" cy="{int(mid_y)}" r="{dot_r}" fill="{rcolor}" stroke="#333" stroke-width="1.5"/>')
+            lines.append(f'  {render_type_icon(int(footer_x + dot_r), int(mid_y), dot_r, rtype)}')
             footer_x += dot_r * 2 + 4
             lines.append(f'  <text x="{int(footer_x)}" y="{footer_y}" font-family="{FONT_BODY}" font-size="{body_size}" font-weight="700" fill="{fill}" filter="url(#shadow)">{escape_xml(rval)}</text>')
             footer_x += body_size * 2.5
@@ -496,7 +518,7 @@ def render_footer_svg(lines, card, category, card_type, retreat, body_size,
         lines.append(f'  <line x1="{ax + as_}" y1="{amy}" x2="{ax + as_ * 2}" y2="{amy}" stroke="{fill}" stroke-width="3" filter="url(#shadow)"/>')
         footer_x += as_ * 2 + 8
         for _ in range(retreat):
-            lines.append(f'  <circle cx="{int(footer_x + dot_r)}" cy="{int(mid_y)}" r="{dot_r}" fill="{retreat_dot_fill}" stroke="#333" stroke-width="2"/>')
+            lines.append(f'  {render_type_icon(int(footer_x + dot_r), int(mid_y), dot_r, "Colorless")}')
             footer_x += dot_r * 2 + 4
 
     lines.append(f'  <text x="{CARD_W // 2}" y="{info_y}" font-family="{FONT_BODY}" font-size="18" font-weight="600" fill="{info_fill}" text-anchor="middle">{escape_xml(set_name)} {escape_xml(local_id)}</text>')
@@ -641,7 +663,7 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
 
     # Measure text to determine how much overlay we need
     has_text = bool(
-        (category == "Trainer" and trainer_effect)
+        (category in ("Trainer", "Energy") and trainer_effect)
         or abilities or attacks
     )
 
@@ -695,6 +717,7 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
     lines = []
     lines.append(f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 {CARD_W} {CARD_H}" width="{CARD_W}" height="{CARD_H}">')
     lines.append("  <defs>")
+    lines.append(f"    {get_font_style()}")
     # Gradient overlay
     lines.append('    <linearGradient id="overlay-grad" x1="0" y1="0" x2="0" y2="1">')
     lines.append(f'      <stop offset="0%" stop-color="#000" stop-opacity="0"/>')
@@ -783,7 +806,20 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
     evolve_from = card.get("evolveFrom", "")
     name_y = 62
 
-    if category == "Trainer":
+    if category == "Energy":
+        # --- ENERGY HEADER ---
+        lines.append(f'  <text x="30" y="24" font-family="{FONT_BODY}" font-size="14" font-weight="700" fill="rgba(255,255,255,0.5)" letter-spacing="2">ENERGY</text>')
+        # Type pill badge top-right
+        tag = "SPECIAL"
+        tag_w = _measure_width(_TITLE_FACE, tag, 16) + 20
+        tag_x = CARD_W - 30 - tag_w
+        lines.append(f'  <rect x="{tag_x}" y="10" width="{tag_w}" height="24" rx="12" fill="{color}" opacity="0.9"/>')
+        lines.append(f'  <text x="{tag_x + tag_w // 2}" y="27" font-family="{FONT_TITLE}" font-size="16" font-weight="900" fill="white" text-anchor="middle">{tag}</text>')
+        # Name
+        name_size = fit_name_size(name, 48, CARD_W - 60)
+        lines.append(f'  <text x="30" y="{name_y}" font-family="{FONT_TITLE}" font-size="{name_size}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="#000" stroke-width="2.5" stroke-linejoin="round" filter="url(#title-shadow)">{name}</text>')
+
+    elif category == "Trainer":
         # --- TRAINER HEADER ---
         # Small "TRAINER" label top-left, type pill badge top-right
         lines.append(f'  <text x="30" y="24" font-family="{FONT_BODY}" font-size="14" font-weight="700" fill="rgba(255,255,255,0.5)" letter-spacing="2">TRAINER</text>')
@@ -825,15 +861,13 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
         hp_w = _measure_width(_TITLE_FACE, hp_str, hp_size)
         hp_label_size = 18
         hp_label_w = _measure_width(_TITLE_FACE, "HP", hp_label_size)
-        dot_r = 18
+        dot_r = 28
         # Layout from right: [dot] gap [HP_num] [HP_label]
-        right_x = CARD_W - 28
+        right_x = CARD_W - 32
         if types:
             dot_cx = right_x
-            dot_cy = 38
-            lines.append(f'  <circle cx="{dot_cx}" cy="{dot_cy}" r="{dot_r}" fill="{color}" stroke="rgba(255,255,255,0.7)" stroke-width="2.5"/>')
-            letter = ENERGY_ABBREV.get(card_type, "?")
-            lines.append(f'  <text x="{dot_cx}" y="{dot_cy + 1}" font-family="Helvetica, Arial, sans-serif" font-size="{int(dot_r * 1.2)}" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="central">{letter}</text>')
+            dot_cy = 42
+            lines.append(f'  {render_type_icon(dot_cx, dot_cy, dot_r, card_type)}')
             right_x = dot_cx - dot_r - 6
         # HP number — bold, outlined
         lines.append(f'  <text x="{right_x}" y="{name_y}" font-family="{FONT_TITLE}" font-size="{hp_size}" font-weight="900" fill="white" text-anchor="end" style="paint-order:stroke fill" stroke="#000" stroke-width="3" stroke-linejoin="round" filter="url(#title-shadow)">{escape_xml(hp_str)}</text>')
@@ -883,8 +917,8 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
     # Text content starts below the overlay top + padding
     y = overlay_top + text_pad + int(BODY_SIZE * 0.5)
 
-    # Trainer effect text
-    if category == "Trainer" and trainer_effect:
+    # Trainer / Energy effect text
+    if category in ("Trainer", "Energy") and trainer_effect:
         wrapped = ft_wrap(_BODY_FACE, trainer_effect, BODY_SIZE, text_max_w)
         for wline in wrapped:
             y += LINE_H
@@ -901,10 +935,11 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
         # Bold colored bar behind ability name
         bar_h = int(HEAD_SIZE * 1.5)
         bar_y = y - int(HEAD_SIZE * 1.07)
+        bar_center_y = bar_y + bar_h // 2
         lines.append(f'  <rect x="20" y="{bar_y}" width="{CARD_W - 40}" height="{bar_h}" rx="6" fill="{color}" opacity="0.75"/>')
         # White highlight strip at top of bar
         lines.append(f'  <rect x="20" y="{bar_y}" width="{CARD_W - 40}" height="3" rx="2" fill="white" opacity="0.25"/>')
-        lines.append(f'  <text x="{MARGIN}" y="{y}" font-family="{FONT_TITLE}" font-size="{HEAD_SIZE}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="rgba(0,0,0,0.4)" stroke-width="2" stroke-linejoin="round" filter="url(#shadow)">{escape_xml(ab_type)}: {ab_name}</text>')
+        lines.append(f'  <text x="{MARGIN}" y="{bar_center_y}" font-family="{FONT_TITLE}" font-size="{HEAD_SIZE}" font-weight="900" fill="white" dominant-baseline="central" style="paint-order:stroke fill" stroke="rgba(0,0,0,0.4)" stroke-width="2" stroke-linejoin="round" filter="url(#shadow)">{escape_xml(ab_type)}: {ab_name}</text>')
         y += int(HEAD_SIZE * 0.5)
 
         wrapped = ft_wrap(_BODY_FACE, ab_effect, BODY_SIZE, text_max_w)
@@ -923,6 +958,7 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
 
         bar_h = int(HEAD_SIZE * 1.6)
         bar_y = y - int(HEAD_SIZE * 1.0)
+        bar_center_y = bar_y + bar_h // 2
         # Attack bar: colored with white overlay for depth
         lines.append(f'  <rect x="20" y="{bar_y}" width="{CARD_W - 40}" height="{bar_h}" rx="6" fill="{color}" opacity="0.2"/>')
         lines.append(f'  <rect x="20" y="{bar_y}" width="{CARD_W - 40}" height="{bar_h}" rx="6" fill="white" opacity="0.06"/>')
@@ -932,16 +968,16 @@ def generate_fullart_svg(card: dict, image_b64: str, overlay_opacity: float = 0.
         dot_r = max(10, int(HEAD_SIZE * 0.55))
         dot_x = MARGIN
         if atk_cost:
-            dot_elems, dot_w = render_energy_dots(MARGIN, y + 2, atk_cost, dot_r)
+            dot_elems, dot_w = render_energy_dots(MARGIN, bar_center_y, atk_cost, dot_r)
             lines.extend(dot_elems)
             dot_x = MARGIN + dot_w + 6
 
         atk_name_size, atk_dmg_size = fit_attack_header(atk_name, damage, len(atk_cost), HEAD_SIZE, CARD_W, MARGIN)
         # Attack name
-        lines.append(f'  <text x="{dot_x}" y="{y + 2}" font-family="{FONT_TITLE}" font-size="{atk_name_size}" font-weight="900" fill="white" style="paint-order:stroke fill" stroke="rgba(0,0,0,0.3)" stroke-width="1.5" stroke-linejoin="round" filter="url(#shadow)">{atk_name}</text>')
+        lines.append(f'  <text x="{dot_x}" y="{bar_center_y}" font-family="{FONT_TITLE}" font-size="{atk_name_size}" font-weight="900" fill="white" dominant-baseline="central" style="paint-order:stroke fill" stroke="rgba(0,0,0,0.3)" stroke-width="1.5" stroke-linejoin="round" filter="url(#shadow)">{atk_name}</text>')
         if damage:
             # Damage number — same scale as attack name, bold red
-            lines.append(f'  <text x="{CARD_W - MARGIN}" y="{y + 2}" font-family="{FONT_TITLE}" font-size="{atk_dmg_size}" font-weight="900" fill="#FF5533" text-anchor="end" style="paint-order:stroke fill" stroke="#000" stroke-width="2" stroke-linejoin="round" filter="url(#dmg-shadow)">{escape_xml(str(damage))}</text>')
+            lines.append(f'  <text x="{CARD_W - MARGIN}" y="{bar_center_y}" font-family="{FONT_TITLE}" font-size="{atk_dmg_size}" font-weight="900" fill="#FF5533" text-anchor="end" dominant-baseline="central" style="paint-order:stroke fill" stroke="#000" stroke-width="2" stroke-linejoin="round" filter="url(#dmg-shadow)">{escape_xml(str(damage))}</text>')
         y += int(HEAD_SIZE * 0.64)
 
         if effect:
@@ -1017,6 +1053,7 @@ def generate_svg(card: dict, artwork_b64: str) -> str:
     lines.append(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CARD_W} {CARD_H}" width="{CARD_W}" height="{CARD_H}">')
 
     lines.append("  <defs>")
+    lines.append(f"    {get_font_style()}")
     lines.append(f'    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">')
     lines.append(f'      <stop offset="0%" stop-color="{color}" stop-opacity="0.3"/>')
     lines.append(f'      <stop offset="100%" stop-color="{color}" stop-opacity="0.1"/>')
@@ -1107,12 +1144,10 @@ def generate_svg(card: dict, artwork_b64: str) -> str:
         # HP text + type energy dot
         hp_text_x = CARD_W - 30
         if types:
-            dot_r = 16
-            dot_cx = CARD_W - 30
+            dot_r = 26
+            dot_cx = CARD_W - 32
             dot_cy = 40
-            lines.append(f'  <circle cx="{dot_cx}" cy="{dot_cy}" r="{dot_r}" fill="{color}" stroke="#fff" stroke-width="2"/>')
-            letter = ENERGY_ABBREV.get(card_type, "?")
-            lines.append(f'  <text x="{dot_cx}" y="{dot_cy + 1}" font-family="Helvetica, Arial, sans-serif" font-size="{int(dot_r * 1.3)}" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="central">{letter}</text>')
+            lines.append(f'  {render_type_icon(dot_cx, dot_cy, dot_r, card_type)}')
             hp_text_x = dot_cx - dot_r - 8
         lines.append(f'  <text x="{hp_text_x}" y="57" font-family="{FONT_TITLE}" font-size="38" font-weight="900" fill="white" text-anchor="end" filter="url(#shadow-title)">{hp} HP</text>')
 
@@ -1144,7 +1179,7 @@ def generate_svg(card: dict, artwork_b64: str) -> str:
     # Drop a tier when art would shrink below ART_PREFER; binary-search
     # between adjacent tiers for the largest body that keeps art >= ART_PREFER.
     has_text = bool(
-        (category == "Trainer" and trainer_effect)
+        (category in ("Trainer", "Energy") and trainer_effect)
         or abilities or attacks
     )
     HEAD_RATIO = 28 / 24
@@ -1211,8 +1246,8 @@ def generate_svg(card: dict, artwork_b64: str) -> str:
     content_top = art_y + art_h + ART_PAD
     y = content_top
 
-    # Trainer effect text
-    if category == "Trainer" and trainer_effect:
+    # Trainer / Energy effect text
+    if category in ("Trainer", "Energy") and trainer_effect:
         wrapped = ft_wrap(_BODY_FACE, trainer_effect, BODY_SIZE, text_max_w)
         for wline in wrapped:
             y += LINE_H
@@ -1227,8 +1262,10 @@ def generate_svg(card: dict, artwork_b64: str) -> str:
         ab_effect = ab.get("effect", "")
 
         bar_h = int(HEAD_SIZE * 1.5)
-        lines.append(f'  <rect x="20" y="{y - int(HEAD_SIZE * 1.07)}" width="{CARD_W - 40}" height="{bar_h}" rx="5" fill="{color}" opacity="0.25"/>')
-        lines.append(f'  <text x="{MARGIN}" y="{y}" font-family="{FONT_TITLE}" font-size="{HEAD_SIZE}" font-weight="900" fill="{color}" filter="url(#shadow)">{escape_xml(ab_type)}: {ab_name}</text>')
+        bar_y = y - int(HEAD_SIZE * 1.07)
+        bar_center_y = bar_y + bar_h // 2
+        lines.append(f'  <rect x="20" y="{bar_y}" width="{CARD_W - 40}" height="{bar_h}" rx="5" fill="{color}" opacity="0.25"/>')
+        lines.append(f'  <text x="{MARGIN}" y="{bar_center_y}" font-family="{FONT_TITLE}" font-size="{HEAD_SIZE}" font-weight="900" fill="{color}" dominant-baseline="central" filter="url(#shadow)">{escape_xml(ab_type)}: {ab_name}</text>')
         y += int(HEAD_SIZE * 0.5)
 
         wrapped = ft_wrap(_BODY_FACE, ab_effect, BODY_SIZE, text_max_w)
@@ -1247,20 +1284,22 @@ def generate_svg(card: dict, artwork_b64: str) -> str:
 
         # Attack header bar
         bar_h = int(HEAD_SIZE * 1.57)
-        lines.append(f'  <rect x="20" y="{y - int(HEAD_SIZE * 1.0)}" width="{CARD_W - 40}" height="{bar_h}" rx="5" fill="#333" opacity="0.1"/>')
+        bar_y = y - int(HEAD_SIZE * 1.0)
+        bar_center_y = bar_y + bar_h // 2
+        lines.append(f'  <rect x="20" y="{bar_y}" width="{CARD_W - 40}" height="{bar_h}" rx="5" fill="#333" opacity="0.1"/>')
 
         # Energy dots then attack name
         dot_r = max(8, int(HEAD_SIZE * 0.5))
         dot_x = MARGIN
         if atk_cost:
-            dot_elems, dot_w = render_energy_dots(MARGIN, y + 2, atk_cost, dot_r)
+            dot_elems, dot_w = render_energy_dots(MARGIN, bar_center_y, atk_cost, dot_r)
             lines.extend(dot_elems)
             dot_x = MARGIN + dot_w + 6
 
         atk_name_size, atk_dmg_size = fit_attack_header(atk_name, damage, len(atk_cost), HEAD_SIZE, CARD_W, MARGIN)
-        lines.append(f'  <text x="{dot_x}" y="{y + 2}" font-family="{FONT_TITLE}" font-size="{atk_name_size}" font-weight="900" fill="#222" filter="url(#shadow)">{atk_name}</text>')
+        lines.append(f'  <text x="{dot_x}" y="{bar_center_y}" font-family="{FONT_TITLE}" font-size="{atk_name_size}" font-weight="900" fill="#222" dominant-baseline="central" filter="url(#shadow)">{atk_name}</text>')
         if damage:
-            lines.append(f'  <text x="{CARD_W - MARGIN}" y="{y + 2}" font-family="{FONT_TITLE}" font-size="{atk_dmg_size}" font-weight="900" fill="#c00" text-anchor="end" filter="url(#shadow)">{escape_xml(str(damage))}</text>')
+            lines.append(f'  <text x="{CARD_W - MARGIN}" y="{bar_center_y}" font-family="{FONT_TITLE}" font-size="{atk_dmg_size}" font-weight="900" fill="#c00" text-anchor="end" dominant-baseline="central" filter="url(#shadow)">{escape_xml(str(damage))}</text>')
         y += int(HEAD_SIZE * 0.64)
 
         if effect:
@@ -1295,88 +1334,29 @@ def generate_svg(card: dict, artwork_b64: str) -> str:
     return "\n".join(lines)
 
 
-def generate_energy_svg(card: dict, image_b64: str) -> str:
-    """Generate an SVG proxy for an Energy card."""
-    name = escape_xml(card.get("name", "Energy"))
+def generate_basic_energy_svg(card: dict, image_b64: str) -> str:
+    """Generate an SVG for a basic energy card — full card image, minimal overlay."""
     types = card.get("types", [])
     energy_type = types[0] if types else "Colorless"
     color = TYPE_COLORS.get(energy_type, "#888888")
-    letter = ENERGY_ABBREV.get(energy_type, "E")
     set_name = card.get("set", {}).get("name", "")
     local_id = card.get("localId", "")
-    effect = compress_text(card.get("effect", ""))
 
     lines = []
     lines.append(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CARD_W} {CARD_H}" width="{CARD_W}" height="{CARD_H}">')
     lines.append("  <defs>")
-    lines.append(f'    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">')
-    lines.append(f'      <stop offset="0%" stop-color="{color}" stop-opacity="0.15"/>')
-    lines.append(f'      <stop offset="100%" stop-color="{color}" stop-opacity="0.05"/>')
-    lines.append(f"    </linearGradient>")
-    lines.append('    <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">')
-    lines.append('      <feDropShadow dx="1" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.3"/>')
-    lines.append("    </filter>")
+    lines.append(f"    {get_font_style()}")
+    lines.append(f'    <clipPath id="card-clip"><rect width="{CARD_W}" height="{CARD_H}" rx="25" ry="25"/></clipPath>')
     lines.append("  </defs>")
-
-    # Background
-    lines.append(f'  <rect width="{CARD_W}" height="{CARD_H}" rx="25" ry="25" fill="white"/>')
-    lines.append(f'  <rect width="{CARD_W}" height="{CARD_H}" rx="25" ry="25" fill="url(#bg)" stroke="{color}" stroke-width="4"/>')
-
-    # Header
-    lines.append(f'  <rect x="0" y="0" width="{CARD_W}" height="80" rx="25" ry="25" fill="{color}" opacity="0.85"/>')
-    lines.append(f'  <rect x="0" y="40" width="{CARD_W}" height="40" fill="{color}" opacity="0.85"/>')
-    energy_name_size = fit_name_size(name, 38, CARD_W - 60 - 160)
-    lines.append(f'  <text x="30" y="57" font-family="{FONT_TITLE}" font-size="{energy_name_size}" font-weight="900" fill="white" filter="url(#shadow)">{name}</text>')
-    lines.append(f'  <text x="{CARD_W - 30}" y="57" font-family="{FONT_TITLE}" font-size="30" font-weight="900" fill="white" text-anchor="end" filter="url(#shadow)">ENERGY</text>')
-
-    if effect:
-        # Special Energy: show art + effect text (adaptive art height)
-        BODY_SIZE = 34
-        LINE_H = int(BODY_SIZE * 1.25)
-        text_max_w = CARD_W - 2 * MARGIN
-        wrapped = ft_wrap(_BODY_FACE, effect, BODY_SIZE, text_max_w)
-        text_h = len(wrapped) * LINE_H
-        art_top = 90
-        footer_h = 50  # space for set info
-        padding = 40
-        art_h = max(200, min(500, CARD_H - art_top - text_h - padding * 2 - footer_h))
-        lines.append(f'  <rect x="20" y="{art_top}" width="710" height="{art_h}" rx="10" fill="#000" opacity="0.05"/>')
-        lines.append(f'  <image x="20" y="{art_top}" width="710" height="{art_h}" preserveAspectRatio="xMidYMid slice"')
-        lines.append(f'         href="data:image/png;base64,{image_b64}" clip-path="inset(0 round 10px)"/>')
-
-        y = art_top + art_h + padding
-        for wline in wrapped:
-            y += LINE_H
-            markup = energy_inline_svg(wline, BODY_SIZE)
-            lines.append(f'  <text x="{MARGIN}" y="{y}" font-family="{FONT_BODY}" font-size="{BODY_SIZE}" font-weight="700" fill="#222" filter="url(#shadow)">{markup}</text>')
-    else:
-        # Basic Energy: large centered energy symbol with concentric rings
-        cx, cy = CARD_W // 2, CARD_H // 2 - 20
-        r = 200
-        # Radial gradient for depth
-        lines.append(f'  <defs>')
-        lines.append(f'    <radialGradient id="energy-glow" cx="50%" cy="45%" r="50%">')
-        lines.append(f'      <stop offset="0%" stop-color="{color}" stop-opacity="0.35"/>')
-        lines.append(f'      <stop offset="70%" stop-color="{color}" stop-opacity="0.15"/>')
-        lines.append(f'      <stop offset="100%" stop-color="{color}" stop-opacity="0.05"/>')
-        lines.append(f'    </radialGradient>')
-        lines.append(f'  </defs>')
-        # Outer glow
-        lines.append(f'  <circle cx="{cx}" cy="{cy}" r="{r + 30}" fill="url(#energy-glow)"/>')
-        # Outer ring
-        lines.append(f'  <circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{color}" stroke-width="6" opacity="0.25"/>')
-        # Middle ring
-        lines.append(f'  <circle cx="{cx}" cy="{cy}" r="{r - 20}" fill="{color}" opacity="0.12"/>')
-        lines.append(f'  <circle cx="{cx}" cy="{cy}" r="{r - 20}" fill="none" stroke="{color}" stroke-width="3" opacity="0.35"/>')
-        # Inner filled circle
-        lines.append(f'  <circle cx="{cx}" cy="{cy}" r="{r - 50}" fill="{color}" opacity="0.2" stroke="{color}" stroke-width="4" stroke-opacity="0.5"/>')
-        # Energy letter
-        lines.append(f'  <text x="{cx}" y="{cy + 30}" font-family="{FONT_TITLE}" font-size="220" font-weight="900" fill="{color}" text-anchor="middle" dominant-baseline="central" opacity="0.85">{letter}</text>')
-        # Type name below
-        lines.append(f'  <text x="{cx}" y="{cy + r + 60}" font-family="{FONT_BODY}" font-size="36" font-weight="700" fill="#555" text-anchor="middle">{escape_xml(energy_type)} Energy</text>')
-
-    # Footer
-    lines.append(f'  <text x="{CARD_W // 2}" y="{CARD_H - 20}" font-family="{FONT_BODY}" font-size="18" font-weight="600" fill="#888" text-anchor="middle">{escape_xml(set_name)} {escape_xml(local_id)}</text>')
+    # Full card image as background
+    lines.append(f'  <g clip-path="url(#card-clip)">')
+    lines.append(f'    <image x="0" y="0" width="{CARD_W}" height="{CARD_H}" preserveAspectRatio="xMidYMid slice"')
+    lines.append(f'           href="data:image/png;base64,{image_b64}"/>')
+    lines.append(f'  </g>')
+    # Border
+    lines.append(f'  <rect width="{CARD_W}" height="{CARD_H}" rx="25" ry="25" fill="none" stroke="{color}" stroke-width="4"/>')
+    # Set info
+    lines.append(f'  <text x="{CARD_W // 2}" y="{CARD_H - 20}" font-family="{FONT_BODY}" font-size="18" font-weight="600" fill="rgba(255,255,255,0.7)" text-anchor="middle">{escape_xml(set_name)} {escape_xml(local_id)}</text>')
     lines.append("</svg>")
     return "\n".join(lines)
 

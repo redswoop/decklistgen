@@ -27,4 +27,5 @@ console.log(`DecklistGen server listening on :${port}`);
 export default {
   port,
   fetch: app.fetch,
+  idleTimeout: 255, // seconds — ComfyUI jobs can take minutes
 };

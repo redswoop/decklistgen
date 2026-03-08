@@ -10,12 +10,10 @@ import WebSocket from "ws";
 const COMFYUI_URL = process.env.COMFYUI_URL ?? "http://stormer.local:8188";
 const FLUX_W = 736;
 const FLUX_H = 1024;
-const DEFAULT_CLEAN_PROMPT =
-  "Pokemon trading card artwork without any text, titles, numbers, HP, " +
-  "attack names, energy symbols, or card UI elements. " +
-  "Paint over all text areas with the surrounding illustration style. " +
-  "Seamless full-bleed artwork, high quality, detailed illustration, " +
-  "no words, no letters, no writing, no symbols, clean art only";
+const FALLBACK_PROMPT =
+  "Expand the image of the subject, and remove all of the text, footers, " +
+  "and headers in the image, and then add a thin silver border with rounded " +
+  "edges around it, behind the subject";
 
 interface WorkflowNode {
   inputs: Record<string, unknown>;
@@ -232,9 +230,10 @@ async function fetchOutputImage(filename: string, subfolder = ""): Promise<Buffe
 export async function cleanCardImage(
   imageBase64: string,
   seed = 42,
+  prompt?: string,
 ): Promise<string> {
   const workflow = buildKleinWorkflow(
-    DEFAULT_CLEAN_PROMPT,
+    prompt ?? FALLBACK_PROMPT,
     seed,
     FLUX_W,
     FLUX_H,

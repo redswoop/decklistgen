@@ -1,0 +1,9 @@
+node_modules/
+dist/
+cache/
+.vite/
+*.tsbuildinfo
+.DS_Store
+.git/
+pokeproxy/.venv/
+pokeproxy/__pycache__/

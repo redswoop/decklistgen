@@ -1,0 +1,59 @@
+{
+  "rules": [
+    {
+      "name": "standard-pokemon",
+      "match": { "category": "Pokemon", "isFullArt": false },
+      "prompt": "Expand the image of the subject, and remove all of the text, footers, and headers in the image, and then add a thin silver border with rounded edges around it, behind the subject"
+    },
+    {
+      "name": "fullart-ex",
+      "match": { "category": "Pokemon", "isFullArt": true, "suffix": "ex" },
+      "prompt": "Expand the image of the subject, and remove all of the text, footers, and headers in the image, and then add a thin silver border with rounded edges around it, behind the subject"
+    },
+    {
+      "name": "fullart-v",
+      "match": { "category": "Pokemon", "isFullArt": true, "suffix": "V" },
+      "prompt": "Expand the image of the subject, and remove all of the text, footers, and headers in the image, and then add a thin silver border with rounded edges around it, behind the subject"
+    },
+    {
+      "name": "fullart-vmax",
+      "match": { "category": "Pokemon", "isFullArt": true, "suffix": "VMAX" },
+      "prompt": "Expand the image of the subject, and remove all of the text, footers, and headers in the image, and then add a thin silver border with rounded edges around it, behind the subject"
+    },
+    {
+      "name": "fullart-vstar",
+      "match": { "category": "Pokemon", "isFullArt": true, "suffix": "VSTAR" },
+      "prompt": "Expand the image of the subject, and remove all of the text, footers, and headers in the image, and then add a thin silver border with rounded edges around it, behind the subject"
+    },
+    {
+      "name": "illustration-rare",
+      "match": { "category": "Pokemon", "isFullArt": true },
+      "prompt": "Expand the image of the subject, and remove all of the text, footers, and headers in the image, and then add a thin silver border with rounded edges around it, behind the subject"
+    },
+    {
+      "name": "trainer",
+      "match": { "category": "Trainer" },
+      "prompt": "Expand the image of the subject, and remove all of the text, footers, and headers in the image, and then add a thin silver border with rounded edges around it, behind the subject"
+    },
+    {
+      "name": "energy-special",
+      "match": { "category": "Energy", "energyType": "Special" },
+      "prompt": "Expand the image of the subject, and remove all of the text, footers, and headers in the image, and then add a thin silver border with rounded edges around it, behind the subject"
+    },
+    {
+      "name": "energy-basic",
+      "match": { "category": "Energy", "energyType": "Normal" },
+      "skip": true
+    },
+    {
+      "name": "energy-other",
+      "match": { "category": "Energy" },
+      "skip": true
+    },
+    {
+      "name": "default",
+      "match": {},
+      "prompt": "Expand the image of the subject, and remove all of the text, footers, and headers in the image, and then add a thin silver border with rounded edges around it, behind the subject"
+    }
+  ]
+}

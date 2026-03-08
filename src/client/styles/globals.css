@@ -669,6 +669,7 @@ body {
   gap: 16px;
   justify-content: center;
   flex: 1;
+  flex-wrap: wrap;
 }
 
 .lightbox-image-col {
@@ -687,7 +688,7 @@ body {
 }
 
 .lightbox-img {
-  width: 260px;
+  width: 200px;
   border-radius: 8px;
   display: block;
 }

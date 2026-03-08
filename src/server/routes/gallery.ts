@@ -1,8 +1,11 @@
 import { Hono } from "hono";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { isFullArt } from "../../shared/utils/detect-fullart.js";
+import { getPromptForCard, saveCardPrompt } from "../services/prompt-db.js";
+import { getCard, loadSet, isSetLoaded } from "../services/card-store.js";
+import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
 import type { TcgdexCard } from "../../shared/types/card.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
@@ -51,13 +54,50 @@ const TEST_CARDS = [
 const app = new Hono();
 
 /** Return test card list with metadata */
-app.get("/cards", (c) => {
+app.get("/cards", async (c) => {
+  // Auto-load any sets needed by gallery test cards
+  const setsNeeded = new Set<string>();
+  for (const { cardId } of TEST_CARDS) {
+    const setId = cardId.replace(/-[^-]+$/, "");
+    const setCode = REVERSE_SET_MAP[setId];
+    if (setCode && !isSetLoaded(setCode)) setsNeeded.add(setCode);
+  }
+  for (const code of setsNeeded) {
+    try { await loadSet(code); } catch {}
+  }
+
   const cards = TEST_CARDS.map(({ label, cardId }) => {
-    const card = loadCachedCard(cardId);
+    const cached = loadCachedCard(cardId);
+    const storeCard = getCard(cardId);
+    const card = cached ?? (storeCard ? {
+      id: storeCard.id,
+      localId: storeCard.localId,
+      name: storeCard.name,
+      category: storeCard.category,
+      hp: storeCard.hp,
+      types: storeCard.energyTypes,
+      stage: storeCard.stage,
+      retreat: storeCard.retreat,
+      rarity: storeCard.rarity,
+      trainerType: storeCard.trainerType,
+      set: { name: storeCard.setName, id: storeCard.setId },
+    } : null);
     const hasClean = existsSync(join(CACHE_DIR, `${cardId}_clean.png`));
     const hasComposite = existsSync(join(CACHE_DIR, `${cardId}_composite.png`));
     const hasSvg = existsSync(join(CACHE_DIR, `${cardId}.svg`));
     const hasSource = existsSync(join(CACHE_DIR, `${cardId}.png`));
+    // Load clean metadata if it exists
+    let cleanMeta: Record<string, unknown> | null = null;
+    const metaPath = join(CACHE_DIR, `${cardId}_clean_meta.json`);
+    if (existsSync(metaPath)) {
+      try {
+        cleanMeta = JSON.parse(readFileSync(metaPath, "utf-8"));
+      } catch {}
+    }
+
+    // Get the prompt that would be used if cleaned now
+    const promptResult = card ? getPromptForCard(card) : null;
+
     return {
       label,
       cardId,
@@ -72,9 +112,24 @@ app.get("/cards", (c) => {
       hasComposite,
       hasSvg,
       hasSource,
+      cleanMeta,
+      promptRule: promptResult?.ruleName ?? null,
+      promptText: promptResult?.prompt ?? null,
+      promptSkip: promptResult?.skip ?? false,
     };
   });
   return c.json(cards);
+});
+
+/** Save a card-specific prompt to the database */
+app.post("/prompt/:cardId", async (c) => {
+  const cardId = c.req.param("cardId");
+  const { prompt } = await c.req.json<{ prompt: string }>();
+  if (!prompt || typeof prompt !== "string") {
+    return c.json({ error: "prompt is required" }, 400);
+  }
+  saveCardPrompt(cardId, prompt.trim());
+  return c.json({ cardId, status: "saved", prompt: prompt.trim() });
 });
 
 /** Serve gallery HTML page */
@@ -106,7 +161,33 @@ function galleryHtml(): string {
     text-align: center;
     color: #aaa;
     font-size: 13px;
+    margin-bottom: 12px;
+  }
+  .toolbar {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
     margin-bottom: 24px;
+  }
+  .toolbar button {
+    padding: 6px 16px;
+    border: 2px solid #444;
+    border-radius: 6px;
+    background: transparent;
+    color: #aaa;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .toolbar button.active {
+    border-color: #f39c12;
+    color: #f39c12;
+    background: rgba(243, 156, 18, 0.1);
+  }
+  .toolbar button:hover:not(.active) {
+    border-color: #888;
+    color: #ccc;
   }
   .gallery {
     display: flex;
@@ -191,20 +272,38 @@ function galleryHtml(): string {
     inset: 0;
     background: rgba(0,0,0,0.85);
     z-index: 1000;
-    justify-content: center;
-    align-items: center;
-    gap: 32px;
-    padding: 40px;
+    overflow-y: auto;
   }
-  .lightbox.active { display: flex; }
+  .lightbox.active { display: block; }
+  .lightbox-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 48px 24px 24px;
+    gap: 20px;
+  }
+  .lightbox-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 1200px;
+  }
+  .lightbox-panels {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
   .lightbox-panel {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
   .lightbox-panel-label {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: #888;
     text-transform: uppercase;
@@ -212,44 +311,100 @@ function galleryHtml(): string {
   }
   .lightbox-panel img,
   .lightbox-panel .lightbox-svg {
-    height: 70vh;
+    height: 60vh;
     width: auto;
     border-radius: 12px;
     box-shadow: 0 4px 24px rgba(0,0,0,0.5);
   }
   .lightbox-panel .lightbox-svg svg {
-    height: 70vh;
+    height: 60vh;
     width: auto;
     display: block;
   }
   .lightbox-close {
-    position: fixed;
-    top: 16px;
-    right: 24px;
     font-size: 32px;
     color: #888;
     cursor: pointer;
-    z-index: 1001;
     line-height: 1;
+    background: none;
+    border: none;
   }
   .lightbox-close:hover { color: #fff; }
   .lightbox-title {
-    position: fixed;
-    top: 16px;
-    left: 24px;
     font-size: 18px;
     font-weight: 700;
     color: #fff;
-    z-index: 1001;
+  }
+  .lightbox-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 800px;
   }
   .lightbox-actions {
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
     display: flex;
     gap: 12px;
-    z-index: 1001;
+  }
+  .prompt-info {
+    width: 100%;
+    background: rgba(22, 33, 62, 0.95);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .prompt-info .prompt-label {
+    color: #f39c12;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .prompt-info .prompt-meta {
+    color: #888;
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  .prompt-info textarea {
+    width: 100%;
+    min-height: 48px;
+    max-height: 100px;
+    background: #0d1117;
+    color: #ccc;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 8px;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+    resize: vertical;
+  }
+  .prompt-info textarea:focus {
+    outline: none;
+    border-color: #f39c12;
+  }
+  .prompt-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    align-items: center;
+  }
+  .prompt-actions button {
+    padding: 4px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-save-prompt { background: #f39c12; color: #000; }
+  .btn-save-prompt:hover { background: #e67e22; }
+  .prompt-save-status {
+    font-size: 11px;
+    color: #9ae6b4;
   }
   .lightbox-actions button {
     padding: 10px 20px;
@@ -266,13 +421,8 @@ function galleryHtml(): string {
   .btn-regen { background: #553c9a; color: #d6bcfa; }
   .btn-force-clean { background: #9b2c2c; color: #fed7d7; }
   .lightbox-status {
-    position: fixed;
-    bottom: 72px;
-    left: 50%;
-    transform: translateX(-50%);
     font-size: 13px;
     color: #aaa;
-    z-index: 1001;
     text-align: center;
   }
 </style>
@@ -280,30 +430,71 @@ function galleryHtml(): string {
 <body>
   <h1>Pokeproxy Gallery</h1>
   <div class="subtitle">Loading cards...</div>
+  <div class="toolbar">
+    <button id="btn-python" class="active" onclick="setRenderer('python')">Python Renderer</button>
+    <button id="btn-template" onclick="setRenderer('template')">Template Renderer</button>
+  </div>
   <div class="gallery" id="gallery"></div>
 
   <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
-    <div class="lightbox-close" onclick="closeLightbox()">&times;</div>
-    <div class="lightbox-title" id="lightbox-title"></div>
-    <div class="lightbox-panel">
-      <div class="lightbox-panel-label">Source</div>
-      <img id="lightbox-src" src="" />
-    </div>
-    <div class="lightbox-panel">
-      <div class="lightbox-panel-label">Proxy</div>
-      <div class="lightbox-svg" id="lightbox-svg"></div>
-    </div>
-    <div class="lightbox-status" id="lightbox-status"></div>
-    <div class="lightbox-actions">
-      <button class="btn-clean" onclick="doClean(false)">Clean (ComfyUI)</button>
-      <button class="btn-force-clean" onclick="doClean(true)">Force Re-clean</button>
-      <button class="btn-regen" onclick="doRegen()">Regen SVG</button>
+    <div class="lightbox-inner" onclick="event.stopPropagation()">
+      <div class="lightbox-header">
+        <div class="lightbox-title" id="lightbox-title"></div>
+        <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+      </div>
+      <div class="lightbox-panels">
+        <div class="lightbox-panel">
+          <div class="lightbox-panel-label">Source</div>
+          <img id="lightbox-src" src="" />
+        </div>
+        <div class="lightbox-panel" id="lightbox-clean-panel" style="display:none">
+          <div class="lightbox-panel-label">Cleaned</div>
+          <img id="lightbox-clean" src="" />
+        </div>
+        <div class="lightbox-panel">
+          <div class="lightbox-panel-label">Python</div>
+          <div class="lightbox-svg" id="lightbox-svg-python"></div>
+        </div>
+        <div class="lightbox-panel">
+          <div class="lightbox-panel-label">Template</div>
+          <div class="lightbox-svg" id="lightbox-svg-template"></div>
+        </div>
+      </div>
+      <div class="lightbox-bottom">
+        <div class="lightbox-status" id="lightbox-status"></div>
+        <div class="lightbox-actions">
+          <button class="btn-clean" onclick="doClean(false)">Clean (ComfyUI)</button>
+          <button class="btn-force-clean" onclick="doClean(true)">Force Re-clean</button>
+          <button class="btn-regen" onclick="doRegen()">Regen SVG</button>
+        </div>
+        <div class="prompt-info" id="prompt-info"></div>
+      </div>
     </div>
   </div>
 
 <script>
 let currentCardId = null;
 let cardData = {};
+let currentRenderer = 'python'; // 'python' or 'template'
+
+function setRenderer(renderer) {
+  currentRenderer = renderer;
+  document.getElementById('btn-python').classList.toggle('active', renderer === 'python');
+  document.getElementById('btn-template').classList.toggle('active', renderer === 'template');
+  // Reload all SVGs with new renderer
+  for (const cardId of Object.keys(cardData)) {
+    loadSvg(cardId);
+  }
+  // Update lightbox if open
+  if (currentCardId) {
+    loadLightboxSvg(currentCardId);
+  }
+}
+
+function svgUrl(cardId) {
+  const base = '/api/pokeproxy/svg/' + cardId + '?t=' + Date.now();
+  return currentRenderer === 'template' ? base + '&renderer=template' : base;
+}
 
 async function init() {
   const resp = await fetch('/gallery/cards');
@@ -349,14 +540,33 @@ function cssId(cardId) {
 async function loadSvg(cardId) {
   const container = document.getElementById('svg_' + cssId(cardId));
   const cardEl = document.querySelector('[data-card-id="' + cardId + '"]');
+  container.innerHTML = '<span class="placeholder">Loading SVG...</span>';
+  cardEl.classList.add('loading');
   try {
-    const resp = await fetch('/api/pokeproxy/svg/' + cardId + '?t=' + Date.now());
+    const resp = await fetch(svgUrl(cardId));
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     container.innerHTML = await resp.text();
     cardEl.classList.remove('loading');
   } catch (e) {
     container.innerHTML = '<span class="placeholder">Failed: ' + e.message + '</span>';
     cardEl.classList.remove('loading');
+  }
+}
+
+async function loadLightboxSvg(cardId) {
+  loadLightboxPanel('lightbox-svg-python', '/api/pokeproxy/svg/' + cardId + '?t=' + Date.now());
+  loadLightboxPanel('lightbox-svg-template', '/api/pokeproxy/svg/' + cardId + '?t=' + Date.now() + '&renderer=template');
+}
+
+async function loadLightboxPanel(elId, url) {
+  const el = document.getElementById(elId);
+  el.innerHTML = '<span class="placeholder">Loading SVG...</span>';
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    el.innerHTML = await resp.text();
+  } catch (e) {
+    el.innerHTML = '<span class="placeholder">Failed: ' + e.message + '</span>';
   }
 }
 
@@ -367,14 +577,90 @@ function showPreview(cardId) {
 
   document.getElementById('lightbox-title').textContent = card.label + ' — ' + card.name;
   document.getElementById('lightbox-src').src = '/api/pokeproxy/image/' + cardId + '/source';
-  document.getElementById('lightbox-svg').innerHTML =
-    document.getElementById('svg_' + cssId(cardId)).innerHTML;
+  showCleanPanel(cardId);
+  loadLightboxSvg(cardId);
   document.getElementById('lightbox-status').textContent = '';
+
+  // Prompt editor
+  const promptEl = document.getElementById('prompt-info');
+  const currentPrompt = card.promptText || '';
+  const ruleName = card.promptRule || 'none';
+
+  let metaHtml = '';
+  if (card.cleanMeta) {
+    metaHtml = '<div class="prompt-meta">Last clean: rule=' + esc(card.cleanMeta.rule) +
+      ', seed=' + card.cleanMeta.seed + ', ' + card.cleanMeta.timestamp + '</div>';
+  }
+
+  promptEl.innerHTML =
+    '<div class="prompt-label">Prompt <span style="color:#888;font-weight:400">(rule: ' + esc(ruleName) + ')</span></div>' +
+    '<textarea id="prompt-edit">' + esc(currentPrompt) + '</textarea>' +
+    '<div class="prompt-actions">' +
+      '<button class="btn-save-prompt" onclick="savePrompt()">Save for this card</button>' +
+      '<span class="prompt-save-status" id="prompt-save-status"></span>' +
+    '</div>' +
+    metaHtml;
+
   document.getElementById('lightbox').classList.add('active');
 }
 
-function closeLightbox(e) {
-  if (e && e.target !== e.currentTarget && !e.target.classList.contains('lightbox-close')) return;
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+async function savePrompt() {
+  if (!currentCardId) return;
+  const textarea = document.getElementById('prompt-edit');
+  const prompt = textarea.value.trim();
+  if (!prompt) return;
+
+  const statusEl = document.getElementById('prompt-save-status');
+  statusEl.textContent = 'Saving...';
+  statusEl.style.color = '#aaa';
+
+  try {
+    const resp = await fetch('/gallery/prompt/' + currentCardId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+    });
+    const data = await resp.json();
+    if (data.status === 'saved') {
+      statusEl.textContent = 'Saved!';
+      statusEl.style.color = '#9ae6b4';
+      // Update local card data
+      if (cardData[currentCardId]) {
+        cardData[currentCardId].promptText = prompt;
+        cardData[currentCardId].promptRule = 'card:' + currentCardId;
+      }
+    } else {
+      statusEl.textContent = 'Error: ' + (data.error || 'unknown');
+      statusEl.style.color = '#fc8181';
+    }
+  } catch (e) {
+    statusEl.textContent = 'Error: ' + e.message;
+    statusEl.style.color = '#fc8181';
+  }
+}
+
+function showCleanPanel(cardId) {
+  const panel = document.getElementById('lightbox-clean-panel');
+  const img = document.getElementById('lightbox-clean');
+  const card = cardData[cardId];
+  if (card && (card.hasComposite || card.hasClean)) {
+    const type = card.hasComposite ? 'composite' : 'clean';
+    img.src = '/api/pokeproxy/image/' + cardId + '/' + type + '?t=' + Date.now();
+    panel.style.display = '';
+  } else {
+    panel.style.display = 'none';
+    img.src = '';
+  }
+}
+
+function closeLightbox() {
   document.getElementById('lightbox').classList.remove('active');
   currentCardId = null;
 }
@@ -398,12 +684,33 @@ async function doClean(force) {
     const data = await resp.json();
     if (data.status === 'generated' || data.status === 'already_exists') {
       const seedInfo = data.seed != null ? ' (seed ' + data.seed + ')' : '';
-      setStatus('Clean done' + seedInfo + '. Regenerating SVG...');
+      const ruleInfo = data.rule ? ' [' + data.rule + ']' : '';
+      setStatus('Clean done' + seedInfo + ruleInfo + '. Regenerating SVG...');
       await doRegenInner(cardId);
       // Update badge
       const badges = document.getElementById('badges_' + cssId(cardId));
       if (badges && !badges.querySelector('.badge.clean')) {
         badges.insertAdjacentHTML('afterbegin', '<span class="badge clean">CLEANED</span>');
+      }
+      // Show cleaned image panel
+      if (cardData[cardId]) {
+        cardData[cardId].hasComposite = true;
+        cardData[cardId].hasClean = true;
+      }
+      showCleanPanel(cardId);
+      // Update cached card data with clean metadata
+      if (data.prompt && cardData[cardId]) {
+        cardData[cardId].cleanMeta = {
+          prompt: data.prompt,
+          rule: data.rule,
+          seed: data.seed,
+          timestamp: new Date().toISOString(),
+        };
+        // Refresh prompt info display
+        const promptEl = document.getElementById('prompt-info');
+        if (promptEl && currentCardId === cardId) {
+          showPreview(cardId);
+        }
       }
     } else {
       setStatus('Clean failed: ' + (data.error || data.status));
@@ -433,17 +740,9 @@ async function doRegenInner(cardId) {
     setStatus('Regen failed: ' + (data.error || data.status));
     return;
   }
-  const svgResp = await fetch('/api/pokeproxy/svg/' + cardId + '?t=' + Date.now());
-  if (!svgResp.ok) {
-    setStatus('Failed to fetch new SVG');
-    return;
-  }
-  const svgText = await svgResp.text();
-  // Update lightbox
-  document.getElementById('lightbox-svg').innerHTML = svgText;
-  // Update gallery card
-  const galleryContainer = document.getElementById('svg_' + cssId(cardId));
-  if (galleryContainer) galleryContainer.innerHTML = svgText;
+  // Reload both lightbox panels and gallery thumbnail
+  loadLightboxSvg(cardId);
+  loadSvg(cardId);
   setStatus('Done — SVG updated');
 }
 

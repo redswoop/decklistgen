@@ -75,8 +75,8 @@ export const api = {
     ),
   pokeproxyImageUrl: (cardId: string, type: "clean" | "composite" = "composite") =>
     `/api/pokeproxy/image/${cardId}/${type}`,
-  pokeproxySvgUrl: (cardId: string) =>
-    `/api/pokeproxy/svg/${cardId}`,
+  pokeproxySvgUrl: (cardId: string, renderer?: string) =>
+    renderer ? `/api/pokeproxy/svg/${cardId}?renderer=${renderer}` : `/api/pokeproxy/svg/${cardId}`,
   pokeproxyGenerate: (cardId: string, force = false) =>
     post<{ cardId: string; status: string; output?: string }>(`/pokeproxy/generate/${cardId}${force ? "?force=true" : ""}`, {}),
   pokeproxyRegenerateSvg: (cardId: string) =>
