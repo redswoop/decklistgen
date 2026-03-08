@@ -110,9 +110,9 @@ const CARDS = {
     rarity: "Common",
   },
   energySpecial: {
-    id: "sv09-190",
-    localId: "190",
-    name: "Spiky Energy",
+    id: "sv01-191",
+    localId: "191",
+    name: "Luminous Energy",
     category: "Energy",
     energyType: "Special",
     rarity: "Uncommon",
