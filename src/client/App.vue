@@ -5,6 +5,8 @@ import CardGrid from "./components/CardGrid.vue";
 import DecklistPanel from "./components/DecklistPanel.vue";
 import DeckManagerSidebar from "./components/DeckManagerSidebar.vue";
 import DeckView from "./components/DeckView.vue";
+import CardsView from "./components/CardsView.vue";
+import CardsFilterSidebar from "./components/CardsFilterSidebar.vue";
 import ExportDialog from "./components/ExportDialog.vue";
 import ImportDialog from "./components/ImportDialog.vue";
 import SaveDeckDialog from "./components/SaveDeckDialog.vue";
@@ -13,6 +15,7 @@ import { useDecklist } from "./composables/useDecklist.js";
 import { useDecks } from "./composables/useDecks.js";
 import { useRoute } from "./composables/useRoute.js";
 import type { Card } from "../shared/types/card.js";
+import type { DeckMembership } from "../shared/types/customized-card.js";
 
 // View + deck selection synced to URL hash
 const { currentView, selectedDeckId } = useRoute();
@@ -54,6 +57,7 @@ const showSaveDeck = ref(false);
 const previewCard = ref<Card | null>(null);
 const previewSource = ref<'grid' | 'deck'>('grid');
 const gridSearchCards = ref<Card[]>([]);
+const previewDeckMembership = ref<DeckMembership[] | undefined>(undefined);
 
 
 const effectiveSearchCards = computed(() => {
@@ -136,11 +140,20 @@ function handlePreview(card: Card, cards: Card[]) {
   previewCard.value = card;
   gridSearchCards.value = cards;
   previewSource.value = 'grid';
+  previewDeckMembership.value = undefined;
 }
 
 function handleDeckPreview(card: Card) {
   previewCard.value = card;
   previewSource.value = 'deck';
+  previewDeckMembership.value = undefined;
+}
+
+function handleCardsPreview(card: Card, cards: Card[], membership?: DeckMembership[]) {
+  previewCard.value = card;
+  gridSearchCards.value = cards;
+  previewSource.value = 'grid';
+  previewDeckMembership.value = membership;
 }
 
 async function handleSaveDeck(name: string) {
@@ -173,6 +186,10 @@ function handleSelectDeck(id: string) {
           :class="['app-nav-tab', { active: currentView === 'decks' }]"
           @click="currentView = 'decks'"
         >Decks</button>
+        <button
+          :class="['app-nav-tab', { active: currentView === 'cards' }]"
+          @click="currentView = 'cards'"
+        >Cards</button>
       </div>
     </div>
 
@@ -193,6 +210,10 @@ function handleSelectDeck(id: string) {
         <!-- Left pane -->
         <div v-if="!leftCollapsed" class="layout-pane layout-side" :style="{ width: leftPct + '%' }">
           <FilterSidebar v-if="currentView === 'browse'" @collapse="collapseLeft" />
+          <CardsFilterSidebar
+            v-else-if="currentView === 'cards'"
+            @collapse="collapseLeft"
+          />
           <DeckManagerSidebar
             v-else
             :selected-deck-id="selectedDeckId"
@@ -212,6 +233,10 @@ function handleSelectDeck(id: string) {
         <!-- Center pane — always flex:1, absorbs all freed space -->
         <div class="layout-pane layout-center">
           <CardGrid v-if="currentView === 'browse'" @preview-card="handlePreview" />
+          <CardsView
+            v-else-if="currentView === 'cards'"
+            @preview-card="handleCardsPreview"
+          />
           <DeckView
             v-else
             :deck-id="selectedDeckId"
@@ -261,6 +286,7 @@ function handleSelectDeck(id: string) {
       :card="previewCard"
       :search-cards="effectiveSearchCards"
       :source="previewSource"
+      :deck-membership="previewDeckMembership"
       @close="previewCard = null"
     />
   </div>

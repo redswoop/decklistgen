@@ -18,14 +18,26 @@ const props = withDefaults(defineProps<{
   hideAdd?: boolean;
   /** Header label override (replaces "X cards") */
   headerLabel?: string;
+  /** Enable selection checkboxes on tiles */
+  selectable?: boolean;
+  /** Set of selected card IDs */
+  selectedIds?: Set<string>;
+  /** Set of stale card IDs (shows amber badge) */
+  staleIds?: Set<string>;
 }>(), {
   cards: undefined,
   cardCounts: undefined,
   hideAdd: false,
   headerLabel: undefined,
+  selectable: false,
+  selectedIds: undefined,
+  staleIds: undefined,
 });
 
-const emit = defineEmits<{ "preview-card": [card: Card, cards: Card[]] }>();
+const emit = defineEmits<{
+  "preview-card": [card: Card, cards: Card[]];
+  "toggle-select": [cardId: string];
+}>();
 
 const { filters, setNameSearch } = useFilters();
 const { addCard } = useDecklist();
@@ -49,7 +61,8 @@ onMounted(() => {
   if (scrollRef.value) {
     containerWidth.value = scrollRef.value.clientWidth;
     resizeObserver = new ResizeObserver((entries) => {
-      containerWidth.value = entries[0].contentRect.width;
+      const w = entries[0].contentRect.width;
+      if (w > 0) containerWidth.value = w;
     });
     resizeObserver.observe(scrollRef.value);
   }
@@ -365,9 +378,13 @@ function getCount(card: Card): number | undefined {
               :image-mode="imageMode"
               :count="getCount(card)"
               :hide-add="hideAdd"
+              :selectable="selectable"
+              :selected="selectedIds?.has(card.id)"
+              :stale="staleIds?.has(card.id)"
               :style="{ width: `${cardWidth}px`, flexShrink: 0 }"
               @add="handleAdd"
               @preview="emit('preview-card', $event, orderedCards)"
+              @toggle-select="emit('toggle-select', $event)"
             />
           </div>
         </div>

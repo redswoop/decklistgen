@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { getCard, loadSet, isSetLoaded } from "../services/card-store.js";
 import { cleanCardImage } from "../services/comfyui.js";
 import { getPromptForCard, saveCardPrompt } from "../services/prompt-db.js";
+import { getCardSettings, updateCardSettings, deleteCardSettings } from "../services/card-settings.js";
+import { getCustomizedCards, deleteCardArtifacts, invalidateCustomizedCardsCache } from "../services/customized-cards.js";
 import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import { isFullArt } from "../../shared/utils/detect-fullart.js";
@@ -211,9 +213,11 @@ app.get("/image/:cardId/:type", async (c) => {
 app.get("/svg/:cardId", async (c) => {
   const cardId = c.req.param("cardId");
   const query = c.req.query();
+  // Server-side settings as defaults, query params override
+  const stored = getCardSettings(cardId);
   const svgOpts: SvgRenderOptions = {};
-  if (query.fontSize) svgOpts.fontSize = parseFloat(query.fontSize);
-  if (query.maxCover) svgOpts.maxCover = parseFloat(query.maxCover);
+  svgOpts.fontSize = query.fontSize ? parseFloat(query.fontSize) : stored.fontSize;
+  svgOpts.maxCover = query.maxCover ? parseFloat(query.maxCover) : stored.maxCover;
   if (query.synth != null) svgOpts.synth = true;
   try {
     const svg = await generateSvgFromTemplate(cardId, svgOpts);
@@ -341,6 +345,53 @@ app.post("/generate/:cardId", async (c) => {
   } catch (e: any) {
     return c.json({ cardId, status: "failed", error: e.message }, 500);
   }
+});
+
+// --- Card settings endpoints ---
+
+/** Get proxy settings for a card */
+app.get("/settings/:cardId", (c) => {
+  const cardId = c.req.param("cardId");
+  return c.json(getCardSettings(cardId));
+});
+
+/** Update proxy settings (merge patch) */
+app.put("/settings/:cardId", async (c) => {
+  const cardId = c.req.param("cardId");
+  const patch = await c.req.json();
+  const result = updateCardSettings(cardId, patch);
+  return c.json(result);
+});
+
+/** Clear proxy settings */
+app.delete("/settings/:cardId", (c) => {
+  const cardId = c.req.param("cardId");
+  const deleted = deleteCardSettings(cardId);
+  return c.json({ ok: deleted });
+});
+
+// --- Customized cards endpoints ---
+
+/** List all customized cards with staleness + deck membership */
+app.get("/customized", async (c) => {
+  const result = await getCustomizedCards();
+  return c.json(result);
+});
+
+/** Delete all cache artifacts for a card */
+app.delete("/customized/:cardId", async (c) => {
+  const cardId = c.req.param("cardId");
+  await deleteCardArtifacts(cardId);
+  return c.json({ ok: true, cardId });
+});
+
+/** Batch delete cache artifacts */
+app.post("/customized/batch/delete", async (c) => {
+  const { cardIds } = await c.req.json<{ cardIds: string[] }>();
+  for (const cardId of cardIds) {
+    await deleteCardArtifacts(cardId);
+  }
+  return c.json({ ok: true, deleted: cardIds.length });
 });
 
 export default app;

@@ -17,14 +17,24 @@ const props = withDefaults(defineProps<{
   count?: number;
   /** Hide the add-to-deck button */
   hideAdd?: boolean;
+  /** Show selection checkbox */
+  selectable?: boolean;
+  /** Whether this card is selected */
+  selected?: boolean;
+  /** Whether this card is stale (amber badge) */
+  stale?: boolean;
 }>(), {
   count: undefined,
   hideAdd: false,
+  selectable: false,
+  selected: false,
+  stale: false,
 });
 
 const emit = defineEmits<{
   add: [card: Card];
   preview: [card: Card];
+  "toggle-select": [cardId: string];
 }>();
 
 const imageUrl = computed(() => getCardImageUrl(props.card, props.imageMode, "low"));
@@ -62,7 +72,20 @@ const tileDeckCount = computed(() =>
       {{ card.name }}
     </div>
 
+    <!-- Selection checkbox -->
+    <label
+      v-if="selectable"
+      class="tile-select-checkbox"
+      @click.stop
+    >
+      <input
+        type="checkbox"
+        :checked="selected"
+        @change="emit('toggle-select', card.id)"
+      />
+    </label>
     <span v-if="showCleanBadge" class="tile-clean-badge">&#x2713;</span>
+    <span v-if="stale" class="tile-stale-badge" title="Stale — prompt or rule has changed">!</span>
     <span v-if="tileDeckCount" class="tile-deck-badge">{{ tileDeckCount }}</span>
     <div class="card-name">{{ card.name }}</div>
     <button

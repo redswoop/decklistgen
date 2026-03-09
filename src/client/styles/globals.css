@@ -462,6 +462,39 @@ body {
   pointer-events: none;
 }
 
+.tile-select-checkbox {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  cursor: pointer;
+}
+
+.tile-select-checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: #e94560;
+  cursor: pointer;
+}
+
+.tile-stale-badge {
+  position: absolute;
+  top: 6px;
+  right: 28px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(240, 160, 48, 0.9);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  pointer-events: none;
+}
+
 .tile-deck-badge {
   position: absolute;
   top: 6px;
@@ -1512,6 +1545,45 @@ body {
 }
 
 .lb-wrr-none {
+  font-size: 12px;
+  color: #7f8fa6;
+}
+
+/* Deck membership (Cards view lightbox) */
+.lb-deck-membership {
+  padding: 12px 0;
+  border-top: 1px solid rgba(15, 52, 96, 0.4);
+}
+
+.lb-dm-header {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #7f8fa6;
+  margin-bottom: 8px;
+}
+
+.lb-dm-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 2px;
+}
+
+.lb-dm-entry:hover {
+  background: rgba(15, 52, 96, 0.4);
+}
+
+.lb-dm-name {
+  font-size: 13px;
+  color: #e2e2e2;
+}
+
+.lb-dm-count {
   font-size: 12px;
   color: #7f8fa6;
 }

@@ -13,10 +13,10 @@ const emit = defineEmits<{
 
 const { getSettings, updateSettings } = useProxySettings();
 
-const settings = computed(() => getSettings(props.card.setCode, props.card.localId));
+const settings = computed(() => getSettings(props.card.id));
 
 function update(patch: Partial<ProxySettings>) {
-  updateSettings(props.card.setCode, props.card.localId, patch);
+  updateSettings(props.card.id, patch);
   emit("change", { ...settings.value, ...patch });
 }
 

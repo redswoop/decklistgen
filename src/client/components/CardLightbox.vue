@@ -18,6 +18,7 @@ import LightboxDevTools from "./lightbox/LightboxDevTools.vue";
 import LightboxProxySettings from "./lightbox/LightboxProxySettings.vue";
 import { useProxySettings } from "../composables/useProxySettings.js";
 import type { ProxySettings } from "../../shared/types/proxy-settings.js";
+import type { DeckMembership } from "../../shared/types/customized-card.js";
 
 useGenerationQueryClient();
 
@@ -32,6 +33,7 @@ const props = defineProps<{
   card: Card;
   searchCards: Card[];
   source: 'grid' | 'deck';
+  deckMembership?: DeckMembership[];
 }>();
 const emit = defineEmits<{
   close: [];
@@ -113,7 +115,7 @@ const bgImageUrl = computed(() => cleanedImageUrl.value ?? (cardImageUrl(current
 
 // Proxy settings for current card
 const currentProxySettings = computed(() =>
-  getSettings(currentCard.value.setCode, currentCard.value.localId)
+  getSettings(currentCard.value.id)
 );
 
 // SVG Proxy
@@ -211,6 +213,11 @@ const tags = computed(() =>
 
 function energyColor(type: string): string {
   return ENERGY_COLORS[type] ?? "#828282";
+}
+
+function navigateToDeck(deckId: string) {
+  window.location.hash = `#/decks/${deckId}`;
+  emit("close");
 }
 </script>
 
@@ -397,6 +404,20 @@ function energyColor(type: string): string {
                 <button class="deck-ctrl-btn" @click="removeCard(currentCard.setCode, currentCard.localId)">&minus;</button>
                 <span class="deck-ctrl-count">In Deck (x{{ deckCount }})</span>
                 <button class="deck-ctrl-btn" @click="addCard(currentCard)">+</button>
+              </div>
+            </div>
+
+            <!-- Deck Membership (from Cards view) -->
+            <div v-if="deckMembership?.length" class="lb-deck-membership">
+              <div class="lb-dm-header">Appears in Decks</div>
+              <div
+                v-for="dm in deckMembership"
+                :key="dm.deckId"
+                class="lb-dm-entry"
+                @click="navigateToDeck(dm.deckId)"
+              >
+                <span class="lb-dm-name">{{ dm.deckName }}</span>
+                <span class="lb-dm-count">x{{ dm.count }}</span>
               </div>
             </div>
 

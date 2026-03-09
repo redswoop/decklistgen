@@ -31,8 +31,9 @@ function filtersToParams(): URLSearchParams {
 function writeUrl() {
   const params = filtersToParams();
   const qs = params.toString();
-  const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
-  history.replaceState(null, "", url);
+  const hash = window.location.hash;
+  const base = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+  history.replaceState(null, "", base + hash);
 }
 
 function readUrl() {

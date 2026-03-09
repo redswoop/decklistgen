@@ -1,41 +1,58 @@
-import { ref, watch } from "vue";
+import { reactive } from "vue";
 import type { ProxySettings } from "../../shared/types/proxy-settings.js";
+import { api } from "../lib/client.js";
 
-const STORAGE_KEY = "decklistgen-proxy-settings";
+// In-memory cache of settings fetched from server
+const cache = reactive(new Map<string, ProxySettings>());
 
-function loadAll(): Record<string, ProxySettings> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return {};
+// Track pending fetches to avoid duplicate requests
+const pending = new Map<string, Promise<ProxySettings>>();
+
+async function fetchSettings(cardId: string): Promise<ProxySettings> {
+  if (cache.has(cardId)) return cache.get(cardId)!;
+  if (pending.has(cardId)) return pending.get(cardId)!;
+
+  const promise = api.getCardSettings(cardId).then((settings) => {
+    cache.set(cardId, settings);
+    pending.delete(cardId);
+    return settings;
+  }).catch(() => {
+    pending.delete(cardId);
+    return {} as ProxySettings;
+  });
+
+  pending.set(cardId, promise);
+  return promise;
 }
-
-function saveAll(data: Record<string, ProxySettings>) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-const allSettings = ref<Record<string, ProxySettings>>(loadAll());
-
-watch(allSettings, (val) => saveAll(val), { deep: true });
 
 export function useProxySettings() {
-  function getSettings(setCode: string, localId: string): ProxySettings {
-    const key = `${setCode}-${localId}`;
-    return allSettings.value[key] ?? {};
+  function getSettings(cardId: string): ProxySettings {
+    if (!cache.has(cardId)) {
+      // Kick off async fetch, return empty for now
+      fetchSettings(cardId);
+      return {};
+    }
+    return cache.get(cardId)!;
   }
 
-  function updateSettings(setCode: string, localId: string, patch: Partial<ProxySettings>) {
-    const key = `${setCode}-${localId}`;
-    const existing = allSettings.value[key] ?? {};
-    allSettings.value = { ...allSettings.value, [key]: { ...existing, ...patch } };
+  async function updateSettings(cardId: string, patch: Partial<ProxySettings>) {
+    // Optimistic update
+    const existing = cache.get(cardId) ?? {};
+    cache.set(cardId, { ...existing, ...patch });
+    try {
+      const result = await api.updateCardSettings(cardId, patch);
+      cache.set(cardId, result);
+    } catch {
+      // Revert on failure
+      cache.set(cardId, existing);
+    }
   }
 
-  function clearSettings(setCode: string, localId: string) {
-    const key = `${setCode}-${localId}`;
-    const copy = { ...allSettings.value };
-    delete copy[key];
-    allSettings.value = copy;
+  async function clearSettings(cardId: string) {
+    cache.delete(cardId);
+    try {
+      await api.deleteCardSettings(cardId);
+    } catch {}
   }
 
   return { getSettings, updateSettings, clearSettings };

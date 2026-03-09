@@ -4,6 +4,7 @@ import type { FilterOptions } from "../../shared/types/filters.js";
 import type { DecklistEntry, DecklistOutput, LimitlessPlayer, ImportResult } from "../../shared/types/decklist.js";
 import type { ProxySettings } from "../../shared/types/proxy-settings.js";
 import type { SavedDeck, DeckSummary, DeckCard } from "../../shared/types/deck.js";
+import type { CustomizedCardsResponse } from "../../shared/types/customized-card.js";
 
 const BASE = "/api";
 
@@ -146,4 +147,20 @@ export const api = {
     post<SavedDeck>(`/decks/${id}/copy`, { name }),
   diversifyDeck: (id: string) =>
     post<SavedDeck>(`/decks/${id}/diversify`, {}),
+
+  // Card settings endpoints
+  getCardSettings: (cardId: string) =>
+    get<ProxySettings>(`/pokeproxy/settings/${cardId}`),
+  updateCardSettings: (cardId: string, patch: Partial<ProxySettings>) =>
+    put<ProxySettings>(`/pokeproxy/settings/${cardId}`, patch),
+  deleteCardSettings: (cardId: string) =>
+    del<{ ok: boolean }>(`/pokeproxy/settings/${cardId}`),
+
+  // Customized cards endpoints
+  getCustomizedCards: () =>
+    get<CustomizedCardsResponse>("/pokeproxy/customized"),
+  deleteCustomization: (cardId: string) =>
+    del<{ ok: boolean; cardId: string }>(`/pokeproxy/customized/${cardId}`),
+  batchDeleteCustomizations: (cardIds: string[]) =>
+    post<{ ok: boolean; deleted: number }>("/pokeproxy/customized/batch/delete", { cardIds }),
 };
