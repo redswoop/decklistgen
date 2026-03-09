@@ -39,6 +39,36 @@ const promptSaving = ref(false);
 const promptLastUsed = ref<{ prompt?: string; seed?: number; rule?: string } | null>(null);
 const promptSkip = ref(false);
 
+// TCGdex raw data
+const tcgdexData = ref<Record<string, unknown> | null>(null);
+const tcgdexLoading = ref(false);
+const tcgdexExpanded = ref(false);
+
+const tcgdexCopied = ref(false);
+
+async function copyTcgdex() {
+  if (!tcgdexData.value) return;
+  await navigator.clipboard.writeText(JSON.stringify(tcgdexData.value, null, 2));
+  tcgdexCopied.value = true;
+  setTimeout(() => { tcgdexCopied.value = false; }, 1500);
+}
+
+async function loadTcgdex() {
+  tcgdexLoading.value = true;
+  try {
+    tcgdexData.value = await api.getCardTcgdex(props.currentCard.id);
+  } catch {
+    tcgdexData.value = null;
+  } finally {
+    tcgdexLoading.value = false;
+  }
+}
+
+function toggleTcgdex() {
+  tcgdexExpanded.value = !tcgdexExpanded.value;
+  if (tcgdexExpanded.value && !tcgdexData.value) loadTcgdex();
+}
+
 async function loadPrompt() {
   promptLoading.value = true;
   try {
@@ -60,6 +90,9 @@ async function loadPrompt() {
 watch(() => props.currentCard.id, () => {
   promptEditing.value = false;
   if (expanded.value) loadPrompt();
+  // Reset tcgdex when card changes
+  tcgdexData.value = null;
+  if (tcgdexExpanded.value) loadTcgdex();
 });
 
 watch(expanded, (val) => {
@@ -186,6 +219,27 @@ function cancelEdit() {
             rule={{ promptLastUsed.rule }}
             <template v-if="promptLastUsed.seed !== undefined">, seed={{ promptLastUsed.seed }}</template>
           </div>
+        </div>
+      </div>
+
+      <!-- TCGdex Raw Data -->
+      <div class="dev-tcgdex">
+        <div class="dev-tcgdex-header">
+          <button class="dev-tcgdex-toggle" @click="toggleTcgdex">
+            {{ tcgdexExpanded ? '▾' : '▸' }} TCGdex Data
+          </button>
+          <button
+            v-if="tcgdexExpanded && tcgdexData"
+            class="dev-prompt-btn"
+            @click="copyTcgdex"
+          >
+            {{ tcgdexCopied ? 'Copied!' : 'Copy' }}
+          </button>
+        </div>
+        <div v-if="tcgdexExpanded" class="dev-tcgdex-content">
+          <div v-if="tcgdexLoading" class="dev-prompt-loading">Loading...</div>
+          <div v-else-if="!tcgdexData" class="dev-prompt-loading">No data available</div>
+          <pre v-else class="dev-tcgdex-json">{{ JSON.stringify(tcgdexData, null, 2) }}</pre>
         </div>
       </div>
     </div>
@@ -408,5 +462,52 @@ function cancelEdit() {
 
 .dev-last-label {
   color: #555;
+}
+
+/* TCGdex raw data */
+.dev-tcgdex {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(15, 52, 96, 0.4);
+}
+
+.dev-tcgdex-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dev-tcgdex-toggle {
+  background: none;
+  border: none;
+  color: #7f8fa6;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dev-tcgdex-toggle:hover {
+  color: #e0e0e0;
+}
+
+.dev-tcgdex-content {
+  margin-top: 6px;
+}
+
+.dev-tcgdex-json {
+  font-size: 12px;
+  color: #b0b0b0;
+  line-height: 1.5;
+  background: rgba(15, 52, 96, 0.3);
+  padding: 10px 12px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "SF Mono", "Fira Code", monospace;
+  margin: 0;
+  max-height: 400px;
+  overflow-y: auto;
 }
 </style>

@@ -100,4 +100,16 @@ app.get("/:id/detail", (c) => {
   return c.json(detail);
 });
 
+app.get("/:id/tcgdex", (c) => {
+  const id = c.req.param("id");
+  const jsonPath = join(CACHE_DIR, `${id}.json`);
+  if (!existsSync(jsonPath)) return c.json({ error: "No cached TCGdex data" }, 404);
+  try {
+    const raw = JSON.parse(readFileSync(jsonPath, "utf-8"));
+    return c.json(raw);
+  } catch {
+    return c.json({ error: "Failed to parse cached data" }, 500);
+  }
+});
+
 export default app;

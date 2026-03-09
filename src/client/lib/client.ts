@@ -100,6 +100,8 @@ export const api = {
     get<CardDetail>(`/cards/${cardId}/detail`),
   getVariants: (cardId: string) =>
     get<{ variants: Card[] }>(`/cards/${cardId}/variants`),
+  getCardTcgdex: (cardId: string) =>
+    get<Record<string, unknown>>(`/cards/${cardId}/tcgdex`),
 
   // PokeProxy endpoints
   pokeproxyStatus: (cardId: string) =>
