@@ -55,13 +55,9 @@ data/              # Persistent data files (prompts.json etc.)
 ## Deployment
 
 - **Docker image**: `skywarp75/decklistgen`
-- **Architecture**: Always build for `linux/amd64`
-- **Deploy command**:
-  ```bash
-  bun run deploy
-  ```
-  This pushes to GitHub, builds with cache-bust, and pushes the image to Docker Hub.
-- The Dockerfile clones from GitHub at build time — changes must be committed before deploying
+- **CI/CD**: GitHub Actions builds and pushes the Docker image on push to `main`
+- **Watchtower**: Runs on the NAS, polls every 5 min, auto-pulls new images
+- **Deploy workflow**: Just push to `main` — CI builds the image, Watchtower picks it up
 - **Environment variables**: `PORT` (default 3001), `COMFYUI_URL`
 - **Volumes**: `/app/cache`, `/app/data`
 
