@@ -12,6 +12,7 @@ import {
   type LimitlessDecklist,
   type LimitlessCard,
 } from "../services/limitless.js";
+import { logAction, getClientIp } from "../services/logger.js";
 
 const app = new Hono();
 
@@ -29,6 +30,7 @@ app.post("/generate", async (c) => {
 /** Fetch player list from a tournament, or resolve a standalone decklist directly */
 app.post("/import/limitless/players", async (c) => {
   const { url } = await c.req.json<{ url: string }>();
+  logAction("deck.import.limitless", getClientIp(c), { url });
   const parsed = parseLimitlessUrl(url);
   if (!parsed) return c.json({ error: "Invalid Limitless URL or tournament ID" }, 400);
 
@@ -72,6 +74,7 @@ app.post("/import/limitless/deck", async (c) => {
     tournamentId: string;
     playerName: string;
   }>();
+  logAction("deck.import.limitless.deck", getClientIp(c), { tournamentId, playerName });
 
   try {
     const standings = await fetchTournamentStandings(tournamentId);
@@ -89,6 +92,7 @@ app.post("/import/limitless/deck", async (c) => {
 app.post("/import/text", async (c) => {
   const { text } = await c.req.json<{ text: string }>();
   if (!text?.trim()) return c.json({ error: "No text provided" }, 400);
+  logAction("deck.import.text", getClientIp(c), { textLength: text.length });
 
   try {
     const parsed = parsePtcgoText(text);

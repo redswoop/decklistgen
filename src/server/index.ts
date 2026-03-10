@@ -8,10 +8,24 @@ import decksRouter from "./routes/decks.js";
 import proxyRouter from "./routes/proxy.js";
 import galleryRouter from "./routes/gallery.js";
 import devLayoutRouter from "./routes/dev-layout.js";
+import { logAccess, getClientIp } from "./services/logger.js";
 
 const app = new Hono();
 
 app.use("*", cors());
+
+app.use("*", async (c, next) => {
+  const start = Date.now();
+  await next();
+  logAccess({
+    method: c.req.method,
+    path: c.req.path,
+    status: c.res.status,
+    ms: Date.now() - start,
+    ip: getClientIp(c),
+    ua: c.req.header("user-agent") ?? "",
+  });
+});
 
 // API routes
 app.route("/api/sets", setsRouter);

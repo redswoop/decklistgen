@@ -5,6 +5,7 @@ import { getAllCards, getCard, getFilterOptions, getVariants } from "../services
 import { applyFilters } from "../../shared/utils/filter-cards.js";
 import type { CardFilters, SpecialAttribute } from "../../shared/types/filters.js";
 import type { CardDetail } from "../../shared/types/card.js";
+import { logAction, getClientIp } from "../services/logger.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
 
@@ -36,6 +37,7 @@ app.get("/", (c) => {
   const start = (page - 1) * pageSize;
   const cards = filtered.slice(start, start + pageSize);
 
+  logAction("card.search", getClientIp(c), { nameSearch: filters.nameSearch, filters, resultCount: filtered.length });
   return c.json({ cards, total: filtered.length, page, pageSize });
 });
 
@@ -61,6 +63,7 @@ app.get("/:id/detail", (c) => {
   const id = c.req.param("id");
   const card = getCard(id);
   if (!card) return c.json({ error: "Card not found" }, 404);
+  logAction("card.view", getClientIp(c), { cardId: id, cardName: card.name });
 
   // Load full TCGdex data from cache JSON
   let raw: Record<string, unknown> = {};

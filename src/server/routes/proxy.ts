@@ -14,6 +14,7 @@ import type { TcgdexCard } from "../../shared/types/card.js";
 import { resetIconIds, renderFromTemplate } from "../services/pokeproxy/templates/index.js";
 import type { TemplateName } from "../services/pokeproxy/templates/index.js";
 import { renderEnergyPreviewSvg } from "../services/pokeproxy/energy-preview.js";
+import { logAction, getClientIp } from "../services/logger.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
 
@@ -212,6 +213,7 @@ app.get("/image/:cardId/:type", async (c) => {
 /** Serve an SVG proxy card */
 app.get("/svg/:cardId", async (c) => {
   const cardId = c.req.param("cardId");
+  logAction("proxy.svg", getClientIp(c), { cardId });
   const query = c.req.query();
   // Server-side settings as defaults, query params override
   const stored = getCardSettings(cardId);
@@ -266,6 +268,7 @@ app.get("/prompt/:cardId", async (c) => {
 /** Save a card-specific prompt override */
 app.put("/prompt/:cardId", async (c) => {
   const cardId = c.req.param("cardId");
+  logAction("card.promptOverride", getClientIp(c), { cardId });
   const { prompt } = await c.req.json<{ prompt: string }>();
   if (!prompt || typeof prompt !== "string") {
     return c.json({ error: "prompt is required" }, 400);
@@ -278,6 +281,7 @@ app.post("/generate/:cardId", async (c) => {
   const cardId = c.req.param("cardId");
   const force = c.req.query("force") === "true";
   const seedParam = c.req.query("seed");
+  logAction("proxy.generate", getClientIp(c), { cardId, seed: seedParam, force });
   const promptOverride = c.req.query("prompt") || undefined;
   // Use provided seed, or random on force, or default 42
   const seed = seedParam ? parseInt(seedParam, 10) : force ? Math.floor(Math.random() * 999999) : 42;
@@ -358,6 +362,7 @@ app.get("/settings/:cardId", (c) => {
 /** Update proxy settings (merge patch) */
 app.put("/settings/:cardId", async (c) => {
   const cardId = c.req.param("cardId");
+  logAction("card.settingsUpdate", getClientIp(c), { cardId });
   const patch = await c.req.json();
   const result = updateCardSettings(cardId, patch);
   return c.json(result);

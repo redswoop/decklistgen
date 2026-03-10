@@ -10,6 +10,7 @@ import {
 } from "../services/deck-store.js";
 import { getVariants } from "../services/card-store.js";
 import type { Card } from "../../shared/types/card.js";
+import { logAction, getClientIp } from "../services/logger.js";
 
 const app = new Hono();
 
@@ -49,6 +50,7 @@ app.post("/", async (c) => {
   };
 
   await createDeck(deck);
+  logAction("deck.create", getClientIp(c), { deckName: deck.name, cardCount: deck.cards.length, importSource: body.importSource });
   return c.json(deck, 201);
 });
 
@@ -62,13 +64,16 @@ app.put("/:id", async (c) => {
 
   const updated = await updateDeck(id, body);
   if (!updated) return c.json({ error: "Deck not found" }, 404);
+  logAction("deck.update", getClientIp(c), { deckId: id });
   return c.json(updated);
 });
 
 /** Delete a deck */
 app.delete("/:id", async (c) => {
-  const ok = await deleteDeck(c.req.param("id"));
+  const id = c.req.param("id");
+  const ok = await deleteDeck(id);
   if (!ok) return c.json({ error: "Deck not found" }, 404);
+  logAction("deck.delete", getClientIp(c), { deckId: id });
   return c.json({ ok: true });
 });
 
@@ -81,6 +86,7 @@ app.post("/:id/copy", async (c) => {
   const copyName = name?.trim() || `${original.name} (Copy)`;
   const copy = await copyDeck(c.req.param("id"), copyName);
   if (!copy) return c.json({ error: "Copy failed" }, 500);
+  logAction("deck.copy", getClientIp(c), { deckId: c.req.param("id"), newName: copyName });
   return c.json(copy, 201);
 });
 
@@ -125,6 +131,7 @@ app.post("/:id/diversify", async (c) => {
 
   deck.cards = newCards;
   const updated = await updateDeck(deck.id, { cards: newCards });
+  logAction("deck.diversify", getClientIp(c), { deckId: c.req.param("id") });
   return c.json(updated);
 });
 
