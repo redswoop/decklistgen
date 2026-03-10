@@ -16,6 +16,11 @@ function parseHash(): { view: AppView; deckId: string | null } {
   return { view: "browse", deckId: null };
 }
 
+function parseCardParam(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("card") || null;
+}
+
 function toHash(view: AppView, deckId: string | null): string {
   if (view === "decks" && deckId) return `#/decks/${deckId}`;
   if (view === "decks") return "#/decks";
@@ -23,45 +28,62 @@ function toHash(view: AppView, deckId: string | null): string {
   return "#/browse";
 }
 
+/** Update the ?card= query param without touching the hash. */
+export function setCardParam(id: string | null, replace = false) {
+  const url = new URL(window.location.href);
+  if (id) {
+    url.searchParams.set("card", id);
+  } else {
+    url.searchParams.delete("card");
+  }
+  if (replace) {
+    history.replaceState(null, "", url.toString());
+  } else {
+    history.pushState(null, "", url.toString());
+  }
+}
+
 export function useRoute() {
   const initial = parseHash();
   const currentView = ref<AppView>(initial.view);
   const selectedDeckId = ref<string | null>(initial.deckId);
+  const previewCardId = ref<string | null>(parseCardParam());
 
-  // Sync URL when state changes
-  let suppressHashChange = false;
+  // Sync URL when view/deck state changes
+  let suppressPopstate = false;
 
   watch([currentView, selectedDeckId], ([view, deckId]) => {
     const target = toHash(view, deckId);
     if (window.location.hash !== target) {
-      suppressHashChange = true;
+      suppressPopstate = true;
       window.location.hash = target;
     }
   });
 
-  // React to back/forward navigation
-  function onHashChange() {
-    if (suppressHashChange) {
-      suppressHashChange = false;
+  // React to back/forward navigation (covers both hash and pushState)
+  function onPopstate() {
+    if (suppressPopstate) {
+      suppressPopstate = false;
       return;
     }
     const parsed = parseHash();
     currentView.value = parsed.view;
     selectedDeckId.value = parsed.deckId;
+    previewCardId.value = parseCardParam();
   }
 
   onMounted(() => {
-    window.addEventListener("hashchange", onHashChange);
+    window.addEventListener("popstate", onPopstate);
     // Set initial hash if empty
     if (!window.location.hash) {
-      suppressHashChange = true;
+      suppressPopstate = true;
       window.location.hash = toHash(currentView.value, selectedDeckId.value);
     }
   });
 
   onUnmounted(() => {
-    window.removeEventListener("hashchange", onHashChange);
+    window.removeEventListener("popstate", onPopstate);
   });
 
-  return { currentView, selectedDeckId };
+  return { currentView, selectedDeckId, previewCardId };
 }

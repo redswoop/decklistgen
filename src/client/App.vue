@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import FilterSidebar from "./components/FilterSidebar.vue";
 import CardGrid from "./components/CardGrid.vue";
 import DecklistPanel from "./components/DecklistPanel.vue";
@@ -13,12 +13,13 @@ import SaveDeckDialog from "./components/SaveDeckDialog.vue";
 import CardLightbox from "./components/CardLightbox.vue";
 import { useDecklist } from "./composables/useDecklist.js";
 import { useDecks } from "./composables/useDecks.js";
-import { useRoute } from "./composables/useRoute.js";
+import { useRoute, setCardParam } from "./composables/useRoute.js";
+import { api } from "./lib/client.js";
 import type { Card } from "../shared/types/card.js";
 import type { DeckMembership } from "../shared/types/customized-card.js";
 
-// View + deck selection synced to URL hash
-const { currentView, selectedDeckId } = useRoute();
+// View + deck selection synced to URL hash, card param for lightbox deep-links
+const { currentView, selectedDeckId, previewCardId } = useRoute();
 
 // Layout persistence
 const LAYOUT_KEY = "decklistgen-layout";
@@ -141,12 +142,14 @@ function handlePreview(card: Card, cards: Card[]) {
   gridSearchCards.value = cards;
   previewSource.value = 'grid';
   previewDeckMembership.value = undefined;
+  setCardParam(card.id);
 }
 
 function handleDeckPreview(card: Card) {
   previewCard.value = card;
   previewSource.value = 'deck';
   previewDeckMembership.value = undefined;
+  setCardParam(card.id);
 }
 
 function handleCardsPreview(card: Card, cards: Card[], membership?: DeckMembership[]) {
@@ -154,7 +157,53 @@ function handleCardsPreview(card: Card, cards: Card[], membership?: DeckMembersh
   gridSearchCards.value = cards;
   previewSource.value = 'grid';
   previewDeckMembership.value = membership;
+  setCardParam(card.id);
 }
+
+function closeLightbox() {
+  previewCard.value = null;
+  setCardParam(null);
+}
+
+function handleCardChange(cardId: string) {
+  setCardParam(cardId, true); // replaceState — don't pollute back stack
+}
+
+// React to back/forward changing the card param
+watch(previewCardId, async (id) => {
+  if (!id) {
+    // Back button closed the lightbox
+    previewCard.value = null;
+    return;
+  }
+  // Forward button or popstate re-opened — only fetch if lightbox isn't showing this card
+  if (!previewCard.value || previewCard.value.id !== id) {
+    try {
+      const card = await api.getCard(id);
+      previewCard.value = card;
+      gridSearchCards.value = [card];
+      previewSource.value = 'grid';
+      previewDeckMembership.value = undefined;
+    } catch {
+      // Card not found — clear param
+      setCardParam(null, true);
+    }
+  }
+});
+
+// Deep-link hydration on mount
+onMounted(async () => {
+  if (previewCardId.value && !previewCard.value) {
+    try {
+      const card = await api.getCard(previewCardId.value);
+      previewCard.value = card;
+      gridSearchCards.value = [card];
+      previewSource.value = 'grid';
+    } catch {
+      setCardParam(null, true);
+    }
+  }
+});
 
 async function handleSaveDeck(name: string) {
   showSaveDeck.value = false;
@@ -287,7 +336,8 @@ function handleSelectDeck(id: string) {
       :search-cards="effectiveSearchCards"
       :source="previewSource"
       :deck-membership="previewDeckMembership"
-      @close="previewCard = null"
+      @close="closeLightbox"
+      @card-change="handleCardChange"
     />
   </div>
 </template>

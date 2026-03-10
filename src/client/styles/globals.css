@@ -1223,7 +1223,7 @@ body {
 }
 
 .lb-left {
-  width: 340px;
+  width: 400px;
   flex-shrink: 0;
   padding: 20px;
   display: flex;
@@ -1300,6 +1300,33 @@ body {
   font-weight: 600;
 }
 
+.lb-generate-cta {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.lb-generate-cta:hover {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.lb-generate-cta-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e0e0e0;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(15, 52, 96, 0.6);
+}
+
 .lb-zoom-hint {
   position: absolute;
   bottom: 8px;
@@ -1313,6 +1340,91 @@ body {
   opacity: 0;
   transition: opacity 0.2s;
   pointer-events: none;
+}
+
+/* Image row: version picker + card image side by side */
+.lb-image-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* Version picker (vertical column) */
+.lb-versions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.lb-version {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.lb-version-thumb {
+  width: 56px;
+  cursor: pointer;
+  border-radius: 5px;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  transition: outline-color 0.15s;
+  overflow: hidden;
+}
+
+.lb-version:hover .lb-version-thumb {
+  outline-color: rgba(255, 255, 255, 0.2);
+}
+
+.lb-version.active .lb-version-thumb {
+  outline-color: #e94560;
+}
+
+.lb-version-img {
+  width: 100%;
+  display: block;
+  border-radius: 5px;
+}
+
+.lb-version-placeholder {
+  width: 100%;
+  aspect-ratio: 5 / 7;
+  background: #0f3460;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #7f8fa6;
+}
+
+.lb-version-label {
+  font-size: 10px;
+  color: #7f8fa6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lb-version.active .lb-version-label {
+  color: #e94560;
+}
+
+.lb-version-regen {
+  background: none;
+  border: none;
+  color: #7f8fa6;
+  font-size: 9px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.lb-version-regen:hover {
+  color: #e0e0e0;
+  background: rgba(15, 52, 96, 0.6);
 }
 
 /* Variants row */

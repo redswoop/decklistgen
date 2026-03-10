@@ -2,23 +2,9 @@
 import { ref, watch } from "vue";
 import type { Card } from "../../../shared/types/card.js";
 import { api } from "../../lib/client.js";
-import { cardImageUrl } from "../../../shared/utils/card-image-url.js";
 
 const props = defineProps<{
   currentCard: Card;
-  hasCleanedImage: boolean;
-  cleanedImageUrl: string | null;
-  svgUrl: string;
-  svgLoading: boolean;
-  svgError: boolean;
-  generating: boolean;
-  svgRegenerating: boolean;
-}>();
-
-defineEmits<{
-  generate: [];
-  regenerate: [];
-  regenerateSvg: [];
 }>();
 
 const LS_KEY = "decklistgen-devtools-open";
@@ -129,60 +115,6 @@ function cancelEdit() {
     </button>
 
     <div v-if="expanded" class="dev-panel">
-      <!-- Image comparison -->
-      <div class="dev-images">
-        <!-- Original -->
-        <div class="dev-img-col">
-          <div class="dev-label">Original</div>
-          <img
-            v-if="currentCard.imageBase"
-            :src="cardImageUrl(currentCard.imageBase, 'high')"
-            :alt="currentCard.name"
-            class="dev-img"
-          />
-          <div v-else class="dev-placeholder">No image</div>
-        </div>
-
-        <!-- Cleaned -->
-        <div v-if="currentCard.isFullArt" class="dev-img-col">
-          <div class="dev-label">Cleaned</div>
-          <div v-if="generating" class="dev-placeholder dev-generating">
-            <div class="generate-spinner small"></div>
-            <div class="dev-gen-text">Generating...</div>
-          </div>
-          <img
-            v-else-if="hasCleanedImage && cleanedImageUrl"
-            :src="cleanedImageUrl"
-            :alt="`${currentCard.name} (cleaned)`"
-            class="dev-img dev-img-clickable"
-            title="Click to regenerate"
-            @click="$emit('regenerate')"
-          />
-          <div v-else class="dev-placeholder dev-clickable" @click="$emit('generate')">
-            <div class="dev-gen-text">+ Generate</div>
-          </div>
-        </div>
-
-        <!-- SVG Proxy -->
-        <div class="dev-img-col">
-          <div class="dev-label">SVG Proxy</div>
-          <div v-if="(svgLoading || svgRegenerating) && !svgError" class="dev-placeholder">
-            <div class="generate-spinner small"></div>
-          </div>
-          <div v-else-if="svgError" class="dev-placeholder dev-clickable" @click="$emit('regenerateSvg')">
-            <div class="dev-gen-text">SVG Failed - Retry</div>
-          </div>
-          <img
-            v-else
-            :src="svgUrl"
-            :alt="`${currentCard.name} (SVG)`"
-            class="dev-img dev-img-clickable"
-            title="Click to regenerate SVG"
-            @click="$emit('regenerateSvg')"
-          />
-        </div>
-      </div>
-
       <!-- Cleaner Prompt -->
       <div class="dev-prompt">
         <div class="dev-prompt-header">
@@ -272,19 +204,6 @@ function cancelEdit() {
   margin-top: 8px;
 }
 
-.dev-images {
-  display: flex;
-  gap: 8px;
-}
-
-.dev-img-col {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
 .dev-label {
   font-size: 10px;
   font-weight: 600;
@@ -293,63 +212,9 @@ function cancelEdit() {
   letter-spacing: 0.5px;
 }
 
-.dev-img {
-  width: 100%;
-  max-width: 140px;
-  border-radius: 6px;
-}
-
-.dev-img-clickable {
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.dev-img-clickable:hover {
-  opacity: 0.8;
-}
-
-.dev-placeholder {
-  width: 100%;
-  max-width: 140px;
-  aspect-ratio: 5/7;
-  background: #0f3460;
-  border-radius: 6px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
-
-.dev-clickable {
-  cursor: pointer;
-  border: 1px dashed #7f8fa6;
-}
-
-.dev-clickable:hover {
-  border-color: #e94560;
-}
-
-.dev-generating {
-  border: 1px solid #e94560;
-}
-
-.dev-gen-text {
-  font-size: 10px;
-  color: #7f8fa6;
-}
-
-.generate-spinner.small {
-  width: 20px;
-  height: 20px;
-  border-width: 2px;
-}
-
 /* Prompt section */
 .dev-prompt {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(15, 52, 96, 0.4);
+  margin-top: 0;
 }
 
 .dev-prompt-header {

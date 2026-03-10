@@ -96,6 +96,8 @@ export const api = {
     post<ImportResult>("/decklist/import/limitless/deck", { tournamentId, playerName }),
   importText: (text: string) =>
     post<ImportResult>("/decklist/import/text", { text }),
+  getCard: (cardId: string) =>
+    get<Card>(`/cards/${cardId}`),
   getCardDetail: (cardId: string) =>
     get<CardDetail>(`/cards/${cardId}/detail`),
   getVariants: (cardId: string) =>

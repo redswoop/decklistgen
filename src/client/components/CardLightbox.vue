@@ -22,6 +22,18 @@ import type { DeckMembership } from "../../shared/types/customized-card.js";
 
 useGenerationQueryClient();
 
+// Version selection (sticky via localStorage)
+type CardVersion = "original" | "cleaned" | "proxy";
+const VERSION_LS_KEY = "decklistgen-card-version";
+const selectedVersion = ref<CardVersion>(
+  (localStorage.getItem(VERSION_LS_KEY) as CardVersion) || "proxy",
+);
+
+function selectVersion(v: CardVersion) {
+  selectedVersion.value = v;
+  localStorage.setItem(VERSION_LS_KEY, v);
+}
+
 const ENERGY_COLORS: Record<string, string> = {
   Grass: "#439837", Fire: "#e4613e", Water: "#3099e1",
   Lightning: "#dfbc28", Psychic: "#e96c8c", Fighting: "#e49021",
@@ -37,6 +49,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   close: [];
+  cardChange: [cardId: string];
 }>();
 
 const { addCard, removeCard, getDeckCount } = useDecklist();
@@ -89,6 +102,11 @@ const deckCount = computed(() => getDeckCount(currentCard.value.setCode, current
 
 // Card detail (attacks, abilities, weakness/resistance)
 const currentCardId = computed(() => currentCard.value.id);
+
+// Emit card changes for URL sync (skip the initial value — App.vue already knows)
+watch(currentCardId, (id) => {
+  emit("cardChange", id);
+});
 const lightboxOpen = ref(true);
 const { data: cardDetail } = useCardDetail(currentCardId, lightboxOpen);
 
@@ -112,6 +130,27 @@ const cleanedImageUrl = computed(() => {
 
 // Background art: cleaned image if available, else original (low-res, decorative blur)
 const bgImageUrl = computed(() => cleanedImageUrl.value ?? (cardImageUrl(currentCard.value.imageBase, "low") || null));
+
+// Main image URL based on selected version
+const mainImageUrl = computed(() => {
+  if (selectedVersion.value === "cleaned" && cleanedImageUrl.value) {
+    return cleanedImageUrl.value;
+  }
+  if (selectedVersion.value === "cleaned" && !cleanedImageUrl.value) {
+    // No cleaned image — show original as background for the "generate" overlay
+    return currentCard.value.imageBase
+      ? cardImageUrl(currentCard.value.imageBase, "high")
+      : null;
+  }
+  if (selectedVersion.value === "proxy" && !hasCleanedImage.value) {
+    // Proxy without clean — no background image, SVG only
+    return null;
+  }
+  // Original or proxy-with-clean
+  return currentCard.value.imageBase
+    ? cardImageUrl(currentCard.value.imageBase, "high")
+    : null;
+});
 
 // Proxy settings for current card
 const currentProxySettings = computed(() =>
@@ -154,6 +193,22 @@ function handleRegenerate() {
   generateCleanImage(currentCard.value.id, true);
 }
 
+// Whether the current version needs a cleaned image that doesn't exist yet
+const needsGeneration = computed(() => {
+  if (generating.value) return false;
+  if (selectedVersion.value === "cleaned" && !cleanedImageUrl.value) return true;
+  if (selectedVersion.value === "proxy" && !hasCleanedImage.value) return true;
+  return false;
+});
+
+function handleMainImageClick() {
+  if (needsGeneration.value) {
+    hasCleanedImage.value ? handleRegenerate() : handleGenerate();
+  } else {
+    showZoom.value = true;
+  }
+}
+
 const svgRegenerating = ref(false);
 async function handleRegenerateSvg() {
   if (svgRegenerating.value) return;
@@ -181,8 +236,12 @@ function onProxySettingsChange() {
 // Zoom
 const showZoom = ref(false);
 const zoomImageUrl = computed(() => {
-  // Show SVG proxy if loaded, else original (high-res for full detail)
-  if (!svgLoading.value && !svgError.value) return svgUrl.value;
+  if (selectedVersion.value === "cleaned" && cleanedImageUrl.value) {
+    return cleanedImageUrl.value;
+  }
+  if (selectedVersion.value === "proxy" && !svgLoading.value && !svgError.value) {
+    return svgUrl.value;
+  }
   return cardImageUrl(currentCard.value.imageBase, "high");
 });
 
@@ -255,31 +314,85 @@ function navigateToDeck(deckId: string) {
 
       <!-- Body: image left, info right -->
       <div class="lb-body">
-        <!-- Left: card image + variants -->
+        <!-- Left: version picker + card image + variants -->
         <div class="lb-left">
-          <div class="lb-card-image" @click="showZoom = true">
-            <!-- Original art as stable base layer (no layout shift) -->
-            <img
-              v-if="currentCard.imageBase"
-              :src="cardImageUrl(currentCard.imageBase, 'high')"
-              :alt="currentCard.name"
-              class="lb-img"
-            />
-            <div v-else class="lb-img-placeholder">{{ currentCard.name }}</div>
-            <!-- SVG proxy layered on top, fades in when loaded -->
-            <img
-              :src="svgUrl"
-              :alt="currentCard.name"
-              :class="['lb-img-svg', { loaded: !svgLoading && !svgError }]"
-              @load="onSvgLoad"
-              @error="onSvgError"
-            />
-            <!-- Generation overlay -->
-            <div v-if="generating" class="lb-generating-overlay">
-              <div class="generate-spinner"></div>
-              <div class="lb-gen-text">Generating...</div>
+          <div class="lb-image-row">
+            <!-- Version picker (vertical, left of image) -->
+            <div class="lb-versions">
+              <!-- Original -->
+              <div :class="['lb-version', { active: selectedVersion === 'original' }]">
+                <div class="lb-version-thumb" @click="selectVersion('original')">
+                  <img
+                    v-if="currentCard.imageBase"
+                    :src="cardImageUrl(currentCard.imageBase, 'low')"
+                    class="lb-version-img"
+                  />
+                  <div v-else class="lb-version-placeholder">?</div>
+                </div>
+                <span class="lb-version-label">Original</span>
+              </div>
+
+              <!-- Cleaned (full art only) -->
+              <div v-if="currentCard.isFullArt" :class="['lb-version', { active: selectedVersion === 'cleaned' }]">
+                <div class="lb-version-thumb" @click="selectVersion('cleaned')">
+                  <div v-if="generating" class="lb-version-placeholder">
+                    <div class="generate-spinner small"></div>
+                  </div>
+                  <img
+                    v-else-if="cleanedImageUrl"
+                    :src="cleanedImageUrl"
+                    class="lb-version-img"
+                  />
+                  <div v-else class="lb-version-placeholder">--</div>
+                </div>
+                <span class="lb-version-label">Cleaned</span>
+              </div>
+
+              <!-- Proxy -->
+              <div :class="['lb-version', { active: selectedVersion === 'proxy' }]">
+                <div class="lb-version-thumb" @click="selectVersion('proxy')">
+                  <img
+                    v-if="!svgLoading && !svgError"
+                    :src="svgUrl"
+                    class="lb-version-img"
+                  />
+                  <div v-else class="lb-version-placeholder">
+                    <div v-if="svgLoading || svgRegenerating" class="generate-spinner small"></div>
+                    <span v-else>--</span>
+                  </div>
+                </div>
+                <span class="lb-version-label">Proxy</span>
+              </div>
             </div>
-            <div class="lb-zoom-hint">Click to zoom</div>
+
+            <!-- Main card image -->
+            <div class="lb-card-image" @click="handleMainImageClick">
+              <img
+                v-if="mainImageUrl"
+                :src="mainImageUrl"
+                :alt="currentCard.name"
+                class="lb-img"
+              />
+              <div v-else class="lb-img-placeholder">{{ selectedVersion !== 'proxy' ? currentCard.name : '' }}</div>
+              <!-- SVG proxy layered on top (always loads, only visible in proxy mode) -->
+              <img
+                :src="svgUrl"
+                :alt="currentCard.name"
+                :class="['lb-img-svg', { loaded: selectedVersion === 'proxy' && !svgLoading && !svgError }]"
+                @load="onSvgLoad"
+                @error="onSvgError"
+              />
+              <!-- Generation in-progress overlay -->
+              <div v-if="generating" class="lb-generating-overlay">
+                <div class="generate-spinner"></div>
+                <div class="lb-gen-text">Generating...</div>
+              </div>
+              <!-- Needs-generation overlay -->
+              <div v-else-if="needsGeneration" class="lb-generate-cta" @click.stop="handleMainImageClick">
+                <span class="lb-generate-cta-text">Click to generate</span>
+              </div>
+              <div v-if="!needsGeneration && !generating" class="lb-zoom-hint">Click to zoom</div>
+            </div>
           </div>
 
           <!-- Variants row -->
@@ -430,16 +543,6 @@ function navigateToDeck(deckId: string) {
             <!-- Dev Tools (collapsible) -->
             <LightboxDevTools
               :current-card="currentCard"
-              :has-cleaned-image="!!hasCleanedImage"
-              :cleaned-image-url="cleanedImageUrl"
-              :svg-url="svgUrl"
-              :svg-loading="svgLoading"
-              :svg-error="svgError"
-              :generating="generating"
-              :svg-regenerating="svgRegenerating"
-              @generate="handleGenerate"
-              @regenerate="handleRegenerate"
-              @regenerate-svg="handleRegenerateSvg"
             />
           </div>
         </div>
