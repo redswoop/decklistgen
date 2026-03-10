@@ -51,6 +51,7 @@ export function logAction(action: string, ip: string, data?: Record<string, unkn
 }
 
 async function writeLog(filename: string, line: string): Promise<void> {
+  console.log(line);
   await ensureDir();
   await appendFile(join(LOGS_DIR, filename), line + "\n");
 }
