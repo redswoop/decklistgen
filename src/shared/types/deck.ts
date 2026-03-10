@@ -15,6 +15,8 @@ export interface SavedDeck {
   updatedAt: string;
   importedAt?: string;
   importSource?: string;
+  isPublic?: boolean;
+  isListed?: boolean;
 }
 
 /** Lightweight summary for listing decks */
@@ -27,4 +29,7 @@ export interface DeckSummary {
   updatedAt: string;
   importSource?: string;
   coverImage?: string;
+  isPublic?: boolean;
+  isListed?: boolean;
+  ownerName?: string;
 }

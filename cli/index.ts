@@ -4,6 +4,36 @@ import { loadSet, getAllCards, getFilterOptions } from "../src/server/services/c
 import { applyFilters } from "../src/shared/utils/filter-cards.js";
 import type { CardFilters, SpecialAttribute } from "../src/shared/types/filters.js";
 
+// Handle subcommands before parseArgs
+const subcommand = process.argv[2];
+
+if (subcommand === "invite") {
+  const { getDb } = await import("../src/server/services/db/database.js");
+  const { createInviteCode } = await import("../src/server/services/invite-store.js");
+  // Find first admin user
+  const admin = getDb().query("SELECT id FROM users WHERE is_admin = 1 LIMIT 1").get() as { id: string } | null;
+  if (!admin) {
+    console.error("Error: No admin user found. Run the app and complete setup first.");
+    process.exit(1);
+  }
+  const invite = createInviteCode(admin.id);
+  console.log(`Invite code: ${invite.code}`);
+  process.exit(0);
+}
+
+if (subcommand === "migrate") {
+  const { getDb } = await import("../src/server/services/db/database.js");
+  const { migrateAll } = await import("../src/server/services/db/migrate.js");
+  const admin = getDb().query("SELECT id FROM users WHERE is_admin = 1 LIMIT 1").get() as { id: string } | null;
+  if (!admin) {
+    console.error("Error: No admin user found. Run the app and complete setup first.");
+    process.exit(1);
+  }
+  const result = await migrateAll(admin.id);
+  console.log(`Migration complete: ${result.decks} decks, ${result.cardSettings} card settings`);
+  process.exit(0);
+}
+
 const { values, positionals } = parseArgs({
   options: {
     set: { type: "string", multiple: true, short: "s" },

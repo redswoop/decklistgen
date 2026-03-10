@@ -7,6 +7,8 @@ import { cleanCardImage } from "../services/comfyui.js";
 import { getPromptForCard, saveCardPrompt } from "../services/prompt-db.js";
 import { getCardSettings, updateCardSettings, deleteCardSettings } from "../services/card-settings.js";
 import { getCustomizedCards, deleteCardArtifacts, invalidateCustomizedCardsCache } from "../services/customized-cards.js";
+import { requireAuth } from "../middleware/auth.js";
+import type { AppEnv } from "../types.js";
 import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import { isFullArt } from "../../shared/utils/detect-fullart.js";
@@ -159,7 +161,7 @@ async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions):
   return renderFromTemplate(templateName, cardData, imageB64, renderOpts);
 }
 
-const app = new Hono();
+const app = new Hono<AppEnv>();
 
 /** Energy glyph color preview — all 11 types in a row */
 app.get("/energy-preview", (c) => {
@@ -215,8 +217,9 @@ app.get("/svg/:cardId", async (c) => {
   const cardId = c.req.param("cardId");
   logAction("proxy.svg", getClientIp(c), { cardId });
   const query = c.req.query();
-  // Server-side settings as defaults, query params override
-  const stored = getCardSettings(cardId);
+  // User-scoped settings as defaults (if authenticated), query params override
+  const user = c.get("user");
+  const stored = user ? getCardSettings(user.id, cardId) : {};
   const svgOpts: SvgRenderOptions = {};
   svgOpts.fontSize = query.fontSize ? parseFloat(query.fontSize) : stored.fontSize;
   svgOpts.maxCover = query.maxCover ? parseFloat(query.maxCover) : stored.maxCover;
@@ -351,27 +354,30 @@ app.post("/generate/:cardId", async (c) => {
   }
 });
 
-// --- Card settings endpoints ---
+// --- Card settings endpoints (require auth) ---
 
 /** Get proxy settings for a card */
-app.get("/settings/:cardId", (c) => {
+app.get("/settings/:cardId", requireAuth, (c) => {
+  const user = c.get("user")!;
   const cardId = c.req.param("cardId");
-  return c.json(getCardSettings(cardId));
+  return c.json(getCardSettings(user.id, cardId));
 });
 
 /** Update proxy settings (merge patch) */
-app.put("/settings/:cardId", async (c) => {
+app.put("/settings/:cardId", requireAuth, async (c) => {
+  const user = c.get("user")!;
   const cardId = c.req.param("cardId");
   logAction("card.settingsUpdate", getClientIp(c), { cardId });
   const patch = await c.req.json();
-  const result = updateCardSettings(cardId, patch);
+  const result = updateCardSettings(user.id, cardId, patch);
   return c.json(result);
 });
 
 /** Clear proxy settings */
-app.delete("/settings/:cardId", (c) => {
+app.delete("/settings/:cardId", requireAuth, (c) => {
+  const user = c.get("user")!;
   const cardId = c.req.param("cardId");
-  const deleted = deleteCardSettings(cardId);
+  const deleted = deleteCardSettings(user.id, cardId);
   return c.json({ ok: deleted });
 });
 
@@ -379,7 +385,8 @@ app.delete("/settings/:cardId", (c) => {
 
 /** List all customized cards with staleness + deck membership */
 app.get("/customized", async (c) => {
-  const result = await getCustomizedCards();
+  const user = c.get("user");
+  const result = await getCustomizedCards(user?.id);
   return c.json(result);
 });
 

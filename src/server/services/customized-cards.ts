@@ -78,7 +78,7 @@ export function invalidateCustomizedCardsCache(): void {
   cacheTimestamp = 0;
 }
 
-export async function getCustomizedCards(): Promise<CustomizedCardsResponse> {
+export async function getCustomizedCards(userId?: string): Promise<CustomizedCardsResponse> {
   const now = Date.now();
   if (cachedResult && now - cacheTimestamp < CACHE_TTL) {
     return cachedResult;
@@ -95,8 +95,8 @@ export async function getCustomizedCards(): Promise<CustomizedCardsResponse> {
     }
   } catch {}
 
-  // 2. Get all card settings
-  const allSettings = getAllCardSettings();
+  // 2. Get all card settings (user-scoped if userId provided)
+  const allSettings = userId ? getAllCardSettings(userId) : {};
   const settingsCardIds = new Set(Object.keys(allSettings));
 
   // 3. Get card-specific prompt overrides (rules named `card:*`)
@@ -112,26 +112,28 @@ export async function getCustomizedCards(): Promise<CustomizedCardsResponse> {
   // 4. Union all three sets
   const allCardIds = new Set([...cleanCardIds, ...settingsCardIds, ...overrideCardIds]);
 
-  // 5. Load deck membership data
+  // 5. Load deck membership data (user-scoped if userId provided)
   const deckMembershipMap = new Map<string, DeckMembership[]>();
-  try {
-    const deckSummaries = await listDecks();
-    for (const summary of deckSummaries) {
-      const deck = await getDeck(summary.id);
-      if (!deck) continue;
-      for (const dc of deck.cards) {
-        const cardId = dc.card.id;
-        if (!deckMembershipMap.has(cardId)) {
-          deckMembershipMap.set(cardId, []);
+  if (userId) {
+    try {
+      const deckSummaries = await listDecks(userId);
+      for (const summary of deckSummaries) {
+        const deck = await getDeck(summary.id, userId);
+        if (!deck) continue;
+        for (const dc of deck.cards) {
+          const cardId = dc.card.id;
+          if (!deckMembershipMap.has(cardId)) {
+            deckMembershipMap.set(cardId, []);
+          }
+          deckMembershipMap.get(cardId)!.push({
+            deckId: deck.id,
+            deckName: deck.name,
+            count: dc.count,
+          });
         }
-        deckMembershipMap.get(cardId)!.push({
-          deckId: deck.id,
-          deckName: deck.name,
-          count: dc.count,
-        });
       }
-    }
-  } catch {}
+    } catch {}
+  }
 
   // 6. Build result for each card
   const cards: CustomizedCard[] = [];

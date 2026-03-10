@@ -5,6 +5,7 @@ import type { DecklistEntry, DecklistOutput, LimitlessPlayer, ImportResult } fro
 import type { ProxySettings } from "../../shared/types/proxy-settings.js";
 import type { SavedDeck, DeckSummary, DeckCard } from "../../shared/types/deck.js";
 import type { CustomizedCardsResponse } from "../../shared/types/customized-card.js";
+import type { User, InviteCode } from "../../shared/types/user.js";
 
 const BASE = "/api";
 
@@ -16,7 +17,7 @@ async function get<T>(path: string, params?: Record<string, string>): Promise<T>
       if (v) url.searchParams.set(k, v);
     }
   }
-  const resp = await fetch(url.toString());
+  const resp = await fetch(url.toString(), { credentials: "include" });
   if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
   return resp.json();
 }
@@ -26,6 +27,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    credentials: "include",
   });
   if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
   return resp.json();
@@ -36,13 +38,25 @@ async function put<T>(path: string, body: unknown): Promise<T> {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    credentials: "include",
   });
   if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
   return resp.json();
 }
 
 async function del<T>(path: string): Promise<T> {
-  const resp = await fetch(BASE + path, { method: "DELETE" });
+  const resp = await fetch(BASE + path, { method: "DELETE", credentials: "include" });
+  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+  return resp.json();
+}
+
+async function patch<T>(path: string, body: unknown): Promise<T> {
+  const resp = await fetch(BASE + path, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    credentials: "include",
+  });
   if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
   return resp.json();
 }
@@ -71,6 +85,22 @@ export interface PokeproxyStatus {
 }
 
 export const api = {
+  // Auth endpoints
+  getMe: () => get<User & { needsSetup?: boolean }>("/auth/me"),
+  setup: (data: { email: string; password: string; displayName: string }) =>
+    post<User>("/auth/setup", data),
+  login: (data: { email: string; password: string }) =>
+    post<User>("/auth/login", data),
+  signup: (data: { email: string; password: string; displayName: string; inviteCode: string }) =>
+    post<User>("/auth/signup", data),
+  logout: () => post<{ ok: boolean }>("/auth/logout", {}),
+
+  // Admin endpoints
+  createInviteCode: () => post<InviteCode>("/admin/invite-codes", {}),
+  listInviteCodes: () => get<InviteCode[]>("/admin/invite-codes"),
+  deleteInviteCode: (code: string) => del<{ ok: boolean }>(`/admin/invite-codes/${code}`),
+
+  // Sets & cards
   getSets: () => get<SetInfo[]>("/sets"),
   loadSet: (code: string) => post<{ loaded: number; code: string }>(`/sets/${code}/load`, {}),
   loadEra: (era: string) => post<{ loaded: number; sets: string[] }>(`/sets/load-era/${era}`, {}),
@@ -151,6 +181,14 @@ export const api = {
     post<SavedDeck>(`/decks/${id}/copy`, { name }),
   diversifyDeck: (id: string) =>
     post<SavedDeck>(`/decks/${id}/diversify`, {}),
+  setDeckVisibility: (id: string, visibility: { isPublic?: boolean; isListed?: boolean }) =>
+    patch<SavedDeck>(`/decks/${id}/visibility`, visibility),
+
+  // Public decks
+  listPublicDecks: (page = 1, pageSize = 20) =>
+    get<{ decks: DeckSummary[]; total: number }>("/public/decks", { page: String(page), pageSize: String(pageSize) }),
+  getPublicDeck: (id: string) => get<SavedDeck>(`/public/decks/${id}`),
+  copyPublicDeck: (id: string) => post<SavedDeck>(`/public/decks/${id}/copy`, {}),
 
   // Card settings endpoints
   getCardSettings: (cardId: string) =>

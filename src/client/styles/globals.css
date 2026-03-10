@@ -78,6 +78,21 @@ body {
   color: #e0e0e0;
 }
 
+.app-nav-spacer {
+  flex: 1;
+}
+
+.auth-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-loading-text {
+  color: #7f8fa6;
+  font-size: 14px;
+}
+
 .app-content {
   flex: 1;
   position: relative;

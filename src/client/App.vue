@@ -7,16 +7,22 @@ import DeckManagerSidebar from "./components/DeckManagerSidebar.vue";
 import DeckView from "./components/DeckView.vue";
 import CardsView from "./components/CardsView.vue";
 import CardsFilterSidebar from "./components/CardsFilterSidebar.vue";
+import PublicDecksView from "./components/PublicDecksView.vue";
 import ExportDialog from "./components/ExportDialog.vue";
 import ImportDialog from "./components/ImportDialog.vue";
 import SaveDeckDialog from "./components/SaveDeckDialog.vue";
 import CardLightbox from "./components/CardLightbox.vue";
+import AuthPage from "./components/AuthPage.vue";
+import UserMenu from "./components/UserMenu.vue";
 import { useDecklist } from "./composables/useDecklist.js";
 import { useDecks } from "./composables/useDecks.js";
+import { useAuth } from "./composables/useAuth.js";
 import { useRoute, setCardParam } from "./composables/useRoute.js";
 import { api } from "./lib/client.js";
 import type { Card } from "../shared/types/card.js";
 import type { DeckMembership } from "../shared/types/customized-card.js";
+
+const { isLoggedIn, loading: authLoading, checkAuth } = useAuth();
 
 // View + deck selection synced to URL hash, card param for lightbox deep-links
 const { currentView, selectedDeckId, previewCardId } = useRoute();
@@ -191,8 +197,9 @@ watch(previewCardId, async (id) => {
   }
 });
 
-// Deep-link hydration on mount
+// Check auth + deep-link hydration on mount
 onMounted(async () => {
+  await checkAuth();
   if (previewCardId.value && !previewCard.value) {
     try {
       const card = await api.getCard(previewCardId.value);
@@ -222,7 +229,16 @@ function handleSelectDeck(id: string) {
 </script>
 
 <template>
-  <div class="app">
+  <!-- Loading state -->
+  <div v-if="authLoading" class="app auth-loading">
+    <div class="auth-loading-text">Loading...</div>
+  </div>
+
+  <!-- Auth gate -->
+  <AuthPage v-else-if="!isLoggedIn" />
+
+  <!-- Main app -->
+  <div v-else class="app">
     <!-- Navigation bar -->
     <div class="app-nav">
       <span class="app-nav-title">DecklistGen</span>
@@ -239,7 +255,13 @@ function handleSelectDeck(id: string) {
           :class="['app-nav-tab', { active: currentView === 'cards' }]"
           @click="currentView = 'cards'"
         >Cards</button>
+        <button
+          :class="['app-nav-tab', { active: currentView === 'public' }]"
+          @click="currentView = 'public'"
+        >Public</button>
       </div>
+      <div class="app-nav-spacer" />
+      <UserMenu />
     </div>
 
     <!-- Main content area -->
@@ -286,6 +308,7 @@ function handleSelectDeck(id: string) {
             v-else-if="currentView === 'cards'"
             @preview-card="handleCardsPreview"
           />
+          <PublicDecksView v-else-if="currentView === 'public'" />
           <DeckView
             v-else
             :deck-id="selectedDeckId"

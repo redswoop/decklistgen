@@ -1,98 +1,57 @@
 /**
  * Server-side card proxy settings store.
  *
- * Persists to data/card-settings.json. File-watched with hot-reload,
- * following the same pattern as prompt-db.ts.
+ * Persists to SQLite, scoped per-user.
  */
 
-import { readFileSync, writeFileSync, watchFile, statSync, existsSync } from "node:fs";
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { getDb } from "./db/database.js";
 import type { ProxySettings } from "../../shared/types/proxy-settings.js";
 
-const SETTINGS_PATH = join(import.meta.dir, "../../../data/card-settings.json");
-
-let settings: Record<string, ProxySettings> = {};
-let lastMtime = 0;
-
-function ensureDir() {
-  const dir = join(import.meta.dir, "../../../data");
-  mkdirSync(dir, { recursive: true });
+export function getCardSettings(userId: string, cardId: string): ProxySettings {
+  const row = getDb()
+    .query("SELECT settings FROM card_settings WHERE user_id = ? AND card_id = ?")
+    .get(userId, cardId) as { settings: string } | null;
+  if (!row) return {};
+  return JSON.parse(row.settings);
 }
 
-function loadSettings() {
-  try {
-    if (!existsSync(SETTINGS_PATH)) {
-      settings = {};
-      return;
-    }
-    const raw = readFileSync(SETTINGS_PATH, "utf-8");
-    settings = JSON.parse(raw);
-    console.log(`[card-settings] Loaded settings for ${Object.keys(settings).length} cards`);
-  } catch (e: any) {
-    console.error(`[card-settings] Failed to load: ${e.message}`);
-    settings = {};
-  }
-}
-
-function reloadIfChanged() {
-  try {
-    if (!existsSync(SETTINGS_PATH)) return;
-    const mt = statSync(SETTINGS_PATH).mtimeMs;
-    if (mt !== lastMtime) {
-      lastMtime = mt;
-      loadSettings();
-    }
-  } catch {}
-}
-
-function persist() {
-  ensureDir();
-  writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2) + "\n");
-  lastMtime = statSync(SETTINGS_PATH).mtimeMs;
-}
-
-// Initial load
-loadSettings();
-try {
-  if (existsSync(SETTINGS_PATH)) {
-    lastMtime = statSync(SETTINGS_PATH).mtimeMs;
-  }
-} catch {}
-
-// Watch for external changes
-watchFile(SETTINGS_PATH, { interval: 2000 }, () => {
-  reloadIfChanged();
-});
-
-export function getCardSettings(cardId: string): ProxySettings {
-  reloadIfChanged();
-  return settings[cardId] ?? {};
-}
-
-export function updateCardSettings(cardId: string, patch: Partial<ProxySettings>): ProxySettings {
-  reloadIfChanged();
-  const existing = settings[cardId] ?? {};
+export function updateCardSettings(userId: string, cardId: string, patch: Partial<ProxySettings>): ProxySettings {
+  const existing = getCardSettings(userId, cardId);
   const merged = { ...existing, ...patch };
-  settings[cardId] = merged;
-  persist();
+  const now = new Date().toISOString();
+
+  getDb()
+    .query(`
+      INSERT INTO card_settings (user_id, card_id, settings, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT (user_id, card_id) DO UPDATE SET settings = ?, updated_at = ?
+    `)
+    .run(userId, cardId, JSON.stringify(merged), now, JSON.stringify(merged), now);
+
   return merged;
 }
 
-export function deleteCardSettings(cardId: string): boolean {
-  reloadIfChanged();
-  if (!(cardId in settings)) return false;
-  delete settings[cardId];
-  persist();
-  return true;
+export function deleteCardSettings(userId: string, cardId: string): boolean {
+  const result = getDb()
+    .query("DELETE FROM card_settings WHERE user_id = ? AND card_id = ?")
+    .run(userId, cardId);
+  return result.changes > 0;
 }
 
-export function getAllCardSettings(): Record<string, ProxySettings> {
-  reloadIfChanged();
-  return { ...settings };
+export function getAllCardSettings(userId: string): Record<string, ProxySettings> {
+  const rows = getDb()
+    .query("SELECT card_id, settings FROM card_settings WHERE user_id = ?")
+    .all(userId) as { card_id: string; settings: string }[];
+  const result: Record<string, ProxySettings> = {};
+  for (const row of rows) {
+    result[row.card_id] = JSON.parse(row.settings);
+  }
+  return result;
 }
 
-export function hasCardSettings(cardId: string): boolean {
-  reloadIfChanged();
-  return cardId in settings;
+export function hasCardSettings(userId: string, cardId: string): boolean {
+  const row = getDb()
+    .query("SELECT 1 FROM card_settings WHERE user_id = ? AND card_id = ?")
+    .get(userId, cardId);
+  return row != null;
 }
