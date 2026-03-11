@@ -4,6 +4,7 @@ cache/
 .vite/
 *.tsbuildinfo
 .DS_Store
+*.swp
 pokeproxy/.venv/
 pokeproxy/__pycache__/
 data/logs/
