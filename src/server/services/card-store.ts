@@ -4,16 +4,46 @@ import { SET_MAP, REVERSE_SET_MAP, getEra } from "../../shared/constants/set-cod
 import { isEx, isV, isVmax, isVstar, isAncient, isFuture, isTera } from "../../shared/utils/detect-attributes.js";
 import { isFullArt } from "../../shared/utils/detect-fullart.js";
 import { fetchSetCards } from "./tcgdex.js";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 
 /** In-memory card index, lazily populated per set */
 const cardIndex = new Map<string, Card>();
 const loadedSets = new Set<string>();
+
+/** Manual overrides for isPrintUnfriendly (loaded from data/print-overrides.json) */
+let printOverrides: Record<string, boolean> = {};
+try {
+  const overridesPath = resolve(import.meta.dir, "../../../data/print-overrides.json");
+  const raw = JSON.parse(readFileSync(overridesPath, "utf-8"));
+  // Filter out _comment key
+  for (const [k, v] of Object.entries(raw)) {
+    if (!k.startsWith("_") && typeof v === "boolean") printOverrides[k] = v;
+  }
+} catch {
+  // No overrides file — that's fine
+}
+
+/**
+ * Heuristic: cards where metallic/rainbow coloring is the primary visual.
+ * Gold trainer items, gold stadiums, gold tools, gold energies, rainbow supporters.
+ * Gold Pokemon have real artwork underneath and print fine.
+ */
+function computePrintUnfriendly(id: string, rarity: string, category: Card["category"]): boolean {
+  // Manual override takes priority
+  if (id in printOverrides) return printOverrides[id];
+
+  const r = rarity.toLowerCase();
+  const isMetallicRarity = r === "hyper rare" || r === "secret rare";
+  return isMetallicRarity && (category === "Trainer" || category === "Energy");
+}
 
 function normalizeCard(raw: TcgdexCard, setCode: string): Card {
   const tcgdexId = raw.set?.id ?? SET_MAP[setCode] ?? "";
   const category = (raw.category === "Pokemon" || raw.category === "Trainer" || raw.category === "Energy")
     ? raw.category : "Pokemon";
   const variants = raw.variants ?? {};
+  const rarity = raw.rarity ?? "Unknown";
 
   return {
     id: raw.id,
@@ -22,7 +52,7 @@ function normalizeCard(raw: TcgdexCard, setCode: string): Card {
     imageBase: raw.image ?? "",
     category,
     trainerType: raw.trainerType as Card["trainerType"],
-    rarity: raw.rarity ?? "Unknown",
+    rarity,
     energyTypes: raw.types ?? [],
     setId: tcgdexId,
     setCode,
@@ -40,6 +70,7 @@ function normalizeCard(raw: TcgdexCard, setCode: string): Card {
     isFuture: isFuture(raw),
     isTera: isTera(raw),
     hasFoil: !!variants.holo,
+    isPrintUnfriendly: computePrintUnfriendly(raw.id, rarity, category),
   };
 }
 

@@ -24,6 +24,7 @@ const { replaceByName } = useDecklist();
 
 const mode = ref<BeautifyMode>("best");
 const excludeRarities = ref<Set<string>>(new Set());
+const excludePrintUnfriendly = ref(true);
 const availableRarities = ref<string[]>([]);
 const loading = ref(false);
 const status = ref("");
@@ -37,9 +38,6 @@ onMounted(async () => {
   try {
     const opts = await api.getFilterOptions();
     availableRarities.value = opts.rarities;
-    // Default-exclude Hyper Rare using the actual string from the server
-    const hyperRare = opts.rarities.find((r) => r.toLowerCase() === "hyper rare");
-    if (hyperRare) excludeRarities.value = new Set([hyperRare]);
   } catch {}
 });
 
@@ -71,7 +69,11 @@ async function handleAction() {
       // Saved deck flow — server-side
       const result = await beautifyDeck({
         id: props.deckId,
-        options: { mode: mode.value, excludeRarities: [...excludeRarities.value] },
+        options: {
+          mode: mode.value,
+          excludeRarities: [...excludeRarities.value],
+          excludePrintUnfriendly: excludePrintUnfriendly.value,
+        },
       });
 
       if (result.candidates) {
@@ -119,7 +121,11 @@ async function beautifyWorkingDeck() {
   for (const [name, { totalCount, cardId }] of byName) {
     try {
       const { variants: allVariants } = await api.getVariants(cardId);
-      let variants = allVariants.filter(
+      let variants = allVariants;
+      if (excludePrintUnfriendly.value) {
+        variants = variants.filter((v) => !v.isPrintUnfriendly);
+      }
+      variants = variants.filter(
         (v) => !excludeSet.has(v.rarity.toLowerCase())
       );
 
@@ -186,6 +192,12 @@ const actionLabel = computed(() => {
           @click="mode = 'manual'"
         >Manual</button>
       </div>
+
+      <!-- Print-unfriendly toggle -->
+      <label class="beautify-toggle">
+        <input type="checkbox" v-model="excludePrintUnfriendly" />
+        Skip gold / rainbow cards (bad for print)
+      </label>
 
       <!-- Rarity filters -->
       <div class="beautify-section-label">Exclude Rarities</div>

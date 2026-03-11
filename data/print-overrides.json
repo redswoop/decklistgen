@@ -1,0 +1,4 @@
+{
+  "_comment": "Manual overrides for isPrintUnfriendly. true = bad, false = fine. Overrides the heuristic (Hyper/Secret Rare + Trainer/Energy = unfriendly by default).",
+  "sv03-229": false
+}

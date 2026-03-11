@@ -151,7 +151,7 @@ app.post("/:id/beautify", async (c) => {
   if (!deck) return c.json({ error: "Deck not found" }, 404);
 
   const body = await c.req.json<BeautifyOptions>();
-  const { mode, excludeRarities = [] } = body;
+  const { mode, excludeRarities = [], excludePrintUnfriendly = true } = body;
   const excludeSet = new Set(excludeRarities.map((r) => r.toLowerCase()));
 
   // Group cards by name
@@ -175,6 +175,9 @@ app.post("/:id/beautify", async (c) => {
     const candidates: BeautifyPreview[] = [];
     for (const [name, { cardId, entries }] of byName) {
       let variants = getVariants(cardId);
+      if (excludePrintUnfriendly) {
+        variants = variants.filter((v) => !v.isPrintUnfriendly);
+      }
       if (excludeSet.size > 0) {
         variants = variants.filter((v) => !excludeSet.has(v.rarity.toLowerCase()));
       }
@@ -187,6 +190,9 @@ app.post("/:id/beautify", async (c) => {
   const newCards: SavedDeck["cards"] = [];
   for (const [name, { totalCount, cardId }] of byName) {
     let variants = getVariants(cardId);
+    if (excludePrintUnfriendly) {
+      variants = variants.filter((v) => !v.isPrintUnfriendly);
+    }
     if (excludeSet.size > 0) {
       variants = variants.filter((v) => !excludeSet.has(v.rarity.toLowerCase()));
     }

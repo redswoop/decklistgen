@@ -24,6 +24,7 @@ export interface Card {
   isFuture: boolean;
   isTera: boolean;
   hasFoil: boolean;
+  isPrintUnfriendly: boolean;
 }
 
 export interface CardAttack {

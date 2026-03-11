@@ -5,6 +5,7 @@ export type BeautifyMode = "random" | "best" | "manual";
 export interface BeautifyOptions {
   mode: BeautifyMode;
   excludeRarities: string[];
+  excludePrintUnfriendly?: boolean;
 }
 
 export interface BeautifyPreview {
