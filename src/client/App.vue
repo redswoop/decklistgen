@@ -431,8 +431,8 @@ function handleDeckUpdated() {
           @click="mobileLeftOpen = false; mobileRightOpen = false"
         />
       </Transition>
-      <Transition name="slide-left">
-        <div v-if="isMobile && mobileLeftOpen" class="mobile-slide-over mobile-slide-left">
+      <Transition name="slide-down">
+        <div v-if="isMobile && mobileLeftOpen" class="mobile-panel mobile-panel-top">
           <FilterSidebar v-if="currentView === 'browse'" @collapse="mobileLeftOpen = false" />
           <CardsFilterSidebar v-else-if="currentView === 'cards'" @collapse="mobileLeftOpen = false" />
           <DeckManagerSidebar
@@ -444,8 +444,8 @@ function handleDeckUpdated() {
           />
         </div>
       </Transition>
-      <Transition name="slide-right">
-        <div v-if="isMobile && mobileRightOpen" class="mobile-slide-over mobile-slide-right">
+      <Transition name="slide-up">
+        <div v-if="isMobile && mobileRightOpen" class="mobile-panel mobile-panel-bottom">
           <DecklistPanel
             @collapse="mobileRightOpen = false"
             @export="showExport = true"
