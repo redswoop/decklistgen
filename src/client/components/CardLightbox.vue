@@ -246,8 +246,8 @@ const cacheBust = computed(() =>
 const cleanedImageUrl = computed(() => {
   if (!ppStatus.value) return null;
   const v = cacheBust.value;
-  if (ppStatus.value.hasComposite) return `${api.pokeproxyImageUrl(currentCard.value.id, "composite")}?v=${v}`;
-  if (ppStatus.value.hasClean) return `${api.pokeproxyImageUrl(currentCard.value.id, "clean")}?v=${v}`;
+  if (ppStatus.value.hasComposite) return api.pokeproxyImageUrl(currentCard.value.id, "composite", v);
+  if (ppStatus.value.hasClean) return api.pokeproxyImageUrl(currentCard.value.id, "clean", v);
   return null;
 });
 
@@ -282,12 +282,8 @@ const currentProxySettings = computed(() =>
 
 // SVG Proxy
 const svgUrl = computed(() => {
-  const settings = currentProxySettings.value;
-  const hasSettings = settings.fontSize != null || settings.maxCover != null;
-  const base = hasSettings
-    ? api.pokeproxySvgUrl(currentCard.value.id, settings)
-    : api.pokeproxySvgUrl(currentCard.value.id);
-  return `${base}${base.includes('?') ? '&' : '?'}v=${cacheBust.value}`;
+  const v = cacheBust.value;
+  return api.pokeproxySvgUrl(currentCard.value.id, currentProxySettings.value, v);
 });
 const svgLoading = ref(true);
 const svgError = ref(false);

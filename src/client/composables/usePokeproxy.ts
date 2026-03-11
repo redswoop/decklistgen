@@ -110,8 +110,9 @@ export function getCardImageUrl(
   if (!s) return null; // Status not loaded yet
 
   // Prefer composite, then clean, then fall back to original
-  if (s.hasComposite) return api.pokeproxyImageUrl(card.id, "composite");
-  if (s.hasClean) return api.pokeproxyImageUrl(card.id, "clean");
+  const v = generationVersion.get(card.id);
+  if (s.hasComposite) return api.pokeproxyImageUrl(card.id, "composite", v);
+  if (s.hasClean) return api.pokeproxyImageUrl(card.id, "clean", v);
 
   return cardImageUrl(card.imageBase, resolution); // Fall back to original art
 }

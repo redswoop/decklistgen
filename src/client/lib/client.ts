@@ -176,14 +176,16 @@ export const api = {
     post<Record<string, { hasClean: boolean; hasComposite: boolean; hasSvg: boolean }>>(
       "/pokeproxy/status/batch", { cardIds }
     ),
-  pokeproxyImageUrl: (cardId: string, type: "clean" | "composite" = "composite") =>
-    `/api/pokeproxy/image/${cardId}/${type}`,
-  pokeproxySvgUrl: (cardId: string, settings?: ProxySettings) => {
+  pokeproxyImageUrl: (cardId: string, type: "clean" | "composite" = "composite", version?: number) => {
+    const base = `/api/pokeproxy/image/${cardId}/${type}`;
+    return version ? `${base}?v=${version}` : base;
+  },
+  pokeproxySvgUrl: (cardId: string, settings?: ProxySettings, version?: number) => {
     const base = `/api/pokeproxy/svg/${cardId}`;
-    if (!settings) return base;
     const params = new URLSearchParams();
-    if (settings.fontSize != null) params.set("fontSize", String(settings.fontSize));
-    if (settings.maxCover != null) params.set("maxCover", String(settings.maxCover));
+    if (settings?.fontSize != null) params.set("fontSize", String(settings.fontSize));
+    if (settings?.maxCover != null) params.set("maxCover", String(settings.maxCover));
+    if (version) params.set("v", String(version));
     const qs = params.toString();
     return qs ? `${base}?${qs}` : base;
   },
