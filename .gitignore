@@ -9,5 +9,6 @@ pokeproxy/.venv/
 pokeproxy/__pycache__/
 data/logs/
 data/decklistgen.db*
+*.bak
 
 test-results/
