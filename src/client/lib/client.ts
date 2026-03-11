@@ -5,9 +5,37 @@ import type { DecklistEntry, DecklistOutput, LimitlessPlayer, ImportResult } fro
 import type { ProxySettings } from "../../shared/types/proxy-settings.js";
 import type { SavedDeck, DeckSummary, DeckCard } from "../../shared/types/deck.js";
 import type { CustomizedCardsResponse } from "../../shared/types/customized-card.js";
+import type { BeautifyOptions, BeautifyPreview } from "../../shared/types/beautify.js";
 import type { User, AdminUser, MagicLink } from "../../shared/types/user.js";
 
 const BASE = "/api";
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly statusText: string,
+    public readonly serverMessage?: string,
+  ) {
+    super(serverMessage ?? `${status} ${statusText}`);
+    this.name = "ApiError";
+  }
+
+  get isAuthError(): boolean {
+    return this.status === 401 || this.status === 403;
+  }
+}
+
+async function handleResponse<T>(resp: Response): Promise<T> {
+  if (!resp.ok) {
+    let serverMessage: string | undefined;
+    try {
+      const body = await resp.json();
+      serverMessage = body?.error;
+    } catch {}
+    throw new ApiError(resp.status, resp.statusText, serverMessage);
+  }
+  return resp.json();
+}
 
 async function get<T>(path: string, params?: Record<string, string>): Promise<T> {
   const url = new URL(path, window.location.origin);
@@ -18,8 +46,7 @@ async function get<T>(path: string, params?: Record<string, string>): Promise<T>
     }
   }
   const resp = await fetch(url.toString(), { credentials: "include" });
-  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
-  return resp.json();
+  return handleResponse<T>(resp);
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
@@ -29,8 +56,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
     credentials: "include",
   });
-  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
-  return resp.json();
+  return handleResponse<T>(resp);
 }
 
 async function put<T>(path: string, body: unknown): Promise<T> {
@@ -40,14 +66,12 @@ async function put<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
     credentials: "include",
   });
-  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
-  return resp.json();
+  return handleResponse<T>(resp);
 }
 
 async function del<T>(path: string): Promise<T> {
   const resp = await fetch(BASE + path, { method: "DELETE", credentials: "include" });
-  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
-  return resp.json();
+  return handleResponse<T>(resp);
 }
 
 async function patch<T>(path: string, body: unknown): Promise<T> {
@@ -57,8 +81,7 @@ async function patch<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
     credentials: "include",
   });
-  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
-  return resp.json();
+  return handleResponse<T>(resp);
 }
 
 export function filtersToParams(filters: CardFilters): Record<string, string> {
@@ -190,8 +213,8 @@ export const api = {
   deleteDeck: (id: string) => del<{ ok: boolean }>(`/decks/${id}`),
   copyDeck: (id: string, name?: string) =>
     post<SavedDeck>(`/decks/${id}/copy`, { name }),
-  diversifyDeck: (id: string) =>
-    post<SavedDeck>(`/decks/${id}/diversify`, {}),
+  beautifyDeck: (id: string, options: BeautifyOptions) =>
+    post<{ deck?: SavedDeck; candidates?: BeautifyPreview[] }>(`/decks/${id}/beautify`, options),
   setDeckVisibility: (id: string, visibility: { isPublic?: boolean; isListed?: boolean }) =>
     patch<SavedDeck>(`/decks/${id}/visibility`, visibility),
 

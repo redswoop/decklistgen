@@ -2,6 +2,7 @@ import { computed } from "vue";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/vue-query";
 import { api } from "../lib/client.js";
 import type { SavedDeck, DeckCard } from "../../shared/types/deck.js";
+import type { BeautifyOptions } from "../../shared/types/beautify.js";
 
 const DECKS_KEY = ["decks"] as const;
 
@@ -40,8 +41,9 @@ export function useDecks() {
     onSuccess: invalidate,
   });
 
-  const diversifyMutation = useMutation({
-    mutationFn: (id: string) => api.diversifyDeck(id),
+  const beautifyMutation = useMutation({
+    mutationFn: ({ id, options }: { id: string; options: BeautifyOptions }) =>
+      api.beautifyDeck(id, options),
     onSuccess: invalidate,
   });
 
@@ -56,7 +58,7 @@ export function useDecks() {
     updateDeck: updateMutation.mutateAsync,
     deleteDeck: deleteMutation.mutateAsync,
     copyDeck: copyMutation.mutateAsync,
-    diversifyDeck: diversifyMutation.mutateAsync,
+    beautifyDeck: beautifyMutation.mutateAsync,
     fetchDeck,
     invalidate,
   };

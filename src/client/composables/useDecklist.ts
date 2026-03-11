@@ -251,10 +251,64 @@ export function useDecklist() {
     return items.value.find((i) => i.setCode === setCode && i.localId === localId)?.count ?? 0;
   }
 
+  /** Find a working deck item matching by name but NOT by set+localId */
+  function findSwappable(card: Card): DecklistItem | null {
+    return items.value.find(
+      (i) => i.name === card.name && !(i.setCode === card.setCode && i.localId === card.localId)
+    ) ?? null;
+  }
+
+  /** Replace a card version in-place, preserving count. If newCard already exists, merge counts. */
+  function replaceCard(oldSetCode: string, oldLocalId: string, newCard: Card) {
+    const oldIdx = items.value.findIndex(
+      (i) => i.setCode === oldSetCode && i.localId === oldLocalId
+    );
+    if (oldIdx === -1) return;
+
+    const oldCount = items.value[oldIdx].count;
+    const existingIdx = items.value.findIndex(
+      (i) => i.setCode === newCard.setCode && i.localId === newCard.localId
+    );
+
+    if (existingIdx !== -1) {
+      // Merge: add old count to existing entry and remove old
+      items.value[existingIdx].count += oldCount;
+      items.value.splice(oldIdx, 1);
+    } else {
+      // Replace in-place
+      items.value[oldIdx] = {
+        setCode: newCard.setCode,
+        localId: newCard.localId,
+        count: oldCount,
+        name: newCard.name,
+        imageUrl: cardImageUrl(newCard.imageBase, "low"),
+        card: newCard,
+      };
+    }
+  }
+
+  /** Replace all entries for a card name with new entries */
+  function replaceByName(name: string, newEntries: { card: Card; count: number }[]) {
+    // Remove all entries with this name
+    items.value = items.value.filter((i) => i.name !== name);
+    // Add new entries
+    for (const entry of newEntries) {
+      items.value.push({
+        setCode: entry.card.setCode,
+        localId: entry.card.localId,
+        count: entry.count,
+        name: entry.card.name,
+        imageUrl: cardImageUrl(entry.card.imageBase, "low"),
+        card: entry.card,
+      });
+    }
+  }
+
   return {
     items, addCard, incrementCard, removeCard, clear, importDeck,
     totalCards, countColor, stats, DECK_SIZE,
     toText, isInDeck, getDeckCount,
+    findSwappable, replaceCard, replaceByName,
     // Deck management
     currentDeckId, currentDeckName, isDirty,
     importSource, importedAt,

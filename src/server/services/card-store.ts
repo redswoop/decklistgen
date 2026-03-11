@@ -39,7 +39,7 @@ function normalizeCard(raw: TcgdexCard, setCode: string): Card {
     isAncient: isAncient(raw),
     isFuture: isFuture(raw),
     isTera: isTera(raw),
-    hasFoil: !!(variants.holo || variants.reverse),
+    hasFoil: !!variants.holo,
   };
 }
 

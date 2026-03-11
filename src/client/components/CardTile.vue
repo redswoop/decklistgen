@@ -41,9 +41,12 @@ const imageUrl = computed(() => getCardImageUrl(props.card, props.imageMode, "lo
 const statusLoaded = computed(() => hasStatusLoaded(props.card.id));
 const showCleanBadge = computed(() => props.imageMode === "proxy" && hasCleanedImage(props.card.id));
 
-const { getDeckCount } = useDecklist();
+const { getDeckCount, findSwappable } = useDecklist();
 const tileDeckCount = computed(() =>
   props.count !== undefined ? props.count : getDeckCount(props.card.setCode, props.card.localId)
+);
+const showSwapBadge = computed(() =>
+  findSwappable(props.card) !== null && tileDeckCount.value === 0
 );
 </script>
 
@@ -87,6 +90,7 @@ const tileDeckCount = computed(() =>
     <span v-if="showCleanBadge" class="tile-clean-badge">&#x2713;</span>
     <span v-if="stale" class="tile-stale-badge" title="Stale — prompt or rule has changed">!</span>
     <span v-if="tileDeckCount" class="tile-deck-badge">{{ tileDeckCount }}</span>
+    <span v-if="showSwapBadge" class="tile-swap-badge">&#x21C4;</span>
     <div class="card-name">{{ card.name }}</div>
     <button
       v-if="!hideAdd"

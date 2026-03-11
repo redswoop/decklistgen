@@ -8,6 +8,13 @@
       "prompt": "Expand the image of the subject, and remove all of the text, footers, and headers in the image"
     },
     {
+      "name": "card:cel25-1",
+      "match": {
+        "id": "cel25-1"
+      },
+      "prompt": "Admin override prompt"
+    },
+    {
       "name": "standard-pokemon",
       "match": {
         "category": "Pokemon",

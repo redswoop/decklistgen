@@ -12,6 +12,8 @@ import {
 import { useCardDetail } from "../composables/useCardDetail.js";
 import { api } from "../lib/client.js";
 import { useDecklist } from "../composables/useDecklist.js";
+import { useDecks } from "../composables/useDecks.js";
+import { useAuth } from "../composables/useAuth.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import CardZoom from "./lightbox/CardZoom.vue";
 import LightboxDevTools from "./lightbox/LightboxDevTools.vue";
@@ -19,6 +21,7 @@ import LightboxProxySettings from "./lightbox/LightboxProxySettings.vue";
 import { useProxySettings } from "../composables/useProxySettings.js";
 import type { ProxySettings } from "../../shared/types/proxy-settings.js";
 import type { DeckMembership } from "../../shared/types/customized-card.js";
+import type { DeckCard } from "../../shared/types/deck.js";
 
 useGenerationQueryClient();
 
@@ -46,13 +49,19 @@ const props = defineProps<{
   searchCards: Card[];
   source: 'grid' | 'deck';
   deckMembership?: DeckMembership[];
+  deckName?: string;
+  /** When set, replace operates on this saved deck instead of working deck */
+  savedDeckId?: string;
+  savedDeckCards?: DeckCard[];
 }>();
 const emit = defineEmits<{
   close: [];
   cardChange: [cardId: string];
+  deckUpdated: [];
 }>();
 
-const { addCard, removeCard, getDeckCount } = useDecklist();
+const { addCard, removeCard, getDeckCount, findSwappable, replaceCard } = useDecklist();
+const { isAuthorized } = useAuth();
 const { getSettings } = useProxySettings();
 
 // Search set navigation
@@ -98,7 +107,116 @@ const currentCard = computed(() => {
 });
 
 const hasMultipleVariants = computed(() => (variants.value?.length ?? 1) > 1);
-const deckCount = computed(() => getDeckCount(currentCard.value.setCode, currentCard.value.localId));
+const deckCount = computed(() => {
+  if (props.savedDeckCards) {
+    const card = currentCard.value;
+    return props.savedDeckCards.find(
+      (dc) => dc.card.setCode === card.setCode && dc.card.localId === card.localId
+    )?.count ?? 0;
+  }
+  return getDeckCount(currentCard.value.setCode, currentCard.value.localId);
+});
+
+function getContextDeckCount(setCode: string, localId: string): number {
+  if (props.savedDeckCards) {
+    return props.savedDeckCards.find(
+      (dc) => dc.card.setCode === setCode && dc.card.localId === localId
+    )?.count ?? 0;
+  }
+  return getDeckCount(setCode, localId);
+}
+
+// Swap detection: check saved deck cards if available, otherwise working deck
+const swappableItem = computed(() => {
+  const card = currentCard.value;
+  if (props.savedDeckCards?.length) {
+    const match = props.savedDeckCards.find(
+      (dc) => dc.card.name === card.name && !(dc.card.setCode === card.setCode && dc.card.localId === card.localId)
+    );
+    if (match) return { setCode: match.card.setCode, localId: match.card.localId, name: match.card.name, count: match.count };
+  }
+  return findSwappable(card);
+});
+
+const { updateDeck } = useDecks();
+
+async function handleAdd() {
+  const card = currentCard.value;
+  if (props.savedDeckId && props.savedDeckCards) {
+    const newCards = [...props.savedDeckCards];
+    const existing = newCards.find(
+      (dc) => dc.card.setCode === card.setCode && dc.card.localId === card.localId
+    );
+    if (existing) {
+      existing.count++;
+    } else {
+      newCards.push({ count: 1, card });
+    }
+    await updateDeck({ id: props.savedDeckId, data: { cards: newCards } });
+    emit("deckUpdated");
+  } else {
+    addCard(card);
+  }
+}
+
+async function handleRemove() {
+  const card = currentCard.value;
+  if (props.savedDeckId && props.savedDeckCards) {
+    const newCards: DeckCard[] = [];
+    for (const dc of props.savedDeckCards) {
+      if (dc.card.setCode === card.setCode && dc.card.localId === card.localId) {
+        if (dc.count > 1) newCards.push({ ...dc, count: dc.count - 1 });
+      } else {
+        newCards.push(dc);
+      }
+    }
+    await updateDeck({ id: props.savedDeckId, data: { cards: newCards } });
+    emit("deckUpdated");
+  } else {
+    removeCard(card.setCode, card.localId);
+  }
+}
+
+async function handleReplace() {
+  if (!swappableItem.value) return;
+  const oldSet = swappableItem.value.setCode;
+  const oldLocal = swappableItem.value.localId;
+  const newCard = currentCard.value;
+
+  if (props.savedDeckId && props.savedDeckCards) {
+    // Replace in saved deck via API
+    const newCards: DeckCard[] = [];
+    let merged = false;
+    for (const dc of props.savedDeckCards) {
+      if (dc.card.setCode === oldSet && dc.card.localId === oldLocal) {
+        // This is the old card — check if newCard already exists
+        const existingIdx = newCards.findIndex(
+          (nc) => nc.card.setCode === newCard.setCode && nc.card.localId === newCard.localId
+        );
+        if (existingIdx !== -1) {
+          newCards[existingIdx] = { ...newCards[existingIdx], count: newCards[existingIdx].count + dc.count };
+          merged = true;
+        } else {
+          newCards.push({ count: dc.count, card: newCard });
+        }
+      } else if (dc.card.setCode === newCard.setCode && dc.card.localId === newCard.localId && !merged) {
+        // The new card already exists — will get the old count added later, or already appeared
+        newCards.push(dc);
+      } else {
+        newCards.push(dc);
+      }
+    }
+    try {
+      await updateDeck({ id: props.savedDeckId, data: { cards: newCards } });
+      emit("deckUpdated");
+    } catch (e) {
+      console.error("Failed to replace card in saved deck:", e);
+    }
+  } else {
+    // Replace in working deck
+    replaceCard(oldSet, oldLocal, newCard);
+  }
+}
 
 // Card detail (attacks, abilities, weakness/resistance)
 const currentCardId = computed(() => currentCard.value.id);
@@ -294,7 +412,7 @@ function navigateToDeck(deckId: string) {
       <div class="lb-header">
         <button class="nav-btn" :disabled="searchIndex <= 0" @click="prevCard">&lsaquo;</button>
         <div class="lb-header-info">
-          <div v-if="source === 'deck'" class="lb-source-label">Browsing Deck</div>
+          <div v-if="source === 'deck'" class="lb-source-label">{{ deckName ?? 'Browsing Deck' }}</div>
           <h2 class="lb-title">
             {{ currentCard.name }}
             <span v-if="currentCard.hp" class="lb-hp">{{ currentCard.hp }} HP</span>
@@ -389,7 +507,7 @@ function navigateToDeck(deckId: string) {
               </div>
               <!-- Needs-generation overlay -->
               <div v-else-if="needsGeneration" class="lb-generate-cta" @click.stop="handleMainImageClick">
-                <span class="lb-generate-cta-text">Click to generate</span>
+                <span class="lb-generate-cta-text">{{ isAuthorized ? 'Click to generate' : 'Authorization required' }}</span>
               </div>
               <div v-if="!needsGeneration && !generating" class="lb-zoom-hint">Click to zoom</div>
             </div>
@@ -405,8 +523,8 @@ function navigateToDeck(deckId: string) {
             >
               <img v-if="v.imageBase" :src="cardImageUrl(v.imageBase, 'low')" class="lb-variant-img" />
               <div v-else class="lb-variant-placeholder">?</div>
-              <span v-if="getDeckCount(v.setCode, v.localId)" class="lb-variant-badge">
-                {{ getDeckCount(v.setCode, v.localId) }}
+              <span v-if="getContextDeckCount(v.setCode, v.localId)" class="lb-variant-badge">
+                {{ getContextDeckCount(v.setCode, v.localId) }}
               </span>
             </div>
           </div>
@@ -510,14 +628,21 @@ function navigateToDeck(deckId: string) {
 
             <!-- Deck Controls -->
             <div class="lb-deck-controls">
-              <button v-if="deckCount === 0" class="lb-add-btn" @click="addCard(currentCard)">
-                Add to Decklist
+              <button v-if="deckCount === 0" class="lb-add-btn" @click="handleAdd">
+                {{ savedDeckId ? 'Add to Deck' : 'Add to Decklist' }}
               </button>
               <div v-else class="lb-deck-row">
-                <button class="deck-ctrl-btn" @click="removeCard(currentCard.setCode, currentCard.localId)">&minus;</button>
+                <button class="deck-ctrl-btn" @click="handleRemove">&minus;</button>
                 <span class="deck-ctrl-count">In Deck (x{{ deckCount }})</span>
-                <button class="deck-ctrl-btn" @click="addCard(currentCard)">+</button>
+                <button class="deck-ctrl-btn" @click="handleAdd">+</button>
               </div>
+              <button
+                v-if="swappableItem && deckCount === 0"
+                class="lb-replace-btn"
+                @click="handleReplace"
+              >
+                Replace {{ swappableItem.setCode }} #{{ swappableItem.localId }} in deck
+              </button>
             </div>
 
             <!-- Deck Membership (from Cards view) -->

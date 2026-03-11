@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import type { Card } from "../../../shared/types/card.js";
-import { api } from "../../lib/client.js";
+import { api, ApiError } from "../../lib/client.js";
+import { useToast } from "../../composables/useToast.js";
 
 const props = defineProps<{
   currentCard: Card;
@@ -90,12 +91,18 @@ if (expanded.value) loadPrompt();
 
 async function savePrompt() {
   promptSaving.value = true;
+  const toast = useToast();
   try {
     await api.pokeproxySavePrompt(props.currentCard.id, promptEdited.value);
     promptText.value = promptEdited.value;
     promptRuleName.value = `card:${props.currentCard.id}`;
     promptEditing.value = false;
   } catch (e: any) {
+    if (e instanceof ApiError && e.isAuthError) {
+      toast.error(e.status === 401 ? "Sign in to save prompts" : "Not authorized to save prompts");
+    } else {
+      toast.error("Failed to save prompt");
+    }
     console.error("Failed to save prompt:", e);
   } finally {
     promptSaving.value = false;

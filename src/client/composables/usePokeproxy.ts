@@ -1,7 +1,8 @@
 import { ref, reactive, computed, type Ref } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
-import { api } from "../lib/client.js";
+import { api, ApiError } from "../lib/client.js";
 import { cardImageUrl, type CardImageResolution } from "../../shared/utils/card-image-url.js";
+import { useToast } from "./useToast.js";
 
 export type ImageMode = "original" | "proxy";
 
@@ -113,6 +114,7 @@ let _queryClient: ReturnType<typeof useQueryClient> | null = null;
 export async function generateCleanImage(cardId: string, force = false) {
   if (generatingSet.has(cardId)) return;
   generatingSet.add(cardId);
+  const toast = useToast();
   try {
     await api.pokeproxyGenerate(cardId, force);
     // Refresh status in both statusCache and TanStack Query
@@ -121,6 +123,13 @@ export async function generateCleanImage(cardId: string, force = false) {
     _queryClient?.invalidateQueries({ queryKey: ["pokeproxy-status", cardId] });
     _queryClient?.invalidateQueries({ queryKey: ["pokeproxy-batch"] });
   } catch (e) {
+    if (e instanceof ApiError) {
+      if (e.status === 401) toast.error("Sign in to generate images");
+      else if (e.status === 403) toast.error("Your account is not authorized to generate images");
+      else toast.error(`Generation failed: ${e.message}`);
+    } else {
+      toast.error("Generation failed unexpectedly");
+    }
     console.error("Generate failed:", e);
   } finally {
     generatingSet.delete(cardId);

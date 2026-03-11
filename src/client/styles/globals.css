@@ -2396,3 +2396,239 @@ body {
 .save-deck-input::placeholder {
   color: #7f8fa6;
 }
+
+/* ═══ Swap Badge (CardTile) ═══ */
+
+.tile-swap-badge {
+  position: absolute;
+  bottom: 28px;
+  left: 6px;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: #2ea043;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  z-index: 1;
+}
+
+/* ═══ Replace Button (Lightbox) ═══ */
+
+.lb-replace-btn {
+  width: 100%;
+  padding: 10px 16px;
+  background: #2ea043;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.lb-replace-btn:hover {
+  background: #238636;
+}
+
+/* ═══ App Nav Breadcrumb ═══ */
+
+.app-nav-separator {
+  color: #7f8fa6;
+  margin: 0 2px;
+  font-size: 12px;
+}
+
+.app-nav-deck-name {
+  color: #b0b0b0;
+  font-size: 12px;
+  font-weight: 500;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ═══ Beautify Dialog ═══ */
+
+.beautify-dialog {
+  width: 600px;
+  max-width: 95vw;
+}
+
+.beautify-modes {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.beautify-mode-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  background: #1a1a2e;
+  color: #7f8fa6;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.beautify-mode-btn:hover {
+  background: #0f3460;
+  color: #e0e0e0;
+}
+
+.beautify-mode-btn.active {
+  background: #e94560;
+  border-color: #e94560;
+  color: white;
+}
+
+.beautify-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #7f8fa6;
+  margin-bottom: 8px;
+}
+
+.beautify-rarity-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.beautify-chip {
+  padding: 4px 10px;
+  border: 1px solid #0f3460;
+  border-radius: 12px;
+  background: #16213e;
+  color: #e0e0e0;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s, border-color 0.15s;
+}
+
+.beautify-chip:hover {
+  border-color: #1a4a8a;
+}
+
+.beautify-chip.excluded {
+  opacity: 0.35;
+  text-decoration: line-through;
+  background: #1a1a2e;
+}
+
+.beautify-action-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.beautify-action-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.beautify-action-btn.primary {
+  background: #e94560;
+}
+
+.beautify-action-btn.primary:hover {
+  background: #c23152;
+}
+
+.beautify-action-btn.secondary {
+  background: #0f3460;
+  color: #e0e0e0;
+}
+
+.beautify-action-btn.secondary:hover {
+  background: #1a4a8a;
+}
+
+.beautify-candidates {
+  max-height: 400px;
+  overflow-y: auto;
+  margin-top: 12px;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+}
+
+.beautify-candidate-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #0f3460;
+}
+
+.beautify-candidate-row:last-child {
+  border-bottom: none;
+}
+
+.beautify-candidate-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e0e0e0;
+  min-width: 100px;
+}
+
+.beautify-candidate-count {
+  font-size: 11px;
+  color: #7f8fa6;
+  white-space: nowrap;
+}
+
+.beautify-candidate-variants {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  overflow-x: auto;
+}
+
+.beautify-variant-thumb {
+  width: 36px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 3px;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  transition: outline-color 0.15s;
+}
+
+.beautify-variant-thumb:hover {
+  outline-color: rgba(255, 255, 255, 0.3);
+}
+
+.beautify-variant-thumb.selected {
+  outline-color: #e94560;
+}
+
+.beautify-variant-thumb img {
+  width: 100%;
+  display: block;
+  border-radius: 3px;
+}
+
+.beautify-status {
+  font-size: 12px;
+  color: #7f8fa6;
+  text-align: center;
+  padding: 12px;
+}

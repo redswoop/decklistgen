@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import CardGrid from "./CardGrid.vue";
+import BeautifyDialog from "./BeautifyDialog.vue";
 import { useDecks } from "../composables/useDecks.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import type { Card } from "../../shared/types/card.js";
@@ -10,12 +11,15 @@ const props = defineProps<{
   deckId: string | null;
 }>();
 
+import type { DeckCard } from "../../shared/types/deck.js";
+
 const emit = defineEmits<{
   "preview-card": [card: Card, cards: Card[]];
   export: [];
+  "deck-loaded": [name: string | null, cards?: DeckCard[]];
 }>();
 
-const { fetchDeck, diversifyDeck } = useDecks();
+const { fetchDeck } = useDecks();
 const { loadSavedDeck } = useDecklist();
 
 const deck = ref<SavedDeck | null>(null);
@@ -23,20 +27,27 @@ const loading = ref(false);
 const loadedMsg = ref("");
 
 // Fetch deck data when deckId changes — read-only, does NOT modify working deck
-watch(() => props.deckId, async (id) => {
+async function loadDeck(id: string) {
   loadedMsg.value = "";
-  if (!id) {
-    deck.value = null;
-    return;
-  }
   loading.value = true;
   try {
     deck.value = await fetchDeck(id);
+    emit("deck-loaded", deck.value.name, deck.value.cards);
   } catch {
     deck.value = null;
+    emit("deck-loaded", null);
   } finally {
     loading.value = false;
   }
+}
+
+watch(() => props.deckId, (id) => {
+  if (!id) {
+    deck.value = null;
+    emit("deck-loaded", null);
+    return;
+  }
+  loadDeck(id);
 }, { immediate: true });
 
 // Cards for the grid (from the saved deck, NOT the working deck)
@@ -64,11 +75,18 @@ const headerLabel = computed(() => {
   return `${deck.value.cards.length} unique · ${totalCards.value}/60 total`;
 });
 
-async function handleDiversify() {
-  if (!deck.value) return;
-  const updated = await diversifyDeck(deck.value.id);
-  deck.value = updated;
+const showBeautify = ref(false);
+
+async function handleBeautifyUpdated() {
+  if (props.deckId) await loadDeck(props.deckId);
 }
+
+/** Re-fetch the current deck (called by parent after lightbox card replace) */
+function refresh() {
+  if (props.deckId) loadDeck(props.deckId);
+}
+
+defineExpose({ refresh });
 
 /** Explicitly copy saved deck contents into the working deck (shopping cart) */
 function handleLoadToWorkingDeck() {
@@ -110,8 +128,8 @@ function handlePreview(card: Card, cards: Card[]) {
         <button class="dm-action-btn" title="Copy this deck into the working deck (right panel)" @click="handleLoadToWorkingDeck">
           Load to Deck
         </button>
-        <button class="dm-action-btn" title="Diversify card variants" @click="handleDiversify">
-          Diversify
+        <button class="dm-action-btn" title="Upgrade card variants" @click="showBeautify = true">
+          Beautify
         </button>
         <button class="dm-action-btn" @click="handleExport">Export</button>
       </div>
@@ -122,6 +140,14 @@ function handlePreview(card: Card, cards: Card[]) {
       :header-label="headerLabel"
       :hide-add="false"
       @preview-card="handlePreview"
+    />
+
+    <BeautifyDialog
+      v-if="showBeautify && deck"
+      :deck-id="deck.id"
+      :deck-name="deck.name"
+      @close="showBeautify = false"
+      @updated="handleBeautifyUpdated"
     />
   </div>
 </template>

@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import BeautifyDialog from "./BeautifyDialog.vue";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
+import { useToast } from "../composables/useToast.js";
+import { ApiError } from "../lib/client.js";
 import type { Card } from "../../shared/types/card.js";
 
 const emit = defineEmits<{
@@ -24,6 +27,7 @@ const { createDeck, updateDeck } = useDecks();
 
 const expandedSections = ref<Record<string, boolean>>({});
 const saving = ref(false);
+const showBeautify = ref(false);
 
 function toggle(section: string) {
   expandedSections.value[section] = !expandedSections.value[section];
@@ -54,6 +58,12 @@ async function handleSave() {
       return;
     }
   } catch (e) {
+    const toast = useToast();
+    if (e instanceof ApiError && e.isAuthError) {
+      toast.error(e.status === 401 ? "Sign in to save decks" : "Not authorized to save decks");
+    } else {
+      toast.error("Failed to save deck");
+    }
     console.error("Save failed:", e);
   } finally {
     saving.value = false;
@@ -85,6 +95,7 @@ async function handleSave() {
         <button class="btn-save" :disabled="saving" @click="handleSave">
           {{ saving ? 'Saving...' : (currentDeckId && isDirty ? 'Save' : 'Save As...') }}
         </button>
+        <button class="dm-action-btn" @click="showBeautify = true">Beautify</button>
         <button class="btn-export" @click="emit('export')">Export</button>
         <button class="btn-clear" @click="clear()">Clear</button>
       </template>
@@ -167,5 +178,14 @@ async function handleSave() {
         <span class="stats-chevron" style="visibility: hidden">&nbsp;</span>
       </div>
     </div>
+
+    <BeautifyDialog
+      v-if="showBeautify"
+      :deck-id="null"
+      :deck-name="currentDeckName || 'Working Deck'"
+      :deck-cards="toDeckCards()"
+      @close="showBeautify = false"
+      @updated="showBeautify = false"
+    />
   </div>
 </template>

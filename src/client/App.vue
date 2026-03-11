@@ -15,12 +15,14 @@ import CardLightbox from "./components/CardLightbox.vue";
 import AuthPage from "./components/AuthPage.vue";
 import UserMenu from "./components/UserMenu.vue";
 import AdminPanel from "./components/AdminPanel.vue";
+import ToastContainer from "./components/ToastContainer.vue";
 import { useDecklist } from "./composables/useDecklist.js";
 import { useDecks } from "./composables/useDecks.js";
 import { useAuth } from "./composables/useAuth.js";
 import { useRoute, setCardParam } from "./composables/useRoute.js";
 import { api } from "./lib/client.js";
 import type { Card } from "../shared/types/card.js";
+import type { DeckCard } from "../shared/types/deck.js";
 import type { DeckMembership } from "../shared/types/customized-card.js";
 
 const { isLoggedIn, loading: authLoading, checkAuth, isAdmin } = useAuth();
@@ -67,6 +69,25 @@ const previewCard = ref<Card | null>(null);
 const previewSource = ref<'grid' | 'deck'>('grid');
 const gridSearchCards = ref<Card[]>([]);
 const previewDeckMembership = ref<DeckMembership[] | undefined>(undefined);
+const viewedDeckName = ref<string | null>(null);
+const previewDeckName = ref<string | undefined>(undefined);
+const previewSavedDeckId = ref<string | undefined>(undefined);
+const previewSavedDeckCards = ref<DeckCard[] | undefined>(undefined);
+const viewedDeckCards = ref<DeckCard[]>([]);
+
+// Clear deck name when leaving decks view
+watch(currentView, (v) => {
+  if (v !== 'decks') viewedDeckName.value = null;
+});
+
+function handleDeckLoaded(name: string | null, cards?: DeckCard[]) {
+  viewedDeckName.value = name;
+  viewedDeckCards.value = cards ?? [];
+  // Keep lightbox in sync if it's open with this deck
+  if (previewSavedDeckId.value && currentView.value === 'decks') {
+    previewSavedDeckCards.value = cards ?? [];
+  }
+}
 
 
 const effectiveSearchCards = computed(() => {
@@ -150,6 +171,10 @@ function handlePreview(card: Card, cards: Card[]) {
   gridSearchCards.value = cards;
   previewSource.value = 'grid';
   previewDeckMembership.value = undefined;
+  const inDecksView = currentView.value === 'decks';
+  previewDeckName.value = inDecksView ? (viewedDeckName.value ?? undefined) : undefined;
+  previewSavedDeckId.value = inDecksView ? (selectedDeckId.value ?? undefined) : undefined;
+  previewSavedDeckCards.value = inDecksView ? viewedDeckCards.value : undefined;
   setCardParam(card.id);
 }
 
@@ -157,6 +182,9 @@ function handleDeckPreview(card: Card) {
   previewCard.value = card;
   previewSource.value = 'deck';
   previewDeckMembership.value = undefined;
+  previewDeckName.value = currentDeckName.value || undefined;
+  previewSavedDeckId.value = undefined;
+  previewSavedDeckCards.value = undefined;
   setCardParam(card.id);
 }
 
@@ -232,6 +260,14 @@ async function handleSaveDeck(name: string) {
 function handleSelectDeck(id: string) {
   selectedDeckId.value = id;
 }
+
+// Ref to DeckView for triggering refresh after lightbox replaces a card
+const deckViewRef = ref<InstanceType<typeof DeckView> | null>(null);
+
+function handleDeckUpdated() {
+  // Trigger DeckView to re-fetch the deck
+  deckViewRef.value?.refresh();
+}
 </script>
 
 <template>
@@ -248,6 +284,10 @@ function handleSelectDeck(id: string) {
     <!-- Navigation bar -->
     <div class="app-nav">
       <span class="app-nav-title">DecklistGen</span>
+      <template v-if="currentView === 'decks' && viewedDeckName">
+        <span class="app-nav-separator">&rsaquo;</span>
+        <span class="app-nav-deck-name">{{ viewedDeckName }}</span>
+      </template>
       <div class="app-nav-tabs">
         <button
           :class="['app-nav-tab', { active: currentView === 'browse' }]"
@@ -317,9 +357,11 @@ function handleSelectDeck(id: string) {
           <PublicDecksView v-else-if="currentView === 'public'" />
           <DeckView
             v-else
+            ref="deckViewRef"
             :deck-id="selectedDeckId"
             @preview-card="handlePreview"
             @export="showExport = true"
+            @deck-loaded="handleDeckLoaded"
           />
         </div>
 
@@ -363,14 +405,19 @@ function handleSelectDeck(id: string) {
       v-if="showAdmin && isAdmin"
       @close="showAdmin = false"
     />
+    <ToastContainer />
     <CardLightbox
       v-if="previewCard"
       :card="previewCard"
       :search-cards="effectiveSearchCards"
       :source="previewSource"
       :deck-membership="previewDeckMembership"
+      :deck-name="previewDeckName"
+      :saved-deck-id="previewSavedDeckId"
+      :saved-deck-cards="previewSavedDeckCards"
       @close="closeLightbox"
       @card-change="handleCardChange"
+      @deck-updated="handleDeckUpdated"
     />
   </div>
 </template>
