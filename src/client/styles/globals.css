@@ -1357,6 +1357,35 @@ body {
   pointer-events: none;
 }
 
+.lb-regen-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.lb-card-image:hover .lb-regen-btn {
+  opacity: 1;
+}
+
+.lb-regen-btn:hover {
+  background: rgba(233, 69, 96, 0.8);
+  color: white;
+}
+
 /* Image row: version picker + card image side by side */
 .lb-image-row {
   display: flex;

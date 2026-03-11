@@ -8,6 +8,7 @@ import {
   generateCleanImage,
   regenerateSvg,
   useGenerationQueryClient,
+  getGenerationVersion,
 } from "../composables/usePokeproxy.js";
 import { useCardDetail } from "../composables/useCardDetail.js";
 import { api } from "../lib/client.js";
@@ -235,12 +236,16 @@ const hasCleanedImage = computed(() =>
   ppStatus.value?.hasClean || ppStatus.value?.hasComposite
 );
 
-const cleanCacheBust = ref(0);
-const svgCacheBust = ref(0);
+// Local bump for settings changes; global generationVersion handles cross-component cache busting
+const localBust = ref(0);
+
+const cacheBust = computed(() =>
+  getGenerationVersion(currentCard.value.id) + localBust.value
+);
 
 const cleanedImageUrl = computed(() => {
   if (!ppStatus.value) return null;
-  const v = cleanCacheBust.value;
+  const v = cacheBust.value;
   if (ppStatus.value.hasComposite) return `${api.pokeproxyImageUrl(currentCard.value.id, "composite")}?v=${v}`;
   if (ppStatus.value.hasClean) return `${api.pokeproxyImageUrl(currentCard.value.id, "clean")}?v=${v}`;
   return null;
@@ -282,7 +287,7 @@ const svgUrl = computed(() => {
   const base = hasSettings
     ? api.pokeproxySvgUrl(currentCard.value.id, settings)
     : api.pokeproxySvgUrl(currentCard.value.id);
-  return `${base}${base.includes('?') ? '&' : '?'}v=${svgCacheBust.value}`;
+  return `${base}${base.includes('?') ? '&' : '?'}v=${cacheBust.value}`;
 });
 const svgLoading = ref(true);
 const svgError = ref(false);
@@ -297,8 +302,7 @@ const generating = computed(() => isGenerating(currentCard.value.id));
 
 watch(generating, (now, was) => {
   if (was && !now) {
-    cleanCacheBust.value++;
-    svgCacheBust.value++;
+    // generationVersion was already bumped globally; just reset SVG loading state
     svgLoading.value = true; svgError.value = false;
   }
 });
@@ -319,6 +323,13 @@ const needsGeneration = computed(() => {
   return false;
 });
 
+// Show regenerate button when a cleaned image exists and we're in cleaned/proxy view
+const canRegenerate = computed(() => {
+  if (generating.value) return false;
+  if (selectedVersion.value === "original") return false;
+  return !!hasCleanedImage.value && isAuthorized.value;
+});
+
 function handleMainImageClick() {
   if (needsGeneration.value) {
     hasCleanedImage.value ? handleRegenerate() : handleGenerate();
@@ -334,7 +345,7 @@ async function handleRegenerateSvg() {
   svgLoading.value = true; svgError.value = false;
   try {
     await regenerateSvg(currentCard.value.id);
-    svgCacheBust.value++;
+    localBust.value++;
   } finally {
     svgRegenerating.value = false;
   }
@@ -345,7 +356,7 @@ let settingsTimer: ReturnType<typeof setTimeout> | null = null;
 function onProxySettingsChange() {
   if (settingsTimer) clearTimeout(settingsTimer);
   settingsTimer = setTimeout(() => {
-    svgCacheBust.value++;
+    localBust.value++;
     svgLoading.value = true;
     svgError.value = false;
   }, 300);
@@ -510,6 +521,12 @@ function navigateToDeck(deckId: string) {
                 <span class="lb-generate-cta-text">{{ isAuthorized ? 'Click to generate' : 'Authorization required' }}</span>
               </div>
               <div v-if="!needsGeneration && !generating" class="lb-zoom-hint">Click to zoom</div>
+              <button
+                v-if="canRegenerate"
+                class="lb-regen-btn"
+                @click.stop="handleRegenerate"
+                title="Regenerate cleaned image"
+              >&#x21bb;</button>
             </div>
           </div>
 

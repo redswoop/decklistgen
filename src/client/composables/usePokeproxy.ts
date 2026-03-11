@@ -21,6 +21,15 @@ const generatingSet = reactive(new Set<string>());
 // Status cache: cardId -> availability. Populated by batch queries.
 const statusCache = reactive(new Map<string, { hasClean: boolean; hasComposite: boolean; hasSvg: boolean }>());
 
+// Global generation version counter per card — survives component unmount.
+// Bump after successful generation so SVG URLs change and browsers re-fetch.
+const generationVersion = reactive(new Map<string, number>());
+
+/** Get the current generation version for cache-busting SVG/image URLs. */
+export function getGenerationVersion(cardId: string): number {
+  return generationVersion.get(cardId) ?? 0;
+}
+
 export function usePokeproxy() {
   return {
     imageMode,
@@ -120,6 +129,8 @@ export async function generateCleanImage(cardId: string, force = false) {
     // Refresh status in both statusCache and TanStack Query
     const newStatus = await api.pokeproxyStatus(cardId);
     statusCache.set(cardId, newStatus);
+    // Bump global generation version so SVG URLs change even if lightbox was closed
+    generationVersion.set(cardId, (generationVersion.get(cardId) ?? 0) + 1);
     _queryClient?.invalidateQueries({ queryKey: ["pokeproxy-status", cardId] });
     _queryClient?.invalidateQueries({ queryKey: ["pokeproxy-batch"] });
   } catch (e) {
