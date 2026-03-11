@@ -1,15 +1,47 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useAuth } from "../composables/useAuth.js";
+import { api } from "../lib/client.js";
 
-const { needsSetup, error, login, signup, setup } = useAuth();
+const { needsSetup, error, login, redeemMagicLink, setup } = useAuth();
 
-const mode = ref<"login" | "signup">(needsSetup.value ? "setup" : "login");
+const mode = ref<"login" | "magic">(needsSetup.value ? "setup" : "login");
 const email = ref("");
 const password = ref("");
 const displayName = ref("");
-const inviteCode = ref("");
 const submitting = ref(false);
+
+// Magic link state
+const magicToken = ref<string | null>(null);
+const magicEmail = ref("");
+const magicDisplayName = ref("");
+const magicLoading = ref(false);
+const magicError = ref<string | null>(null);
+
+onMounted(async () => {
+  // Check URL for magic link token: /magic/TOKEN or ?magic=TOKEN
+  const path = window.location.pathname;
+  const magicMatch = path.match(/^\/magic\/([a-f0-9]+)$/);
+  const token = magicMatch?.[1] || new URLSearchParams(window.location.search).get("magic");
+
+  if (token) {
+    magicLoading.value = true;
+    magicError.value = null;
+    try {
+      const info = await api.validateMagicLink(token);
+      magicToken.value = token;
+      magicEmail.value = info.email;
+      magicDisplayName.value = info.displayName;
+      mode.value = "magic";
+    } catch (e: any) {
+      if (e.message.includes("410")) magicError.value = "This link has expired or already been used.";
+      else if (e.message.includes("404")) magicError.value = "Invalid link.";
+      else magicError.value = "Could not validate link.";
+    } finally {
+      magicLoading.value = false;
+    }
+  }
+});
 
 async function handleSubmit() {
   submitting.value = true;
@@ -17,10 +49,12 @@ async function handleSubmit() {
   try {
     if (needsSetup.value) {
       await setup(email.value, password.value, displayName.value);
-    } else if (mode.value === "login") {
-      await login(email.value, password.value);
+    } else if (mode.value === "magic" && magicToken.value) {
+      await redeemMagicLink(magicToken.value, password.value);
+      // Clean up URL
+      window.history.replaceState({}, "", "/");
     } else {
-      await signup(email.value, password.value, displayName.value, inviteCode.value);
+      await login(email.value, password.value);
     }
   } catch {
     // error already set by useAuth
@@ -39,65 +73,86 @@ async function handleSubmit() {
         First time setup — create your admin account.
       </div>
 
-      <div v-if="!needsSetup" class="auth-tabs">
-        <button
-          :class="['auth-tab', { active: mode === 'login' }]"
-          @click="mode = 'login'; error = null"
-        >Log In</button>
-        <button
-          :class="['auth-tab', { active: mode === 'signup' }]"
-          @click="mode = 'signup'; error = null"
-        >Sign Up</button>
+      <!-- Magic link loading -->
+      <div v-if="magicLoading" class="auth-notice">
+        Validating your invite link...
       </div>
 
-      <form class="auth-form" @submit.prevent="handleSubmit">
-        <div v-if="mode === 'signup' || needsSetup" class="auth-field">
-          <label>Display Name</label>
-          <input
-            v-model="displayName"
-            type="text"
-            placeholder="Your name"
-            required
-            autocomplete="name"
-          />
-        </div>
-        <div class="auth-field">
-          <label>Email</label>
-          <input
-            v-model="email"
-            type="email"
-            placeholder="you@example.com"
-            required
-            autocomplete="email"
-          />
-        </div>
-        <div class="auth-field">
-          <label>Password</label>
-          <input
-            v-model="password"
-            type="password"
-            placeholder="Min 8 characters"
-            required
-            minlength="8"
-            autocomplete="current-password"
-          />
-        </div>
-        <div v-if="mode === 'signup' && !needsSetup" class="auth-field">
-          <label>Invite Code</label>
-          <input
-            v-model="inviteCode"
-            type="text"
-            placeholder="Enter your invite code"
-            required
-          />
-        </div>
+      <!-- Magic link error (bad/expired link) -->
+      <div v-if="magicError" class="auth-error" style="margin-bottom: 16px;">
+        {{ magicError }}
+      </div>
 
-        <div v-if="error" class="auth-error">{{ error }}</div>
+      <!-- Magic link mode -->
+      <template v-if="mode === 'magic' && magicToken && !magicLoading && !magicError">
+        <div class="auth-notice">
+          Welcome, {{ magicDisplayName }}! Set a password to complete your account.
+        </div>
+        <form class="auth-form" @submit.prevent="handleSubmit">
+          <div class="auth-field">
+            <label>Email</label>
+            <input :value="magicEmail" type="email" disabled />
+          </div>
+          <div class="auth-field">
+            <label>Password</label>
+            <input
+              v-model="password"
+              type="password"
+              placeholder="Min 8 characters"
+              required
+              minlength="8"
+              autocomplete="new-password"
+            />
+          </div>
+          <div v-if="error" class="auth-error">{{ error }}</div>
+          <button class="auth-submit" type="submit" :disabled="submitting">
+            {{ submitting ? "..." : "Create Account" }}
+          </button>
+        </form>
+      </template>
 
-        <button class="auth-submit" type="submit" :disabled="submitting">
-          {{ submitting ? "..." : needsSetup ? "Create Admin Account" : mode === "login" ? "Log In" : "Sign Up" }}
-        </button>
-      </form>
+      <!-- Normal login / setup -->
+      <template v-else-if="!magicLoading">
+        <form class="auth-form" @submit.prevent="handleSubmit">
+          <div v-if="needsSetup" class="auth-field">
+            <label>Display Name</label>
+            <input
+              v-model="displayName"
+              type="text"
+              placeholder="Your name"
+              required
+              autocomplete="name"
+            />
+          </div>
+          <div class="auth-field">
+            <label>Email</label>
+            <input
+              v-model="email"
+              type="email"
+              placeholder="you@example.com"
+              required
+              autocomplete="email"
+            />
+          </div>
+          <div class="auth-field">
+            <label>Password</label>
+            <input
+              v-model="password"
+              type="password"
+              placeholder="Min 8 characters"
+              required
+              minlength="8"
+              autocomplete="current-password"
+            />
+          </div>
+
+          <div v-if="error" class="auth-error">{{ error }}</div>
+
+          <button class="auth-submit" type="submit" :disabled="submitting">
+            {{ submitting ? "..." : needsSetup ? "Create Admin Account" : "Log In" }}
+          </button>
+        </form>
+      </template>
     </div>
   </div>
 </template>
@@ -139,36 +194,6 @@ async function handleSubmit() {
   text-align: center;
 }
 
-.auth-tabs {
-  display: flex;
-  gap: 0;
-  margin-bottom: 20px;
-  border-radius: 4px;
-  overflow: hidden;
-  border: 1px solid #0f3460;
-}
-
-.auth-tab {
-  flex: 1;
-  padding: 6px 0;
-  background: #1a1a2e;
-  border: none;
-  color: #7f8fa6;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.auth-tab:not(:last-child) {
-  border-right: 1px solid #0f3460;
-}
-
-.auth-tab.active {
-  background: #e94560;
-  color: white;
-}
-
 .auth-form {
   display: flex;
   flex-direction: column;
@@ -200,6 +225,11 @@ async function handleSubmit() {
 
 .auth-field input:focus {
   border-color: #e94560;
+}
+
+.auth-field input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .auth-error {

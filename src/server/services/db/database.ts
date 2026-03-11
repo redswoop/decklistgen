@@ -50,6 +50,20 @@ function initSchema(db: Database) {
   `);
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS magic_links (
+      token TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      is_authorized INTEGER NOT NULL DEFAULT 0,
+      is_admin INTEGER NOT NULL DEFAULT 0,
+      created_by TEXT NOT NULL REFERENCES users(id),
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT
+    )
+  `);
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS decks (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -88,6 +102,13 @@ function initSchema(db: Database) {
       ran_at TEXT NOT NULL
     )
   `);
+
+  // Add is_authorized column to users (safe to call multiple times)
+  try {
+    db.exec("ALTER TABLE users ADD COLUMN is_authorized INTEGER NOT NULL DEFAULT 0");
+  } catch {
+    // Column already exists — ignore
+  }
 }
 
 export function getDb(): Database {

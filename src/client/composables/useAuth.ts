@@ -10,6 +10,7 @@ const error = ref<string | null>(null);
 export function useAuth() {
   const isLoggedIn = computed(() => currentUser.value !== null);
   const isAdmin = computed(() => currentUser.value?.isAdmin === true);
+  const isAuthorized = computed(() => currentUser.value?.isAuthorized === true || currentUser.value?.isAdmin === true);
 
   async function checkAuth() {
     loading.value = true;
@@ -42,15 +43,15 @@ export function useAuth() {
     }
   }
 
-  async function signup(email: string, password: string, displayName: string, inviteCode: string) {
+  async function redeemMagicLink(token: string, password: string) {
     error.value = null;
     try {
-      const user = await api.signup({ email, password, displayName, inviteCode });
+      const user = await api.redeemMagicLink(token, password);
       currentUser.value = user;
       needsSetup.value = false;
     } catch (e: any) {
-      if (e.message.includes("409")) error.value = "Email already in use";
-      else if (e.message.includes("400")) error.value = "Invalid invite code or missing fields";
+      if (e.message.includes("409")) error.value = "An account with this email already exists";
+      else if (e.message.includes("400")) error.value = "Invalid, expired, or already used link";
       else error.value = e.message;
       throw e;
     }
@@ -82,9 +83,10 @@ export function useAuth() {
     error,
     isLoggedIn,
     isAdmin,
+    isAuthorized,
     checkAuth,
     login,
-    signup,
+    redeemMagicLink,
     setup,
     logout,
   };

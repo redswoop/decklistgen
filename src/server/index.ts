@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
+import { join } from "node:path";
 import type { AppEnv } from "./types.js";
 import setsRouter from "./routes/sets.js";
 import cardsRouter from "./routes/cards.js";
@@ -51,6 +52,16 @@ app.route("/dev/layout", devLayoutRouter);
 
 // In production, serve static files
 app.use("/*", serveStatic({ root: "./dist/client" }));
+
+// SPA fallback: serve index.html for paths like /magic/:token
+app.get("/magic/*", async (c) => {
+  try {
+    const html = await Bun.file(join(import.meta.dir, "../../dist/client/index.html")).text();
+    return c.html(html);
+  } catch {
+    return c.text("Not found", 404);
+  }
+});
 
 const port = parseInt(process.env.PORT ?? "3001", 10);
 console.log(`DecklistGen server listening on :${port}`);

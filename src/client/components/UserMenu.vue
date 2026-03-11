@@ -2,7 +2,11 @@
 import { ref } from "vue";
 import { useAuth } from "../composables/useAuth.js";
 
-const { currentUser, isAdmin, logout } = useAuth();
+const emit = defineEmits<{
+  (e: "open-admin"): void;
+}>();
+
+const { currentUser, isAdmin, isAuthorized, logout } = useAuth();
 const open = ref(false);
 
 function toggle() {
@@ -14,11 +18,9 @@ function handleLogout() {
   logout();
 }
 
-function handleClickOutside(e: MouseEvent) {
-  const target = e.target as HTMLElement;
-  if (!target.closest('.user-menu')) {
-    open.value = false;
-  }
+function handleAdmin() {
+  open.value = false;
+  emit("open-admin");
 }
 </script>
 
@@ -34,9 +36,14 @@ function handleClickOutside(e: MouseEvent) {
       <div class="user-menu-info">
         <div class="user-menu-name">{{ currentUser?.displayName }}</div>
         <div class="user-menu-email">{{ currentUser?.email }}</div>
-        <div v-if="isAdmin" class="user-menu-badge">Admin</div>
+        <div class="user-menu-badges">
+          <span v-if="isAdmin" class="user-menu-badge badge-admin">Admin</span>
+          <span v-else-if="isAuthorized" class="user-menu-badge badge-authorized">Authorized</span>
+          <span v-else class="user-menu-badge badge-free">Free</span>
+        </div>
       </div>
       <div class="user-menu-divider" />
+      <button v-if="isAdmin" class="user-menu-item" @click="handleAdmin">Admin Panel</button>
       <button class="user-menu-item" @click="handleLogout">Log Out</button>
     </div>
   </div>
@@ -97,16 +104,32 @@ function handleClickOutside(e: MouseEvent) {
   margin-top: 2px;
 }
 
+.user-menu-badges {
+  margin-top: 4px;
+  display: flex;
+  gap: 4px;
+}
+
 .user-menu-badge {
   display: inline-block;
-  margin-top: 4px;
   padding: 1px 6px;
-  background: #e94560;
   color: white;
   font-size: 10px;
   font-weight: 600;
   border-radius: 3px;
   text-transform: uppercase;
+}
+
+.badge-admin {
+  background: #e94560;
+}
+
+.badge-authorized {
+  background: #2ecc71;
+}
+
+.badge-free {
+  background: #7f8fa6;
 }
 
 .user-menu-divider {

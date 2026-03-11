@@ -37,8 +37,8 @@ async function handleSave() {
   if (items.value.length === 0) return;
   saving.value = true;
   try {
-    if (currentDeckId.value) {
-      // Update existing deck
+    if (currentDeckId.value && isDirty.value) {
+      // Update existing dirty deck
       await updateDeck({
         id: currentDeckId.value,
         data: {
@@ -48,7 +48,7 @@ async function handleSave() {
       });
       markSaved(currentDeckId.value, currentDeckName.value);
     } else {
-      // New deck — emit to show save dialog
+      // New deck or existing clean deck — show save dialog
       emit("save");
       saving.value = false;
       return;
@@ -82,8 +82,8 @@ async function handleSave() {
     <div class="decklist-actions">
       <button class="btn-import" @click="emit('import')">Import</button>
       <template v-if="items.length > 0">
-        <button class="btn-save" :disabled="saving || (!isDirty && !!currentDeckId)" @click="handleSave">
-          {{ saving ? 'Saving...' : (currentDeckId ? 'Save' : 'Save As...') }}
+        <button class="btn-save" :disabled="saving" @click="handleSave">
+          {{ saving ? 'Saving...' : (currentDeckId && isDirty ? 'Save' : 'Save As...') }}
         </button>
         <button class="btn-export" @click="emit('export')">Export</button>
         <button class="btn-clear" @click="clear()">Clear</button>

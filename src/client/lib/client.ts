@@ -5,7 +5,7 @@ import type { DecklistEntry, DecklistOutput, LimitlessPlayer, ImportResult } fro
 import type { ProxySettings } from "../../shared/types/proxy-settings.js";
 import type { SavedDeck, DeckSummary, DeckCard } from "../../shared/types/deck.js";
 import type { CustomizedCardsResponse } from "../../shared/types/customized-card.js";
-import type { User, InviteCode } from "../../shared/types/user.js";
+import type { User, AdminUser, MagicLink } from "../../shared/types/user.js";
 
 const BASE = "/api";
 
@@ -91,14 +91,25 @@ export const api = {
     post<User>("/auth/setup", data),
   login: (data: { email: string; password: string }) =>
     post<User>("/auth/login", data),
-  signup: (data: { email: string; password: string; displayName: string; inviteCode: string }) =>
-    post<User>("/auth/signup", data),
   logout: () => post<{ ok: boolean }>("/auth/logout", {}),
 
+  // Magic link endpoints
+  validateMagicLink: (token: string) =>
+    get<{ email: string; displayName: string }>(`/auth/magic/${token}`),
+  redeemMagicLink: (token: string, password: string) =>
+    post<User>(`/auth/magic/${token}`, { password }),
+
   // Admin endpoints
-  createInviteCode: () => post<InviteCode>("/admin/invite-codes", {}),
-  listInviteCodes: () => get<InviteCode[]>("/admin/invite-codes"),
-  deleteInviteCode: (code: string) => del<{ ok: boolean }>(`/admin/invite-codes/${code}`),
+  listUsers: () => get<AdminUser[]>("/admin/users"),
+  authorizeUser: (id: string, authorized: boolean) =>
+    patch<User>(`/admin/users/${id}/authorize`, { authorized }),
+  setUserAdmin: (id: string, isAdmin: boolean) =>
+    patch<User>(`/admin/users/${id}/admin`, { isAdmin }),
+  deleteUser: (id: string) => del<{ ok: boolean }>(`/admin/users/${id}`),
+  createMagicLink: (data: { email: string; displayName: string; isAuthorized?: boolean; isAdmin?: boolean }) =>
+    post<MagicLink>("/admin/magic-links", data),
+  listMagicLinks: () => get<MagicLink[]>("/admin/magic-links"),
+  deleteMagicLink: (token: string) => del<{ ok: boolean }>(`/admin/magic-links/${token}`),
 
   // Sets & cards
   getSets: () => get<SetInfo[]>("/sets"),

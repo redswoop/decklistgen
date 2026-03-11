@@ -14,6 +14,7 @@ import SaveDeckDialog from "./components/SaveDeckDialog.vue";
 import CardLightbox from "./components/CardLightbox.vue";
 import AuthPage from "./components/AuthPage.vue";
 import UserMenu from "./components/UserMenu.vue";
+import AdminPanel from "./components/AdminPanel.vue";
 import { useDecklist } from "./composables/useDecklist.js";
 import { useDecks } from "./composables/useDecks.js";
 import { useAuth } from "./composables/useAuth.js";
@@ -22,7 +23,8 @@ import { api } from "./lib/client.js";
 import type { Card } from "../shared/types/card.js";
 import type { DeckMembership } from "../shared/types/customized-card.js";
 
-const { isLoggedIn, loading: authLoading, checkAuth } = useAuth();
+const { isLoggedIn, loading: authLoading, checkAuth, isAdmin } = useAuth();
+const showAdmin = ref(false);
 
 // View + deck selection synced to URL hash, card param for lightbox deep-links
 const { currentView, selectedDeckId, previewCardId } = useRoute();
@@ -214,13 +216,17 @@ onMounted(async () => {
 
 async function handleSaveDeck(name: string) {
   showSaveDeck.value = false;
-  const deck = await createDeck({
-    name,
-    cards: toDeckCards(),
-    importedAt: importedAt.value ?? undefined,
-    importSource: importSource.value ?? undefined,
-  });
-  markSaved(deck.id, deck.name);
+  try {
+    const deck = await createDeck({
+      name,
+      cards: toDeckCards(),
+      importedAt: importedAt.value ?? undefined,
+      importSource: importSource.value ?? undefined,
+    });
+    markSaved(deck.id, deck.name);
+  } catch (e) {
+    console.error("Save deck failed:", e);
+  }
 }
 
 function handleSelectDeck(id: string) {
@@ -261,7 +267,7 @@ function handleSelectDeck(id: string) {
         >Public</button>
       </div>
       <div class="app-nav-spacer" />
-      <UserMenu />
+      <UserMenu @open-admin="showAdmin = true" />
     </div>
 
     <!-- Main content area -->
@@ -352,6 +358,10 @@ function handleSelectDeck(id: string) {
       :initial-name="currentDeckName || ''"
       @save="handleSaveDeck"
       @close="showSaveDeck = false"
+    />
+    <AdminPanel
+      v-if="showAdmin && isAdmin"
+      @close="showAdmin = false"
     />
     <CardLightbox
       v-if="previewCard"

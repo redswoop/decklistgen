@@ -11,6 +11,7 @@
     "start": "bun dist/server/index.js",
     "cli": "bun cli/index.ts",
     "test": "bun test",
+    "test:e2e": "bunx playwright test",
     "deploy": "git push && docker buildx build --platform linux/amd64 --build-arg CACHEBUST=$(date +%s) -t skywarp75/decklistgen:latest --push ."
   },
   "dependencies": {
@@ -24,6 +25,7 @@
     "ws": "^8.19.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-vue": "^5.2.0",
     "concurrently": "^9.1.0",

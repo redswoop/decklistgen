@@ -3,6 +3,7 @@ export interface User {
   email: string;
   displayName: string;
   isAdmin: boolean;
+  isAuthorized: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -14,10 +15,18 @@ export interface Session {
   expiresAt: string;
 }
 
-export interface InviteCode {
-  code: string;
+export interface MagicLink {
+  token: string;
+  email: string;
+  displayName: string;
+  isAuthorized: boolean;
+  isAdmin: boolean;
   createdBy: string;
-  usedBy: string | null;
   createdAt: string;
+  expiresAt: string;
   usedAt: string | null;
+}
+
+export interface AdminUser extends User {
+  hasPassword: boolean;
 }

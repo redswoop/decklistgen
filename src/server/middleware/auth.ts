@@ -32,3 +32,11 @@ export const requireAdmin = createMiddleware<AppEnv>(async (c, next) => {
   if (!user.isAdmin) return c.json({ error: "Admin access required" }, 403);
   await next();
 });
+
+/** Block unauthorized (free-tier) users. Admins always pass. */
+export const requireAuthorized = createMiddleware<AppEnv>(async (c, next) => {
+  const user = c.get("user");
+  if (!user) return c.json({ error: "Authentication required" }, 401);
+  if (!user.isAuthorized && !user.isAdmin) return c.json({ error: "Authorized access required" }, 403);
+  await next();
+});

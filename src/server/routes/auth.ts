@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
-import { createUser, findUserByEmail, verifyPassword, getUserCount } from "../services/user-store.js";
+import { createUser, findUserByEmail, findUserById, verifyPassword, getUserCount, createUserWithoutPassword, setPassword } from "../services/user-store.js";
 import { createSession, deleteSession } from "../services/session-store.js";
-import { redeemInviteCode } from "../services/invite-store.js";
+import { findMagicLink, redeemMagicLink } from "../services/magic-link-store.js";
 import type { AppEnv } from "../types.js";
 
 const app = new Hono<AppEnv>();
@@ -39,43 +39,54 @@ app.post("/setup", async (c) => {
     return c.json({ error: "Password must be at least 8 characters" }, 400);
   }
 
-  const user = await createUser({ email, password, displayName, isAdmin: true });
+  const user = await createUser({ email, password, displayName, isAdmin: true, isAuthorized: true });
   const session = createSession(user.id);
   setSessionCookie(c, session.id);
 
   return c.json(user, 201);
 });
 
-/** Sign up with invite code */
-app.post("/signup", async (c) => {
-  const { email, password, displayName, inviteCode } = await c.req.json<{
-    email: string;
-    password: string;
-    displayName: string;
-    inviteCode: string;
-  }>();
+/** Validate a magic link token (check if it's valid without redeeming) */
+app.get("/magic/:token", (c) => {
+  const token = c.req.param("token");
+  const link = findMagicLink(token);
 
-  if (!email?.trim() || !password || !displayName?.trim() || !inviteCode?.trim()) {
-    return c.json({ error: "All fields are required" }, 400);
-  }
-  if (password.length < 8) {
+  if (!link) return c.json({ error: "Invalid link" }, 404);
+  if (link.usedAt) return c.json({ error: "Link already used" }, 410);
+  if (new Date(link.expiresAt) < new Date()) return c.json({ error: "Link expired" }, 410);
+
+  return c.json({
+    email: link.email,
+    displayName: link.displayName,
+  });
+});
+
+/** Redeem a magic link — set password and create account */
+app.post("/magic/:token", async (c) => {
+  const token = c.req.param("token");
+  const { password } = await c.req.json<{ password: string }>();
+
+  if (!password || password.length < 8) {
     return c.json({ error: "Password must be at least 8 characters" }, 400);
   }
 
-  const existing = findUserByEmail(email);
+  const link = redeemMagicLink(token);
+  if (!link) return c.json({ error: "Invalid, expired, or already used link" }, 400);
+
+  // Check if a user with this email already exists
+  const existing = findUserByEmail(link.email);
   if (existing) {
-    return c.json({ error: "Email already in use" }, 409);
+    return c.json({ error: "An account with this email already exists" }, 409);
   }
 
-  // Create user first, then redeem code
-  const user = await createUser({ email, password, displayName });
-  const redeemed = redeemInviteCode(inviteCode, user.id);
-  if (!redeemed) {
-    // Roll back: delete the user we just created
-    const { getDb } = await import("../services/db/database.js");
-    getDb().query("DELETE FROM users WHERE id = ?").run(user.id);
-    return c.json({ error: "Invalid or already used invite code" }, 400);
-  }
+  // Create user with the privileges set in the magic link
+  const user = await createUser({
+    email: link.email,
+    password,
+    displayName: link.displayName,
+    isAdmin: link.isAdmin,
+    isAuthorized: link.isAuthorized,
+  });
 
   const session = createSession(user.id);
   setSessionCookie(c, session.id);
@@ -94,6 +105,10 @@ app.post("/login", async (c) => {
   const user = findUserByEmail(email);
   if (!user) {
     return c.json({ error: "Invalid email or password" }, 401);
+  }
+
+  if (!user.passwordHash) {
+    return c.json({ error: "No password set. Please use your magic link to set a password." }, 401);
   }
 
   const valid = await verifyPassword(password, user.passwordHash);

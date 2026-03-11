@@ -7,7 +7,7 @@ import { cleanCardImage } from "../services/comfyui.js";
 import { getPromptForCard, saveCardPrompt } from "../services/prompt-db.js";
 import { getCardSettings, updateCardSettings, deleteCardSettings } from "../services/card-settings.js";
 import { getCustomizedCards, deleteCardArtifacts, invalidateCustomizedCardsCache } from "../services/customized-cards.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireAuthorized } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
@@ -269,7 +269,7 @@ app.get("/prompt/:cardId", async (c) => {
 });
 
 /** Save a card-specific prompt override */
-app.put("/prompt/:cardId", async (c) => {
+app.put("/prompt/:cardId", requireAuthorized, async (c) => {
   const cardId = c.req.param("cardId");
   logAction("card.promptOverride", getClientIp(c), { cardId });
   const { prompt } = await c.req.json<{ prompt: string }>();
@@ -280,7 +280,7 @@ app.put("/prompt/:cardId", async (c) => {
   return c.json({ cardId, status: "saved" });
 });
 
-app.post("/generate/:cardId", async (c) => {
+app.post("/generate/:cardId", requireAuthorized, async (c) => {
   const cardId = c.req.param("cardId");
   const force = c.req.query("force") === "true";
   const seedParam = c.req.query("seed");
@@ -364,7 +364,7 @@ app.get("/settings/:cardId", requireAuth, (c) => {
 });
 
 /** Update proxy settings (merge patch) */
-app.put("/settings/:cardId", requireAuth, async (c) => {
+app.put("/settings/:cardId", requireAuthorized, async (c) => {
   const user = c.get("user")!;
   const cardId = c.req.param("cardId");
   logAction("card.settingsUpdate", getClientIp(c), { cardId });
@@ -391,14 +391,14 @@ app.get("/customized", async (c) => {
 });
 
 /** Delete all cache artifacts for a card */
-app.delete("/customized/:cardId", async (c) => {
+app.delete("/customized/:cardId", requireAuthorized, async (c) => {
   const cardId = c.req.param("cardId");
   await deleteCardArtifacts(cardId);
   return c.json({ ok: true, cardId });
 });
 
 /** Batch delete cache artifacts */
-app.post("/customized/batch/delete", async (c) => {
+app.post("/customized/batch/delete", requireAuthorized, async (c) => {
   const { cardIds } = await c.req.json<{ cardIds: string[] }>();
   for (const cardId of cardIds) {
     await deleteCardArtifacts(cardId);
