@@ -20,6 +20,7 @@ import { useDecklist } from "./composables/useDecklist.js";
 import { useDecks } from "./composables/useDecks.js";
 import { useAuth } from "./composables/useAuth.js";
 import { useRoute, setCardParam } from "./composables/useRoute.js";
+import { useIsMobile } from "./composables/useIsMobile.js";
 import { api } from "./lib/client.js";
 import type { Card } from "../shared/types/card.js";
 import type { DeckCard } from "../shared/types/deck.js";
@@ -59,7 +60,7 @@ function saveLayout(partial: Partial<LayoutState>) {
 
 const saved = loadLayout();
 
-const { items, toText, currentDeckName, toDeckCards, markSaved, importSource, importedAt } = useDecklist();
+const { items, totalCards, toText, currentDeckName, toDeckCards, markSaved, importSource, importedAt } = useDecklist();
 const { createDeck } = useDecks();
 
 const showExport = ref(false);
@@ -97,8 +98,15 @@ const effectiveSearchCards = computed(() => {
   return gridSearchCards.value;
 });
 
-const leftCollapsed = ref(saved.leftCollapsed);
-const rightCollapsed = ref(saved.rightCollapsed);
+const isMobile = useIsMobile();
+const mobileLeftOpen = ref(false);
+const mobileRightOpen = ref(false);
+
+// Desktop collapsed state persisted to localStorage; on mobile, sidebars are always collapsed
+const savedLeftCollapsed = ref(saved.leftCollapsed);
+const savedRightCollapsed = ref(saved.rightCollapsed);
+const leftCollapsed = computed(() => isMobile.value || savedLeftCollapsed.value);
+const rightCollapsed = computed(() => isMobile.value || savedRightCollapsed.value);
 const leftPct = ref(saved.left);
 const rightPct = ref(saved.right);
 
@@ -108,6 +116,7 @@ let dragStartX = 0;
 let dragStartPct = 0;
 
 function startDrag(side: 'left' | 'right', e: MouseEvent) {
+  if (isMobile.value) return;
   e.preventDefault();
   dragging.value = side;
   dragStartX = e.clientX;
@@ -147,23 +156,35 @@ onUnmounted(() => {
 });
 
 function collapseLeft() {
-  leftCollapsed.value = true;
+  if (isMobile.value) { mobileLeftOpen.value = false; return; }
+  savedLeftCollapsed.value = true;
   saveLayout({ leftCollapsed: true });
 }
 
 function collapseRight() {
-  rightCollapsed.value = true;
+  if (isMobile.value) { mobileRightOpen.value = false; return; }
+  savedRightCollapsed.value = true;
   saveLayout({ rightCollapsed: true });
 }
 
 function expandLeft() {
-  leftCollapsed.value = false;
+  savedLeftCollapsed.value = false;
   saveLayout({ leftCollapsed: false });
 }
 
 function expandRight() {
-  rightCollapsed.value = false;
+  savedRightCollapsed.value = false;
   saveLayout({ rightCollapsed: false });
+}
+
+function toggleMobileLeft() {
+  mobileRightOpen.value = false;
+  mobileLeftOpen.value = !mobileLeftOpen.value;
+}
+
+function toggleMobileRight() {
+  mobileLeftOpen.value = false;
+  mobileRightOpen.value = !mobileRightOpen.value;
 }
 
 function handlePreview(card: Card, cards: Card[]) {
@@ -259,6 +280,7 @@ async function handleSaveDeck(name: string) {
 
 function handleSelectDeck(id: string) {
   selectedDeckId.value = id;
+  if (isMobile.value) mobileLeftOpen.value = false;
 }
 
 // Ref to DeckView for triggering refresh after lightbox replaces a card
@@ -307,18 +329,33 @@ function handleDeckUpdated() {
         >Public</button>
       </div>
       <div class="app-nav-spacer" />
+      <button
+        v-if="isMobile"
+        :class="['mobile-nav-btn', { active: mobileLeftOpen }]"
+        @click="toggleMobileLeft"
+        aria-label="Filters"
+      >&#9776;</button>
+      <button
+        v-if="isMobile"
+        :class="['mobile-nav-btn', { active: mobileRightOpen }]"
+        @click="toggleMobileRight"
+        aria-label="Deck"
+      >
+        <span>&#9776;</span>
+        <span v-if="totalCards > 0" class="mobile-deck-badge">{{ totalCards }}</span>
+      </button>
       <UserMenu @open-admin="showAdmin = true" />
     </div>
 
     <!-- Main content area -->
     <div class="app-content">
       <button
-        v-if="leftCollapsed"
+        v-if="leftCollapsed && !isMobile"
         class="expand-btn expand-btn-left"
         @click="expandLeft"
       >&raquo;</button>
       <button
-        v-if="rightCollapsed"
+        v-if="rightCollapsed && !isMobile"
         class="expand-btn expand-btn-right"
         @click="expandRight"
       >&laquo;</button>
@@ -384,6 +421,41 @@ function handleDeckUpdated() {
         </div>
       </div>
     </div>
+
+    <!-- Mobile slide-over panels -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="isMobile && (mobileLeftOpen || mobileRightOpen)"
+          class="mobile-backdrop"
+          @click="mobileLeftOpen = false; mobileRightOpen = false"
+        />
+      </Transition>
+      <Transition name="slide-left">
+        <div v-if="isMobile && mobileLeftOpen" class="mobile-slide-over mobile-slide-left">
+          <FilterSidebar v-if="currentView === 'browse'" @collapse="mobileLeftOpen = false" />
+          <CardsFilterSidebar v-else-if="currentView === 'cards'" @collapse="mobileLeftOpen = false" />
+          <DeckManagerSidebar
+            v-else
+            :selected-deck-id="selectedDeckId"
+            @select-deck="handleSelectDeck"
+            @collapse="mobileLeftOpen = false"
+            @import="showImport = true"
+          />
+        </div>
+      </Transition>
+      <Transition name="slide-right">
+        <div v-if="isMobile && mobileRightOpen" class="mobile-slide-over mobile-slide-right">
+          <DecklistPanel
+            @collapse="mobileRightOpen = false"
+            @export="showExport = true"
+            @import="showImport = true"
+            @save="showSaveDeck = true"
+            @preview-card="handleDeckPreview"
+          />
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Dialogs -->
     <ImportDialog

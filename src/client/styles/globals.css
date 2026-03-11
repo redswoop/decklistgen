@@ -2661,3 +2661,217 @@ body {
   text-align: center;
   padding: 12px;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Mobile Responsive
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Mobile slide-over panels */
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 49;
+}
+
+.mobile-slide-over {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 85vw;
+  max-width: 360px;
+  z-index: 50;
+  overflow-y: auto;
+  background: #16213e;
+}
+
+.mobile-slide-left {
+  left: 0;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.mobile-slide-right {
+  right: 0;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Slide transitions */
+.slide-left-enter-active,
+.slide-left-leave-active,
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: transform 0.25s ease;
+}
+
+.slide-left-enter-from,
+.slide-left-leave-to {
+  transform: translateX(-100%);
+}
+
+.slide-right-enter-from,
+.slide-right-leave-to {
+  transform: translateX(100%);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Mobile nav buttons — hidden on desktop */
+.mobile-nav-btn {
+  display: none;
+}
+
+.mobile-deck-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #e94560;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+
+/* Mobile slide-over internal sizing */
+.mobile-slide-over .sidebar {
+  height: 100vh;
+  height: 100dvh;
+  border-right: none;
+}
+
+.mobile-slide-over .decklist-panel {
+  height: 100vh;
+  height: 100dvh;
+  border-left: none;
+}
+
+@media (max-width: 767px) {
+  /* Nav bar: compact, above slide-over backdrop */
+  .app-nav {
+    gap: 6px;
+    padding: 0 8px;
+    position: relative;
+    z-index: 51;
+  }
+
+  .app-nav-title {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+
+  .app-nav-tab {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .app-nav-separator,
+  .app-nav-deck-name {
+    display: none;
+  }
+
+  /* Show mobile toolbar buttons */
+  .mobile-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 28px;
+    height: 28px;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    background: #1a1a2e;
+    color: #7f8fa6;
+    cursor: pointer;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .mobile-nav-btn:active,
+  .mobile-nav-btn.active {
+    background: #0f3460;
+    color: #e0e0e0;
+  }
+
+  /* Hide desktop expand buttons and dividers */
+  .expand-btn {
+    display: none !important;
+  }
+
+  .layout-divider {
+    display: none;
+  }
+
+  /* Card add button: always visible on mobile (no hover) */
+  .card-add-btn {
+    opacity: 0.85;
+  }
+
+  /* Card grid header: tighter */
+  .card-grid-header {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+
+  /* Lightbox: full-width, stacked layout */
+  .lb-modal {
+    width: 95vw;
+    max-width: 95vw;
+    max-height: 95vh;
+    max-height: 95dvh;
+  }
+
+  .lb-body {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .lb-left {
+    width: 100%;
+    padding: 12px;
+  }
+
+  .lb-img {
+    width: 100%;
+    max-width: 260px;
+  }
+
+  .lb-img-svg {
+    width: 100%;
+    max-width: 260px;
+  }
+
+  .lb-right {
+    width: 100%;
+    padding: 0 12px 12px;
+  }
+
+  .lb-header {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .lb-title {
+    font-size: 14px;
+  }
+
+  /* Dialogs: mobile width */
+  .import-dialog,
+  .save-deck-dialog,
+  .beautify-dialog {
+    width: 95vw;
+    max-width: 95vw;
+  }
+}
