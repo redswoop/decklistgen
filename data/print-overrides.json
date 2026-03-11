@@ -1,4 +1,3 @@
 {
-  "_comment": "Manual overrides for isPrintUnfriendly. true = bad, false = fine. Overrides the heuristic (Hyper/Secret Rare + Trainer/Energy = unfriendly by default).",
-  "sv03-229": false
+  "_comment": "Manually curated list. Set card ID to true to mark as bad for print. E.g. \"sv01-255\": true"
 }

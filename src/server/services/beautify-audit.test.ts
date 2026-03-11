@@ -65,48 +65,15 @@ describe("Beautify with isPrintUnfriendly filter", () => {
     }
   }, 120_000);
 
-  test("gold trainer items are marked isPrintUnfriendly", () => {
-    // Nest Ball SVI 255 is Hyper Rare Item
+  test("isPrintUnfriendly defaults to false (manual curation only)", () => {
+    // With empty overrides, nothing should be flagged
     const nestBallGold = findCardBySetAndNumber("SVI", "255");
     expect(nestBallGold).toBeDefined();
-    expect(nestBallGold!.isPrintUnfriendly).toBe(true);
+    expect(nestBallGold!.isPrintUnfriendly).toBe(false);
 
-    // Counter Catcher PAR 264 is Hyper Rare Item
-    const counterCatcherGold = findCardBySetAndNumber("PAR", "264");
-    expect(counterCatcherGold).toBeDefined();
-    expect(counterCatcherGold!.isPrintUnfriendly).toBe(true);
-  });
-
-  test("gold Pokemon ex are NOT isPrintUnfriendly", () => {
-    // Mew ex MEW 205 is Hyper Rare Pokemon
     const mewGold = findCardBySetAndNumber("MEW", "205");
     expect(mewGold).toBeDefined();
     expect(mewGold!.isPrintUnfriendly).toBe(false);
-
-    // Charizard ex OBF 228 is Hyper Rare Pokemon
-    const charizardGold = findCardBySetAndNumber("OBF", "228");
-    expect(charizardGold).toBeDefined();
-    expect(charizardGold!.isPrintUnfriendly).toBe(false);
-  });
-
-  test("Artazon gold is overridden to print-friendly", () => {
-    // sv03-229 = Artazon Hyper Rare (stadium, but has real artwork)
-    const artazonGold = findCardBySetAndNumber("OBF", "229");
-    expect(artazonGold).toBeDefined();
-    expect(artazonGold!.isPrintUnfriendly).toBe(false);
-  });
-
-  test("SWSH rainbow supporters are isPrintUnfriendly", () => {
-    // Marnie SWSH 208 is Secret Rare Supporter
-    const marnieRainbow = findCardBySetAndNumber("SWSH", "208");
-    expect(marnieRainbow).toBeDefined();
-    expect(marnieRainbow!.isPrintUnfriendly).toBe(true);
-  });
-
-  test("normal trainers are NOT isPrintUnfriendly", () => {
-    const nestBall = findCardBySetAndNumber("SVI", "181");
-    expect(nestBall).toBeDefined();
-    expect(nestBall!.isPrintUnfriendly).toBe(false);
   });
 
   test("all rarities have non-zero rank", () => {
@@ -126,31 +93,20 @@ describe("Beautify with isPrintUnfriendly filter", () => {
     }
   });
 
-  test("beautify best mode with print filter finds print-friendly variants", () => {
+  test("beautify best mode upgrades cards", () => {
     for (const entry of allCards) {
       const card = findCardBySetAndNumber(entry.set, entry.number)
         ?? findCardByName(entry.name);
       if (!card) continue;
 
       const originalRank = getRarityRank(card.rarity);
-      const variants = getVariants(card.id).filter((v) => !v.isPrintUnfriendly);
+      const variants = getVariants(card.id);
       if (variants.length === 0) continue;
 
       const topVariants = getTopRarityVariants(variants);
       const topRank = topVariants.length > 0 ? getRarityRank(topVariants[0].rarity) : 0;
 
-      // If original is print-friendly, we shouldn't downgrade
-      // If original is print-unfriendly, any print-friendly variant is an improvement
-      if (!card.isPrintUnfriendly) {
-        expect(topRank).toBeGreaterThanOrEqual(originalRank);
-      }
-
-      const upgraded = topRank > originalRank;
-      const isAceSpec = card.rarity.toLowerCase().includes("ace spec");
-      const isOriginalUnfriendly = card.isPrintUnfriendly;
-      if (!upgraded && !isAceSpec && !isOriginalUnfriendly) {
-        console.log(`  ⚠ No upgrade: ${entry.name} — ${card.rarity} (rank ${originalRank}), ${variants.length} print-friendly variants`);
-      }
+      expect(topRank).toBeGreaterThanOrEqual(originalRank);
     }
   }, 30_000);
 });

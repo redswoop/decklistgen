@@ -24,18 +24,9 @@ try {
   // No overrides file — that's fine
 }
 
-/**
- * Heuristic: cards where metallic/rainbow coloring is the primary visual.
- * Gold trainer items, gold stadiums, gold tools, gold energies, rainbow supporters.
- * Gold Pokemon have real artwork underneath and print fine.
- */
-function computePrintUnfriendly(id: string, rarity: string, category: Card["category"]): boolean {
-  // Manual override takes priority
-  if (id in printOverrides) return printOverrides[id];
-
-  const r = rarity.toLowerCase();
-  const isMetallicRarity = r === "hyper rare" || r === "secret rare";
-  return isMetallicRarity && (category === "Trainer" || category === "Energy");
+/** Purely manual: only cards explicitly listed in data/print-overrides.json are flagged. */
+function computePrintUnfriendly(id: string): boolean {
+  return printOverrides[id] === true;
 }
 
 function normalizeCard(raw: TcgdexCard, setCode: string): Card {
@@ -70,7 +61,7 @@ function normalizeCard(raw: TcgdexCard, setCode: string): Card {
     isFuture: isFuture(raw),
     isTera: isTera(raw),
     hasFoil: !!variants.holo,
-    isPrintUnfriendly: computePrintUnfriendly(raw.id, rarity, category),
+    isPrintUnfriendly: computePrintUnfriendly(raw.id),
   };
 }
 
