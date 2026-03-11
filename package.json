@@ -10,7 +10,7 @@
     "build": "vite build && bun build src/server/index.ts --outdir dist/server --target bun",
     "start": "bun dist/server/index.js",
     "cli": "bun cli/index.ts",
-    "test": "bun test",
+    "test": "bun test src/",
     "test:e2e": "bunx playwright test",
     "deploy": "git push && docker buildx build --platform linux/amd64 --build-arg CACHEBUST=$(date +%s) -t skywarp75/decklistgen:latest --push ."
   },
