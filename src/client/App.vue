@@ -102,6 +102,11 @@ const isMobile = useIsMobile();
 const mobileLeftOpen = ref(false);
 const mobileRightOpen = ref(false);
 
+// Lock body scroll when a mobile panel is open
+watch([mobileLeftOpen, mobileRightOpen], ([left, right]) => {
+  document.body.style.overflow = (left || right) ? 'hidden' : '';
+});
+
 // Desktop collapsed state persisted to localStorage; on mobile, sidebars are always collapsed
 const savedLeftCollapsed = ref(saved.leftCollapsed);
 const savedRightCollapsed = ref(saved.rightCollapsed);

@@ -29,8 +29,8 @@ const { toasts, dismiss } = useToast();
 <style scoped>
 .toast-container {
   position: fixed;
-  top: 48px;
-  right: 16px;
+  top: calc(48px + env(safe-area-inset-top, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
   z-index: 10000;
   display: flex;
   flex-direction: column;

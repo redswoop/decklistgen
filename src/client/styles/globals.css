@@ -2699,6 +2699,7 @@ body {
   border-top: 1px solid #0f3460;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
   border-radius: 12px 12px 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 /* Slide-down transition (filter panel from top) */
@@ -2777,6 +2778,7 @@ body {
   .app-nav {
     gap: 6px;
     padding: 0 8px;
+    padding-top: env(safe-area-inset-top, 0);
     position: relative;
     z-index: 51;
   }
@@ -2796,20 +2798,20 @@ body {
     display: none;
   }
 
-  /* Show mobile toolbar buttons */
+  /* Show mobile toolbar buttons — 36px min tap target */
   .mobile-nav-btn {
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 36px;
     border: 1px solid #0f3460;
-    border-radius: 4px;
+    border-radius: 6px;
     background: #1a1a2e;
     color: #7f8fa6;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     flex-shrink: 0;
   }
 
@@ -2817,6 +2819,14 @@ body {
   .mobile-nav-btn.active {
     background: #0f3460;
     color: #e0e0e0;
+  }
+
+  /* Sidebar collapse button: bigger tap target on mobile */
+  .sidebar-collapse-btn,
+  .decklist-collapse-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
   }
 
   /* Hide desktop expand buttons and dividers */
@@ -2830,13 +2840,59 @@ body {
 
   /* Card add button: always visible on mobile (no hover) */
   .card-add-btn {
-    opacity: 0.85;
+    opacity: 1;
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Decklist item controls: bigger tap targets */
+  .decklist-item .item-controls button {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .decklist-item .item-controls {
+    gap: 6px;
+  }
+
+  /* Deck manager menu: always visible on mobile (no hover) */
+  .dm-menu-btn {
+    opacity: 1;
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  /* Grid search clear button: bigger tap target */
+  .grid-search-clear {
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
   }
 
   /* Card grid header: tighter */
   .card-grid-header {
     padding: 6px 8px;
     gap: 4px;
+  }
+
+  /* Bump font sizes for readability */
+  .sidebar label,
+  .decklist-item,
+  .import-player-row,
+  .card-count {
+    font-size: 14px;
+  }
+
+  /* Dialog actions: stack vertically on mobile */
+  .dialog-actions {
+    flex-direction: column;
+  }
+
+  .dialog-actions button {
+    width: 100%;
+    padding: 12px 16px;
   }
 
   /* Lightbox: full-screen stacked layout, detail below card */
@@ -2876,6 +2932,10 @@ body {
     max-width: 240px;
   }
 
+  .lb-card-image {
+    max-width: 240px;
+  }
+
   .lb-right {
     width: 100%;
     padding: 0;
@@ -2888,8 +2948,9 @@ body {
   }
 
   .lb-header {
-    padding: 6px 10px;
+    padding: 8px 12px;
     gap: 6px;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
   }
 
   .lb-title {
@@ -2898,6 +2959,29 @@ body {
 
   .lb-meta {
     font-size: 11px;
+  }
+
+  /* Lightbox nav and close buttons: bigger tap targets */
+  .nav-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+
+  .lightbox-close {
+    width: 36px;
+    height: 36px;
+    font-size: 22px;
+  }
+
+  /* Regen button always visible on mobile (no hover) */
+  .lb-regen-btn {
+    opacity: 0.8;
+  }
+
+  /* Zoom hint always visible on mobile */
+  .lb-zoom-hint {
+    opacity: 0.7;
   }
 
   /* Compact version picker on mobile */
@@ -2926,11 +3010,29 @@ body {
     justify-content: center;
   }
 
+  /* Deck controls: bigger buttons */
+  .lb-add-btn,
+  .lb-replace-btn {
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+
+  .deck-ctrl-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+  }
+
   /* Dialogs: mobile width */
   .import-dialog,
   .save-deck-dialog,
-  .beautify-dialog {
+  .beautify-dialog,
+  .dialog {
     width: 95vw;
     max-width: 95vw;
+  }
+
+  .import-player-list {
+    max-height: 40vh;
   }
 }
