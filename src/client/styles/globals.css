@@ -2671,7 +2671,7 @@ body {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 49;
+  z-index: 52;
 }
 
 /* Mobile panels: drop from top / rise from bottom */
@@ -2679,7 +2679,7 @@ body {
   position: fixed;
   left: 0;
   right: 0;
-  z-index: 50;
+  z-index: 53;
   overflow-y: auto;
   background: #16213e;
 }
@@ -2699,7 +2699,7 @@ body {
   border-top: 1px solid #0f3460;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
   border-radius: 12px 12px 0 0;
-  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
 }
 
 /* Slide-down transition (filter panel from top) */
@@ -2737,14 +2737,11 @@ body {
 }
 
 /* Mobile nav buttons — hidden on desktop */
-.mobile-nav-btn {
+.mobile-action-btn {
   display: none;
 }
 
 .mobile-deck-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
   background: #e94560;
   color: white;
   font-size: 9px;
@@ -2756,6 +2753,11 @@ body {
   align-items: center;
   justify-content: center;
   padding: 0 3px;
+}
+
+/* Mobile bottom tab bar — hidden on desktop */
+.mobile-tab-bar {
+  display: none;
 }
 
 /* Mobile panel internal sizing */
@@ -2774,13 +2776,13 @@ body {
 }
 
 @media (max-width: 767px) {
-  /* Nav bar: compact, above slide-over backdrop */
+  /* Nav bar: compact, above slide-over backdrop + panels */
   .app-nav {
     gap: 6px;
     padding: 0 8px;
     padding-top: env(safe-area-inset-top, 0);
     position: relative;
-    z-index: 51;
+    z-index: 54;
   }
 
   .app-nav-title {
@@ -2788,9 +2790,9 @@ body {
     letter-spacing: 0.5px;
   }
 
-  .app-nav-tab {
-    padding: 4px 8px;
-    font-size: 11px;
+  /* Hide inline tabs on mobile — bottom tab bar replaces them */
+  .app-nav-tabs {
+    display: none;
   }
 
   .app-nav-separator,
@@ -2798,27 +2800,77 @@ body {
     display: none;
   }
 
-  /* Show mobile toolbar buttons — 36px min tap target */
-  .mobile-nav-btn {
+  /* Pill buttons for Filters / Deck toggles */
+  .mobile-action-btn {
     display: flex;
     align-items: center;
-    justify-content: center;
-    position: relative;
-    width: 36px;
-    height: 36px;
+    gap: 4px;
+    height: 28px;
+    padding: 0 10px;
     border: 1px solid #0f3460;
-    border-radius: 6px;
+    border-radius: 14px;
     background: #1a1a2e;
     color: #7f8fa6;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 12px;
+    font-weight: 500;
     flex-shrink: 0;
+    white-space: nowrap;
   }
 
-  .mobile-nav-btn:active,
-  .mobile-nav-btn.active {
+  .mobile-action-icon {
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .mobile-action-btn:active,
+  .mobile-action-btn.active {
     background: #0f3460;
     color: #e0e0e0;
+    border-color: #e94560;
+  }
+
+  /* Bottom tab bar */
+  .mobile-tab-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: #16213e;
+    border-top: 1px solid #0f3460;
+    z-index: 51;
+  }
+
+  .mobile-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    border: none;
+    background: none;
+    color: #7f8fa6;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .mobile-tab.active {
+    color: #e94560;
+    background: rgba(233, 69, 96, 0.08);
+  }
+
+  .mobile-tab:active:not(.active) {
+    background: rgba(15, 52, 96, 0.4);
+  }
+
+  /* Content padding so nothing hides behind bottom tab bar */
+  .app-content {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   }
 
   /* Sidebar collapse button: bigger tap target on mobile */

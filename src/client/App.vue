@@ -76,9 +76,13 @@ const previewSavedDeckId = ref<string | undefined>(undefined);
 const previewSavedDeckCards = ref<DeckCard[] | undefined>(undefined);
 const viewedDeckCards = ref<DeckCard[]>([]);
 
-// Clear deck name when leaving decks view
+// Clear deck name when leaving decks view; close mobile panels on tab switch
 watch(currentView, (v) => {
   if (v !== 'decks') viewedDeckName.value = null;
+  if (isMobile.value) {
+    mobileLeftOpen.value = false;
+    mobileRightOpen.value = false;
+  }
 });
 
 function handleDeckLoaded(name: string | null, cards?: DeckCard[]) {
@@ -101,6 +105,11 @@ const effectiveSearchCards = computed(() => {
 const isMobile = useIsMobile();
 const mobileLeftOpen = ref(false);
 const mobileRightOpen = ref(false);
+
+const leftPanelLabel = computed(() => {
+  if (currentView.value === 'browse' || currentView.value === 'cards') return 'Filters';
+  return 'Manage';
+});
 
 // Lock body scroll when a mobile panel is open
 watch([mobileLeftOpen, mobileRightOpen], ([left, right]) => {
@@ -336,17 +345,19 @@ function handleDeckUpdated() {
       <div class="app-nav-spacer" />
       <button
         v-if="isMobile"
-        :class="['mobile-nav-btn', { active: mobileLeftOpen }]"
+        :class="['mobile-action-btn', { active: mobileLeftOpen }]"
         @click="toggleMobileLeft"
-        aria-label="Filters"
-      >&#9776;</button>
+      >
+        <span class="mobile-action-icon">&#9881;</span>
+        <span>{{ leftPanelLabel }}</span>
+      </button>
       <button
         v-if="isMobile"
-        :class="['mobile-nav-btn', { active: mobileRightOpen }]"
+        :class="['mobile-action-btn', { active: mobileRightOpen }]"
         @click="toggleMobileRight"
-        aria-label="Deck"
       >
-        <span>&#9776;</span>
+        <span class="mobile-action-icon">&#9776;</span>
+        <span>Deck</span>
         <span v-if="totalCards > 0" class="mobile-deck-badge">{{ totalCards }}</span>
       </button>
       <UserMenu @open-admin="showAdmin = true" />
@@ -426,6 +437,18 @@ function handleDeckUpdated() {
         </div>
       </div>
     </div>
+
+    <!-- Mobile bottom tab bar -->
+    <nav v-if="isMobile" class="mobile-tab-bar">
+      <button :class="['mobile-tab', { active: currentView === 'browse' }]"
+        @click="currentView = 'browse'">Browse</button>
+      <button :class="['mobile-tab', { active: currentView === 'decks' }]"
+        @click="currentView = 'decks'">Decks</button>
+      <button :class="['mobile-tab', { active: currentView === 'cards' }]"
+        @click="currentView = 'cards'">Cards</button>
+      <button :class="['mobile-tab', { active: currentView === 'public' }]"
+        @click="currentView = 'public'">Public</button>
+    </nav>
 
     <!-- Mobile slide-over panels -->
     <Teleport to="body">

@@ -54,7 +54,7 @@ const groupBy = ref<GroupBy>("set");
 
 // Container sizing
 const scrollRef = ref<HTMLElement | null>(null);
-const containerWidth = ref(800);
+const containerWidth = ref(0);
 let resizeObserver: ResizeObserver | null = null;
 
 onMounted(() => {
