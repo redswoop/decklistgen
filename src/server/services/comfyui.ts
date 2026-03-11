@@ -240,7 +240,7 @@ export async function cleanCardImage(
     imageBase64,
   );
 
-  const clientId = `dlg-${Date.now()}`;
+  const clientId = `dlg-${crypto.randomUUID()}`;
   const wsUrl = COMFYUI_URL.replace(/^http/, "ws");
   const timeoutMs = 180_000;
 

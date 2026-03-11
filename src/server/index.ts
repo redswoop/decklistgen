@@ -19,7 +19,7 @@ import { logAccess, getClientIp } from "./services/logger.js";
 const app = new Hono<AppEnv>();
 
 app.use("*", cors({
-  origin: (origin) => origin ?? "*",
+  origin: ["http://localhost:5173", "http://localhost:3001"],
   credentials: true,
 }));
 

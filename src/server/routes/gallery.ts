@@ -720,7 +720,7 @@ async function loadCardPreviews(paletteKey) {
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       slots[i].innerHTML = await resp.text();
     } catch (e) {
-      slots[i].innerHTML = '<div class="placeholder">Failed: ' + e.message + '</div>';
+      slots[i].textContent = 'Failed: ' + e.message;
     }
   }
 }
@@ -920,11 +920,11 @@ async function init() {
       (card.energyTypes || []).join(', ') || null, card.rarity].filter(Boolean).join(' | ');
 
     el.innerHTML =
-      '<div class="label">' + card.label + '</div>' +
-      '<div class="card-name">' + card.name + '</div>' +
-      '<div class="card-id">' + card.cardId + '</div>' +
+      '<div class="label">' + esc(card.label) + '</div>' +
+      '<div class="card-name">' + esc(card.name) + '</div>' +
+      '<div class="card-id">' + esc(card.cardId) + '</div>' +
       '<div class="badges" id="badges_' + cssId(card.cardId) + '">' + badges.join('') + '</div>' +
-      '<div class="meta">' + meta + '</div>' +
+      '<div class="meta">' + esc(meta) + '</div>' +
       '<div class="svg-container" id="svg_' + cssId(card.cardId) + '">' +
         '<span class="placeholder">Loading SVG...</span></div>';
     gallery.appendChild(el);
@@ -949,7 +949,7 @@ async function loadSvg(cardId) {
     container.innerHTML = await resp.text();
     cardEl.classList.remove('loading');
   } catch (e) {
-    container.innerHTML = '<span class="placeholder">Failed: ' + e.message + '</span>';
+    container.textContent = 'Failed: ' + e.message;
     cardEl.classList.remove('loading');
   }
 }
@@ -966,7 +966,7 @@ async function loadLightboxPanel(elId, url) {
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     el.innerHTML = await resp.text();
   } catch (e) {
-    el.innerHTML = '<span class="placeholder">Failed: ' + e.message + '</span>';
+    el.textContent = 'Failed: ' + e.message;
   }
 }
 
