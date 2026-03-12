@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, watch, onUnmounted } from "vue";
 import { useVirtualizer } from "@tanstack/vue-virtual";
 import { useFilters } from "../composables/useFilters.js";
 import { useCards } from "../composables/useCards.js";
@@ -57,14 +57,18 @@ const scrollRef = ref<HTMLElement | null>(null);
 const containerWidth = ref(0);
 let resizeObserver: ResizeObserver | null = null;
 
-onMounted(() => {
-  if (scrollRef.value) {
-    containerWidth.value = scrollRef.value.clientWidth;
+// Watch scrollRef so we re-measure when the element appears (e.g. switching
+// from skeleton/welcome to the main grid via v-if branches).
+watch(scrollRef, (el) => {
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+  if (el) {
+    containerWidth.value = el.clientWidth;
     resizeObserver = new ResizeObserver((entries) => {
       const w = entries[0].contentRect.width;
       if (w > 0) containerWidth.value = w;
     });
-    resizeObserver.observe(scrollRef.value);
+    resizeObserver.observe(el);
   }
 });
 onUnmounted(() => resizeObserver?.disconnect());
@@ -84,7 +88,7 @@ const cardWidth = computed(() => {
   return (w - (n - 1) * GAP) / n;
 });
 
-const cardRowHeight = computed(() => Math.ceil(cardWidth.value * 7 / 5) + GAP);
+const cardRowHeight = computed(() => Math.max(1, Math.ceil(cardWidth.value * 7 / 5) + GAP));
 
 // External or queried cards
 const isExternalMode = computed(() => !!props.cards);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed } from "vue";
 import { useFilters } from "../composables/useFilters.js";
 import { useSets, useFilterOptions } from "../composables/useCards.js";
 import { useEraLoader } from "../composables/useEraLoader.js";
@@ -15,16 +15,13 @@ const {
 
 const { data: sets } = useSets();
 const { data: filterOpts } = useFilterOptions();
-const { loadingEra, loadingSet, loadEra, loadSet, restoreFromUrl } = useEraLoader();
+const { loadingEra, loadingSet, loadEra, loadSet } = useEraLoader();
 
 const sidebarEra = ref(filters.era ?? "");
 
 // Collapsible filter groups
 const categoryOpen = ref(true);
 const propsOpen = ref(true);
-
-// Auto-load sets restored from URL
-onMounted(() => restoreFromUrl());
 
 const SPECIAL_ATTRS: SpecialAttribute[] = [
   "ex", "V", "VMAX", "VSTAR", "Ancient", "Future", "Tera",

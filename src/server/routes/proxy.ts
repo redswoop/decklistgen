@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { getCard, loadSet, isSetLoaded } from "../services/card-store.js";
-import { cleanCardImage } from "../services/comfyui.js";
+import { cleanCardImage, ping as comfyPing, COMFYUI_URL } from "../services/comfyui.js";
 import { getPromptForCard, saveCardPrompt } from "../services/prompt-db.js";
 import { getCardSettings, updateCardSettings, deleteCardSettings } from "../services/card-settings.js";
 import { getCustomizedCards, deleteCardArtifacts, invalidateCustomizedCardsCache } from "../services/customized-cards.js";
@@ -162,6 +162,12 @@ async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions):
 }
 
 const app = new Hono<AppEnv>();
+
+/** Diagnostic: test ComfyUI connectivity from the server process */
+app.get("/comfyui-ping", async (c) => {
+  const ok = await comfyPing();
+  return c.json({ ok, url: COMFYUI_URL });
+});
 
 /** Energy glyph color preview — all 11 types in a row */
 app.get("/energy-preview", (c) => {

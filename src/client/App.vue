@@ -21,12 +21,14 @@ import { useDecks } from "./composables/useDecks.js";
 import { useAuth } from "./composables/useAuth.js";
 import { useRoute, setCardParam } from "./composables/useRoute.js";
 import { useIsMobile } from "./composables/useIsMobile.js";
+import { useEraLoader } from "./composables/useEraLoader.js";
 import { api } from "./lib/client.js";
 import type { Card } from "../shared/types/card.js";
 import type { DeckCard } from "../shared/types/deck.js";
 import type { DeckMembership } from "../shared/types/customized-card.js";
 
 const { isLoggedIn, loading: authLoading, checkAuth, isAdmin } = useAuth();
+const { restoreFromUrl } = useEraLoader();
 const showAdmin = ref(false);
 
 // View + deck selection synced to URL hash, card param for lightbox deep-links
@@ -265,6 +267,9 @@ watch(previewCardId, async (id) => {
 // Check auth + deep-link hydration on mount
 onMounted(async () => {
   await checkAuth();
+  // Restore era/set data from URL params — must happen here (not in FilterSidebar)
+  // because on mobile the sidebar doesn't mount until the user opens the panel
+  restoreFromUrl();
   if (previewCardId.value && !previewCard.value) {
     try {
       const card = await api.getCard(previewCardId.value);
