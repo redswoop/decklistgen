@@ -42,8 +42,16 @@ COPY --from=builder /app/src/ src/
 # Copy data files (prompts.json etc.)
 COPY --from=builder /app/data/ data/
 
+# Create non-root user
+RUN groupadd --gid 1001 appuser && useradd --uid 1001 --gid appuser --shell /bin/sh appuser
+
 # Persistent volumes
 VOLUME ["/app/cache", "/app/data"]
+
+# Ensure the app user owns the working dirs
+RUN chown -R appuser:appuser /app
+
+USER appuser
 
 ENV PORT=3001
 ENV COMFYUI_URL=

@@ -14,6 +14,7 @@ import { authRouter } from "./routes/auth.js";
 import { adminRouter } from "./routes/admin.js";
 import { publicDecksRouter } from "./routes/public-decks.js";
 import { sessionMiddleware } from "./middleware/auth.js";
+import { rateLimit } from "./middleware/rate-limit.js";
 import { logAccess, getClientIp } from "./services/logger.js";
 
 const app = new Hono<AppEnv>();
@@ -22,6 +23,15 @@ app.use("*", cors({
   origin: ["http://localhost:5173", "http://localhost:3001"],
   credentials: true,
 }));
+
+// Security headers
+app.use("*", async (c, next) => {
+  await next();
+  c.header("Content-Security-Policy", "default-src 'self'; img-src 'self' data: https://assets.tcgdex.net; style-src 'self' 'unsafe-inline'; font-src 'self'");
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("X-Frame-Options", "DENY");
+  c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+});
 
 app.use("*", async (c, next) => {
   const start = Date.now();
@@ -37,6 +47,15 @@ app.use("*", async (c, next) => {
 });
 
 app.use("*", sessionMiddleware);
+
+// Rate limit auth endpoints: 20 requests per minute per IP
+app.use("/api/auth/login", rateLimit(20, 60_000));
+app.use("/api/auth/register", rateLimit(10, 60_000));
+app.use("/api/auth/setup", rateLimit(5, 60_000));
+app.use("/api/auth/magic/*", rateLimit(10, 60_000));
+
+// Rate limit expensive generation endpoint: 30 per minute
+app.use("/api/pokeproxy/generate/*", rateLimit(30, 60_000));
 
 // API routes
 app.route("/api/auth", authRouter);

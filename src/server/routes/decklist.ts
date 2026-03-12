@@ -64,7 +64,8 @@ app.post("/import/limitless/players", async (c) => {
       players,
     });
   } catch (e: any) {
-    return c.json({ error: e.message }, 502);
+    console.error("Limitless player fetch failed:", e);
+    return c.json({ error: "Failed to fetch tournament data" }, 502);
   }
 });
 
@@ -84,7 +85,8 @@ app.post("/import/limitless/deck", async (c) => {
     const result = await resolveDecklist(player.decklist);
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: e.message }, 502);
+    console.error("Limitless deck fetch failed:", e);
+    return c.json({ error: "Failed to fetch decklist" }, 502);
   }
 });
 
@@ -99,7 +101,8 @@ app.post("/import/text", async (c) => {
     const result = await resolveDecklist(parsed);
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    console.error("Text import failed:", e);
+    return c.json({ error: "Failed to parse decklist text" }, 500);
   }
 });
 

@@ -8,6 +8,7 @@ import type { CardDetail } from "../../shared/types/card.js";
 import { logAction, getClientIp } from "../services/logger.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
+const VALID_CARD_ID = /^[a-zA-Z0-9._-]+$/;
 
 const app = new Hono();
 
@@ -29,8 +30,8 @@ function parseFilters(query: Record<string, string>): CardFilters {
 app.get("/", (c) => {
   const query = c.req.query();
   const filters = parseFilters(query);
-  const page = parseInt(query.page ?? "1", 10);
-  const pageSize = parseInt(query.pageSize ?? "60", 10);
+  const page = Math.max(1, parseInt(query.page ?? "1", 10) || 1);
+  const pageSize = Math.max(1, Math.min(200, parseInt(query.pageSize ?? "60", 10) || 60));
 
   const all = getAllCards();
   const filtered = applyFilters(all, filters);
@@ -61,6 +62,7 @@ app.get("/:id/variants", (c) => {
 
 app.get("/:id/detail", (c) => {
   const id = c.req.param("id");
+  if (!VALID_CARD_ID.test(id)) return c.json({ error: "Invalid card ID" }, 400);
   const card = getCard(id);
   if (!card) return c.json({ error: "Card not found" }, 404);
   logAction("card.view", getClientIp(c), { cardId: id, cardName: card.name });
@@ -105,6 +107,7 @@ app.get("/:id/detail", (c) => {
 
 app.get("/:id/tcgdex", (c) => {
   const id = c.req.param("id");
+  if (!VALID_CARD_ID.test(id)) return c.json({ error: "Invalid card ID" }, 400);
   const jsonPath = join(CACHE_DIR, `${id}.json`);
   if (!existsSync(jsonPath)) return c.json({ error: "No cached TCGdex data" }, 404);
   try {

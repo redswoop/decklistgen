@@ -6,8 +6,8 @@ const app = new Hono<AppEnv>();
 
 /** List public decks (is_listed = 1) */
 app.get("/", async (c) => {
-  const page = parseInt(c.req.query("page") ?? "1", 10);
-  const pageSize = parseInt(c.req.query("pageSize") ?? "20", 10);
+  const page = Math.max(1, parseInt(c.req.query("page") ?? "1", 10) || 1);
+  const pageSize = Math.max(1, Math.min(100, parseInt(c.req.query("pageSize") ?? "20", 10) || 20));
   const decks = await listPublicDecks(page, pageSize);
   return c.json(decks);
 });

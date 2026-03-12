@@ -20,6 +20,12 @@ import { logAction, getClientIp } from "../services/logger.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
 
+const VALID_CARD_ID = /^[a-zA-Z0-9._-]+$/;
+
+function isValidCardId(cardId: string): boolean {
+  return VALID_CARD_ID.test(cardId) && !cardId.includes("..");
+}
+
 function cachePath(cardId: string, suffix: string): string {
   return join(CACHE_DIR, `${cardId}${suffix}`);
 }
@@ -183,14 +189,19 @@ app.get("/energy-preview", (c) => {
 /** Check what proxy assets exist for a card */
 app.get("/status/:cardId", (c) => {
   const cardId = c.req.param("cardId");
+  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
   return c.json({ cardId, ...getStatus(cardId) });
 });
 
 /** Batch status check for multiple cards */
 app.post("/status/batch", async (c) => {
   const { cardIds } = await c.req.json<{ cardIds: string[] }>();
+  if (!Array.isArray(cardIds) || cardIds.length > 500) {
+    return c.json({ error: "cardIds must be an array of at most 500" }, 400);
+  }
   const results: Record<string, ReturnType<typeof getStatus>> = {};
   for (const cardId of cardIds) {
+    if (!isValidCardId(cardId)) continue;
     results[cardId] = getStatus(cardId);
   }
   return c.json(results);
@@ -199,6 +210,7 @@ app.post("/status/batch", async (c) => {
 /** Serve a cleaned/composite image from cache */
 app.get("/image/:cardId/:type", async (c) => {
   const cardId = c.req.param("cardId");
+  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
   const type = c.req.param("type");
   if (type !== "clean" && type !== "composite" && type !== "source") {
     return c.json({ error: "type must be 'clean', 'composite', or 'source'" }, 400);
@@ -221,14 +233,15 @@ app.get("/image/:cardId/:type", async (c) => {
 /** Serve an SVG proxy card */
 app.get("/svg/:cardId", async (c) => {
   const cardId = c.req.param("cardId");
+  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
   logAction("proxy.svg", getClientIp(c), { cardId });
   const query = c.req.query();
   // User-scoped settings as defaults (if authenticated), query params override
   const user = c.get("user");
   const stored = user ? getCardSettings(user.id, cardId) : {};
   const svgOpts: SvgRenderOptions = {};
-  svgOpts.fontSize = query.fontSize ? parseFloat(query.fontSize) : stored.fontSize;
-  svgOpts.maxCover = query.maxCover ? parseFloat(query.maxCover) : stored.maxCover;
+  svgOpts.fontSize = query.fontSize ? Math.max(1, Math.min(200, parseFloat(query.fontSize) || 0)) : stored.fontSize;
+  svgOpts.maxCover = query.maxCover ? Math.max(0, Math.min(1, parseFloat(query.maxCover) || 0)) : stored.maxCover;
   if (query.synth != null) svgOpts.synth = true;
   try {
     const svg = await generateSvgFromTemplate(cardId, svgOpts);
@@ -239,7 +252,8 @@ app.get("/svg/:cardId", async (c) => {
       },
     });
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    console.error("SVG generation failed:", e);
+    return c.json({ error: "SVG generation failed" }, 500);
   }
 });
 
@@ -252,6 +266,7 @@ app.post("/svg/:cardId/regenerate", (c) => {
 /** Get the resolved prompt for a card */
 app.get("/prompt/:cardId", async (c) => {
   const cardId = c.req.param("cardId");
+  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
   await ensureCardLoaded(cardId);
   const cardData = loadCardData(cardId);
   const result = getPromptForCard(cardData);
@@ -277,6 +292,7 @@ app.get("/prompt/:cardId", async (c) => {
 /** Save a card-specific prompt override */
 app.put("/prompt/:cardId", requireAuthorized, async (c) => {
   const cardId = c.req.param("cardId");
+  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
   logAction("card.promptOverride", getClientIp(c), { cardId });
   const { prompt } = await c.req.json<{ prompt: string }>();
   if (!prompt || typeof prompt !== "string") {
@@ -288,12 +304,13 @@ app.put("/prompt/:cardId", requireAuthorized, async (c) => {
 
 app.post("/generate/:cardId", requireAuthorized, async (c) => {
   const cardId = c.req.param("cardId");
+  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
   const force = c.req.query("force") === "true";
   const seedParam = c.req.query("seed");
   logAction("proxy.generate", getClientIp(c), { cardId, seed: seedParam, force });
   const promptOverride = c.req.query("prompt") || undefined;
   // Use provided seed, or random on force, or default 42
-  const seed = seedParam ? parseInt(seedParam, 10) : force ? Math.floor(Math.random() * 999999) : 42;
+  const seed = seedParam ? Math.max(0, Math.min(999999999, parseInt(seedParam, 10) || 0)) : force ? Math.floor(Math.random() * 999999) : 42;
 
   if (!force && hasFile(cardId, "_composite.png")) {
     return c.json({ cardId, status: "already_exists" });
@@ -356,7 +373,8 @@ app.post("/generate/:cardId", requireAuthorized, async (c) => {
 
     return c.json({ cardId, status: "generated", seed, rule: ruleName, prompt });
   } catch (e: any) {
-    return c.json({ cardId, status: "failed", error: e.message }, 500);
+    console.error(`Image generation failed for ${cardId}:`, e);
+    return c.json({ cardId, status: "failed", error: "Image generation failed" }, 500);
   }
 });
 
@@ -366,6 +384,7 @@ app.post("/generate/:cardId", requireAuthorized, async (c) => {
 app.get("/settings/:cardId", requireAuth, (c) => {
   const user = c.get("user")!;
   const cardId = c.req.param("cardId");
+  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
   return c.json(getCardSettings(user.id, cardId));
 });
 
@@ -373,6 +392,7 @@ app.get("/settings/:cardId", requireAuth, (c) => {
 app.put("/settings/:cardId", requireAuthorized, async (c) => {
   const user = c.get("user")!;
   const cardId = c.req.param("cardId");
+  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
   logAction("card.settingsUpdate", getClientIp(c), { cardId });
   const patch = await c.req.json();
   const result = updateCardSettings(user.id, cardId, patch);
@@ -383,6 +403,7 @@ app.put("/settings/:cardId", requireAuthorized, async (c) => {
 app.delete("/settings/:cardId", requireAuth, (c) => {
   const user = c.get("user")!;
   const cardId = c.req.param("cardId");
+  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
   const deleted = deleteCardSettings(user.id, cardId);
   return c.json({ ok: deleted });
 });
@@ -399,6 +420,7 @@ app.get("/customized", async (c) => {
 /** Delete all cache artifacts for a card */
 app.delete("/customized/:cardId", requireAuthorized, async (c) => {
   const cardId = c.req.param("cardId");
+  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
   await deleteCardArtifacts(cardId);
   return c.json({ ok: true, cardId });
 });
@@ -406,7 +428,9 @@ app.delete("/customized/:cardId", requireAuthorized, async (c) => {
 /** Batch delete cache artifacts */
 app.post("/customized/batch/delete", requireAuthorized, async (c) => {
   const { cardIds } = await c.req.json<{ cardIds: string[] }>();
+  if (!Array.isArray(cardIds)) return c.json({ error: "cardIds must be an array" }, 400);
   for (const cardId of cardIds) {
+    if (!isValidCardId(cardId)) continue;
     await deleteCardArtifacts(cardId);
   }
   return c.json({ ok: true, deleted: cardIds.length });
