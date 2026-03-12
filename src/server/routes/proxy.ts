@@ -368,24 +368,24 @@ app.post("/generate/:cardId", requireAuthorized, async (c) => {
 
   // For standard cards, crop to just the art window so Klein gets a cleaner reference
   const fullart = isFullArt(cardData as TcgdexCard);
-  let inputBase64: string;
+  let inputBase64 = srcData.toString("base64");
   if (!fullart) {
-    const { width, height } = await sharp(srcData).metadata();
-    if (width && height) {
-      // Art region as fractions of the card (from constants: 45-555 x 110-430 on 600x825)
-      const crop = {
-        left: Math.round(width * 45 / 600),
-        top: Math.round(height * 110 / 825),
-        width: Math.round(width * 510 / 600),
-        height: Math.round(height * 320 / 825),
-      };
-      const cropped = await sharp(srcData).extract(crop).png().toBuffer();
-      inputBase64 = cropped.toString("base64");
-    } else {
-      inputBase64 = srcData.toString("base64");
+    try {
+      const { width, height } = await sharp(srcData).metadata();
+      if (width && height) {
+        // Art region as fractions of the card (from constants: 45-555 x 110-430 on 600x825)
+        const crop = {
+          left: Math.round(width * 45 / 600),
+          top: Math.round(height * 110 / 825),
+          width: Math.round(width * 510 / 600),
+          height: Math.round(height * 320 / 825),
+        };
+        const cropped = await sharp(srcData).extract(crop).png().toBuffer();
+        inputBase64 = cropped.toString("base64");
+      }
+    } catch (e: any) {
+      console.error(`[proxy] Art crop failed for ${cardId}, using full image:`, e.message);
     }
-  } else {
-    inputBase64 = srcData.toString("base64");
   }
 
   try {

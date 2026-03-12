@@ -23,9 +23,10 @@ FROM oven/bun:1-debian
 
 WORKDIR /app
 
-# Install fonts for SVG text measurement (opentype.js needs a system font)
+# Install fonts for SVG text measurement + sharp native deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-liberation \
+    libvips42 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install JS deps (production only)
