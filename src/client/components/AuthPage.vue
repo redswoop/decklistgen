@@ -3,9 +3,9 @@ import { ref, onMounted } from "vue";
 import { useAuth } from "../composables/useAuth.js";
 import { api } from "../lib/client.js";
 
-const { needsSetup, error, login, redeemMagicLink, setup } = useAuth();
+const { needsSetup, error, login, register, redeemMagicLink, setup } = useAuth();
 
-const mode = ref<"login" | "magic">(needsSetup.value ? "setup" : "login");
+const mode = ref<"login" | "register" | "magic">(needsSetup.value ? "setup" : "login");
 const email = ref("");
 const password = ref("");
 const displayName = ref("");
@@ -53,6 +53,8 @@ async function handleSubmit() {
       await redeemMagicLink(magicToken.value, password.value);
       // Clean up URL
       window.history.replaceState({}, "", "/");
+    } else if (mode.value === "register") {
+      await register(email.value, password.value, displayName.value);
     } else {
       await login(email.value, password.value);
     }
@@ -111,10 +113,10 @@ async function handleSubmit() {
         </form>
       </template>
 
-      <!-- Normal login / setup -->
+      <!-- Normal login / register / setup -->
       <template v-else-if="!magicLoading">
         <form class="auth-form" @submit.prevent="handleSubmit">
-          <div v-if="needsSetup" class="auth-field">
+          <div v-if="needsSetup || mode === 'register'" class="auth-field">
             <label>Display Name</label>
             <input
               v-model="displayName"
@@ -142,16 +144,26 @@ async function handleSubmit() {
               placeholder="Min 8 characters"
               required
               minlength="8"
-              autocomplete="current-password"
+              :autocomplete="mode === 'register' ? 'new-password' : 'current-password'"
             />
           </div>
 
           <div v-if="error" class="auth-error">{{ error }}</div>
 
           <button class="auth-submit" type="submit" :disabled="submitting">
-            {{ submitting ? "..." : needsSetup ? "Create Admin Account" : "Log In" }}
+            {{ submitting ? "..." : needsSetup ? "Create Admin Account" : mode === "register" ? "Create Account" : "Log In" }}
           </button>
         </form>
+        <div v-if="!needsSetup" class="auth-toggle">
+          <template v-if="mode === 'login'">
+            Don't have an account?
+            <button class="auth-toggle-btn" @click="mode = 'register'; error = null">Register</button>
+          </template>
+          <template v-else-if="mode === 'register'">
+            Already have an account?
+            <button class="auth-toggle-btn" @click="mode = 'login'; error = null">Log In</button>
+          </template>
+        </div>
       </template>
     </div>
   </div>
@@ -260,5 +272,27 @@ async function handleSubmit() {
 .auth-submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.auth-toggle {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 12px;
+  color: #7f8fa6;
+}
+
+.auth-toggle-btn {
+  background: none;
+  border: none;
+  color: #e94560;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.auth-toggle-btn:hover {
+  color: #d13553;
 }
 </style>

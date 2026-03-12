@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed, nextTick } from "vue";
 import { useAuth } from "../composables/useAuth.js";
 
 const emit = defineEmits<{
@@ -8,9 +8,28 @@ const emit = defineEmits<{
 
 const { currentUser, isAdmin, isAuthorized, logout } = useAuth();
 const open = ref(false);
+const triggerRef = ref<HTMLElement | null>(null);
+const dropdownPos = ref({ top: 0, right: 0 });
+
+const dropdownStyle = computed(() => ({
+  position: 'fixed' as const,
+  top: dropdownPos.value.top + 'px',
+  right: dropdownPos.value.right + 'px',
+}));
 
 function toggle() {
   open.value = !open.value;
+  if (open.value) {
+    nextTick(() => {
+      if (triggerRef.value) {
+        const rect = triggerRef.value.getBoundingClientRect();
+        dropdownPos.value = {
+          top: rect.bottom + 4,
+          right: window.innerWidth - rect.right,
+        };
+      }
+    });
+  }
 }
 
 function handleLogout() {
@@ -26,13 +45,12 @@ function handleAdmin() {
 
 <template>
   <div class="user-menu" @click.stop>
-    <button class="user-menu-trigger" @click="toggle">
+    <button ref="triggerRef" class="user-menu-trigger" @click="toggle">
       {{ currentUser?.displayName ?? "User" }}
     </button>
     <Teleport to="body">
       <div v-if="open" class="user-menu-backdrop" @click="open = false" />
-    </Teleport>
-    <div v-if="open" class="user-menu-dropdown">
+      <div v-if="open" class="user-menu-dropdown" :style="dropdownStyle">
       <div class="user-menu-info">
         <div class="user-menu-name">{{ currentUser?.displayName }}</div>
         <div class="user-menu-email">{{ currentUser?.email }}</div>
@@ -45,7 +63,8 @@ function handleAdmin() {
       <div class="user-menu-divider" />
       <button v-if="isAdmin" class="user-menu-item" @click="handleAdmin">Admin Panel</button>
       <button class="user-menu-item" @click="handleLogout">Log Out</button>
-    </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -77,9 +96,6 @@ function handleAdmin() {
 }
 
 .user-menu-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
   background: #16213e;
   border: 1px solid #0f3460;
   border-radius: 6px;

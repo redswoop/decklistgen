@@ -94,6 +94,33 @@ app.post("/magic/:token", async (c) => {
   return c.json(user, 201);
 });
 
+/** Self-service registration — creates an unauthorized account */
+app.post("/register", async (c) => {
+  const { email, password, displayName } = await c.req.json<{
+    email: string;
+    password: string;
+    displayName: string;
+  }>();
+
+  if (!email?.trim() || !password || !displayName?.trim()) {
+    return c.json({ error: "Email, password, and display name are required" }, 400);
+  }
+  if (password.length < 8) {
+    return c.json({ error: "Password must be at least 8 characters" }, 400);
+  }
+
+  const existing = findUserByEmail(email);
+  if (existing) {
+    return c.json({ error: "An account with this email already exists" }, 409);
+  }
+
+  const user = await createUser({ email, password, displayName, isAdmin: false, isAuthorized: false });
+  const session = createSession(user.id);
+  setSessionCookie(c, session.id);
+
+  return c.json(user, 201);
+});
+
 /** Log in */
 app.post("/login", async (c) => {
   const { email, password } = await c.req.json<{ email: string; password: string }>();

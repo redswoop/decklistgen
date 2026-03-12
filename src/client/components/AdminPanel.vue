@@ -312,6 +312,96 @@ function formatDate(iso: string): string {
   overflow: hidden;
 }
 
+/* Mobile: card layout instead of table */
+@media (max-width: 767px) {
+  .admin-overlay {
+    padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  }
+
+  .admin-panel {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    margin-bottom: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .admin-table {
+    display: block;
+  }
+
+  .admin-table thead {
+    display: none;
+  }
+
+  .admin-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .admin-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 10px;
+    background: #1a1a2e;
+    border-radius: 6px;
+    border-bottom: none !important;
+  }
+
+  .admin-table td {
+    padding: 0;
+    border-bottom: none;
+  }
+
+  /* User name+email takes full width */
+  .admin-table td:first-child {
+    flex: 1 1 100%;
+  }
+
+  .date-cell {
+    font-size: 11px;
+  }
+
+  .action-btns {
+    margin-left: auto;
+  }
+
+  .action-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .close-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 24px;
+  }
+
+  /* Invite form: stack vertically */
+  .form-row {
+    flex-direction: column;
+  }
+
+  .form-input {
+    width: 100%;
+  }
+
+  .form-submit {
+    width: 100%;
+    padding: 10px;
+  }
+
+  .row-muted {
+    opacity: 0.5;
+  }
+}
+
 .admin-header {
   display: flex;
   align-items: center;

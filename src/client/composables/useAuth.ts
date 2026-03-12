@@ -69,6 +69,19 @@ export function useAuth() {
     }
   }
 
+  async function register(email: string, password: string, displayName: string) {
+    error.value = null;
+    try {
+      const user = await api.register({ email, password, displayName });
+      currentUser.value = user;
+      needsSetup.value = false;
+    } catch (e: any) {
+      if (e.message.includes("409")) error.value = "An account with this email already exists";
+      else error.value = e.message;
+      throw e;
+    }
+  }
+
   async function logout() {
     try {
       await api.logout();
@@ -86,6 +99,7 @@ export function useAuth() {
     isAuthorized,
     checkAuth,
     login,
+    register,
     redeemMagicLink,
     setup,
     logout,

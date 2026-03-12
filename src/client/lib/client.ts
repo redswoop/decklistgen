@@ -114,6 +114,8 @@ export const api = {
     post<User>("/auth/setup", data),
   login: (data: { email: string; password: string }) =>
     post<User>("/auth/login", data),
+  register: (data: { email: string; password: string; displayName: string }) =>
+    post<User>("/auth/register", data),
   logout: () => post<{ ok: boolean }>("/auth/logout", {}),
 
   // Magic link endpoints
