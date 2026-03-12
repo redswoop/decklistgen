@@ -12,6 +12,7 @@ const FULLART_RARITIES = [
   "rare vmax",
   "rare vstar",
   "double rare", // SV-era ex cards
+  "ace spec rare",
 ];
 
 /** Detect if a card has full-bleed art (artwork spans the entire card).
@@ -46,9 +47,12 @@ export function isFullArt(card: TcgdexCard): boolean {
   const rarity = (card.rarity ?? "").toLowerCase();
   if (FULLART_RARITIES.some((r) => rarity.includes(r))) return true;
 
+  // Trainer Gallery (TG) and Galarian Gallery (GG) cards are always full-bleed
+  const localId = card.localId ?? "0";
+  if (/^(TG|GG)\d+$/i.test(localId)) return true;
+
   // Card number above official set count
   const official = card.set?.cardCount?.official ?? 999;
-  const localId = card.localId ?? "0";
   try {
     if (parseInt(localId, 10) > official) return true;
   } catch {
