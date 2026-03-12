@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { getAllCards, getCard, getFilterOptions, getVariants } from "../services/card-store.js";
+import { getAllCards, getCard, getFilterOptions, getVariants, loadSet, isSetLoaded } from "../services/card-store.js";
+import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
 import { applyFilters } from "../../shared/utils/filter-cards.js";
 import type { CardFilters, SpecialAttribute } from "../../shared/types/filters.js";
 import type { CardDetail } from "../../shared/types/card.js";
@@ -9,6 +10,15 @@ import { logAction, getClientIp } from "../services/logger.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
 const VALID_CARD_ID = /^[a-zA-Z0-9._-]+$/;
+
+async function ensureCardLoaded(cardId: string): Promise<void> {
+  if (getCard(cardId)) return;
+  const setId = cardId.replace(/-[^-]+$/, "");
+  const setCode = REVERSE_SET_MAP[setId];
+  if (setCode && !isSetLoaded(setCode)) {
+    await loadSet(setCode);
+  }
+}
 
 const app = new Hono();
 
@@ -46,23 +56,26 @@ app.get("/filters", (c) => {
   return c.json(getFilterOptions());
 });
 
-app.get("/:id", (c) => {
+app.get("/:id", async (c) => {
   const id = c.req.param("id");
+  await ensureCardLoaded(id);
   const card = getCard(id);
   if (!card) return c.json({ error: "Card not found" }, 404);
   return c.json(card);
 });
 
-app.get("/:id/variants", (c) => {
+app.get("/:id/variants", async (c) => {
   const id = c.req.param("id");
+  await ensureCardLoaded(id);
   const variants = getVariants(id);
   if (variants.length === 0) return c.json({ error: "Card not found" }, 404);
   return c.json({ variants });
 });
 
-app.get("/:id/detail", (c) => {
+app.get("/:id/detail", async (c) => {
   const id = c.req.param("id");
   if (!VALID_CARD_ID.test(id)) return c.json({ error: "Invalid card ID" }, 400);
+  await ensureCardLoaded(id);
   const card = getCard(id);
   if (!card) return c.json({ error: "Card not found" }, 404);
   logAction("card.view", getClientIp(c), { cardId: id, cardName: card.name });
