@@ -17,10 +17,16 @@ import { resetIconIds, renderFromTemplate } from "../services/pokeproxy/template
 import type { TemplateName } from "../services/pokeproxy/templates/index.js";
 import { renderEnergyPreviewSvg } from "../services/pokeproxy/energy-preview.js";
 import { logAction, getClientIp } from "../services/logger.js";
+import sharp from "sharp";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
 
 const VALID_CARD_ID = /^[a-zA-Z0-9._-]+$/;
+
+const FULLART_DEFAULT_PROMPT =
+  "Expand this image into a full illustration that fills the entire canvas. " +
+  "Remove all text, borders, and card frame elements. " +
+  "The subject should be the main focus with a detailed, atmospheric background.";
 
 function isValidCardId(cardId: string): boolean {
   return VALID_CARD_ID.test(cardId) && !cardId.includes("..");
@@ -39,6 +45,7 @@ function getStatus(cardId: string) {
     hasClean: hasFile(cardId, "_clean.png"),
     hasComposite: hasFile(cardId, "_composite.png"),
     hasSvg: hasFile(cardId, ".svg"),
+    hasFullart: hasFile(cardId, "_fullart.png"),
   };
 }
 
@@ -97,6 +104,7 @@ interface SvgRenderOptions {
   fontSize?: number;
   maxCover?: number;
   synth?: boolean;
+  fullart?: boolean;
 }
 
 /** Synthetic attacks/abilities that exercise all 11 energy glyph types. */
@@ -127,10 +135,13 @@ const SYNTH_ABILITIES = [
 async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions): Promise<string> {
   // Get best available image (optional — SVG can render without artwork)
   let imageB64 = "";
+  let isProcessed = false;
+
   for (const suffix of ["_composite.png", "_clean.png", ".png"]) {
     const p = cachePath(cardId, suffix);
     if (existsSync(p)) {
       imageB64 = (await readFile(p)).toString("base64");
+      isProcessed = suffix !== ".png";
       break;
     }
   }
@@ -150,12 +161,12 @@ async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions):
     cardData.abilities = SYNTH_ABILITIES;
   }
 
-  // Determine template
+  // Determine template — processed standard cards render as fullart (they've been expanded)
   const fullart = isFullArt(cardData as TcgdexCard);
   const isBasicEnergy = (cardData.category === "Energy") && !cardData.effect;
   let templateName: TemplateName;
   if (isBasicEnergy) templateName = "basic-energy";
-  else if (fullart) templateName = "fullart";
+  else if (fullart || isProcessed || opts?.fullart) templateName = "fullart";
   else templateName = "standard";
 
   resetIconIds();
@@ -212,8 +223,8 @@ app.get("/image/:cardId/:type", async (c) => {
   const cardId = c.req.param("cardId");
   if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
   const type = c.req.param("type");
-  if (type !== "clean" && type !== "composite" && type !== "source") {
-    return c.json({ error: "type must be 'clean', 'composite', or 'source'" }, 400);
+  if (type !== "clean" && type !== "composite" && type !== "source" && type !== "fullart") {
+    return c.json({ error: "type must be 'clean', 'composite', 'source', or 'fullart'" }, 400);
   }
 
   const filePath = cachePath(cardId, type === "source" ? ".png" : `_${type}.png`);
@@ -243,6 +254,7 @@ app.get("/svg/:cardId", async (c) => {
   svgOpts.fontSize = query.fontSize ? Math.max(1, Math.min(200, parseFloat(query.fontSize) || 0)) : stored.fontSize;
   svgOpts.maxCover = query.maxCover ? Math.max(0, Math.min(1, parseFloat(query.maxCover) || 0)) : stored.maxCover;
   if (query.synth != null) svgOpts.synth = true;
+  if (query.fullart != null) svgOpts.fullart = true;
   try {
     const svg = await generateSvgFromTemplate(cardId, svgOpts);
     return new Response(svg, {
@@ -307,12 +319,14 @@ app.post("/generate/:cardId", requireAuthorized, async (c) => {
   if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
   const force = c.req.query("force") === "true";
   const seedParam = c.req.query("seed");
-  logAction("proxy.generate", getClientIp(c), { cardId, seed: seedParam, force });
+  const mode = c.req.query("mode") === "fullart" ? "fullart" : "clean";
+  logAction("proxy.generate", getClientIp(c), { cardId, seed: seedParam, force, mode });
   const promptOverride = c.req.query("prompt") || undefined;
   // Use provided seed, or random on force, or default 42
   const seed = seedParam ? Math.max(0, Math.min(999999999, parseInt(seedParam, 10) || 0)) : force ? Math.floor(Math.random() * 999999) : 42;
 
-  if (!force && hasFile(cardId, "_composite.png")) {
+  const existsSuffix = mode === "fullart" ? "_fullart.png" : "_composite.png";
+  if (!force && hasFile(cardId, existsSuffix)) {
     return c.json({ cardId, status: "already_exists" });
   }
 
@@ -333,45 +347,77 @@ app.post("/generate/:cardId", requireAuthorized, async (c) => {
     ruleName = "manual-override";
   } else {
     const result = getPromptForCard(cardData);
-    if (result.skip) {
-      return c.json({ cardId, status: "skipped", rule: result.ruleName });
+    if (mode === "fullart") {
+      // Fullart mode: never skip, use default prompt if none resolved
+      prompt = result.prompt || FULLART_DEFAULT_PROMPT;
+      ruleName = result.skip ? "fullart-default" : result.ruleName;
+    } else {
+      if (result.skip) {
+        return c.json({ cardId, status: "skipped", rule: result.ruleName });
+      }
+      if (!result.prompt) {
+        return c.json({ cardId, status: "no_prompt", rule: result.ruleName }, 400);
+      }
+      prompt = result.prompt;
+      ruleName = result.ruleName;
     }
-    if (!result.prompt) {
-      return c.json({ cardId, status: "no_prompt", rule: result.ruleName }, 400);
-    }
-    prompt = result.prompt;
-    ruleName = result.ruleName;
   }
 
-  // Read source, resize to FLUX dimensions, clean via ComfyUI
+  // Read source image
   const srcData = await readFile(cachePath(cardId, ".png"));
-  const srcBase64 = srcData.toString("base64");
+
+  // For standard cards, crop to just the art window so Klein gets a cleaner reference
+  const fullart = isFullArt(cardData as TcgdexCard);
+  let inputBase64: string;
+  if (!fullart) {
+    const { width, height } = await sharp(srcData).metadata();
+    if (width && height) {
+      // Art region as fractions of the card (from constants: 45-555 x 110-430 on 600x825)
+      const crop = {
+        left: Math.round(width * 45 / 600),
+        top: Math.round(height * 110 / 825),
+        width: Math.round(width * 510 / 600),
+        height: Math.round(height * 320 / 825),
+      };
+      const cropped = await sharp(srcData).extract(crop).png().toBuffer();
+      inputBase64 = cropped.toString("base64");
+    } else {
+      inputBase64 = srcData.toString("base64");
+    }
+  } else {
+    inputBase64 = srcData.toString("base64");
+  }
 
   try {
-    const cleanBase64 = await cleanCardImage(srcBase64, seed, prompt);
+    const cleanBase64 = await cleanCardImage(inputBase64, seed, prompt);
 
     // Save clean image (composite = clean until proper compositing is added)
     const cleanBuffer = Buffer.from(cleanBase64, "base64");
     await mkdir(CACHE_DIR, { recursive: true });
-    const writes: Promise<void>[] = [
-      writeFile(cachePath(cardId, "_clean.png"), cleanBuffer),
-      writeFile(cachePath(cardId, "_composite.png"), cleanBuffer),
-      // Save metadata about the clean operation
-      writeFile(cachePath(cardId, "_clean_meta.json"), JSON.stringify({
-        prompt,
-        rule: ruleName,
-        seed,
-        timestamp: new Date().toISOString(),
-        cardId,
-      }, null, 2)),
-    ];
-    // Invalidate stale SVG so it regenerates with the cleaned image
-    if (hasFile(cardId, ".svg")) {
-      writes.push(unlink(cachePath(cardId, ".svg")));
+    const writes: Promise<void>[] = [];
+    const meta = JSON.stringify({
+      prompt, rule: ruleName, seed, timestamp: new Date().toISOString(), cardId, mode,
+    }, null, 2);
+
+    if (mode === "fullart") {
+      writes.push(
+        writeFile(cachePath(cardId, "_fullart.png"), cleanBuffer),
+        writeFile(cachePath(cardId, "_fullart_meta.json"), meta),
+      );
+    } else {
+      writes.push(
+        writeFile(cachePath(cardId, "_clean.png"), cleanBuffer),
+        writeFile(cachePath(cardId, "_composite.png"), cleanBuffer),
+        writeFile(cachePath(cardId, "_clean_meta.json"), meta),
+      );
+      // Invalidate stale SVG so it regenerates with the cleaned image
+      if (hasFile(cardId, ".svg")) {
+        writes.push(unlink(cachePath(cardId, ".svg")));
+      }
     }
     await Promise.all(writes);
 
-    return c.json({ cardId, status: "generated", seed, rule: ruleName, prompt });
+    return c.json({ cardId, status: "generated", seed, rule: ruleName, prompt, mode });
   } catch (e: any) {
     console.error(`Image generation failed for ${cardId}:`, e);
     return c.json({ cardId, status: "failed", error: "Image generation failed" }, 500);

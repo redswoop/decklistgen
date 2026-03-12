@@ -9,7 +9,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { getAllCardSettings, getCardSettings } from "./card-settings.js";
-import { getPromptForCard, getAllRules } from "./prompt-db.js";
+import { getPromptForCard, getOverrideCardIds } from "./prompt-db.js";
 import { listDecks, getDeck } from "./deck-store.js";
 import { getCard, loadSet, isSetLoaded } from "./card-store.js";
 import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
@@ -99,15 +99,8 @@ export async function getCustomizedCards(userId?: string): Promise<CustomizedCar
   const allSettings = userId ? getAllCardSettings(userId) : {};
   const settingsCardIds = new Set(Object.keys(allSettings));
 
-  // 3. Get card-specific prompt overrides (rules named `card:*`)
-  const rules = getAllRules();
-  const overrideCardIds = new Set<string>();
-  for (const rule of rules) {
-    if (rule.name.startsWith("card:")) {
-      const cardId = rule.name.slice(5); // strip "card:" prefix
-      overrideCardIds.add(cardId);
-    }
-  }
+  // 3. Get card-specific prompt overrides
+  const overrideCardIds = getOverrideCardIds();
 
   // 4. Union all three sets
   const allCardIds = new Set([...cleanCardIds, ...settingsCardIds, ...overrideCardIds]);

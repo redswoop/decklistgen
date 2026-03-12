@@ -27,7 +27,9 @@ app.use("*", cors({
 // Security headers
 app.use("*", async (c, next) => {
   await next();
-  c.header("Content-Security-Policy", "default-src 'self'; img-src 'self' data: https://assets.tcgdex.net; style-src 'self' 'unsafe-inline'; font-src 'self'");
+  const isGallery = c.req.path.startsWith("/gallery");
+  const scriptSrc = isGallery ? "script-src 'self' 'unsafe-inline'; " : "";
+  c.header("Content-Security-Policy", `default-src 'self'; ${scriptSrc}img-src 'self' data: https://assets.tcgdex.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:`);
   c.header("X-Content-Type-Options", "nosniff");
   c.header("X-Frame-Options", "DENY");
   c.header("Referrer-Policy", "strict-origin-when-cross-origin");

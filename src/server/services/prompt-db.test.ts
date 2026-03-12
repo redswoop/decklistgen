@@ -2,31 +2,29 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { readFileSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
 import { join } from "node:path";
 
-const PROMPTS_PATH = join(import.meta.dir, "../../../data/prompts.json");
-const PROMPTS_BACKUP = PROMPTS_PATH + ".bak";
+const CARD_PROMPTS_PATH = join(import.meta.dir, "../../../data/card-prompts.json");
+const CARD_PROMPTS_BACKUP = CARD_PROMPTS_PATH + ".bak";
 
-// Import after setup so the module loads the real file
 let getPromptForCard: typeof import("./prompt-db.js").getPromptForCard;
 let saveCardPrompt: typeof import("./prompt-db.js").saveCardPrompt;
+let EXPAND_PROMPT: string;
 
 beforeAll(async () => {
-  // Back up prompts.json so we can restore after override test
-  if (existsSync(PROMPTS_PATH)) {
-    copyFileSync(PROMPTS_PATH, PROMPTS_BACKUP);
+  if (existsSync(CARD_PROMPTS_PATH)) {
+    copyFileSync(CARD_PROMPTS_PATH, CARD_PROMPTS_BACKUP);
   }
   const mod = await import("./prompt-db.js");
   getPromptForCard = mod.getPromptForCard;
   saveCardPrompt = mod.saveCardPrompt;
+  EXPAND_PROMPT = mod.EXPAND_PROMPT;
 });
 
 afterAll(() => {
-  // Restore original prompts.json
-  if (existsSync(PROMPTS_BACKUP)) {
-    copyFileSync(PROMPTS_BACKUP, PROMPTS_PATH);
+  if (existsSync(CARD_PROMPTS_BACKUP)) {
+    copyFileSync(CARD_PROMPTS_BACKUP, CARD_PROMPTS_PATH);
   }
 });
 
-// Minimal card shapes matching what prompt-db expects
 const CARDS = {
   standardPokemon: {
     id: "sv01-001",
@@ -45,14 +43,6 @@ const CARDS = {
     rarity: "Double Rare",
     suffix: "ex",
   },
-  vPokemon: {
-    id: "cel25-16",
-    localId: "16",
-    name: "Zacian V",
-    category: "Pokemon",
-    stage: "Basic",
-    rarity: "Ultra Rare",
-  },
   vmaxPokemon: {
     id: "cel25-7",
     localId: "7",
@@ -61,44 +51,12 @@ const CARDS = {
     stage: "VMAX",
     rarity: "Rare VMAX",
   },
-  vstarPokemon: {
-    id: "swsh12.5-019",
-    localId: "019",
-    name: "Leafeon VSTAR",
-    category: "Pokemon",
-    stage: "VSTAR",
-    rarity: "Rare VSTAR",
-  },
-  illustrationRare: {
-    id: "sv01-207",
-    localId: "207",
-    name: "Oinkologne",
-    category: "Pokemon",
-    rarity: "Illustration Rare",
-    set: { id: "sv01", name: "Scarlet & Violet", cardCount: { official: 198 } },
-  },
   trainerItem: {
     id: "sv01-172",
     localId: "172",
     name: "Rare Candy",
     category: "Trainer",
     trainerType: "Item",
-    rarity: "Uncommon",
-  },
-  trainerSupporter: {
-    id: "sv01-175",
-    localId: "175",
-    name: "Jacq",
-    category: "Trainer",
-    trainerType: "Supporter",
-    rarity: "Uncommon",
-  },
-  trainerStadium: {
-    id: "sv03-196",
-    localId: "196",
-    name: "Artazon",
-    category: "Trainer",
-    trainerType: "Stadium",
     rarity: "Uncommon",
   },
   energyBasic: {
@@ -119,61 +77,46 @@ const CARDS = {
   },
 };
 
-describe("prompt-db rules", () => {
-  test("prints prompt for each card type", () => {
-    console.log("\n--- Prompt for each card type ---\n");
+describe("prompt-db", () => {
+  test("all non-energy cards get expand prompt", () => {
     for (const [label, card] of Object.entries(CARDS)) {
       const result = getPromptForCard(card);
-      console.log(
-        `${label.padEnd(22)} rule=${result.ruleName.padEnd(20)} skip=${String(result.skip).padEnd(5)} prompt=${result.prompt ?? "(none)"}`,
-      );
-      // Every card should match some rule
-      expect(result.ruleName).not.toBe("no-match");
+      if (card.category === "Energy" && card.energyType === "Normal") continue;
+      expect(result.skip).toBe(false);
+      expect(result.prompt).toBe(EXPAND_PROMPT);
+      console.log(`${label.padEnd(20)} rule=${result.ruleName}`);
     }
   });
 
-  test("standard pokemon gets a prompt", () => {
-    const result = getPromptForCard(CARDS.standardPokemon);
-    expect(result.ruleName).toBe("standard-pokemon");
-    expect(result.skip).toBe(false);
-    expect(result.prompt).toBeString();
-  });
-
   test("basic energy is skipped", () => {
-    const basic = getPromptForCard(CARDS.energyBasic);
-    expect(basic.ruleName).toBe("energy-basic");
-    expect(basic.skip).toBe(true);
-    expect(basic.prompt).toBeNull();
+    const result = getPromptForCard(CARDS.energyBasic);
+    expect(result.ruleName).toBe("energy-skip");
+    expect(result.skip).toBe(true);
+    expect(result.prompt).toBeNull();
   });
 
-  test("special energy gets a prompt", () => {
-    const special = getPromptForCard(CARDS.energySpecial);
-    expect(special.ruleName).toBe("energy-special");
-    expect(special.skip).toBe(false);
-    expect(special.prompt).toBeString();
-  });
-
-  test("trainer cards get trainer rule", () => {
-    const result = getPromptForCard(CARDS.trainerItem);
-    expect(result.ruleName).toBe("trainer");
+  test("special energy gets expand prompt", () => {
+    const result = getPromptForCard(CARDS.energySpecial);
     expect(result.skip).toBe(false);
-    expect(result.prompt).toBeString();
+    expect(result.prompt).toBe(EXPAND_PROMPT);
   });
 
-  test("fullart ex gets fullart-ex rule", () => {
+  test("standard pokemon gets expand prompt", () => {
+    const result = getPromptForCard(CARDS.standardPokemon);
+    expect(result.ruleName).toBe("default");
+    expect(result.prompt).toBe(EXPAND_PROMPT);
+  });
+
+  test("fullart pokemon gets expand prompt", () => {
     const result = getPromptForCard(CARDS.exPokemon);
-    expect(result.ruleName).toBe("fullart-ex");
-    expect(result.skip).toBe(false);
+    expect(result.ruleName).toBe("default");
+    expect(result.prompt).toBe(EXPAND_PROMPT);
   });
 
-  test("VMAX gets fullart-vmax rule", () => {
-    const result = getPromptForCard(CARDS.vmaxPokemon);
-    expect(result.ruleName).toBe("fullart-vmax");
-  });
-
-  test("VSTAR gets fullart-vstar rule", () => {
-    const result = getPromptForCard(CARDS.vstarPokemon);
-    expect(result.ruleName).toBe("fullart-vstar");
+  test("trainer gets expand prompt", () => {
+    const result = getPromptForCard(CARDS.trainerItem);
+    expect(result.ruleName).toBe("default");
+    expect(result.prompt).toBe(EXPAND_PROMPT);
   });
 });
 
@@ -182,14 +125,11 @@ describe("card-specific override", () => {
   const OVERRIDE_PROMPT = "TEST OVERRIDE: custom prompt for this specific card";
 
   test("saving an override makes it take priority", () => {
-    // Before override, should match the generic rule
     const before = getPromptForCard(CARDS.standardPokemon);
-    expect(before.ruleName).toBe("standard-pokemon");
+    expect(before.ruleName).toBe("default");
 
-    // Save a card-specific override
     saveCardPrompt(OVERRIDE_CARD_ID, OVERRIDE_PROMPT);
 
-    // Now should match the card-specific rule
     const after = getPromptForCard(CARDS.standardPokemon);
     expect(after.ruleName).toBe(`card:${OVERRIDE_CARD_ID}`);
     expect(after.prompt).toBe(OVERRIDE_PROMPT);

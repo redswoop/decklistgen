@@ -96,7 +96,6 @@ app.get("/cards", async (c) => {
         cleanMeta = JSON.parse(readFileSync(metaPath, "utf-8"));
       } catch {}
     }
-
     // Get the prompt that would be used if cleaned now
     const promptResult = card ? getPromptForCard(card) : null;
 
@@ -591,6 +590,7 @@ function galleryHtml(): string {
   .btn-clean { background: #276749; color: #9ae6b4; }
   .btn-regen { background: #553c9a; color: #d6bcfa; }
   .btn-force-clean { background: #9b2c2c; color: #fed7d7; }
+  .badge.expanded { background: #2b6cb0; color: #bee3f8; }
   .lightbox-status {
     font-size: 13px;
     color: #aaa;
@@ -912,7 +912,11 @@ async function init() {
     el.onclick = () => showPreview(card.cardId);
 
     const badges = [];
-    if (card.hasClean) badges.push('<span class="badge clean">CLEANED</span>');
+    if (card.hasClean) {
+      var badgeClass = card.isFullArt ? 'clean' : 'expanded';
+      var badgeText = card.isFullArt ? 'CLEANED' : 'EXPANDED';
+      badges.push('<span class="badge ' + badgeClass + '">' + badgeText + '</span>');
+    }
     badges.push('<span class="badge ' + (card.isFullArt ? 'fullart' : 'standard') + '">' +
       (card.isFullArt ? 'FULLART' : 'STANDARD') + '</span>');
 
@@ -978,6 +982,12 @@ function showPreview(cardId) {
   document.getElementById('lightbox-title').textContent = card.label + ' — ' + card.name;
   document.getElementById('lightbox-src').src = '/api/pokeproxy/image/' + cardId + '/source';
   showCleanPanel(cardId);
+  // Dynamic labels based on card type
+  var isStandard = !card.isFullArt;
+  document.querySelector('.btn-clean').textContent = isStandard ? 'Expand (ComfyUI)' : 'Clean (ComfyUI)';
+  document.querySelector('.btn-force-clean').textContent = isStandard ? 'Re-expand' : 'Force Re-clean';
+  var cleanLabel = document.querySelector('#lightbox-clean-panel .lightbox-panel-label');
+  if (cleanLabel) cleanLabel.textContent = isStandard ? 'Expanded' : 'Cleaned';
   loadLightboxSvg(cardId);
   document.getElementById('lightbox-status').textContent = '';
 
@@ -1076,8 +1086,12 @@ function setButtons(enabled) {
 async function doClean(force) {
   if (!currentCardId) return;
   const cardId = currentCardId;
+  const card = cardData[cardId];
+  const isStandard = card && !card.isFullArt;
   setButtons(false);
-  setStatus(force ? 'Force re-cleaning (random seed) via ComfyUI...' : 'Cleaning via ComfyUI...');
+  setStatus(force
+    ? (isStandard ? 'Re-expanding (random seed) via ComfyUI...' : 'Force re-cleaning (random seed) via ComfyUI...')
+    : (isStandard ? 'Expanding via ComfyUI...' : 'Cleaning via ComfyUI...'));
   try {
     const url = '/api/pokeproxy/generate/' + cardId + (force ? '?force=true' : '');
     const resp = await fetch(url, { method: 'POST' });
@@ -1085,12 +1099,14 @@ async function doClean(force) {
     if (data.status === 'generated' || data.status === 'already_exists') {
       const seedInfo = data.seed != null ? ' (seed ' + data.seed + ')' : '';
       const ruleInfo = data.rule ? ' [' + data.rule + ']' : '';
-      setStatus('Clean done' + seedInfo + ruleInfo + '. Regenerating SVG...');
+      setStatus((isStandard ? 'Expand' : 'Clean') + ' done' + seedInfo + ruleInfo + '. Regenerating SVG...');
       await doRegenInner(cardId);
       // Update badge
       const badges = document.getElementById('badges_' + cssId(cardId));
-      if (badges && !badges.querySelector('.badge.clean')) {
-        badges.insertAdjacentHTML('afterbegin', '<span class="badge clean">CLEANED</span>');
+      var badgeClass = isStandard ? 'expanded' : 'clean';
+      var badgeText = isStandard ? 'EXPANDED' : 'CLEANED';
+      if (badges && !badges.querySelector('.badge.' + badgeClass)) {
+        badges.insertAdjacentHTML('afterbegin', '<span class="badge ' + badgeClass + '">' + badgeText + '</span>');
       }
       // Show cleaned image panel
       if (cardData[cardId]) {
@@ -1113,7 +1129,7 @@ async function doClean(force) {
         }
       }
     } else {
-      setStatus('Clean failed: ' + (data.error || data.status));
+      setStatus((isStandard ? 'Expand' : 'Clean') + ' failed: ' + (data.error || data.status));
     }
   } catch (e) {
     setStatus('Error: ' + e.message + ' — is the server running?');
