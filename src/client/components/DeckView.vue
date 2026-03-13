@@ -2,8 +2,10 @@
 import { ref, computed, watch } from "vue";
 import CardGrid from "./CardGrid.vue";
 import BeautifyDialog from "./BeautifyDialog.vue";
+import VariantPicker from "./VariantPicker.vue";
 import { useDecks } from "../composables/useDecks.js";
 import { useDecklist } from "../composables/useDecklist.js";
+import { api } from "../lib/client.js";
 import type { Card } from "../../shared/types/card.js";
 import type { SavedDeck } from "../../shared/types/deck.js";
 
@@ -27,9 +29,10 @@ const loading = ref(false);
 const loadedMsg = ref("");
 
 // Fetch deck data when deckId changes — read-only, does NOT modify working deck
-async function loadDeck(id: string) {
+// silent=true skips the loading spinner so CardGrid stays mounted (preserves groupBy etc.)
+async function loadDeck(id: string, silent = false) {
   loadedMsg.value = "";
-  loading.value = true;
+  if (!silent) loading.value = true;
   try {
     deck.value = await fetchDeck(id);
     emit("deck-loaded", deck.value.name, deck.value.cards);
@@ -76,14 +79,28 @@ const headerLabel = computed(() => {
 });
 
 const showBeautify = ref(false);
+const variantPickerCard = ref<Card | null>(null);
+
+function handlePickVariant(card: Card) {
+  variantPickerCard.value = card;
+}
+
+function handleVariantPickerLightbox(card: Card) {
+  variantPickerCard.value = null;
+  handlePreview(card, deckCards.value);
+}
+
+async function handleVariantPickerUpdated() {
+  if (props.deckId) await loadDeck(props.deckId, true);
+}
 
 async function handleBeautifyUpdated() {
-  if (props.deckId) await loadDeck(props.deckId);
+  if (props.deckId) await loadDeck(props.deckId, true);
 }
 
 /** Re-fetch the current deck (called by parent after lightbox card replace) */
 function refresh() {
-  if (props.deckId) loadDeck(props.deckId);
+  if (props.deckId) loadDeck(props.deckId, true);
 }
 
 defineExpose({ refresh });
@@ -94,6 +111,11 @@ function handleLoadToWorkingDeck() {
   loadSavedDeck(deck.value);
   loadedMsg.value = "Loaded into working deck";
   setTimeout(() => { loadedMsg.value = ""; }, 2000);
+}
+
+function handlePrint() {
+  if (!deck.value) return;
+  window.open(api.deckPrintUrl(deck.value.id), "_blank");
 }
 
 function handleExport() {
@@ -131,6 +153,7 @@ function handlePreview(card: Card, cards: Card[]) {
         <button class="dm-action-btn" title="Upgrade card variants" @click="showBeautify = true">
           Beautify
         </button>
+        <button class="dm-action-btn" title="Open printable proxy sheet" @click="handlePrint">Print</button>
         <button class="dm-action-btn" @click="handleExport">Export</button>
       </div>
     </div>
@@ -139,7 +162,9 @@ function handlePreview(card: Card, cards: Card[]) {
       :card-counts="cardCounts"
       :header-label="headerLabel"
       :hide-add="false"
+      click-mode="variant-picker"
       @preview-card="handlePreview"
+      @pick-variant="handlePickVariant"
     />
 
     <BeautifyDialog
@@ -148,6 +173,16 @@ function handlePreview(card: Card, cards: Card[]) {
       :deck-name="deck.name"
       @close="showBeautify = false"
       @updated="handleBeautifyUpdated"
+    />
+
+    <VariantPicker
+      v-if="variantPickerCard && deck"
+      :card="variantPickerCard"
+      :saved-deck-id="deck.id"
+      :saved-deck-cards="deck.cards"
+      @close="variantPickerCard = null"
+      @open-lightbox="handleVariantPickerLightbox"
+      @deck-updated="handleVariantPickerUpdated"
     />
   </div>
 </template>

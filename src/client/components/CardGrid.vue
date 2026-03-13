@@ -24,6 +24,8 @@ const props = withDefaults(defineProps<{
   selectedIds?: Set<string>;
   /** Set of stale card IDs (shows amber badge) */
   staleIds?: Set<string>;
+  /** Click behavior: 'preview' opens lightbox, 'variant-picker' emits pick-variant */
+  clickMode?: "preview" | "variant-picker";
 }>(), {
   cards: undefined,
   cardCounts: undefined,
@@ -32,11 +34,13 @@ const props = withDefaults(defineProps<{
   selectable: false,
   selectedIds: undefined,
   staleIds: undefined,
+  clickMode: "preview",
 });
 
 const emit = defineEmits<{
   "preview-card": [card: Card, cards: Card[]];
   "toggle-select": [cardId: string];
+  "pick-variant": [card: Card];
 }>();
 
 const { filters, setNameSearch } = useFilters();
@@ -245,6 +249,14 @@ function handleAdd(card: Card) {
 function getCount(card: Card): number | undefined {
   return props.cardCounts?.[card.id];
 }
+
+function handleTilePreview(card: Card) {
+  if (props.clickMode === "variant-picker") {
+    emit("pick-variant", card);
+  } else {
+    emit("preview-card", card, orderedCards.value);
+  }
+}
 </script>
 
 <template>
@@ -387,7 +399,7 @@ function getCount(card: Card): number | undefined {
               :stale="staleIds?.has(card.id)"
               :style="{ width: `${cardWidth}px`, flexShrink: 0 }"
               @add="handleAdd"
-              @preview="emit('preview-card', $event, orderedCards)"
+              @preview="handleTilePreview"
               @toggle-select="emit('toggle-select', $event)"
             />
           </div>

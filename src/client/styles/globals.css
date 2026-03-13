@@ -2663,6 +2663,238 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   Variant Picker
+   ═══════════════════════════════════════════════════════════════ */
+
+.variant-picker {
+  width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.variant-picker-mobile {
+  width: 100%;
+  max-width: 100%;
+  border-radius: 0;
+  max-height: 100vh;
+  height: 100vh;
+}
+
+.variant-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.variant-picker-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.variant-picker-total {
+  font-size: 13px;
+  color: #7f8fa6;
+}
+
+.variant-picker-loading {
+  text-align: center;
+  color: #7f8fa6;
+  padding: 24px 0;
+}
+
+.variant-picker-grid {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.variant-picker-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  transition: border-color 0.15s;
+  width: 120px;
+}
+
+.variant-picker-mobile .variant-picker-item {
+  width: 110px;
+}
+
+.variant-picker-item-active {
+  border-color: #e94560;
+}
+
+.variant-picker-thumb {
+  width: 90px;
+  height: auto;
+  border-radius: 4px;
+  aspect-ratio: 5 / 7;
+  object-fit: cover;
+  background: #1a1a2e;
+}
+
+.variant-picker-mobile .variant-picker-thumb {
+  width: 80px;
+}
+
+.variant-picker-label {
+  font-size: 11px;
+  color: #7f8fa6;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.variant-picker-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.variant-picker-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid #0f3460;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.variant-picker-mobile .variant-picker-btn {
+  width: 44px;
+  height: 44px;
+  font-size: 20px;
+}
+
+.variant-picker-btn:hover:not(:disabled) {
+  background: #0f3460;
+}
+
+.variant-picker-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.variant-picker-count {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e0e0e0;
+  min-width: 20px;
+  text-align: center;
+}
+
+.variant-picker-use-all {
+  font-size: 10px;
+  color: #539bf5;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.variant-picker-use-all:hover {
+  text-decoration: underline;
+}
+
+.variant-picker-mobile .variant-picker-use-all {
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.variant-picker-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid #0f3460;
+  padding-top: 12px;
+}
+
+.variant-picker-status {
+  font-size: 13px;
+  color: #7f8fa6;
+  text-align: center;
+}
+
+.variant-picker-warn {
+  color: #e94560;
+}
+
+.variant-picker-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.variant-picker-action {
+  padding: 6px 16px;
+  border-radius: 4px;
+  border: 1px solid #0f3460;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.variant-picker-mobile .variant-picker-action {
+  padding: 12px 20px;
+  font-size: 15px;
+}
+
+.variant-picker-action:hover:not(:disabled) {
+  background: #0f3460;
+}
+
+.variant-picker-apply {
+  background: #e94560;
+  border-color: #e94560;
+  color: white;
+}
+
+.variant-picker-apply:hover:not(:disabled) {
+  background: #d13a54;
+}
+
+.variant-picker-apply:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.variant-picker-details-link {
+  font-size: 12px;
+  color: #539bf5;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+}
+
+.variant-picker-details-link:hover {
+  text-decoration: underline;
+}
+
+.variant-picker-mobile .variant-picker-details-link {
+  font-size: 15px;
+  padding: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    Mobile Responsive
    ═══════════════════════════════════════════════════════════════ */
 
