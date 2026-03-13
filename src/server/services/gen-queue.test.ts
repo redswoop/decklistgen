@@ -9,13 +9,6 @@ mock.module("./comfyui.js", () => ({
   COMFYUI_URL: "http://test:8188",
 }));
 
-// Mock card-store
-mock.module("./card-store.js", () => ({
-  getCard: () => null,
-  loadSet: async () => {},
-  isSetLoaded: () => true,
-}));
-
 function makeOpts(overrides?: Partial<SubmitOpts>): SubmitOpts {
   return {
     cardId: "sv8-001",
