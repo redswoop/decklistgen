@@ -2,7 +2,7 @@
 import { ref, computed, watch } from "vue";
 import CardGrid from "./CardGrid.vue";
 import { useCustomizedCards } from "../composables/useCustomizedCards.js";
-import { useGenerationQueryClient } from "../composables/usePokeproxy.js";
+import { useGenerationQueryClient, generateCleanImage } from "../composables/usePokeproxy.js";
 import type { Card } from "../../shared/types/card.js";
 import type { DeckMembership } from "../../shared/types/customized-card.js";
 
@@ -87,6 +87,10 @@ async function handleBatchRegenerate() {
   }
 }
 
+function handleRegenerate(card: Card) {
+  generateCleanImage(card.id, true);
+}
+
 function handlePreview(card: Card, cards: Card[]) {
   const membership = deckMembershipMap.value.get(card.id);
   emit("preview-card", card, cards, membership);
@@ -134,12 +138,13 @@ function handlePreview(card: Card, cards: Card[]) {
       :cards="gridCards"
       :card-counts="cardCounts"
       :header-label="headerLabel"
-      :hide-add="true"
+      context="cards"
       :selectable="true"
       :selected-ids="selectedIds"
       :stale-ids="staleIds"
       @preview-card="handlePreview"
       @toggle-select="toggleSelect"
+      @regenerate-card="handleRegenerate"
     />
   </div>
 </template>

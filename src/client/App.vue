@@ -5,6 +5,7 @@ import CardGrid from "./components/CardGrid.vue";
 import DecklistPanel from "./components/DecklistPanel.vue";
 import DeckManagerSidebar from "./components/DeckManagerSidebar.vue";
 import DeckView from "./components/DeckView.vue";
+import WorkingDeckView from "./components/WorkingDeckView.vue";
 import CardsView from "./components/CardsView.vue";
 import CardsFilterSidebar from "./components/CardsFilterSidebar.vue";
 import PublicDecksView from "./components/PublicDecksView.vue";
@@ -25,6 +26,7 @@ import { useIsMobile } from "./composables/useIsMobile.js";
 import { useEraLoader } from "./composables/useEraLoader.js";
 import { api } from "./lib/client.js";
 import { useQueue, useQueueBadge } from "./composables/useQueue.js";
+import { generateCleanImage } from "./composables/usePokeproxy.js";
 import type { Card } from "../shared/types/card.js";
 import type { DeckCard } from "../shared/types/deck.js";
 import type { DeckMembership } from "../shared/types/customized-card.js";
@@ -70,8 +72,8 @@ function saveLayout(partial: Partial<LayoutState>) {
 
 const saved = loadLayout();
 
-const { items, totalCards, toText, currentDeckName, toDeckCards, markSaved, importSource, importedAt } = useDecklist();
-const { createDeck } = useDecks();
+const { items, totalCards, toText, currentDeckName, currentDeckId, isDirty, toDeckCards, markSaved, importSource, importedAt } = useDecklist();
+const { createDeck, updateDeck } = useDecks();
 
 const showExport = ref(false);
 const showImport = ref(false);
@@ -133,7 +135,7 @@ const fullWidthView = computed(() => currentView.value === 'queue' || currentVie
 const savedLeftCollapsed = ref(saved.leftCollapsed);
 const savedRightCollapsed = ref(saved.rightCollapsed);
 const leftCollapsed = computed(() => isMobile.value || savedLeftCollapsed.value || fullWidthView.value);
-const rightCollapsed = computed(() => isMobile.value || savedRightCollapsed.value || fullWidthView.value);
+const rightCollapsed = computed(() => isMobile.value || savedRightCollapsed.value || fullWidthView.value || currentView.value === 'decks');
 const leftPct = ref(saved.left);
 const rightPct = ref(saved.right);
 
@@ -303,8 +305,28 @@ async function handleSaveDeck(name: string) {
       importSource: importSource.value ?? undefined,
     });
     markSaved(deck.id, deck.name);
+    // If we were on the working deck view, switch to the saved deck
+    if (selectedDeckId.value === '__working__') {
+      selectedDeckId.value = deck.id;
+    }
   } catch (e) {
     console.error("Save deck failed:", e);
+  }
+}
+
+async function handleWorkingSaveUpdate() {
+  if (!currentDeckId.value || !isDirty.value) return;
+  try {
+    await updateDeck({
+      id: currentDeckId.value,
+      data: {
+        name: currentDeckName.value,
+        cards: toDeckCards(),
+      },
+    });
+    markSaved(currentDeckId.value, currentDeckName.value);
+  } catch (e) {
+    console.error("Save failed:", e);
   }
 }
 
@@ -319,6 +341,10 @@ const deckViewRef = ref<InstanceType<typeof DeckView> | null>(null);
 function handleDeckUpdated() {
   // Trigger DeckView to re-fetch the deck
   deckViewRef.value?.refresh();
+}
+
+function handleBrowseRegenerate(card: Card) {
+  generateCleanImage(card.id, true);
 }
 </script>
 
@@ -336,10 +362,6 @@ function handleDeckUpdated() {
     <!-- Navigation bar -->
     <div class="app-nav">
       <span class="app-nav-title">DecklistGen</span>
-      <template v-if="currentView === 'decks' && viewedDeckName">
-        <span class="app-nav-separator">&rsaquo;</span>
-        <span class="app-nav-deck-name">{{ viewedDeckName }}</span>
-      </template>
       <div class="app-nav-tabs">
         <button
           :class="['app-nav-tab', { active: currentView === 'browse' }]"
@@ -407,6 +429,11 @@ function handleDeckUpdated() {
           <DeckManagerSidebar
             v-else
             :selected-deck-id="selectedDeckId"
+            :working-deck-item-count="items.length"
+            :working-deck-name="currentDeckName"
+            :working-deck-id="currentDeckId"
+            :working-deck-is-dirty="isDirty"
+            :working-deck-total-cards="totalCards"
             @select-deck="handleSelectDeck"
             @collapse="collapseLeft"
             @import="showImport = true"
@@ -422,20 +449,33 @@ function handleDeckUpdated() {
 
         <!-- Center pane — always flex:1, absorbs all freed space -->
         <div class="layout-pane layout-center">
-          <CardGrid v-if="currentView === 'browse'" @preview-card="handlePreview" />
+          <CardGrid v-if="currentView === 'browse'" context="browse" @preview-card="handlePreview" @regenerate-card="handleBrowseRegenerate" />
           <CardsView
             v-else-if="currentView === 'cards'"
             @preview-card="handleCardsPreview"
           />
           <PublicDecksView v-else-if="currentView === 'public'" />
           <QueueView v-else-if="currentView === 'queue'" />
+          <WorkingDeckView
+            v-else-if="selectedDeckId === '__working__'"
+            @preview-card="handlePreview"
+            @export="showExport = true"
+            @import="showImport = true"
+            @save="showSaveDeck = true"
+            @save-update="handleWorkingSaveUpdate"
+          />
           <DeckView
             v-else
             ref="deckViewRef"
             :deck-id="selectedDeckId"
+            :is-working-deck-source="currentDeckId === selectedDeckId"
+            :working-deck-is-dirty="isDirty"
             @preview-card="handlePreview"
             @export="showExport = true"
             @deck-loaded="handleDeckLoaded"
+            @edit-working-deck="selectedDeckId = '__working__'"
+            @save-update="handleWorkingSaveUpdate"
+            @deleted="selectedDeckId = '__working__'"
           />
         </div>
 
@@ -489,6 +529,11 @@ function handleDeckUpdated() {
           <DeckManagerSidebar
             v-else
             :selected-deck-id="selectedDeckId"
+            :working-deck-item-count="items.length"
+            :working-deck-name="currentDeckName"
+            :working-deck-id="currentDeckId"
+            :working-deck-is-dirty="isDirty"
+            :working-deck-total-cards="totalCards"
             @select-deck="handleSelectDeck"
             @collapse="mobileLeftOpen = false"
             @import="showImport = true"

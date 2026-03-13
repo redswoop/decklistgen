@@ -4,6 +4,9 @@ export type AppView = "browse" | "decks" | "cards" | "public" | "queue";
 
 function parseHash(): { view: AppView; deckId: string | null } {
   const hash = window.location.hash.replace(/^#\/?/, "");
+  if (hash === "decks/working") {
+    return { view: "decks", deckId: "__working__" };
+  }
   if (hash.startsWith("decks/")) {
     return { view: "decks", deckId: hash.slice(6) || null };
   }
@@ -28,6 +31,7 @@ function parseCardParam(): string | null {
 }
 
 function toHash(view: AppView, deckId: string | null): string {
+  if (view === "decks" && deckId === "__working__") return "#/decks/working";
   if (view === "decks" && deckId) return `#/decks/${deckId}`;
   if (view === "decks") return "#/decks";
   if (view === "cards") return "#/cards";

@@ -123,6 +123,13 @@ export function useDecklist() {
     }
   }
 
+  function decrementCard(setCode: string, localId: string) {
+    const item = items.value.find(
+      (i) => i.setCode === setCode && i.localId === localId
+    );
+    if (item && item.count > 0) item.count--;
+  }
+
   function clear() {
     items.value = [];
     currentDeckId.value = null;
@@ -305,7 +312,7 @@ export function useDecklist() {
   }
 
   return {
-    items, addCard, incrementCard, removeCard, clear, importDeck,
+    items, addCard, incrementCard, removeCard, decrementCard, clear, importDeck,
     totalCards, countColor, stats, DECK_SIZE,
     toText, isInDeck, getDeckCount,
     findSwappable, replaceCard, replaceByName,

@@ -7,6 +7,7 @@ import { useDecklist } from "../composables/useDecklist.js";
 import { usePokeproxy, usePokeproxyBatch, type ImageMode } from "../composables/usePokeproxy.js";
 import { useEraLoader } from "../composables/useEraLoader.js";
 import CardTile from "./CardTile.vue";
+import type { TileContext } from "./CardTile.vue";
 import type { Card } from "../../shared/types/card.js";
 
 const props = withDefaults(defineProps<{
@@ -14,8 +15,8 @@ const props = withDefaults(defineProps<{
   cards?: Card[];
   /** Count map (cardId → count) to show on tiles instead of deck counts */
   cardCounts?: Record<string, number>;
-  /** Hide the add-to-deck button on tiles */
-  hideAdd?: boolean;
+  /** Tile context — controls which overlays/actions appear */
+  context?: TileContext;
   /** Header label override (replaces "X cards") */
   headerLabel?: string;
   /** Enable selection checkboxes on tiles */
@@ -29,7 +30,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   cards: undefined,
   cardCounts: undefined,
-  hideAdd: false,
+  context: "browse",
   headerLabel: undefined,
   selectable: false,
   selectedIds: undefined,
@@ -41,6 +42,9 @@ const emit = defineEmits<{
   "preview-card": [card: Card, cards: Card[]];
   "toggle-select": [cardId: string];
   "pick-variant": [card: Card];
+  "add-card": [card: Card];
+  "remove-card": [card: Card];
+  "regenerate-card": [card: Card];
 }>();
 
 const { filters, setNameSearch } = useFilters();
@@ -258,7 +262,12 @@ const displayLabel = computed(() => {
 const skeletonCount = computed(() => cardsPerRow.value * 2);
 
 function handleAdd(card: Card) {
-  if (!props.hideAdd) addCard(card);
+  if (props.context === "cards") return;
+  if (props.context === "deck") {
+    emit("add-card", card);
+    return;
+  }
+  addCard(card);
 }
 
 function getCount(card: Card): number | undefined {
@@ -407,13 +416,15 @@ function handleTilePreview(card: Card) {
               :key="card.id"
               :card="card"
               :image-mode="imageMode"
+              :context="context"
               :count="getCount(card)"
-              :hide-add="hideAdd"
               :selectable="selectable"
               :selected="selectedIds?.has(card.id)"
               :stale="staleIds?.has(card.id)"
               :style="{ width: `${cardWidth}px`, flexShrink: 0 }"
               @add="handleAdd"
+              @remove="emit('remove-card', $event)"
+              @regenerate="emit('regenerate-card', $event)"
               @preview="handleTilePreview"
               @toggle-select="emit('toggle-select', $event)"
             />

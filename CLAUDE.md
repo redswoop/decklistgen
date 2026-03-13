@@ -61,6 +61,10 @@ data/              # Persistent data files (prompts.json etc.)
 - **Environment variables**: `PORT` (default 3001), `COMFYUI_URL`
 - **Volumes**: `/app/cache`, `/app/data`
 
+## UX Rules
+
+- **No disappearing buttons.** Never use `v-if` to hide a button based on state. Instead, always render it as `disabled` with a `title` tooltip explaining why the action is unavailable. Users should always see what actions exist, even when they can't use them yet.
+
 ## Gallery
 
 The `/gallery/` endpoint (`src/server/routes/gallery.ts`) is the place to preview and evaluate all visual samples — rendered cards, energy glyphs, etc. When adding new visual elements or previews, add them to the gallery page, not the main client app.
