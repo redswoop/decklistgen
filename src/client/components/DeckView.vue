@@ -65,12 +65,13 @@ const deckCards = computed(() => {
   return deck.value.cards.map((dc) => dc.card);
 });
 
-// Count map: cardId -> count (use working deck counts when editing)
+// Count map: cardId -> count (use working deck counts only when actively editing)
 const cardCounts = computed(() => {
   if (!deck.value) return {};
   const counts: Record<string, number> = {};
+  const useLive = props.isWorkingDeckSource && props.workingDeckIsDirty;
   for (const dc of deck.value.cards) {
-    counts[dc.card.id] = props.isWorkingDeckSource
+    counts[dc.card.id] = useLive
       ? getDeckCount(dc.card.setCode, dc.card.localId)
       : dc.count;
   }
@@ -83,7 +84,7 @@ const totalCards = computed(() =>
 
 const headerLabel = computed(() => {
   if (!deck.value) return "";
-  if (props.isWorkingDeckSource) {
+  if (props.isWorkingDeckSource && props.workingDeckIsDirty) {
     const unique = workingItems.value.length;
     return `${unique} unique · ${workingTotalCards.value}/60 total`;
   }
