@@ -2,7 +2,7 @@
 import { ref, computed, watch } from "vue";
 import type { Card } from "../../shared/types/card.js";
 import type { DeckCard } from "../../shared/types/deck.js";
-import { useVariants } from "../composables/usePokeproxy.js";
+import { useVariants, usePokeproxy, usePokeproxyBatch, getCardImageUrl } from "../composables/usePokeproxy.js";
 import { useDecks } from "../composables/useDecks.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
@@ -22,6 +22,7 @@ const emit = defineEmits<{
 }>();
 
 const isMobile = useIsMobile();
+const { imageMode } = usePokeproxy();
 const { updateDeck } = useDecks();
 
 // Fetch all print variants for this card
@@ -40,6 +41,10 @@ const totalCount = computed(() => {
 // All variant IDs (use variants from API, or just the current card)
 const variantCards = computed<Card[]>(() => variants.value ?? [props.card]);
 const variantIds = computed(() => variantCards.value.map((c) => c.id));
+
+// Batch-fetch proxy status for variant cards so proxy images resolve
+const batchIds = computed(() => imageMode.value === "proxy" ? variantIds.value : []);
+usePokeproxyBatch(batchIds);
 
 // Mutable allocation map
 const allocation = ref(new Map<string, number>());
@@ -153,7 +158,7 @@ function handleOverlayClick(e: MouseEvent) {
           :class="['variant-picker-item', { 'variant-picker-item-active': (allocation.get(v.id) ?? 0) > 0 }]"
         >
           <img
-            :src="cardImageUrl(v.imageBase, 'low')"
+            :src="getCardImageUrl(v, imageMode, 'low') ?? cardImageUrl(v.imageBase, 'low')"
             :alt="v.name"
             class="variant-picker-thumb"
             loading="lazy"

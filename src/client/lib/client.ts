@@ -7,6 +7,7 @@ import type { SavedDeck, DeckSummary, DeckCard } from "../../shared/types/deck.j
 import type { CustomizedCardsResponse } from "../../shared/types/customized-card.js";
 import type { BeautifyOptions, BeautifyPreview } from "../../shared/types/beautify.js";
 import type { User, AdminUser, MagicLink } from "../../shared/types/user.js";
+import type { QueueJob } from "../../shared/types/queue.js";
 
 const BASE = "/api";
 
@@ -105,6 +106,7 @@ export interface PokeproxyStatus {
   hasComposite: boolean;
   hasSvg: boolean;
   hasOriginal?: boolean;
+  mtime?: number;
 }
 
 export const api = {
@@ -175,9 +177,14 @@ export const api = {
   pokeproxyStatus: (cardId: string) =>
     get<PokeproxyStatus>(`/pokeproxy/status/${cardId}`),
   pokeproxyBatchStatus: (cardIds: string[]) =>
-    post<Record<string, { hasClean: boolean; hasComposite: boolean; hasSvg: boolean }>>(
+    post<Record<string, { hasClean: boolean; hasComposite: boolean; hasSvg: boolean; mtime?: number }>>(
       "/pokeproxy/status/batch", { cardIds }
     ),
+  pokeproxyBatchGenInfo: (cardIds: string[]) =>
+    post<Record<string, {
+      hasClean: boolean; hasComposite: boolean; hasSvg: boolean; mtime?: number;
+      skip?: boolean; isStale?: boolean; staleSummary?: string;
+    }>>("/pokeproxy/status/batch", { cardIds, includeGenInfo: true }),
   pokeproxyImageUrl: (cardId: string, type: "clean" | "composite" = "composite", version?: number) => {
     const base = `/api/pokeproxy/image/${cardId}/${type}`;
     return version ? `${base}?v=${version}` : base;
@@ -191,9 +198,10 @@ export const api = {
     const qs = params.toString();
     return qs ? `${base}?${qs}` : base;
   },
+  deckPrintUrl: (id: string) => `/api/pokeproxy/print/${id}`,
   pokeproxyEnergyPreviewUrl: () => `/api/pokeproxy/energy-preview`,
   pokeproxyGenerate: (cardId: string, force = false) =>
-    post<{ cardId: string; status: string; output?: string }>(`/pokeproxy/generate/${cardId}${force ? "?force=true" : ""}`, {}),
+    post<{ jobId: string; cardId: string; status: string }>(`/pokeproxy/generate/${cardId}${force ? "?force=true" : ""}`, {}),
   pokeproxyRegenerateSvg: (cardId: string) =>
     post<{ cardId: string; status: string }>(`/pokeproxy/svg/${cardId}/regenerate`, {}),
   pokeproxyGetPrompt: (cardId: string) =>
@@ -243,4 +251,14 @@ export const api = {
     del<{ ok: boolean; cardId: string }>(`/pokeproxy/customized/${cardId}`),
   batchDeleteCustomizations: (cardIds: string[]) =>
     post<{ ok: boolean; deleted: number }>("/pokeproxy/customized/batch/delete", { cardIds }),
+
+  // Queue endpoints
+  queueList: () =>
+    get<{ jobs: QueueJob[] }>("/pokeproxy/queue"),
+  queueGet: (jobId: string) =>
+    get<QueueJob>(`/pokeproxy/queue/${jobId}`),
+  queueCancel: (jobId: string) =>
+    post<{ ok: boolean }>(`/pokeproxy/queue/${jobId}/cancel`, {}),
+  queueClear: () =>
+    post<{ ok: boolean; cleared: number }>("/pokeproxy/queue/clear", {}),
 };

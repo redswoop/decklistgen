@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { DecklistEntry, DecklistOutput, ImportResult } from "../../shared/types/decklist.js";
 import type { Card } from "../../shared/types/card.js";
 import { SET_MAP } from "../../shared/constants/set-codes.js";
-import { loadSet, findCardBySetAndNumber, findCardByName } from "../services/card-store.js";
+import { loadSet, findCardBySetAndNumber, findCardByName, getCard } from "../services/card-store.js";
 import {
   fetchTournamentDetails,
   fetchTournamentStandings,
@@ -106,6 +106,22 @@ app.post("/import/text", async (c) => {
   }
 });
 
+/**
+ * Limitless uses "MEE" with arbitrary numbers for basic energies, but TCGdex
+ * has no "sve" set — basic energies live in various SV expansion sets.
+ * Map MEE numbers to known TCGdex card IDs.
+ */
+const BASIC_ENERGY_MAP: Record<string, { tcgdexId: string; setCode: string }> = {
+  "1": { tcgdexId: "sv02-278", setCode: "PAL" },   // Grass
+  "2": { tcgdexId: "sv03-230", setCode: "OBF" },   // Fire
+  "3": { tcgdexId: "sv02-279", setCode: "PAL" },   // Water
+  "4": { tcgdexId: "sv01-257", setCode: "SVI" },   // Lightning
+  "5": { tcgdexId: "sv03.5-207", setCode: "MEW" },  // Psychic
+  "6": { tcgdexId: "sv01-258", setCode: "SVI" },   // Fighting
+  "7": { tcgdexId: "sv06.5-098", setCode: "SFA" },  // Darkness
+  "8": { tcgdexId: "sv06.5-099", setCode: "SFA" },  // Metal
+};
+
 async function resolveDecklist(decklist: LimitlessDecklist): Promise<ImportResult> {
   // Collect all unique set codes and pre-load them
   const setCodes = new Set<string>();
@@ -143,6 +159,15 @@ async function resolveDecklist(decklist: LimitlessDecklist): Promise<ImportResul
     // Fallback: search by name (useful for energy cards from unknown sets)
     if (!card) {
       card = findCardByName(entry.name);
+    }
+
+    // Fallback: basic energy from MEE → load the set that has it and look up by tcgdexId
+    if (!card && entry.set === "MEE" && BASIC_ENERGY_MAP[entry.number]) {
+      const mapping = BASIC_ENERGY_MAP[entry.number];
+      try {
+        await loadSet(mapping.setCode);
+      } catch { /* set may already be loaded or unavailable */ }
+      card = getCard(mapping.tcgdexId);
     }
 
     if (card) {

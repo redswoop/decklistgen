@@ -8,6 +8,7 @@ import DeckView from "./components/DeckView.vue";
 import CardsView from "./components/CardsView.vue";
 import CardsFilterSidebar from "./components/CardsFilterSidebar.vue";
 import PublicDecksView from "./components/PublicDecksView.vue";
+import QueueView from "./components/QueueView.vue";
 import ExportDialog from "./components/ExportDialog.vue";
 import ImportDialog from "./components/ImportDialog.vue";
 import SaveDeckDialog from "./components/SaveDeckDialog.vue";
@@ -23,16 +24,23 @@ import { useRoute, setCardParam } from "./composables/useRoute.js";
 import { useIsMobile } from "./composables/useIsMobile.js";
 import { useEraLoader } from "./composables/useEraLoader.js";
 import { api } from "./lib/client.js";
+import { useQueue, useQueueBadge } from "./composables/useQueue.js";
 import type { Card } from "../shared/types/card.js";
 import type { DeckCard } from "../shared/types/deck.js";
 import type { DeckMembership } from "../shared/types/customized-card.js";
 
 const { isLoggedIn, loading: authLoading, checkAuth, isAdmin } = useAuth();
+const { activeJobCount } = useQueueBadge();
 const { restoreFromUrl } = useEraLoader();
-const showAdmin = ref(false);
 
 // View + deck selection synced to URL hash, card param for lightbox deep-links
 const { currentView, selectedDeckId, previewCardId } = useRoute();
+
+// Instantiate queue polling at app level so completion detection works
+// even when the queue tab isn't visible (fixes single-card generation bug)
+const queueIsActive = computed(() => currentView.value === 'queue');
+useQueue(queueIsActive);
+const showAdmin = ref(false);
 
 // Layout persistence
 const LAYOUT_KEY = "decklistgen-layout";
@@ -118,11 +126,14 @@ watch([mobileLeftOpen, mobileRightOpen], ([left, right]) => {
   document.body.style.overflow = (left || right) ? 'hidden' : '';
 });
 
+// Views that take the full center pane (no sidebars)
+const fullWidthView = computed(() => currentView.value === 'queue' || currentView.value === 'public');
+
 // Desktop collapsed state persisted to localStorage; on mobile, sidebars are always collapsed
 const savedLeftCollapsed = ref(saved.leftCollapsed);
 const savedRightCollapsed = ref(saved.rightCollapsed);
-const leftCollapsed = computed(() => isMobile.value || savedLeftCollapsed.value);
-const rightCollapsed = computed(() => isMobile.value || savedRightCollapsed.value);
+const leftCollapsed = computed(() => isMobile.value || savedLeftCollapsed.value || fullWidthView.value);
+const rightCollapsed = computed(() => isMobile.value || savedRightCollapsed.value || fullWidthView.value);
 const leftPct = ref(saved.left);
 const rightPct = ref(saved.right);
 
@@ -346,6 +357,10 @@ function handleDeckUpdated() {
           :class="['app-nav-tab', { active: currentView === 'public' }]"
           @click="currentView = 'public'"
         >Public</button>
+        <button
+          :class="['app-nav-tab', { active: currentView === 'queue' }]"
+          @click="currentView = 'queue'"
+        >Queue<span v-if="activeJobCount > 0" class="nav-badge">{{ activeJobCount }}</span></button>
       </div>
       <div class="app-nav-spacer" />
       <button
@@ -413,6 +428,7 @@ function handleDeckUpdated() {
             @preview-card="handleCardsPreview"
           />
           <PublicDecksView v-else-if="currentView === 'public'" />
+          <QueueView v-else-if="currentView === 'queue'" />
           <DeckView
             v-else
             ref="deckViewRef"
@@ -453,6 +469,8 @@ function handleDeckUpdated() {
         @click="currentView = 'cards'">Cards</button>
       <button :class="['mobile-tab', { active: currentView === 'public' }]"
         @click="currentView = 'public'">Public</button>
+      <button :class="['mobile-tab', { active: currentView === 'queue' }]"
+        @click="currentView = 'queue'">Queue<span v-if="activeJobCount > 0" class="nav-badge mobile-nav-badge">{{ activeJobCount }}</span></button>
     </nav>
 
     <!-- Mobile slide-over panels -->

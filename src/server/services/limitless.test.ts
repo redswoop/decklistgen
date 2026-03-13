@@ -147,6 +147,27 @@ Total Cards: 60`;
     expect(result.energy).toHaveLength(0);
   });
 
+  test("handles decimal counts (rounds to nearest integer)", () => {
+    const text = `Pokémon (17.5)
+3.00 Ralts MEG 58
+0.50 Spectrier ASC 98
+
+Trainer: 32
+3.50 Lillie's Determination MEG 119
+1.50 Nest Ball SVI 181
+
+Energy (10.5)
+7.50 Psychic Energy MEE 5`;
+
+    const result = parsePtcgoText(text);
+    expect(result.pokemon).toHaveLength(2);
+    expect(result.pokemon[0]).toEqual({ count: 3, name: "Ralts", set: "MEG", number: "58" });
+    expect(result.pokemon[1]).toEqual({ count: 1, name: "Spectrier", set: "ASC", number: "98" });
+    expect(result.trainer[0]).toEqual({ count: 4, name: "Lillie's Determination", set: "MEG", number: "119" });
+    expect(result.trainer[1]).toEqual({ count: 2, name: "Nest Ball", set: "SVI", number: "181" });
+    expect(result.energy[0]).toEqual({ count: 8, name: "Psychic Energy", set: "MEE", number: "5" });
+  });
+
   test("handles multi-word card names", () => {
     const text = `Trainer: 1
 4 Boss's Orders PAL 172`;

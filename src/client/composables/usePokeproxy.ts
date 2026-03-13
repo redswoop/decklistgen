@@ -6,6 +6,9 @@ import { useToast } from "./useToast.js";
 
 export type ImageMode = "original" | "proxy";
 
+/** Reactive flag: true when any card generation is in-flight (used by useQueue for polling) */
+export const hasActiveGenerations = computed(() => generatingSet.size > 0);
+
 // Read initial mode from URL
 function readModeFromUrl(): ImageMode {
   const p = new URLSearchParams(window.location.search);
@@ -19,15 +22,19 @@ const imageMode: Ref<ImageMode> = ref(readModeFromUrl());
 const generatingSet = reactive(new Set<string>());
 
 // Status cache: cardId -> availability. Populated by batch queries.
-const statusCache = reactive(new Map<string, { hasClean: boolean; hasComposite: boolean; hasSvg: boolean }>());
+const statusCache = reactive(new Map<string, { hasClean: boolean; hasComposite: boolean; hasSvg: boolean; mtime?: number }>());
 
 // Global generation version counter per card — survives component unmount.
 // Bump after successful generation so SVG URLs change and browsers re-fetch.
 const generationVersion = reactive(new Map<string, number>());
 
-/** Get the current generation version for cache-busting SVG/image URLs. */
+/** Get a cache-busting version for image/SVG URLs.
+ *  Uses server-provided mtime (survives page reload) + local generation counter
+ *  (provides immediate cache-bust after in-session regeneration). */
 export function getGenerationVersion(cardId: string): number {
-  return generationVersion.get(cardId) ?? 0;
+  const mtime = statusCache.get(cardId)?.mtime ?? 0;
+  const local = generationVersion.get(cardId) ?? 0;
+  return mtime + local;
 }
 
 export function usePokeproxy() {
@@ -35,11 +42,10 @@ export function usePokeproxy() {
     imageMode,
     setImageMode(mode: ImageMode) {
       imageMode.value = mode;
-      const p = new URLSearchParams(window.location.search);
-      if (mode === "original") p.delete("mode");
-      else p.set("mode", "proxy");
-      const qs = p.toString();
-      history.replaceState(null, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+      const url = new URL(window.location.href);
+      if (mode === "original") url.searchParams.delete("mode");
+      else url.searchParams.set("mode", "proxy");
+      history.replaceState(null, "", url.toString());
     },
   };
 }
@@ -110,7 +116,7 @@ export function getCardImageUrl(
   if (!s) return null; // Status not loaded yet
 
   // Prefer composite, then clean, then fall back to original
-  const v = generationVersion.get(card.id);
+  const v = getGenerationVersion(card.id);
   if (s.hasComposite) return api.pokeproxyImageUrl(card.id, "composite", v);
   if (s.hasClean) return api.pokeproxyImageUrl(card.id, "clean", v);
 
@@ -120,21 +126,37 @@ export function getCardImageUrl(
 /** Shared query client reference, set lazily on first use */
 let _queryClient: ReturnType<typeof useQueryClient> | null = null;
 
-/** Trigger generation and refresh status when done */
+/** Called when a generation job completes (from useQueue's completion watcher) */
+export async function onGenerationCompleted(
+  cardId: string,
+  queryClient?: ReturnType<typeof useQueryClient>,
+) {
+  const qc = queryClient ?? _queryClient;
+  // Refresh status in both statusCache and TanStack Query
+  try {
+    const newStatus = await api.pokeproxyStatus(cardId);
+    statusCache.set(cardId, newStatus);
+  } catch {}
+  generationVersion.set(cardId, (generationVersion.get(cardId) ?? 0) + 1);
+  generatingSet.delete(cardId);
+  qc?.invalidateQueries({ queryKey: ["pokeproxy-status", cardId] });
+  qc?.invalidateQueries({ queryKey: ["pokeproxy-batch"] });
+}
+
+/** Submit generation (now non-blocking — returns immediately after queuing) */
 export async function generateCleanImage(cardId: string, force = false) {
   if (generatingSet.has(cardId)) return;
   generatingSet.add(cardId);
   const toast = useToast();
   try {
-    await api.pokeproxyGenerate(cardId, force);
-    // Refresh status in both statusCache and TanStack Query
-    const newStatus = await api.pokeproxyStatus(cardId);
-    statusCache.set(cardId, newStatus);
-    // Bump global generation version so SVG URLs change even if lightbox was closed
-    generationVersion.set(cardId, (generationVersion.get(cardId) ?? 0) + 1);
-    _queryClient?.invalidateQueries({ queryKey: ["pokeproxy-status", cardId] });
-    _queryClient?.invalidateQueries({ queryKey: ["pokeproxy-batch"] });
+    const result = await api.pokeproxyGenerate(cardId, force);
+    // If the server didn't actually queue a job (already_exists, skipped, etc.),
+    // clear the generating state immediately — no queue completion will fire.
+    if (result.status !== "queued") {
+      generatingSet.delete(cardId);
+    }
   } catch (e) {
+    generatingSet.delete(cardId);
     if (e instanceof ApiError) {
       if (e.status === 401) toast.error("Sign in to generate images");
       else if (e.status === 403) toast.error("Your account is not authorized to generate images");
@@ -143,8 +165,6 @@ export async function generateCleanImage(cardId: string, force = false) {
       toast.error("Generation failed unexpectedly");
     }
     console.error("Generate failed:", e);
-  } finally {
-    generatingSet.delete(cardId);
   }
 }
 

@@ -20,10 +20,12 @@ function filtersToParams(): URLSearchParams {
   if (filters.nameSearch) p.set("q", filters.nameSearch);
   if (page.value > 1) p.set("page", String(page.value));
 
-  // Preserve mode param from usePokeproxy (if set)
+  // Preserve params managed by other composables
   const current = new URLSearchParams(window.location.search);
   const mode = current.get("mode");
   if (mode && mode !== "original") p.set("mode", mode);
+  const group = current.get("group");
+  if (group) p.set("group", group);
 
   return p;
 }

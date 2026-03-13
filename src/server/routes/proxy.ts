@@ -1,12 +1,15 @@
 import { Hono } from "hono";
-import { existsSync, readFileSync } from "node:fs";
-import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { getCard, loadSet, isSetLoaded } from "../services/card-store.js";
-import { cleanCardImage, ping as comfyPing, COMFYUI_URL } from "../services/comfyui.js";
+import { ping as comfyPing, COMFYUI_URL } from "../services/comfyui.js";
+import { submitJob, listJobs, getJob, cancelJob, clearCompleted } from "../services/gen-queue.js";
 import { getPromptForCard, saveCardPrompt } from "../services/prompt-db.js";
 import { getCardSettings, updateCardSettings, deleteCardSettings } from "../services/card-settings.js";
 import { getCustomizedCards, deleteCardArtifacts, invalidateCustomizedCardsCache } from "../services/customized-cards.js";
+import { getDeck } from "../services/deck-store.js";
+import { generatePrintHtml } from "../services/pokeproxy/index.js";
 import { requireAuth, requireAuthorized } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
@@ -17,7 +20,7 @@ import { resetIconIds, renderFromTemplate } from "../services/pokeproxy/template
 import type { TemplateName } from "../services/pokeproxy/templates/index.js";
 import { renderEnergyPreviewSvg } from "../services/pokeproxy/energy-preview.js";
 import { logAction, getClientIp } from "../services/logger.js";
-import sharp from "sharp";
+
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
 
@@ -41,11 +44,24 @@ function hasFile(cardId: string, suffix: string): boolean {
 }
 
 function getStatus(cardId: string) {
+  const hasClean = hasFile(cardId, "_clean.png");
+  const hasComposite = hasFile(cardId, "_composite.png");
+
+  // mtime of the newest cleaned image — used by client for cache-busting across page reloads
+  let mtime = 0;
+  if (hasComposite) {
+    try { mtime = Math.max(mtime, statSync(cachePath(cardId, "_composite.png")).mtimeMs); } catch {}
+  }
+  if (hasClean) {
+    try { mtime = Math.max(mtime, statSync(cachePath(cardId, "_clean.png")).mtimeMs); } catch {}
+  }
+
   return {
-    hasClean: hasFile(cardId, "_clean.png"),
-    hasComposite: hasFile(cardId, "_composite.png"),
+    hasClean,
+    hasComposite,
     hasSvg: hasFile(cardId, ".svg"),
     hasFullart: hasFile(cardId, "_fullart.png"),
+    mtime: mtime || undefined,
   };
 }
 
@@ -206,14 +222,45 @@ app.get("/status/:cardId", (c) => {
 
 /** Batch status check for multiple cards */
 app.post("/status/batch", async (c) => {
-  const { cardIds } = await c.req.json<{ cardIds: string[] }>();
+  const { cardIds, includeGenInfo } = await c.req.json<{ cardIds: string[]; includeGenInfo?: boolean }>();
   if (!Array.isArray(cardIds) || cardIds.length > 500) {
     return c.json({ error: "cardIds must be an array of at most 500" }, 400);
   }
-  const results: Record<string, ReturnType<typeof getStatus>> = {};
+  const results: Record<string, Record<string, unknown>> = {};
   for (const cardId of cardIds) {
     if (!isValidCardId(cardId)) continue;
-    results[cardId] = getStatus(cardId);
+    const status = getStatus(cardId);
+    if (!includeGenInfo) {
+      results[cardId] = status;
+      continue;
+    }
+    // Enrich with generation info: skip, isStale, staleSummary
+    await ensureCardLoaded(cardId);
+    const cardData = loadCardData(cardId);
+    const promptResult = getPromptForCard(cardData);
+    let isStale = false;
+    let staleSummary: string | undefined;
+    if (status.hasClean) {
+      const metaPath = cachePath(cardId, "_clean_meta.json");
+      if (existsSync(metaPath)) {
+        try {
+          const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+          if (meta.rule !== promptResult.ruleName) {
+            isStale = true;
+            staleSummary = `rule changed: ${meta.rule} → ${promptResult.ruleName}`;
+          } else if (promptResult.prompt && promptResult.prompt !== meta.prompt) {
+            isStale = true;
+            staleSummary = `prompt text changed (rule: ${promptResult.ruleName})`;
+          }
+        } catch {}
+      }
+    }
+    results[cardId] = {
+      ...status,
+      skip: promptResult.skip,
+      isStale,
+      staleSummary,
+    };
   }
   return c.json(results);
 });
@@ -322,7 +369,6 @@ app.post("/generate/:cardId", requireAuthorized, async (c) => {
   const mode = c.req.query("mode") === "fullart" ? "fullart" : "clean";
   logAction("proxy.generate", getClientIp(c), { cardId, seed: seedParam, force, mode });
   const promptOverride = c.req.query("prompt") || undefined;
-  // Use provided seed, or random on force, or default 42
   const seed = seedParam ? Math.max(0, Math.min(999999999, parseInt(seedParam, 10) || 0)) : force ? Math.floor(Math.random() * 999999) : 42;
 
   const existsSuffix = mode === "fullart" ? "_fullart.png" : "_composite.png";
@@ -330,14 +376,7 @@ app.post("/generate/:cardId", requireAuthorized, async (c) => {
     return c.json({ cardId, status: "already_exists" });
   }
 
-  // Ensure source image in cache
-  if (!hasFile(cardId, ".png")) {
-    if (!(await ensureSourceImage(cardId))) {
-      return c.json({ error: `Card not loaded or has no image: ${cardId}` }, 400);
-    }
-  }
-
-  // Look up the prompt for this card
+  // Resolve prompt before queuing
   const cardData = loadCardData(cardId);
   let prompt: string;
   let ruleName: string;
@@ -348,7 +387,6 @@ app.post("/generate/:cardId", requireAuthorized, async (c) => {
   } else {
     const result = getPromptForCard(cardData);
     if (mode === "fullart") {
-      // Fullart mode: never skip, use default prompt if none resolved
       prompt = result.prompt || FULLART_DEFAULT_PROMPT;
       ruleName = result.skip ? "fullart-default" : result.ruleName;
     } else {
@@ -363,65 +401,70 @@ app.post("/generate/:cardId", requireAuthorized, async (c) => {
     }
   }
 
-  // Read source image
-  const srcData = await readFile(cachePath(cardId, ".png"));
+  // Resolve card name + image base for queue display
+  await ensureCardLoaded(cardId);
+  const card = getCard(cardId);
+  const user = c.get("user")!;
 
-  // For standard cards, crop to just the art window so Klein gets a cleaner reference
-  const fullart = isFullArt(cardData as TcgdexCard);
-  let inputBase64 = srcData.toString("base64");
-  if (!fullart) {
-    try {
-      const { width, height } = await sharp(srcData).metadata();
-      if (width && height) {
-        // Art region as fractions of the card (from constants: 45-555 x 110-430 on 600x825)
-        const crop = {
-          left: Math.round(width * 45 / 600),
-          top: Math.round(height * 110 / 825),
-          width: Math.round(width * 510 / 600),
-          height: Math.round(height * 320 / 825),
-        };
-        const cropped = await sharp(srcData).extract(crop).png().toBuffer();
-        inputBase64 = cropped.toString("base64");
-      }
-    } catch (e: any) {
-      console.error(`[proxy] Art crop failed for ${cardId}, using full image:`, e.message);
-    }
+  const job = submitJob({
+    cardId,
+    cardName: card?.name || cardId,
+    cardImageBase: card?.imageBase || "",
+    mode,
+    force,
+    seed,
+    prompt,
+    ruleName,
+    submittedBy: user.displayName || user.email,
+  });
+
+  return c.json({ jobId: job.id, cardId, status: "queued" });
+});
+
+// --- Queue endpoints ---
+
+app.get("/queue", requireAuth, (c) => {
+  return c.json({ jobs: listJobs() });
+});
+
+app.get("/queue/:jobId", requireAuth, (c) => {
+  const job = getJob(c.req.param("jobId"));
+  if (!job) return c.json({ error: "Job not found" }, 404);
+  return c.json(job);
+});
+
+app.post("/queue/:jobId/cancel", requireAuthorized, (c) => {
+  const ok = cancelJob(c.req.param("jobId"));
+  return c.json({ ok });
+});
+
+app.post("/queue/clear", requireAuthorized, (c) => {
+  const cleared = clearCompleted();
+  return c.json({ ok: true, cleared });
+});
+
+/** Print-ready HTML sheet for an entire deck */
+app.get("/print/:deckId", requireAuth, async (c) => {
+  const user = c.get("user")!;
+  const deckId = c.req.param("deckId");
+  const deck = await getDeck(deckId, user.id);
+  if (!deck) return c.json({ error: "Deck not found" }, 404);
+
+  resetIconIds();
+
+  const cardSvgs: [number, string][] = [];
+  for (const entry of deck.cards) {
+    const cardId = entry.card.id;
+    const stored = getCardSettings(user.id, cardId);
+    const svg = await generateSvgFromTemplate(cardId, {
+      fontSize: stored.fontSize,
+      maxCover: stored.maxCover,
+    });
+    cardSvgs.push([entry.count, svg]);
   }
 
-  try {
-    const cleanBase64 = await cleanCardImage(inputBase64, seed, prompt);
-
-    // Save clean image (composite = clean until proper compositing is added)
-    const cleanBuffer = Buffer.from(cleanBase64, "base64");
-    await mkdir(CACHE_DIR, { recursive: true });
-    const writes: Promise<void>[] = [];
-    const meta = JSON.stringify({
-      prompt, rule: ruleName, seed, timestamp: new Date().toISOString(), cardId, mode,
-    }, null, 2);
-
-    if (mode === "fullart") {
-      writes.push(
-        writeFile(cachePath(cardId, "_fullart.png"), cleanBuffer),
-        writeFile(cachePath(cardId, "_fullart_meta.json"), meta),
-      );
-    } else {
-      writes.push(
-        writeFile(cachePath(cardId, "_clean.png"), cleanBuffer),
-        writeFile(cachePath(cardId, "_composite.png"), cleanBuffer),
-        writeFile(cachePath(cardId, "_clean_meta.json"), meta),
-      );
-      // Invalidate stale SVG so it regenerates with the cleaned image
-      if (hasFile(cardId, ".svg")) {
-        writes.push(unlink(cachePath(cardId, ".svg")));
-      }
-    }
-    await Promise.all(writes);
-
-    return c.json({ cardId, status: "generated", seed, rule: ruleName, prompt, mode });
-  } catch (e: any) {
-    console.error(`Image generation failed for ${cardId}:`, e);
-    return c.json({ cardId, status: "failed", error: "Image generation failed" }, 500);
-  }
+  const html = generatePrintHtml(cardSvgs);
+  return c.html(html);
 });
 
 // --- Card settings endpoints (require auth) ---

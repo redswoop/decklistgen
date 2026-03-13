@@ -78,6 +78,26 @@ body {
   color: #e0e0e0;
 }
 
+.nav-badge {
+  background: #e94560;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.mobile-nav-badge {
+  margin-left: 2px;
+}
+
 .app-nav-spacer {
   flex: 1;
 }
@@ -334,7 +354,9 @@ body {
 .card-grid-wrapper {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100%;   /* block-layout contexts (browse view) */
+  flex: 1;        /* flex-column contexts (deck view — fills remaining space after toolbar) */
+  min-height: 0;  /* allow shrinking below content height in flex contexts */
 }
 
 .card-grid-header {
@@ -355,6 +377,7 @@ body {
 
 .card-grid-scroll {
   flex: 1;
+  min-height: 0;  /* allow shrinking so overflow-y scrolls instead of growing */
   overflow-y: auto;
 }
 

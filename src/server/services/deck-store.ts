@@ -1,5 +1,6 @@
 import { getDb } from "./db/database.js";
 import type { SavedDeck, DeckSummary, DeckCard } from "../../shared/types/deck.js";
+import { consolidateDeckCards } from "../../shared/utils/consolidate-deck.js";
 
 interface DeckRow {
   id: string;
@@ -98,7 +99,7 @@ export async function updateDeck(id: string, userId: string, updates: Partial<Sa
 
   const deck = rowToDeck(row);
   if (updates.name !== undefined) deck.name = updates.name;
-  if (updates.cards !== undefined) deck.cards = updates.cards;
+  if (updates.cards !== undefined) deck.cards = consolidateDeckCards(updates.cards);
   if (updates.isPublic !== undefined) deck.isPublic = updates.isPublic;
   if (updates.isListed !== undefined) deck.isListed = updates.isListed;
   deck.updatedAt = new Date().toISOString();

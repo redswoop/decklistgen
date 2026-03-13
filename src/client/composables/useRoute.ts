@@ -1,6 +1,6 @@
 import { ref, watch, onMounted, onUnmounted } from "vue";
 
-export type AppView = "browse" | "decks" | "cards" | "public";
+export type AppView = "browse" | "decks" | "cards" | "public" | "queue";
 
 function parseHash(): { view: AppView; deckId: string | null } {
   const hash = window.location.hash.replace(/^#\/?/, "");
@@ -16,6 +16,9 @@ function parseHash(): { view: AppView; deckId: string | null } {
   if (hash === "public" || hash.startsWith("public/")) {
     return { view: "public", deckId: null };
   }
+  if (hash === "queue") {
+    return { view: "queue", deckId: null };
+  }
   return { view: "browse", deckId: null };
 }
 
@@ -29,6 +32,7 @@ function toHash(view: AppView, deckId: string | null): string {
   if (view === "decks") return "#/decks";
   if (view === "cards") return "#/cards";
   if (view === "public") return "#/public";
+  if (view === "queue") return "#/queue";
   return "#/browse";
 }
 

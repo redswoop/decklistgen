@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useVirtualizer } from "@tanstack/vue-virtual";
 import { useFilters } from "../composables/useFilters.js";
 import { useCards } from "../composables/useCards.js";
@@ -52,9 +52,24 @@ const { loadingEra, loadEra } = useEraLoader();
 const localPage = ref(1);
 const { data, isLoading } = useCards(filters, localPage, 99999);
 
-// Group-by
+// Group-by — persist to URL so refreshes preserve the selection
 type GroupBy = "none" | "set" | "energyType" | "rarity" | "category";
-const groupBy = ref<GroupBy>("set");
+const validGroupBy = new Set<GroupBy>(["none", "set", "energyType", "rarity", "category"]);
+
+function readGroupByFromUrl(): GroupBy {
+  const val = new URLSearchParams(window.location.search).get("group");
+  return val && validGroupBy.has(val as GroupBy) ? (val as GroupBy) : "set";
+}
+
+function writeGroupByToUrl(value: GroupBy) {
+  const url = new URL(window.location.href);
+  if (value === "set") url.searchParams.delete("group");
+  else url.searchParams.set("group", value);
+  history.replaceState(null, "", url.toString());
+}
+
+const groupBy = ref<GroupBy>(readGroupByFromUrl());
+watch(groupBy, (val) => writeGroupByToUrl(val));
 
 // Container sizing
 const scrollRef = ref<HTMLElement | null>(null);

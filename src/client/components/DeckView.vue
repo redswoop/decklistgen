@@ -2,6 +2,7 @@
 import { ref, computed, watch } from "vue";
 import CardGrid from "./CardGrid.vue";
 import BeautifyDialog from "./BeautifyDialog.vue";
+import BatchGenerateDialog from "./BatchGenerateDialog.vue";
 import VariantPicker from "./VariantPicker.vue";
 import { useDecks } from "../composables/useDecks.js";
 import { useDecklist } from "../composables/useDecklist.js";
@@ -79,6 +80,7 @@ const headerLabel = computed(() => {
 });
 
 const showBeautify = ref(false);
+const showBatchGenerate = ref(false);
 const variantPickerCard = ref<Card | null>(null);
 
 function handlePickVariant(card: Card) {
@@ -153,6 +155,9 @@ function handlePreview(card: Card, cards: Card[]) {
         <button class="dm-action-btn" title="Upgrade card variants" @click="showBeautify = true">
           Beautify
         </button>
+        <button class="dm-action-btn" title="Generate proxy artwork for cards in this deck" @click="showBatchGenerate = true">
+          Generate
+        </button>
         <button class="dm-action-btn" title="Open printable proxy sheet" @click="handlePrint">Print</button>
         <button class="dm-action-btn" @click="handleExport">Export</button>
       </div>
@@ -173,6 +178,12 @@ function handlePreview(card: Card, cards: Card[]) {
       :deck-name="deck.name"
       @close="showBeautify = false"
       @updated="handleBeautifyUpdated"
+    />
+
+    <BatchGenerateDialog
+      v-if="showBatchGenerate && deck"
+      :cards="deck.cards"
+      @close="showBatchGenerate = false"
     />
 
     <VariantPicker

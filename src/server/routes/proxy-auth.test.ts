@@ -7,6 +7,7 @@ import { sessionMiddleware } from "../middleware/auth.js";
 import { loadSet } from "../services/card-store.js";
 import { createUser, deleteUser } from "../services/user-store.js";
 import { createSession, deleteUserSessions } from "../services/session-store.js";
+import { createDeck, deleteDeck } from "../services/deck-store.js";
 import type { AppEnv } from "../types.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
@@ -174,6 +175,58 @@ describe("POST /pokeproxy/status/batch", () => {
     const body = await res.json();
     expect(Object.keys(body)).toHaveLength(0);
   });
+
+  test("without includeGenInfo returns basic shape (no skip/isStale)", async () => {
+    const res = await postJson("/pokeproxy/status/batch", {
+      cardIds: [MOCK_CARD_ID],
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const entry = body[MOCK_CARD_ID];
+    expect(entry).toBeDefined();
+    expect(typeof entry.hasClean).toBe("boolean");
+    expect(typeof entry.hasComposite).toBe("boolean");
+    // Should NOT have gen info fields
+    expect(entry.skip).toBeUndefined();
+    expect(entry.isStale).toBeUndefined();
+  });
+
+  test("with includeGenInfo returns extended fields", async () => {
+    const res = await postJson("/pokeproxy/status/batch", {
+      cardIds: [MOCK_CARD_ID],
+      includeGenInfo: true,
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const entry = body[MOCK_CARD_ID];
+    expect(entry).toBeDefined();
+    expect(typeof entry.hasClean).toBe("boolean");
+    expect(typeof entry.hasComposite).toBe("boolean");
+    expect(typeof entry.skip).toBe("boolean");
+    expect(typeof entry.isStale).toBe("boolean");
+  });
+
+  test("with includeGenInfo detects stale card", async () => {
+    // Write a fake clean image + meta with a different rule
+    writeFileSync(join(CACHE_DIR, `${MOCK_CARD_ID}_clean.png`), TINY_PNG);
+    writeFileSync(
+      join(CACHE_DIR, `${MOCK_CARD_ID}_clean_meta.json`),
+      JSON.stringify({ rule: "nonexistent-old-rule", prompt: "old prompt" }),
+    );
+    const res = await postJson("/pokeproxy/status/batch", {
+      cardIds: [MOCK_CARD_ID],
+      includeGenInfo: true,
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const entry = body[MOCK_CARD_ID];
+    expect(entry.hasClean).toBe(true);
+    expect(entry.isStale).toBe(true);
+    expect(entry.staleSummary).toContain("rule changed");
+    // Clean up
+    unlinkSync(join(CACHE_DIR, `${MOCK_CARD_ID}_clean.png`));
+    unlinkSync(join(CACHE_DIR, `${MOCK_CARD_ID}_clean_meta.json`));
+  });
 });
 
 // =========================================================================
@@ -337,13 +390,14 @@ describe("POST /pokeproxy/generate/:cardId (requireAuthorized)", () => {
     unlinkSync(join(CACHE_DIR, `${MOCK_CARD_ID}_composite.png`));
   });
 
-  test("returns 400 for nonexistent card (no image)", async () => {
+  test("queues nonexistent card (failure happens async)", async () => {
     const res = await postJson(`/pokeproxy/generate/${NONEXISTENT_CARD}`, {}, authorizedSession);
     expect(res.status).not.toBe(401);
     expect(res.status).not.toBe(403);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.error).toContain("not loaded");
+    expect(body.status).toBe("queued");
+    expect(body.jobId).toBeTruthy();
   });
 });
 
@@ -462,6 +516,77 @@ describe("POST /pokeproxy/customized/batch/delete (requireAuthorized)", () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.deleted).toBe(1);
+  });
+});
+
+// =========================================================================
+// Print endpoint (requireAuth)
+// =========================================================================
+
+describe("GET /pokeproxy/print/:deckId (requireAuth)", () => {
+  const testDeckId = `print-test-deck-${Date.now()}`;
+
+  beforeAll(async () => {
+    await createDeck(authorizedId, {
+      id: testDeckId,
+      name: "Print Test Deck",
+      cards: [
+        {
+          count: 2,
+          card: {
+            id: MOCK_CARD_ID,
+            localId: "1",
+            name: "Ho-Oh",
+            category: "Pokemon",
+            hp: 130,
+            energyTypes: ["Fire"],
+            stage: "Basic",
+            rarity: "Rare",
+            setId: "cel25",
+            setName: "Celebrations",
+          } as any,
+        },
+      ],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  });
+
+  afterAll(async () => {
+    await deleteDeck(testDeckId, authorizedId);
+  });
+
+  test("401 without session", async () => {
+    const res = await req(`/pokeproxy/print/${testDeckId}`);
+    expect(res.status).toBe(401);
+  });
+
+  test("404 for nonexistent deck", async () => {
+    const res = await req(`/pokeproxy/print/nonexistent-deck-id`, { session: authorizedSession });
+    expect(res.status).toBe(404);
+  });
+
+  test("returns HTML print sheet for owned deck", async () => {
+    const res = await req(`/pokeproxy/print/${testDeckId}`, { session: authorizedSession });
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain("PokeProxy - Print Sheet");
+    expect(html).toContain("<svg");
+    expect(html).toContain("Ho-Oh");
+  });
+
+  test("prints correct number of card copies", async () => {
+    const res = await req(`/pokeproxy/print/${testDeckId}`, { session: authorizedSession });
+    const html = await res.text();
+    // count=2, so there should be 2 card divs
+    const cardDivs = html.match(/<div class="card">/g);
+    expect(cardDivs).toHaveLength(2);
+  });
+
+  test("other user cannot access private deck", async () => {
+    const res = await req(`/pokeproxy/print/${testDeckId}`, { session: freeSession });
+    expect(res.status).toBe(404);
   });
 });
 

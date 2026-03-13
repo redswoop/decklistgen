@@ -148,7 +148,7 @@ export function parseDecklistHtml(html: string): LimitlessDecklist {
 export function parsePtcgoText(text: string): LimitlessDecklist {
   const result: LimitlessDecklist = { pokemon: [], trainer: [], energy: [] };
   let currentCategory: "pokemon" | "trainer" | "energy" = "pokemon";
-  const cardLineRe = /^(\d+)\s+(.+?)\s+([A-Z][A-Z0-9]{1,5})\s+(\d+)\s*$/;
+  const cardLineRe = /^(\d+(?:\.\d+)?)\s+(.+?)\s+([A-Z][A-Z0-9]{1,5})\s+(\d+)\s*$/;
 
   for (const rawLine of text.split("\n")) {
     const line = rawLine.trim();
@@ -173,7 +173,7 @@ export function parsePtcgoText(text: string): LimitlessDecklist {
     const match = line.match(cardLineRe);
     if (match) {
       result[currentCategory].push({
-        count: parseInt(match[1]),
+        count: Math.round(parseFloat(match[1])),
         name: match[2],
         set: match[3],
         number: match[4],

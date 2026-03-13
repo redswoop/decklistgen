@@ -3,12 +3,14 @@ import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import type { Card } from "../../shared/types/card.js";
 import {
   useVariants,
+  usePokeproxy,
   usePokeproxyStatus,
   isGenerating,
   generateCleanImage,
   regenerateSvg,
   useGenerationQueryClient,
   getGenerationVersion,
+  getCardImageUrl,
 } from "../composables/usePokeproxy.js";
 import { useCardDetail } from "../composables/useCardDetail.js";
 import { api } from "../lib/client.js";
@@ -23,8 +25,10 @@ import { useProxySettings } from "../composables/useProxySettings.js";
 import type { ProxySettings } from "../../shared/types/proxy-settings.js";
 import type { DeckMembership } from "../../shared/types/customized-card.js";
 import type { DeckCard } from "../../shared/types/deck.js";
+import { consolidateDeckCards } from "../../shared/utils/consolidate-deck.js";
 
 useGenerationQueryClient();
+const { imageMode } = usePokeproxy();
 
 // Version selection (sticky via localStorage)
 type CardVersion = "original" | "cleaned" | "proxy";
@@ -131,10 +135,15 @@ function getContextDeckCount(setCode: string, localId: string): number {
 const swappableItem = computed(() => {
   const card = currentCard.value;
   if (props.savedDeckCards?.length) {
-    const match = props.savedDeckCards.find(
+    const matches = props.savedDeckCards.filter(
       (dc) => dc.card.name === card.name && !(dc.card.setCode === card.setCode && dc.card.localId === card.localId)
     );
-    if (match) return { setCode: match.card.setCode, localId: match.card.localId, name: match.card.name, count: match.count };
+    if (!matches.length) return null;
+    // Prefer the card the user actually clicked on (activeCard)
+    const active = activeCard.value;
+    const preferred = matches.find(dc => dc.card.setCode === active.setCode && dc.card.localId === active.localId);
+    const match = preferred ?? matches[0];
+    return { setCode: match.card.setCode, localId: match.card.localId, name: match.card.name, count: match.count };
   }
   return findSwappable(card);
 });
@@ -185,36 +194,21 @@ async function handleReplace() {
   const newCard = currentCard.value;
 
   if (props.savedDeckId && props.savedDeckCards) {
-    // Replace in saved deck via API
-    const newCards: DeckCard[] = [];
-    let merged = false;
-    for (const dc of props.savedDeckCards) {
-      if (dc.card.setCode === oldSet && dc.card.localId === oldLocal) {
-        // This is the old card — check if newCard already exists
-        const existingIdx = newCards.findIndex(
-          (nc) => nc.card.setCode === newCard.setCode && nc.card.localId === newCard.localId
-        );
-        if (existingIdx !== -1) {
-          newCards[existingIdx] = { ...newCards[existingIdx], count: newCards[existingIdx].count + dc.count };
-          merged = true;
-        } else {
-          newCards.push({ count: dc.count, card: newCard });
-        }
-      } else if (dc.card.setCode === newCard.setCode && dc.card.localId === newCard.localId && !merged) {
-        // The new card already exists — will get the old count added later, or already appeared
-        newCards.push(dc);
-      } else {
-        newCards.push(dc);
-      }
+    const newCards = props.savedDeckCards.map(dc => ({ ...dc }));
+    // Decrement old card by 1
+    const oldIdx = newCards.findIndex(dc => dc.card.setCode === oldSet && dc.card.localId === oldLocal);
+    if (oldIdx !== -1) {
+      if (newCards[oldIdx].count > 1) newCards[oldIdx].count--;
+      else newCards.splice(oldIdx, 1);
     }
-    try {
-      await updateDeck({ id: props.savedDeckId, data: { cards: newCards } });
-      emit("deckUpdated");
-    } catch (e) {
-      console.error("Failed to replace card in saved deck:", e);
-    }
+    // Increment new card by 1
+    const newIdx = newCards.findIndex(dc => dc.card.setCode === newCard.setCode && dc.card.localId === newCard.localId);
+    if (newIdx !== -1) newCards[newIdx].count++;
+    else newCards.push({ count: 1, card: newCard });
+    // Defensive consolidation
+    await updateDeck({ id: props.savedDeckId, data: { cards: consolidateDeckCards(newCards) } });
+    emit("deckUpdated");
   } else {
-    // Replace in working deck
     replaceCard(oldSet, oldLocal, newCard);
   }
 }
@@ -457,8 +451,8 @@ function navigateToDeck(deckId: string) {
                 <span class="lb-version-label">Original</span>
               </div>
 
-              <!-- Cleaned (full art only) -->
-              <div v-if="currentCard.isFullArt" :class="['lb-version', { active: selectedVersion === 'cleaned' }]">
+              <!-- Cleaned -->
+              <div :class="['lb-version', { active: selectedVersion === 'cleaned' }]">
                 <div class="lb-version-thumb" @click="selectVersion('cleaned')">
                   <div v-if="generating" class="lb-version-placeholder">
                     <div class="generate-spinner small"></div>
@@ -534,7 +528,7 @@ function navigateToDeck(deckId: string) {
               :class="['lb-variant', { active: i === variantIndex }]"
               @click="variantIndex = i"
             >
-              <img v-if="v.imageBase" :src="cardImageUrl(v.imageBase, 'low')" class="lb-variant-img" />
+              <img v-if="v.imageBase" :src="getCardImageUrl(v, imageMode, 'low') ?? cardImageUrl(v.imageBase, 'low')" class="lb-variant-img" />
               <div v-else class="lb-variant-placeholder">?</div>
               <span v-if="getContextDeckCount(v.setCode, v.localId)" class="lb-variant-badge">
                 {{ getContextDeckCount(v.setCode, v.localId) }}
@@ -650,11 +644,11 @@ function navigateToDeck(deckId: string) {
                 <button class="deck-ctrl-btn" @click="handleAdd">+</button>
               </div>
               <button
-                v-if="swappableItem && deckCount === 0"
+                v-if="swappableItem"
                 class="lb-replace-btn"
                 @click="handleReplace"
               >
-                Replace {{ swappableItem.setCode }} #{{ swappableItem.localId }} in deck
+                Swap 1× {{ swappableItem.setCode }} #{{ swappableItem.localId }}
               </button>
             </div>
 
