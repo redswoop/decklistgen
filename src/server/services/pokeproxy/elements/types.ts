@@ -1,5 +1,8 @@
 /**
  * Element widget system — typed props + SVG rendering for interactive editing.
+ *
+ * Recursive tree: one NodeState for serialization, one LayoutNode for runtime.
+ * Containers (packed-row, stack) hold children; leaves (text, type-dot, etc.) don't.
  */
 
 export interface PropDef {
@@ -13,34 +16,28 @@ export interface PropDef {
   isPosition?: boolean;
 }
 
-export interface SubElementState {
-  type: "text" | "type-dot" | "suffix-logo";
-  props: Record<string, number | string>;
-  bind?: Record<string, string>;
-}
-
-export interface ElementState {
+export interface NodeState {
   type: string;
-  id: string;
-  props: Record<string, number | string>;
-  children?: SubElementState[];
-}
-
-export interface SubElement {
-  readonly type: "text" | "type-dot" | "suffix-logo";
+  id?: string;
   props: Record<string, number | string>;
   bind?: Record<string, string>;
-  propDefs(): PropDef[];
-  measure(): { width: number; height: number };
-  render(x: number, y: number): string;
-  toJSON(): SubElementState;
+  children?: NodeState[];
 }
 
-export interface CardElement {
+export interface LayoutNode {
   readonly type: string;
-  readonly id: string;
+  id?: string;
   props: Record<string, number | string>;
+  bind?: Record<string, string>;
+  children?: LayoutNode[];
   propDefs(): PropDef[];
-  render(): string;
-  toJSON(): ElementState;
+  measure(allocatedWidth?: number): { width: number; height: number };
+  render(x: number, y: number, allocatedWidth?: number): string;
+  toJSON(): NodeState;
 }
+
+// Backward-compat aliases
+export type ElementState = NodeState;
+export type SubElementState = NodeState;
+export type CardElement = LayoutNode;
+export type SubElement = LayoutNode;

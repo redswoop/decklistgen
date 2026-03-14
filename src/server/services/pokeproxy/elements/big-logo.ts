@@ -2,18 +2,18 @@
  * BigLogoElement — large decorative suffix logo (V/VSTAR) on fullart cards.
  */
 
-import type { CardElement, PropDef, ElementState } from "./types.js";
+import type { LayoutNode, PropDef, NodeState } from "./types.js";
 import { renderSuffixLogo } from "../logos.js";
 
 const SUFFIX_OPTIONS = ["V", "ex", "VSTAR", "VSTAR-big"];
 
-export class BigLogoElement implements CardElement {
+export class BigLogoElement implements LayoutNode {
   readonly type = "big-logo";
-  readonly id: string;
+  id?: string;
   props: Record<string, number | string>;
 
-  constructor(id: string, props?: Record<string, number | string>) {
-    this.id = id;
+  constructor(props?: Record<string, number | string>, id?: string) {
+    if (id) this.id = id;
     this.props = {
       x: -50,
       y: -38,
@@ -34,19 +34,28 @@ export class BigLogoElement implements CardElement {
     ];
   }
 
-  render(): string {
-    const { x, y, height, opacity, suffix } = this.props;
-    const [logoSvg] = renderSuffixLogo(
-      String(suffix),
-      Number(x),
-      Number(y),
-      Number(height),
-    );
-    if (!logoSvg) return `<g data-element-id="${this.id}"></g>`;
-    return `<g data-element-id="${this.id}" opacity="${Number(opacity)}" clip-path="url(#card-clip)">${logoSvg}</g>`;
+  measure(): { width: number; height: number } {
+    const h = Number(this.props.height);
+    const [, w] = renderSuffixLogo(String(this.props.suffix), 0, 0, h);
+    return { width: w, height: h };
   }
 
-  toJSON(): ElementState {
-    return { type: this.type, id: this.id, props: { ...this.props } };
+  render(x: number, y: number): string {
+    const { height, opacity, suffix } = this.props;
+    const [logoSvg] = renderSuffixLogo(
+      String(suffix),
+      x,
+      y,
+      Number(height),
+    );
+    const idAttr = this.id ? ` data-element-id="${this.id}"` : "";
+    if (!logoSvg) return `<g${idAttr}></g>`;
+    return `<g${idAttr} opacity="${Number(opacity)}" clip-path="url(#card-clip)">${logoSvg}</g>`;
+  }
+
+  toJSON(): NodeState {
+    const state: NodeState = { type: this.type, props: { ...this.props } };
+    if (this.id) state.id = this.id;
+    return state;
   }
 }

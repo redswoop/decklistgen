@@ -1,20 +1,20 @@
 /**
- * PackedRowElement — composite element that packs sub-elements horizontally.
+ * PackedRowElement — packs children horizontally with flexbox-like layout.
+ * Works at any depth in the element tree.
  */
 
-import type { CardElement, PropDef, ElementState, SubElement, SubElementState } from "./types.js";
-import type { PackItem } from "./packing.js";
-import { packRow } from "./packing.js";
-import { createSubElement } from "./sub-elements.js";
+import type { LayoutNode, PropDef, NodeState } from "./types.js";
+import { packRow, buildPackItems } from "./packing.js";
 
-export class PackedRowElement implements CardElement {
+export class PackedRowElement implements LayoutNode {
   readonly type = "packed-row";
-  readonly id: string;
+  id?: string;
   props: Record<string, number | string>;
-  children: SubElement[];
+  bind?: Record<string, string>;
+  children: LayoutNode[];
 
-  constructor(id: string, props?: Record<string, number | string>, children?: SubElementState[]) {
-    this.id = id;
+  constructor(props?: Record<string, number | string>, children?: LayoutNode[], bind?: Record<string, string>, id?: string) {
+    if (id) this.id = id;
     this.props = {
       anchorX: 718,
       anchorY: 10,
@@ -33,7 +33,8 @@ export class PackedRowElement implements CardElement {
       rx: 0,
       ...props,
     };
-    this.children = (children ?? []).map(c => createSubElement(c));
+    this.children = children ?? [];
+    if (bind) this.bind = bind;
   }
 
   propDefs(): PropDef[] {
@@ -56,30 +57,36 @@ export class PackedRowElement implements CardElement {
     ];
   }
 
-  render(): string {
+  measure(allocatedWidth?: number): { width: number; height: number } {
+    if (this.children.length === 0) return { width: 0, height: 0 };
+
+    const packItems = buildPackItems(this.children);
+    const direction = String(this.props.direction) as "ltr" | "rtl";
+
+    const padT = Number(this.props.paddingTop ?? 0);
+    const padR = Number(this.props.paddingRight ?? 0);
+    const padB = Number(this.props.paddingBottom ?? 0);
+    const padL = Number(this.props.paddingLeft ?? 0);
+
+    const rawWidth = Number(this.props.width ?? 0);
+    const containerWidth = rawWidth > 0 ? rawWidth : allocatedWidth;
+    const innerWidth = containerWidth != null ? Math.max(0, containerWidth - padL - padR) : undefined;
+    const { totalWidth, totalHeight } = packRow(packItems, direction, innerWidth);
+
+    return {
+      width: padL + totalWidth + padR,
+      height: padT + totalHeight + padB,
+    };
+  }
+
+  render(x: number, y: number, allocatedWidth?: number): string {
+    const idAttr = this.id ? ` data-element-id="${this.id}"` : "";
+
     if (this.children.length === 0) {
-      return `<g data-element-id="${this.id}"></g>`;
+      return `<g${idAttr}></g>`;
     }
 
-    const packItems: PackItem[] = this.children.map(child => {
-      const { width, height } = child.measure();
-      return {
-        contentWidth: width,
-        contentHeight: height,
-        marginTop: Number(child.props.marginTop ?? 0),
-        marginRight: Number(child.props.marginRight ?? 0),
-        marginBottom: Number(child.props.marginBottom ?? 0),
-        marginLeft: Number(child.props.marginLeft ?? 0),
-        paddingTop: Number(child.props.paddingTop ?? 0),
-        paddingRight: Number(child.props.paddingRight ?? 0),
-        paddingBottom: Number(child.props.paddingBottom ?? 0),
-        paddingLeft: Number(child.props.paddingLeft ?? 0),
-        vAlign: (String(child.props.vAlign ?? "top")) as "top" | "middle" | "bottom",
-        grow: Number(child.props.grow ?? 0),
-        hAlign: (String(child.props.hAlign ?? "start")) as "start" | "center" | "end",
-      };
-    });
-
+    const packItems = buildPackItems(this.children);
     const direction = String(this.props.direction) as "ltr" | "rtl";
 
     // Container padding — insets children from the background edge
@@ -90,7 +97,8 @@ export class PackedRowElement implements CardElement {
 
     // Inner width available for children = width minus container padding
     const rawWidth = Number(this.props.width ?? 0);
-    const innerWidth = rawWidth > 0 ? Math.max(0, rawWidth - padL - padR) : undefined;
+    const containerWidth = rawWidth > 0 ? rawWidth : allocatedWidth;
+    const innerWidth = containerWidth != null ? Math.max(0, containerWidth - padL - padR) : undefined;
     const { positions, totalWidth, totalHeight } = packRow(packItems, direction, innerWidth);
 
     const parts: string[] = [];
@@ -111,20 +119,20 @@ export class PackedRowElement implements CardElement {
       parts.push(`<g data-child-index="${i}">${this.children[i].render(pos.x + padL, pos.y + padT)}</g>`);
     }
 
-    // Container margin offsets the translate from the anchor
+    // Container margin offsets the translate from the given position
     const mL = Number(this.props.marginLeft ?? 0);
     const mT = Number(this.props.marginTop ?? 0);
-    const ax = Number(this.props.anchorX) + mL;
-    const ay = Number(this.props.anchorY) + mT;
-    return `<g data-element-id="${this.id}" transform="translate(${ax},${ay})">\n${parts.join("\n")}\n</g>`;
+    return `<g${idAttr} transform="translate(${x + mL},${y + mT})">\n${parts.join("\n")}\n</g>`;
   }
 
-  toJSON(): ElementState {
-    return {
+  toJSON(): NodeState {
+    const state: NodeState = {
       type: this.type,
-      id: this.id,
       props: { ...this.props },
       children: this.children.map(c => c.toJSON()),
     };
+    if (this.id) state.id = this.id;
+    if (this.bind) state.bind = { ...this.bind };
+    return state;
   }
 }

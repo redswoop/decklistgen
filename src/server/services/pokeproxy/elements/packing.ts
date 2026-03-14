@@ -3,6 +3,8 @@
  * vertical alignment, and flexbox-like grow distribution.
  */
 
+import type { LayoutNode } from "./types.js";
+
 export interface PackItem {
   contentWidth: number;
   contentHeight: number;
@@ -117,4 +119,26 @@ export function packRow(
     totalWidth: containerWidth != null ? Math.max(containerWidth, cursor) : cursor,
     totalHeight: rowHeight,
   };
+}
+
+/** Build PackItem[] from LayoutNode children by calling each child's measure(). */
+export function buildPackItems(children: LayoutNode[]): PackItem[] {
+  return children.map(child => {
+    const { width, height } = child.measure();
+    return {
+      contentWidth: width,
+      contentHeight: height,
+      marginTop: Number(child.props.marginTop ?? 0),
+      marginRight: Number(child.props.marginRight ?? 0),
+      marginBottom: Number(child.props.marginBottom ?? 0),
+      marginLeft: Number(child.props.marginLeft ?? 0),
+      paddingTop: Number(child.props.paddingTop ?? 0),
+      paddingRight: Number(child.props.paddingRight ?? 0),
+      paddingBottom: Number(child.props.paddingBottom ?? 0),
+      paddingLeft: Number(child.props.paddingLeft ?? 0),
+      vAlign: (String(child.props.vAlign ?? "top")) as "top" | "middle" | "bottom",
+      grow: Number(child.props.grow ?? 0),
+      hAlign: (String(child.props.hAlign ?? "start")) as "start" | "center" | "end",
+    };
+  });
 }

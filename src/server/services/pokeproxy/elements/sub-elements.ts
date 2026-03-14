@@ -1,9 +1,10 @@
 /**
- * Sub-element types for use inside PackedRow composites.
+ * Leaf element types — text, type-dot, suffix-logo, wrapped-text.
+ * These implement LayoutNode and can appear at any depth in the tree.
  */
 
-import type { PropDef, SubElement, SubElementState } from "./types.js";
-import { measureWidth } from "../text.js";
+import type { PropDef, LayoutNode, NodeState } from "./types.js";
+import { measureWidth, ftWrap } from "../text.js";
 import { renderTypeIcon } from "../type-icons.js";
 import { renderSuffixLogo } from "../logos.js";
 import { FONT_TITLE, FONT_BODY } from "../constants.js";
@@ -13,7 +14,7 @@ const ENERGY_TYPES = [
   "Fighting", "Darkness", "Metal", "Fairy", "Dragon", "Colorless",
 ];
 
-export class TextItem implements SubElement {
+export class TextItem implements LayoutNode {
   readonly type = "text" as const;
   props: Record<string, number | string>;
   bind?: Record<string, string>;
@@ -97,14 +98,14 @@ export class TextItem implements SubElement {
     return `<text ${attrs}>${String(text)}</text>`;
   }
 
-  toJSON(): SubElementState {
-    const state: SubElementState = { type: this.type, props: { ...this.props } };
+  toJSON(): NodeState {
+    const state: NodeState = { type: this.type, props: { ...this.props } };
     if (this.bind) state.bind = { ...this.bind };
     return state;
   }
 }
 
-export class TypeDotItem implements SubElement {
+export class TypeDotItem implements LayoutNode {
   readonly type = "type-dot" as const;
   props: Record<string, number | string>;
   bind?: Record<string, string>;
@@ -159,8 +160,8 @@ export class TypeDotItem implements SubElement {
     return renderTypeIcon(cx, cy, r, String(this.props.energyType));
   }
 
-  toJSON(): SubElementState {
-    const state: SubElementState = { type: this.type, props: { ...this.props } };
+  toJSON(): NodeState {
+    const state: NodeState = { type: this.type, props: { ...this.props } };
     if (this.bind) state.bind = { ...this.bind };
     return state;
   }
@@ -168,7 +169,7 @@ export class TypeDotItem implements SubElement {
 
 const SUFFIX_OPTIONS = ["V", "ex", "VSTAR"];
 
-export class SuffixLogoItem implements SubElement {
+export class SuffixLogoItem implements LayoutNode {
   readonly type = "suffix-logo" as const;
   props: Record<string, number | string>;
   bind?: Record<string, string>;
@@ -227,22 +228,115 @@ export class SuffixLogoItem implements SubElement {
     return svg;
   }
 
-  toJSON(): SubElementState {
-    const state: SubElementState = { type: this.type, props: { ...this.props } };
+  toJSON(): NodeState {
+    const state: NodeState = { type: this.type, props: { ...this.props } };
     if (this.bind) state.bind = { ...this.bind };
     return state;
   }
 }
 
-export function createSubElement(state: SubElementState): SubElement {
-  switch (state.type) {
-    case "text":
-      return new TextItem(state.props, state.bind);
-    case "type-dot":
-      return new TypeDotItem(state.props, state.bind);
-    case "suffix-logo":
-      return new SuffixLogoItem(state.props, state.bind);
-    default:
-      throw new Error(`Unknown sub-element type: ${(state as SubElementState).type}`);
+export class WrappedTextItem implements LayoutNode {
+  readonly type = "wrapped-text" as const;
+  props: Record<string, number | string>;
+  bind?: Record<string, string>;
+  private _lastAllocatedWidth = 0;
+
+  constructor(props?: Record<string, number | string>, bind?: Record<string, string>) {
+    this.props = {
+      text: "Description text",
+      fontSize: 20,
+      fontFamily: "body",
+      fontWeight: "bold",
+      fill: "#222222",
+      opacity: 1,
+      filter: "none",
+      grow: 0,
+      hAlign: "start",
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      vAlign: "top",
+      ...props,
+    };
+    if (bind) this.bind = bind;
+  }
+
+  propDefs(): PropDef[] {
+    return [
+      { key: "text", label: "Text", type: "text" },
+      { key: "fontSize", label: "Font Size", type: "number", min: 8, max: 120, step: 1 },
+      { key: "fontFamily", label: "Font", type: "select", options: ["title", "body"] },
+      { key: "fontWeight", label: "Weight", type: "select", options: ["normal", "bold"] },
+      { key: "fill", label: "Fill", type: "color" },
+      { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.05 },
+      { key: "filter", label: "Filter", type: "select", options: ["none", "shadow", "title-shadow", "dmg-shadow"] },
+      { key: "grow", label: "Grow", type: "number", min: 0, max: 10, step: 1 },
+      { key: "hAlign", label: "H-Align", type: "select", options: ["start", "center", "end"] },
+      { key: "marginTop", label: "Margin Top", type: "number", min: -50, max: 50, step: 1 },
+      { key: "marginRight", label: "Margin Right", type: "number", min: -50, max: 50, step: 1 },
+      { key: "marginBottom", label: "Margin Bottom", type: "number", min: -50, max: 50, step: 1 },
+      { key: "marginLeft", label: "Margin Left", type: "number", min: -50, max: 50, step: 1 },
+      { key: "paddingTop", label: "Pad Top", type: "number", min: 0, max: 50, step: 1 },
+      { key: "paddingRight", label: "Pad Right", type: "number", min: 0, max: 50, step: 1 },
+      { key: "paddingBottom", label: "Pad Bottom", type: "number", min: 0, max: 50, step: 1 },
+      { key: "paddingLeft", label: "Pad Left", type: "number", min: 0, max: 50, step: 1 },
+      { key: "vAlign", label: "V-Align", type: "select", options: ["top", "middle", "bottom"] },
+    ];
+  }
+
+  measure(allocatedWidth?: number): { width: number; height: number } {
+    const text = String(this.props.text);
+    const fontSize = Number(this.props.fontSize);
+    const fontFamily = String(this.props.fontFamily) as "title" | "body";
+    const lineH = Math.floor(fontSize * 1.25);
+
+    if (allocatedWidth != null && allocatedWidth > 0) {
+      this._lastAllocatedWidth = allocatedWidth;
+      const lines = ftWrap(fontFamily, text, fontSize, allocatedWidth);
+      return { width: allocatedWidth, height: Math.max(1, lines.length) * lineH };
+    }
+
+    // Single-line fallback
+    const width = measureWidth(fontFamily, text, fontSize);
+    this._lastAllocatedWidth = width;
+    return { width, height: lineH };
+  }
+
+  render(x: number, y: number): string {
+    const text = String(this.props.text);
+    const fontSize = Number(this.props.fontSize);
+    const fontFamily = String(this.props.fontFamily) as "title" | "body";
+    const fontWeight = String(this.props.fontWeight);
+    const fill = String(this.props.fill);
+    const opacity = Number(this.props.opacity);
+    const filter = String(this.props.filter);
+    const font = fontFamily === "body" ? FONT_BODY : FONT_TITLE;
+    const lineH = Math.floor(fontSize * 1.25);
+
+    const wrapWidth = this._lastAllocatedWidth || 400;
+    const lines = ftWrap(fontFamily, text, fontSize, wrapWidth);
+
+    let attrs = `font-family="${font}" font-size="${fontSize}" font-weight="${fontWeight}" fill="${fill}" opacity="${opacity}"`;
+    if (filter && filter !== "none") {
+      attrs += ` filter="url(#${filter})"`;
+    }
+    attrs += ` dominant-baseline="hanging"`;
+
+    const tspans = lines.map((line, i) =>
+      `<tspan x="${x}" y="${y + i * lineH}">${line}</tspan>`
+    ).join("");
+
+    return `<text ${attrs}>${tspans}</text>`;
+  }
+
+  toJSON(): NodeState {
+    const state: NodeState = { type: this.type, props: { ...this.props } };
+    if (this.bind) state.bind = { ...this.bind };
+    return state;
   }
 }

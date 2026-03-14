@@ -161,8 +161,11 @@ function editorHtml(): string {
   .element-item:hover { background: #0f3460; }
   .element-item.selected { background: #0f3460; border-color: #4a9eff; }
   .element-item.child { padding-left: 24px; font-size: 12px; color: #aaa; }
+  .element-item.grandchild { padding-left: 40px; font-size: 11px; color: #888; }
   .element-item.child:hover { color: #e0e0e0; }
   .element-item.child.selected { color: #e0e0e0; }
+  .element-item.grandchild:hover { color: #e0e0e0; }
+  .element-item.grandchild.selected { color: #e0e0e0; }
   .props-panel { padding: 12px; flex: 1; }
   .prop-row { margin-bottom: 10px; }
   .prop-row label { display: block; font-size: 11px; color: #888; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -227,6 +230,7 @@ function editorHtml(): string {
   var elements = null;
   var selectedElementId = null;
   var selectedChildIndex = null; // null = element selected, number = child
+  var selectedGrandchildIndex = null; // null = child selected, number = grandchild
   var serverPos = {};
   var debounceTimer = null;
   var cardData = null;
@@ -283,6 +287,24 @@ function editorHtml(): string {
       { key: 'anchorY', label: 'Anchor Y', type: 'number', min: -200, max: 1100, step: 1, isPosition: true },
       { key: 'direction', label: 'Direction', type: 'select', options: ['ltr', 'rtl'] },
       { key: 'width', label: 'Width', type: 'number', min: 0, max: 900, step: 1 },
+      { key: 'marginTop', label: 'Margin Top', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'marginRight', label: 'Margin Right', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'marginBottom', label: 'Margin Bottom', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'marginLeft', label: 'Margin Left', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'paddingTop', label: 'Pad Top', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'paddingRight', label: 'Pad Right', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'paddingBottom', label: 'Pad Bottom', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'paddingLeft', label: 'Pad Left', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'fill', label: 'Fill', type: 'color' },
+      { key: 'fillOpacity', label: 'Fill Opacity', type: 'range', min: 0, max: 1, step: 0.05 },
+      { key: 'rx', label: 'Corner Radius', type: 'number', min: 0, max: 30, step: 1 },
+    ],
+    'stack': [
+      { key: 'anchorX', label: 'Anchor X', type: 'number', min: -200, max: 900, step: 1, isPosition: true },
+      { key: 'anchorY', label: 'Anchor Y', type: 'number', min: -200, max: 1100, step: 1, isPosition: true },
+      { key: 'width', label: 'Width', type: 'number', min: 0, max: 900, step: 1 },
+      { key: 'gap', label: 'Gap', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'vAnchor', label: 'V-Anchor', type: 'select', options: ['top', 'bottom'] },
       { key: 'marginTop', label: 'Margin Top', type: 'number', min: -50, max: 50, step: 1 },
       { key: 'marginRight', label: 'Margin Right', type: 'number', min: -50, max: 50, step: 1 },
       { key: 'marginBottom', label: 'Margin Bottom', type: 'number', min: -50, max: 50, step: 1 },
@@ -354,6 +376,44 @@ function editorHtml(): string {
       { key: 'paddingLeft', label: 'Pad Left', type: 'number', min: 0, max: 50, step: 1 },
       { key: 'vAlign', label: 'V-Align', type: 'select', options: ['top', 'middle', 'bottom'] },
     ],
+    'wrapped-text': [
+      { key: 'text', label: 'Text', type: 'text' },
+      { key: 'fontSize', label: 'Font Size', type: 'number', min: 8, max: 120, step: 1 },
+      { key: 'fontFamily', label: 'Font', type: 'select', options: ['title', 'body'] },
+      { key: 'fontWeight', label: 'Weight', type: 'select', options: ['normal', 'bold'] },
+      { key: 'fill', label: 'Fill', type: 'color' },
+      { key: 'opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.05 },
+      { key: 'filter', label: 'Filter', type: 'select', options: ['none', 'shadow', 'title-shadow', 'dmg-shadow'] },
+      { key: 'grow', label: 'Grow', type: 'number', min: 0, max: 10, step: 1 },
+      { key: 'hAlign', label: 'H-Align', type: 'select', options: ['start', 'center', 'end'] },
+      { key: 'marginTop', label: 'Margin Top', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'marginRight', label: 'Margin Right', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'marginBottom', label: 'Margin Bottom', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'marginLeft', label: 'Margin Left', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'paddingTop', label: 'Pad Top', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'paddingRight', label: 'Pad Right', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'paddingBottom', label: 'Pad Bottom', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'paddingLeft', label: 'Pad Left', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'vAlign', label: 'V-Align', type: 'select', options: ['top', 'middle', 'bottom'] },
+    ],
+    'packed-row-item': [
+      { key: 'direction', label: 'Direction', type: 'select', options: ['ltr', 'rtl'] },
+      { key: 'width', label: 'Width', type: 'number', min: 0, max: 900, step: 1 },
+      { key: 'fill', label: 'Fill', type: 'color' },
+      { key: 'fillOpacity', label: 'Fill Opacity', type: 'range', min: 0, max: 1, step: 0.05 },
+      { key: 'rx', label: 'Corner Radius', type: 'number', min: 0, max: 30, step: 1 },
+      { key: 'grow', label: 'Grow', type: 'number', min: 0, max: 10, step: 1 },
+      { key: 'hAlign', label: 'H-Align', type: 'select', options: ['start', 'center', 'end'] },
+      { key: 'marginTop', label: 'Margin Top', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'marginRight', label: 'Margin Right', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'marginBottom', label: 'Margin Bottom', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'marginLeft', label: 'Margin Left', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'paddingTop', label: 'Pad Top', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'paddingRight', label: 'Pad Right', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'paddingBottom', label: 'Pad Bottom', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'paddingLeft', label: 'Pad Left', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'vAlign', label: 'V-Align', type: 'select', options: ['top', 'middle', 'bottom'] },
+    ],
   };
 
   // ── Helpers ──
@@ -371,11 +431,19 @@ function editorHtml(): string {
       if (t.length > 12) t = t.substring(0, 12) + '...';
       return '"' + t + '" text';
     }
+    if (child.type === 'wrapped-text') {
+      var t = String(child.props.text || '');
+      if (t.length > 12) t = t.substring(0, 12) + '...';
+      return '"' + t + '" wrap';
+    }
     if (child.type === 'type-dot') {
       return String(child.props.energyType || '?') + ' dot';
     }
     if (child.type === 'suffix-logo') {
       return String(child.props.suffix || '?') + ' logo';
+    }
+    if (child.type === 'packed-row-item') {
+      return 'row (' + (child.children ? child.children.length : 0) + ')';
     }
     return child.type;
   }
@@ -437,13 +505,38 @@ function editorHtml(): string {
         ]
       },
       {
-        type: 'packed-row', id: 'attack-1',
-        props: { anchorX: 20, anchorY: 530, direction: 'ltr', width: 710, paddingTop: 4, paddingRight: 8, paddingBottom: 4, paddingLeft: 8, fill: '#333333', fillOpacity: 0.1, rx: 5 },
+        type: 'stack', id: 'attack-block-1',
+        props: { anchorX: 20, anchorY: 0, width: 710, vAnchor: 'bottom', paddingTop: 4, paddingRight: 8, paddingBottom: 8, paddingLeft: 8, fill: '#333333', fillOpacity: 0.1, rx: 5 },
         children: [
-          { type: 'type-dot', props: { energyType: 'Grass', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[0].cost[0]' } },
-          { type: 'type-dot', props: { energyType: 'Colorless', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[0].cost[1]' } },
-          { type: 'text', props: { text: 'Leaf Blade', fontSize: 28, fontFamily: 'title', fontWeight: 'bold', fill: '#222222', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 1, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[0].name' } },
-          { type: 'text', props: { text: '60', fontSize: 36, fontFamily: 'title', fontWeight: 'bold', fill: '#cc0000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 0, hAlign: 'end', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[0].damage' } },
+          { type: 'packed-row', props: { direction: 'ltr' }, children: [
+            { type: 'type-dot', props: { energyType: 'Grass', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[0].cost[0]' } },
+            { type: 'type-dot', props: { energyType: 'Colorless', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[0].cost[1]' } },
+            { type: 'text', props: { text: 'Leaf Blade', fontSize: 28, fontFamily: 'title', fontWeight: 'bold', fill: '#222222', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 1, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[0].name' } },
+            { type: 'text', props: { text: '60', fontSize: 36, fontFamily: 'title', fontWeight: 'bold', fill: '#cc0000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 0, hAlign: 'end', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[0].damage' } },
+          ]},
+          { type: 'wrapped-text', props: {
+            text: 'Does 20 more damage for each Grass energy attached to this Pokemon.',
+            fontSize: 20, fontFamily: 'body', fontWeight: 'bold', fill: '#222222', opacity: 1, filter: 'shadow', marginTop: 4,
+          }, bind: { text: 'attacks[0].effect' } },
+          { type: 'packed-row', props: { direction: 'ltr', marginTop: 6 }, children: [
+            { type: 'type-dot', props: { energyType: 'Grass', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[1].cost[0]' } },
+            { type: 'type-dot', props: { energyType: 'Colorless', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[1].cost[1]' } },
+            { type: 'type-dot', props: { energyType: 'Colorless', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[1].cost[2]' } },
+            { type: 'text', props: { text: 'Star Slash', fontSize: 28, fontFamily: 'title', fontWeight: 'bold', fill: '#222222', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 1, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[1].name' } },
+            { type: 'text', props: { text: '190', fontSize: 36, fontFamily: 'title', fontWeight: 'bold', fill: '#cc0000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 0, hAlign: 'end', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[1].damage' } },
+          ]},
+          { type: 'wrapped-text', props: {
+            text: "You can't use more than 1 VSTAR Power in a game.",
+            fontSize: 20, fontFamily: 'body', fontWeight: 'bold', fill: '#222222', opacity: 1, filter: 'shadow', marginTop: 4,
+          }, bind: { text: 'attacks[1].effect' } },
+          { type: 'packed-row', props: { direction: 'ltr', marginTop: 8 }, children: [
+            { type: 'type-dot', props: { energyType: 'Lightning', radius: 12, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'weaknesses[0].type' } },
+            { type: 'text', props: { text: '×2', fontSize: 22, fontFamily: 'body', fontWeight: 'bold', fill: '#222222', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 16, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'weaknesses[0].value' } },
+            { type: 'type-dot', props: { energyType: 'Fighting', radius: 12, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'resistances[0].type' } },
+            { type: 'text', props: { text: '-30', fontSize: 22, fontFamily: 'body', fontWeight: 'bold', fill: '#222222', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 16, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'resistances[0].value' } },
+            { type: 'type-dot', props: { energyType: 'Colorless', radius: 12, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } },
+            { type: 'type-dot', props: { energyType: 'Colorless', radius: 12, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } },
+          ]},
         ]
       }
     ];
@@ -545,6 +638,18 @@ function editorHtml(): string {
     return val;
   }
 
+  function applyBindingsToItem(item) {
+    if (!item.bind) return;
+    var keys = Object.keys(item.bind);
+    for (var ki = 0; ki < keys.length; ki++) {
+      var propKey = keys[ki];
+      var val = resolveBinding(item.bind[propKey], cardData);
+      if (val !== undefined) {
+        item.props[propKey] = val;
+      }
+    }
+  }
+
   function applyBindings() {
     if (!cardData || !elements) return;
     for (var i = 0; i < elements.length; i++) {
@@ -552,13 +657,11 @@ function editorHtml(): string {
       if (!el.children) continue;
       for (var ci = 0; ci < el.children.length; ci++) {
         var child = el.children[ci];
-        if (!child.bind) continue;
-        var keys = Object.keys(child.bind);
-        for (var ki = 0; ki < keys.length; ki++) {
-          var propKey = keys[ki];
-          var val = resolveBinding(child.bind[propKey], cardData);
-          if (val !== undefined) {
-            child.props[propKey] = val;
+        applyBindingsToItem(child);
+        // Walk grandchildren
+        if (child.children) {
+          for (var gi = 0; gi < child.children.length; gi++) {
+            applyBindingsToItem(child.children[gi]);
           }
         }
       }
@@ -617,7 +720,7 @@ function editorHtml(): string {
     var node = e.target;
     var childIdx = null;
     while (node && node.tagName !== 'svg') {
-      if (node.dataset && node.dataset.childIndex != null && childIdx == null) {
+      if (node.dataset && node.dataset.childIndex != null) {
         childIdx = parseInt(node.dataset.childIndex);
       }
       if (node.dataset && node.dataset.elementId) {
@@ -629,9 +732,10 @@ function editorHtml(): string {
     selectItem(null, null);
   }
 
-  function selectItem(elementId, childIndex) {
+  function selectItem(elementId, childIndex, grandchildIndex) {
     selectedElementId = elementId;
     selectedChildIndex = (childIndex != null) ? childIndex : null;
+    selectedGrandchildIndex = (grandchildIndex != null) ? grandchildIndex : null;
     renderElementList();
     renderPropsPanel();
     showSelection();
@@ -651,7 +755,7 @@ function editorHtml(): string {
     // Determine which element to measure: child or parent
     var target = parentG;
     if (selectedChildIndex != null) {
-      var childG = parentG.querySelector('[data-child-index="' + selectedChildIndex + '"]');
+      var childG = parentG.querySelector(':scope > [data-child-index="' + selectedChildIndex + '"]');
       if (childG) target = childG;
     }
 
@@ -685,6 +789,41 @@ function editorHtml(): string {
     var step = e.shiftKey ? 10 : 1;
     var el = elements.find(function(el) { return el.id === selectedElementId; });
     if (!el) return;
+
+    // ── Grandchild selected ──
+    if (selectedGrandchildIndex != null && selectedChildIndex != null && el.children) {
+      var child = el.children[selectedChildIndex];
+      if (!child || !child.children) return;
+      var gi = selectedGrandchildIndex;
+      var grandchild = child.children[gi];
+      if (!grandchild) return;
+
+      // Ctrl/Cmd + Left/Right: reorder grandchild in parent's children array
+      if (e.ctrlKey || e.metaKey) {
+        var newGi = gi;
+        if (e.key === 'ArrowLeft' && gi > 0) newGi = gi - 1;
+        if (e.key === 'ArrowRight' && gi < child.children.length - 1) newGi = gi + 1;
+        if (newGi !== gi) {
+          var tmp = child.children[gi];
+          child.children[gi] = child.children[newGi];
+          child.children[newGi] = tmp;
+          selectedGrandchildIndex = newGi;
+          rerender();
+          renderElementList();
+          renderPropsPanel();
+        }
+        return;
+      }
+
+      // Plain arrows: nudge grandchild via margin
+      if (e.key === 'ArrowRight') grandchild.props.marginLeft = Number(grandchild.props.marginLeft || 0) + step;
+      if (e.key === 'ArrowLeft')  grandchild.props.marginLeft = Number(grandchild.props.marginLeft || 0) - step;
+      if (e.key === 'ArrowDown')  grandchild.props.marginTop = Number(grandchild.props.marginTop || 0) + step;
+      if (e.key === 'ArrowUp')    grandchild.props.marginTop = Number(grandchild.props.marginTop || 0) - step;
+      renderPropsPanel();
+      debouncedRerender();
+      return;
+    }
 
     // ── Child selected ──
     if (selectedChildIndex != null && el.children) {
@@ -740,7 +879,7 @@ function editorHtml(): string {
       if (svgEl) {
         var g = svgEl.querySelector('[data-element-id="' + selectedElementId + '"]');
         if (g) {
-          if (el.type === 'packed-row') {
+          if (el.type === 'packed-row' || el.type === 'stack') {
             g.setAttribute('transform', 'translate(' + Number(el.props[xKey]) + ',' + Number(el.props[yKey]) + ')');
           } else {
             var dx = Number(el.props[xKey]) - sp.x;
@@ -769,10 +908,21 @@ function editorHtml(): string {
 
       if (el.children) {
         for (var ci = 0; ci < el.children.length; ci++) {
-          var isChildSelected = (el.id === selectedElementId && selectedChildIndex === ci);
+          var child = el.children[ci];
+          var isChildSelected = (el.id === selectedElementId && selectedChildIndex === ci && selectedGrandchildIndex == null);
           var childCls = 'element-item child' + (isChildSelected ? ' selected' : '');
           html += '<div class="' + childCls + '" data-id="' + el.id + '" data-child="' + ci + '">'
-            + getChildLabel(el.children[ci]) + '</div>';
+            + getChildLabel(child) + '</div>';
+
+          // 3rd level: grandchildren (e.g. packed-row-item children)
+          if (child.children) {
+            for (var gi = 0; gi < child.children.length; gi++) {
+              var isGrandchildSelected = (el.id === selectedElementId && selectedChildIndex === ci && selectedGrandchildIndex === gi);
+              var gcCls = 'element-item grandchild' + (isGrandchildSelected ? ' selected' : '');
+              html += '<div class="' + gcCls + '" data-id="' + el.id + '" data-child="' + ci + '" data-grandchild="' + gi + '">'
+                + getChildLabel(child.children[gi]) + '</div>';
+            }
+          }
         }
       }
     }
@@ -780,7 +930,8 @@ function editorHtml(): string {
     list.querySelectorAll('.element-item').forEach(function(item) {
       item.addEventListener('click', function() {
         var childIdx = (item.dataset.child != null) ? parseInt(item.dataset.child) : null;
-        selectItem(item.dataset.id, childIdx);
+        var grandchildIdx = (item.dataset.grandchild != null) ? parseInt(item.dataset.grandchild) : null;
+        selectItem(item.dataset.id, childIdx, grandchildIdx);
       });
     });
   }
@@ -827,6 +978,54 @@ function editorHtml(): string {
 
     var html = '';
 
+    // ── Grandchild selected: show grandchild props ──
+    if (selectedGrandchildIndex != null && selectedChildIndex != null && el.children) {
+      var child = el.children[selectedChildIndex];
+      if (!child || !child.children) { panel.innerHTML = ''; return; }
+      var grandchild = child.children[selectedGrandchildIndex];
+      if (!grandchild) { panel.innerHTML = ''; return; }
+
+      var subDefs = SUB_PROP_DEFS[grandchild.type] || [];
+      html += '<div class="section-label">' + grandchild.type + ' #' + selectedGrandchildIndex + '</div>';
+      for (var i = 0; i < subDefs.length; i++) {
+        html += renderPropHtml(subDefs[i], grandchild.props[subDefs[i].key]);
+      }
+      html += '<button class="remove-btn" id="remove-grandchild-btn">Remove</button>';
+      html += '<div class="key-hint">';
+      html += 'Arrows: nudge margin<br>';
+      html += 'Shift+Arrow: nudge x10<br>';
+      html += 'Ctrl+Left/Right: reorder';
+      html += '</div>';
+
+      panel.innerHTML = html;
+
+      panel.querySelectorAll('.prop-row input, .prop-row select').forEach(function(input) {
+        var key = input.dataset.key;
+        var handler = function() {
+          var v = input.value;
+          if (input.type === 'number' || input.type === 'range') v = parseFloat(v);
+          grandchild.props[key] = v;
+          if (input.type === 'range') {
+            var span = input.parentElement.querySelector('.range-val');
+            if (span) span.textContent = v;
+          }
+          rerender();
+          if (key === 'text' || key === 'energyType') renderElementList();
+        };
+        input.addEventListener('input', handler);
+        input.addEventListener('change', handler);
+      });
+
+      document.getElementById('remove-grandchild-btn').addEventListener('click', function() {
+        child.children.splice(selectedGrandchildIndex, 1);
+        selectedGrandchildIndex = null;
+        rerender();
+        renderElementList();
+        renderPropsPanel();
+      });
+      return;
+    }
+
     // ── Child selected: show child props only ──
     if (selectedChildIndex != null && el.children) {
       var child = el.children[selectedChildIndex];
@@ -837,6 +1036,17 @@ function editorHtml(): string {
       for (var i = 0; i < subDefs.length; i++) {
         html += renderPropHtml(subDefs[i], child.props[subDefs[i].key]);
       }
+
+      // If child is packed-row-item, show add-grandchild buttons
+      if (child.type === 'packed-row-item') {
+        html += '<div class="section-label">Children (' + (child.children ? child.children.length : 0) + ')</div>';
+        html += '<div class="add-child-bar">';
+        html += '<button data-add-grandchild="text">+ Text</button>';
+        html += '<button data-add-grandchild="type-dot">+ Type Dot</button>';
+        html += '<button data-add-grandchild="suffix-logo">+ Logo</button>';
+        html += '</div>';
+      }
+
       html += '<button class="remove-btn" id="remove-child-btn">Remove Child</button>';
       html += '<div class="key-hint">';
       html += 'Arrows: nudge margin<br>';
@@ -865,10 +1075,31 @@ function editorHtml(): string {
         input.addEventListener('change', handler);
       });
 
+      // Add grandchild handlers
+      panel.querySelectorAll('[data-add-grandchild]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var gcType = btn.dataset.addGrandchild;
+          var newGc;
+          if (gcType === 'text') {
+            newGc = { type: 'text', props: { text: 'Text', fontSize: 24, fontFamily: 'title', fontWeight: 'bold', fill: '#000000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'none', textAnchor: 'start', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'top' } };
+          } else if (gcType === 'suffix-logo') {
+            newGc = { type: 'suffix-logo', props: { suffix: 'VSTAR', height: 55, filter: 'none', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' } };
+          } else {
+            newGc = { type: 'type-dot', props: { energyType: 'Fire', radius: 28, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } };
+          }
+          if (!child.children) child.children = [];
+          child.children.push(newGc);
+          rerender();
+          renderElementList();
+          renderPropsPanel();
+        });
+      });
+
       // Remove button
       document.getElementById('remove-child-btn').addEventListener('click', function() {
         el.children.splice(selectedChildIndex, 1);
         selectedChildIndex = null;
+        selectedGrandchildIndex = null;
         rerender();
         renderElementList();
         renderPropsPanel();
@@ -893,6 +1124,7 @@ function editorHtml(): string {
       html += '<button data-add-child="text">+ Text</button>';
       html += '<button data-add-child="type-dot">+ Type Dot</button>';
       html += '<button data-add-child="suffix-logo">+ Logo</button>';
+      html += '<button data-add-child="wrapped-text">+ Wrap</button>';
       html += '</div>';
     }
 
@@ -930,6 +1162,8 @@ function editorHtml(): string {
           newChild = { type: 'text', props: { text: 'Text', fontSize: 24, fontFamily: 'title', fontWeight: 'bold', fill: '#000000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'none', textAnchor: 'start', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'top' } };
         } else if (childType === 'suffix-logo') {
           newChild = { type: 'suffix-logo', props: { suffix: 'VSTAR', height: 55, filter: 'none', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' } };
+        } else if (childType === 'wrapped-text') {
+          newChild = { type: 'wrapped-text', props: { text: 'Description text', fontSize: 20, fontFamily: 'body', fontWeight: 'bold', fill: '#222222', opacity: 1, filter: 'none', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'top' } };
         } else {
           newChild = { type: 'type-dot', props: { energyType: 'Fire', radius: 28, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } };
         }

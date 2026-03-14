@@ -764,7 +764,7 @@ async function initPalettes() {
       dark: { ...data.defaults.dark, ...data.current.dark },
       light: { ...data.defaults.light, ...data.current.light },
     };
-  } catch {
+  } catch (e) {
     palettes = { dark: {}, light: {} };
   }
   buildGlyphGrid('grid-dark', 'dark');
@@ -938,7 +938,7 @@ async function init() {
   }
 
   // Auto-open card from URL hash (e.g. #cards/sv01-019)
-  const hashCard = location.hash.match(/^#cards\/(.+)$/);
+  const hashCard = location.hash.match(/^#cards\\/(.+)$/);
   if (hashCard && cardData[hashCard[1]]) {
     showPreview(hashCard[1]);
   }
