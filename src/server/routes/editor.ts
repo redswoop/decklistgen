@@ -89,20 +89,19 @@ editorRouter.get("/card-data", async (c) => {
   }
 });
 
-// GET /render?cardId=X&elements=[...]
-editorRouter.get("/render", async (c) => {
-  const cardId = c.req.query("cardId");
+// POST /render — { cardId, elements }
+editorRouter.post("/render", async (c) => {
+  const body = await c.req.json() as { cardId?: string; elements?: ElementState[] };
+  const cardId = body.cardId;
   if (!cardId) return c.text("Missing cardId", 400);
 
   const imageB64 = await loadCleanImageB64(cardId);
   if (!imageB64) return c.text("No clean image found for card", 404);
 
   let elements;
-  const elementsParam = c.req.query("elements");
-  if (elementsParam) {
+  if (body.elements) {
     try {
-      const states: ElementState[] = JSON.parse(elementsParam);
-      elements = states.map(s => createElement(s));
+      elements = body.elements.map(s => createElement(s));
     } catch {
       return c.text("Invalid elements JSON", 400);
     }
@@ -255,6 +254,73 @@ function editorHtml(): string {
 </div>
 
 <script>
+// ── <fill-picker> Custom Element ──
+class FillPicker extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+  }
+  static get observedAttributes() { return ['color', 'opacity']; }
+  connectedCallback() { this._render(); }
+  attributeChangedCallback() { this._render(); }
+
+  get color() { return this.getAttribute('color') || ''; }
+  set color(v) { this.setAttribute('color', v); }
+  get opacity() { return parseFloat(this.getAttribute('opacity') ?? '1'); }
+  set opacity(v) { this.setAttribute('opacity', String(v)); }
+
+  _render() {
+    var c = this.color;
+    var o = this.opacity;
+    var swatch = c || 'transparent';
+    var border = c ? '1px solid ' + c : '1px dashed #666';
+    this.shadowRoot.innerHTML =
+      '<style>' +
+      ':host { display: block; margin-bottom: 10px; }' +
+      'label { display: block; font-size: 11px; color: #888; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; font-family: system-ui, sans-serif; }' +
+      '.row { display: flex; align-items: center; gap: 8px; }' +
+      '.swatch { width: 28px; height: 28px; border-radius: 4px; flex-shrink: 0; position: relative; cursor: pointer; }' +
+      '.swatch input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }' +
+      'input[type=range] { flex: 1; accent-color: #4a9eff; }' +
+      '.val { font-size: 11px; color: #aaa; min-width: 28px; text-align: right; font-family: system-ui, sans-serif; }' +
+      '</style>' +
+      '<label>Fill</label>' +
+      '<div class="row">' +
+        '<div class="swatch" style="background:' + swatch + ';border:' + border + ';opacity:' + o + '">' +
+          '<input type="color" value="' + (c ? this._normalizeHex(c) : '#000000') + '">' +
+        '</div>' +
+        '<span class="val">' + o + '</span>' +
+        '<input type="range" value="' + o + '" min="0" max="1" step="0.05">' +
+      '</div>';
+
+    var self = this;
+    var colorInput = this.shadowRoot.querySelector('input[type=color]');
+    var rangeInput = this.shadowRoot.querySelector('input[type=range]');
+    colorInput.addEventListener('input', function() {
+      self.setAttribute('color', colorInput.value);
+      self._emit();
+    });
+    rangeInput.addEventListener('input', function() {
+      self.setAttribute('opacity', rangeInput.value);
+      self._emit();
+    });
+  }
+
+  _emit() {
+    this.dispatchEvent(new CustomEvent('fill-change', {
+      detail: { color: this.color, opacity: this.opacity },
+      bubbles: true
+    }));
+  }
+
+  _normalizeHex(v) {
+    var s = String(v || '#000000');
+    if (/^#[0-9a-fA-F]{3}$/.test(s)) return '#' + s[1]+s[1] + s[2]+s[2] + s[3]+s[3];
+    return s;
+  }
+}
+customElements.define('fill-picker', FillPicker);
+
 (function() {
   var BASE = '/gallery/editor';
   var elements = null;
@@ -305,34 +371,13 @@ function editorHtml(): string {
   }
 
   // ── Client-side prop definitions ──
+  var ENERGY_TYPES = ['Grass','Fire','Water','Lightning','Psychic','Fighting','Darkness','Metal','Fairy','Dragon','Colorless'];
+
   var PROP_DEFS = {
-    'big-logo': [
-      { key: 'x', label: 'X', type: 'number', min: -200, max: 750, step: 1, isPosition: true },
-      { key: 'y', label: 'Y', type: 'number', min: -200, max: 1050, step: 1, isPosition: true },
-      { key: 'height', label: 'Height', type: 'range', min: 50, max: 600, step: 10 },
-      { key: 'opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.05 },
-      { key: 'suffix', label: 'Logo', type: 'select', options: ['V', 'ex', 'VSTAR', 'VSTAR-big'] },
-    ],
-    'packed-row': [
+    'box': [
       { key: 'anchorX', label: 'Anchor X', type: 'number', min: -200, max: 900, step: 1, isPosition: true },
       { key: 'anchorY', label: 'Anchor Y', type: 'number', min: -200, max: 1100, step: 1, isPosition: true },
-      { key: 'direction', label: 'Direction', type: 'select', options: ['ltr', 'rtl'] },
-      { key: 'width', label: 'Width', type: 'number', min: 0, max: 900, step: 1 },
-      { key: 'marginTop', label: 'Margin Top', type: 'number', min: -50, max: 50, step: 1 },
-      { key: 'marginRight', label: 'Margin Right', type: 'number', min: -50, max: 50, step: 1 },
-      { key: 'marginBottom', label: 'Margin Bottom', type: 'number', min: -50, max: 50, step: 1 },
-      { key: 'marginLeft', label: 'Margin Left', type: 'number', min: -50, max: 50, step: 1 },
-      { key: 'paddingTop', label: 'Pad Top', type: 'number', min: 0, max: 50, step: 1 },
-      { key: 'paddingRight', label: 'Pad Right', type: 'number', min: 0, max: 50, step: 1 },
-      { key: 'paddingBottom', label: 'Pad Bottom', type: 'number', min: 0, max: 50, step: 1 },
-      { key: 'paddingLeft', label: 'Pad Left', type: 'number', min: 0, max: 50, step: 1 },
-      { key: 'fill', label: 'Fill', type: 'color' },
-      { key: 'fillOpacity', label: 'Fill Opacity', type: 'range', min: 0, max: 1, step: 0.05 },
-      { key: 'rx', label: 'Corner Radius', type: 'number', min: 0, max: 30, step: 1 },
-    ],
-    'stack': [
-      { key: 'anchorX', label: 'Anchor X', type: 'number', min: -200, max: 900, step: 1, isPosition: true },
-      { key: 'anchorY', label: 'Anchor Y', type: 'number', min: -200, max: 1100, step: 1, isPosition: true },
+      { key: 'direction', label: 'Direction', type: 'select', options: ['row', 'row-reverse', 'column'] },
       { key: 'width', label: 'Width', type: 'number', min: 0, max: 900, step: 1 },
       { key: 'gap', label: 'Gap', type: 'number', min: 0, max: 50, step: 1 },
       { key: 'vAnchor', label: 'V-Anchor', type: 'select', options: ['top', 'bottom'] },
@@ -348,9 +393,19 @@ function editorHtml(): string {
       { key: 'fillOpacity', label: 'Fill Opacity', type: 'range', min: 0, max: 1, step: 0.05 },
       { key: 'rx', label: 'Corner Radius', type: 'number', min: 0, max: 30, step: 1 },
     ],
+    'image': [
+      { key: 'anchorX', label: 'Anchor X', type: 'number', min: -200, max: 900, step: 1, isPosition: true },
+      { key: 'anchorY', label: 'Anchor Y', type: 'number', min: -200, max: 1100, step: 1, isPosition: true },
+      { key: 'src', label: 'Source', type: 'select', options: ['energy', 'logo'] },
+      { key: 'energyType', label: 'Type', type: 'select', options: ENERGY_TYPES },
+      { key: 'radius', label: 'Radius', type: 'number', min: 5, max: 60, step: 1 },
+      { key: 'suffix', label: 'Logo', type: 'select', options: ['V', 'ex', 'VSTAR', 'VSTAR-big'] },
+      { key: 'height', label: 'Height', type: 'range', min: 10, max: 600, step: 1 },
+      { key: 'opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.05 },
+      { key: 'clipToCard', label: 'Clip', type: 'select', options: ['0', '1'] },
+      { key: 'filter', label: 'Filter', type: 'select', options: ['none', 'shadow', 'title-shadow'] },
+    ],
   };
-
-  var ENERGY_TYPES = ['Grass','Fire','Water','Lightning','Psychic','Fighting','Darkness','Metal','Fairy','Dragon','Colorless'];
 
   var SUB_PROP_DEFS = {
     'text': [
@@ -364,6 +419,7 @@ function editorHtml(): string {
       { key: 'strokeWidth', label: 'Stroke W', type: 'number', min: 0, max: 10, step: 0.5 },
       { key: 'filter', label: 'Filter', type: 'select', options: ['none', 'shadow', 'title-shadow', 'dmg-shadow'] },
       { key: 'textAnchor', label: 'Anchor', type: 'select', options: ['start', 'middle', 'end'] },
+      { key: 'wrap', label: 'Wrap', type: 'select', options: ['0', '1'] },
       { key: 'grow', label: 'Grow', type: 'number', min: 0, max: 10, step: 1 },
       { key: 'hAlign', label: 'H-Align', type: 'select', options: ['start', 'center', 'end'] },
       { key: 'marginTop', label: 'Margin Top', type: 'number', min: -50, max: 50, step: 1 },
@@ -376,24 +432,14 @@ function editorHtml(): string {
       { key: 'paddingLeft', label: 'Pad Left', type: 'number', min: 0, max: 50, step: 1 },
       { key: 'vAlign', label: 'V-Align', type: 'select', options: ['top', 'middle', 'bottom'] },
     ],
-    'type-dot': [
+    'image': [
+      { key: 'src', label: 'Source', type: 'select', options: ['energy', 'logo'] },
       { key: 'energyType', label: 'Type', type: 'select', options: ENERGY_TYPES },
       { key: 'radius', label: 'Radius', type: 'number', min: 5, max: 60, step: 1 },
-      { key: 'grow', label: 'Grow', type: 'number', min: 0, max: 10, step: 1 },
-      { key: 'hAlign', label: 'H-Align', type: 'select', options: ['start', 'center', 'end'] },
-      { key: 'marginTop', label: 'Margin Top', type: 'number', min: -50, max: 50, step: 1 },
-      { key: 'marginRight', label: 'Margin Right', type: 'number', min: -50, max: 50, step: 1 },
-      { key: 'marginBottom', label: 'Margin Bottom', type: 'number', min: -50, max: 50, step: 1 },
-      { key: 'marginLeft', label: 'Margin Left', type: 'number', min: -50, max: 50, step: 1 },
-      { key: 'paddingTop', label: 'Pad Top', type: 'number', min: 0, max: 50, step: 1 },
-      { key: 'paddingRight', label: 'Pad Right', type: 'number', min: 0, max: 50, step: 1 },
-      { key: 'paddingBottom', label: 'Pad Bottom', type: 'number', min: 0, max: 50, step: 1 },
-      { key: 'paddingLeft', label: 'Pad Left', type: 'number', min: 0, max: 50, step: 1 },
-      { key: 'vAlign', label: 'V-Align', type: 'select', options: ['top', 'middle', 'bottom'] },
-    ],
-    'suffix-logo': [
-      { key: 'suffix', label: 'Suffix', type: 'select', options: ['V', 'ex', 'VSTAR'] },
-      { key: 'height', label: 'Height', type: 'number', min: 10, max: 120, step: 1 },
+      { key: 'suffix', label: 'Logo', type: 'select', options: ['V', 'ex', 'VSTAR', 'VSTAR-big'] },
+      { key: 'height', label: 'Height', type: 'number', min: 10, max: 600, step: 1 },
+      { key: 'opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.05 },
+      { key: 'clipToCard', label: 'Clip', type: 'select', options: ['0', '1'] },
       { key: 'filter', label: 'Filter', type: 'select', options: ['none', 'shadow', 'title-shadow'] },
       { key: 'grow', label: 'Grow', type: 'number', min: 0, max: 10, step: 1 },
       { key: 'hAlign', label: 'H-Align', type: 'select', options: ['start', 'center', 'end'] },
@@ -407,29 +453,10 @@ function editorHtml(): string {
       { key: 'paddingLeft', label: 'Pad Left', type: 'number', min: 0, max: 50, step: 1 },
       { key: 'vAlign', label: 'V-Align', type: 'select', options: ['top', 'middle', 'bottom'] },
     ],
-    'wrapped-text': [
-      { key: 'text', label: 'Text', type: 'text' },
-      { key: 'fontSize', label: 'Font Size', type: 'number', min: 8, max: 120, step: 1 },
-      { key: 'fontFamily', label: 'Font', type: 'select', options: ['title', 'body'] },
-      { key: 'fontWeight', label: 'Weight', type: 'select', options: ['normal', 'bold'] },
-      { key: 'fill', label: 'Fill', type: 'color' },
-      { key: 'opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.05 },
-      { key: 'filter', label: 'Filter', type: 'select', options: ['none', 'shadow', 'title-shadow', 'dmg-shadow'] },
-      { key: 'grow', label: 'Grow', type: 'number', min: 0, max: 10, step: 1 },
-      { key: 'hAlign', label: 'H-Align', type: 'select', options: ['start', 'center', 'end'] },
-      { key: 'marginTop', label: 'Margin Top', type: 'number', min: -50, max: 50, step: 1 },
-      { key: 'marginRight', label: 'Margin Right', type: 'number', min: -50, max: 50, step: 1 },
-      { key: 'marginBottom', label: 'Margin Bottom', type: 'number', min: -50, max: 50, step: 1 },
-      { key: 'marginLeft', label: 'Margin Left', type: 'number', min: -50, max: 50, step: 1 },
-      { key: 'paddingTop', label: 'Pad Top', type: 'number', min: 0, max: 50, step: 1 },
-      { key: 'paddingRight', label: 'Pad Right', type: 'number', min: 0, max: 50, step: 1 },
-      { key: 'paddingBottom', label: 'Pad Bottom', type: 'number', min: 0, max: 50, step: 1 },
-      { key: 'paddingLeft', label: 'Pad Left', type: 'number', min: 0, max: 50, step: 1 },
-      { key: 'vAlign', label: 'V-Align', type: 'select', options: ['top', 'middle', 'bottom'] },
-    ],
-    'packed-row-item': [
-      { key: 'direction', label: 'Direction', type: 'select', options: ['ltr', 'rtl'] },
+    'box': [
+      { key: 'direction', label: 'Direction', type: 'select', options: ['row', 'row-reverse', 'column'] },
       { key: 'width', label: 'Width', type: 'number', min: 0, max: 900, step: 1 },
+      { key: 'gap', label: 'Gap', type: 'number', min: 0, max: 50, step: 1 },
       { key: 'fill', label: 'Fill', type: 'color' },
       { key: 'fillOpacity', label: 'Fill Opacity', type: 'range', min: 0, max: 1, step: 0.05 },
       { key: 'rx', label: 'Corner Radius', type: 'number', min: 0, max: 30, step: 1 },
@@ -460,21 +487,18 @@ function editorHtml(): string {
     if (child.type === 'text') {
       var t = String(child.props.text || '');
       if (t.length > 12) t = t.substring(0, 12) + '...';
-      return '"' + t + '" text';
+      return '"' + t + '"' + (Number(child.props.wrap) ? ' wrap' : ' text');
     }
-    if (child.type === 'wrapped-text') {
-      var t = String(child.props.text || '');
-      if (t.length > 12) t = t.substring(0, 12) + '...';
-      return '"' + t + '" wrap';
-    }
-    if (child.type === 'type-dot') {
-      return String(child.props.energyType || '?') + ' dot';
-    }
-    if (child.type === 'suffix-logo') {
+    if (child.type === 'image') {
+      if (String(child.props.src) === 'energy') {
+        return String(child.props.energyType || '?') + ' dot';
+      }
       return String(child.props.suffix || '?') + ' logo';
     }
-    if (child.type === 'packed-row-item') {
-      return 'row (' + (child.children ? child.children.length : 0) + ')';
+    if (child.type === 'box') {
+      var dir = String(child.props.direction || 'row');
+      var label = dir === 'column' ? 'col' : 'row';
+      return label + ' (' + (child.children ? child.children.length : 0) + ')';
     }
     return child.type;
   }
@@ -555,58 +579,69 @@ function editorHtml(): string {
 
     elements = [
       {
-        type: 'big-logo', id: 'big-logo-1',
-        props: { x: -50, y: -38, height: 280, opacity: 0.85, suffix: 'VSTAR-big' }
+        type: 'image', id: 'big-logo-1',
+        props: { src: 'logo', suffix: 'VSTAR-big', height: 280, opacity: 0.85, clipToCard: 1, anchorX: -50, anchorY: -38 }
       },
       {
-        type: 'packed-row', id: 'hp-cluster-1',
-        props: { anchorX: 514, anchorY: 42, direction: 'ltr' },
+        type: 'box', id: 'hp-cluster-1',
+        props: { anchorX: 514, anchorY: 42, direction: 'row' },
         children: [
-          { type: 'text', props: { text: 'HP', fontSize: 25, fontFamily: 'title', fontWeight: 'bold', fill: '#ffffff', opacity: 1, stroke: '', strokeWidth: 0, filter: 'none', textAnchor: 'start', marginTop: 0, marginRight: 4, marginBottom: 4, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' }, bind: {} },
-          { type: 'text', props: { text: '280', fontSize: 52, fontFamily: 'title', fontWeight: 'bold', fill: '#ffffff', opacity: 1, stroke: '#000000', strokeWidth: 0, filter: 'title-shadow', textAnchor: 'start', marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' }, bind: { text: 'hp' } },
-          { type: 'type-dot', props: { energyType: 'Fire', radius: 25, marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'types[0]' } },
+          { type: 'text', props: { text: 'HP', fontSize: 25, fontFamily: 'title', fontWeight: 'bold', fill: '#ffffff', opacity: 1, stroke: '', strokeWidth: 0, filter: 'none', textAnchor: 'start', wrap: 0, marginTop: 0, marginRight: 4, marginBottom: 4, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' }, bind: {} },
+          { type: 'text', props: { text: '280', fontSize: 52, fontFamily: 'title', fontWeight: 'bold', fill: '#ffffff', opacity: 1, stroke: '#000000', strokeWidth: 0, filter: 'title-shadow', textAnchor: 'start', wrap: 0, marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' }, bind: { text: 'hp' } },
+          { type: 'image', props: { src: 'energy', energyType: 'Fire', radius: 25, marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'types[0]' } },
         ]
       },
       {
-        type: 'packed-row', id: 'name-cluster-1',
-        props: { anchorX: 45, anchorY: 46, direction: 'ltr' },
+        type: 'box', id: 'name-cluster-1',
+        props: { anchorX: 45, anchorY: 46, direction: 'row' },
         children: [
-          { type: 'text', props: { text: 'Arcanine', fontSize: 48, fontFamily: 'title', fontWeight: 'bold', fill: '#ffffff', opacity: 1, stroke: '#000000', strokeWidth: 2.5, filter: 'title-shadow', textAnchor: 'start', marginTop: 0, marginRight: 0, marginBottom: 6, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' }, bind: { text: '_baseName' } },
-          { type: 'suffix-logo', props: { suffix: 'ex', height: 55, filter: 'title-shadow', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 4, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' }, bind: { suffix: '_nameSuffix' } },
+          { type: 'text', props: { text: 'Arcanine', fontSize: 48, fontFamily: 'title', fontWeight: 'bold', fill: '#ffffff', opacity: 1, stroke: '#000000', strokeWidth: 2.5, filter: 'title-shadow', textAnchor: 'start', wrap: 0, marginTop: 0, marginRight: 0, marginBottom: 6, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' }, bind: { text: '_baseName' } },
+          { type: 'image', props: { src: 'logo', suffix: 'ex', height: 55, filter: 'title-shadow', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 4, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' }, bind: { suffix: '_nameSuffix' } },
         ]
       },
       {
-        type: 'stack', id: 'attack-block-1',
-        props: { anchorX: 20, anchorY: 0, width: 710, vAnchor: 'bottom', paddingTop: 4, paddingRight: 8, paddingBottom: 37, paddingLeft: 8, fill: '#e6a7a7', fillOpacity: 0.1, rx: 5 },
+        type: 'box', id: 'evolves-from-1',
+        props: { anchorX: 47, anchorY: 98, direction: 'row' },
         children: [
-          { type: 'packed-row', props: { direction: 'ltr' }, children: [
-            { type: 'type-dot', props: { energyType: 'Fire', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[0].cost[0]' } },
-            { type: 'type-dot', props: { energyType: 'Fire', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[0].cost[1]' } },
-            { type: 'text', props: { text: 'Raging Claws', fontSize: 28, fontFamily: 'title', fontWeight: 'bold', fill: '#ffffff', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 1, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[0].name' } },
-            { type: 'text', props: { text: '30+', fontSize: 36, fontFamily: 'title', fontWeight: 'bold', fill: '#cc0000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 0, hAlign: 'end', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[0].damage' } },
+          { type: 'text', props: { text: 'Evolves from', fontSize: 18, fontFamily: 'body', fontWeight: 'bold', fill: '#ffffff', opacity: 0.7, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', wrap: 0, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } },
+          { type: 'text', props: { text: 'Growlithe', fontSize: 18, fontFamily: 'title', fontWeight: 'bold', fill: '#ffffff', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', wrap: 0, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'evolveFrom' } },
+        ]
+      },
+      {
+        type: 'box', id: 'attack-block-1',
+        props: { anchorX: 20, anchorY: 0, width: 710, direction: 'column', vAnchor: 'bottom', paddingTop: 4, paddingRight: 8, paddingBottom: 37, paddingLeft: 8, fill: '#e6a7a7', fillOpacity: 0.1, rx: 5 },
+        children: [
+          { type: 'box', props: { direction: 'row' }, children: [
+            { type: 'image', props: { src: 'energy', energyType: 'Fire', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[0].cost[0]' } },
+            { type: 'image', props: { src: 'energy', energyType: 'Fire', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[0].cost[1]' } },
+            { type: 'text', props: { text: 'Raging Claws', fontSize: 28, fontFamily: 'title', fontWeight: 'bold', fill: '#ffffff', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', wrap: 0, grow: 1, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[0].name' } },
+            { type: 'text', props: { text: '30+', fontSize: 36, fontFamily: 'title', fontWeight: 'bold', fill: '#cc0000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', wrap: 0, grow: 0, hAlign: 'end', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[0].damage' } },
           ]},
-          { type: 'wrapped-text', props: {
+          { type: 'text', props: {
             text: 'This attack does 10 more damage for each damage counter on this Pok\u00e9mon.',
-            fontSize: 27, fontFamily: 'body', fontWeight: 'bold', fill: '#ffffff', opacity: 1, filter: 'title-shadow', marginTop: 4,
+            fontSize: 27, fontFamily: 'body', fontWeight: 'bold', fill: '#ffffff', opacity: 1, filter: 'title-shadow', wrap: 1, marginTop: 4,
           }, bind: { text: 'attacks[0].effect' } },
-          { type: 'packed-row', props: { direction: 'ltr', marginTop: 6 }, children: [
-            { type: 'type-dot', props: { energyType: 'Fire', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[1].cost[0]' } },
-            { type: 'type-dot', props: { energyType: 'Fire', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[1].cost[1]' } },
-            { type: 'type-dot', props: { energyType: 'Fire', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[1].cost[2]' } },
-            { type: 'text', props: { text: 'Bright Flame', fontSize: 28, fontFamily: 'title', fontWeight: 'bold', fill: '#222222', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 1, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[1].name' } },
-            { type: 'text', props: { text: '250', fontSize: 36, fontFamily: 'title', fontWeight: 'bold', fill: '#cc0000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 0, hAlign: 'end', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[1].damage' } },
+          { type: 'box', props: { direction: 'row', marginTop: 6 }, children: [
+            { type: 'image', props: { src: 'energy', energyType: 'Fire', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[1].cost[0]' } },
+            { type: 'image', props: { src: 'energy', energyType: 'Fire', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[1].cost[1]' } },
+            { type: 'image', props: { src: 'energy', energyType: 'Fire', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[1].cost[2]' } },
+            { type: 'text', props: { text: 'Bright Flame', fontSize: 28, fontFamily: 'title', fontWeight: 'bold', fill: '#222222', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', wrap: 0, grow: 1, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[1].name' } },
+            { type: 'text', props: { text: '250', fontSize: 36, fontFamily: 'title', fontWeight: 'bold', fill: '#cc0000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', wrap: 0, grow: 0, hAlign: 'end', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[1].damage' } },
           ]},
-          { type: 'wrapped-text', props: {
+          { type: 'text', props: {
             text: 'Discard 2 {R} Energy from this Pok\u00e9mon.',
-            fontSize: 20, fontFamily: 'body', fontWeight: 'bold', fill: '#222222', opacity: 1, filter: 'shadow', marginTop: 4,
+            fontSize: 20, fontFamily: 'body', fontWeight: 'bold', fill: '#222222', opacity: 1, filter: 'shadow', wrap: 1, marginTop: 4,
           }, bind: { text: 'attacks[1].effect' } },
-          { type: 'packed-row', props: { direction: 'ltr', marginTop: 4 }, children: [
-            { type: 'type-dot', props: { energyType: 'Lightning', radius: 12, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'weaknesses[0].type' } },
-            { type: 'text', props: { text: '×2', fontSize: 22, fontFamily: 'body', fontWeight: 'bold', fill: '#222222', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 16, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'weaknesses[0].value' } },
-            { type: 'type-dot', props: { energyType: 'Fighting', radius: 12, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'resistances[0].type' } },
-            { type: 'text', props: { text: '-30', fontSize: 22, fontFamily: 'body', fontWeight: 'bold', fill: '#222222', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 16, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'resistances[0].value' } },
-            { type: 'type-dot', props: { energyType: 'Colorless', radius: 12, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } },
-            { type: 'type-dot', props: { energyType: 'Colorless', radius: 12, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } },
+          { type: 'box', props: { direction: 'row', marginTop: 4 }, children: [
+            { type: 'text', props: { text: 'Weak', fontSize: 14, fontFamily: 'body', fontWeight: 'bold', fill: '#888888', opacity: 1, stroke: '', strokeWidth: 0, filter: 'none', textAnchor: 'start', wrap: 0, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } },
+            { type: 'image', props: { src: 'energy', energyType: 'Lightning', radius: 12, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'weaknesses[0].type' } },
+            { type: 'text', props: { text: '×2', fontSize: 22, fontFamily: 'body', fontWeight: 'bold', fill: '#222222', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', wrap: 0, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 16, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'weaknesses[0].value' } },
+            { type: 'text', props: { text: 'Resist', fontSize: 14, fontFamily: 'body', fontWeight: 'bold', fill: '#888888', opacity: 1, stroke: '', strokeWidth: 0, filter: 'none', textAnchor: 'start', wrap: 0, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } },
+            { type: 'image', props: { src: 'energy', energyType: 'Fighting', radius: 12, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'resistances[0].type' } },
+            { type: 'text', props: { text: '-30', fontSize: 22, fontFamily: 'body', fontWeight: 'bold', fill: '#222222', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', wrap: 0, grow: 1, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'resistances[0].value' } },
+            { type: 'text', props: { text: 'Retreat', fontSize: 14, fontFamily: 'body', fontWeight: 'bold', fill: '#888888', opacity: 1, stroke: '', strokeWidth: 0, filter: 'none', textAnchor: 'start', wrap: 0, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } },
+            { type: 'image', props: { src: 'energy', energyType: 'Colorless', radius: 12, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } },
+            { type: 'image', props: { src: 'energy', energyType: 'Colorless', radius: 12, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } },
           ]},
         ]
       }
@@ -771,9 +806,11 @@ function editorHtml(): string {
   // ── Load card ──
   async function loadCard(cardId) {
     setStatus('Loading...');
-    var url = BASE + '/render?cardId=' + encodeURIComponent(cardId) +
-      '&elements=' + encodeURIComponent(JSON.stringify(stripInternalProps(elements)));
-    var resp = await fetch(url);
+    var resp = await fetch(BASE + '/render', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cardId: cardId, elements: stripInternalProps(elements) })
+    });
     if (!resp.ok) { setStatus('Error: ' + resp.statusText); return; }
     var svg = await resp.text();
     var wrap = document.getElementById('canvas-wrap');
@@ -980,7 +1017,7 @@ function editorHtml(): string {
       if (svgEl) {
         var g = svgEl.querySelector('[data-element-id="' + selectedElementId + '"]');
         if (g) {
-          if (el.type === 'packed-row' || el.type === 'stack') {
+          if (el.type === 'box') {
             g.setAttribute('transform', 'translate(' + Number(el.props[xKey]) + ',' + Number(el.props[yKey]) + ')');
           } else {
             var dx = Number(el.props[xKey]) - sp.x;
@@ -1214,6 +1251,7 @@ function editorHtml(): string {
   }
 
   var BOX_MODEL_KEYS = {marginTop:1,marginRight:1,marginBottom:1,marginLeft:1,paddingTop:1,paddingRight:1,paddingBottom:1,paddingLeft:1};
+  var FILL_KEYS = {fill:1,fillOpacity:1};
 
   function renderBoxModelHtml(props) {
     var mt = props.marginTop || 0, mr = props.marginRight || 0, mb = props.marginBottom || 0, ml = props.marginLeft || 0;
@@ -1288,12 +1326,14 @@ function editorHtml(): string {
       if (!grandchild) { panel.innerHTML = ''; return; }
 
       var subDefs = SUB_PROP_DEFS[grandchild.type] || [];
-      var hasBox = false;
+      var hasBox = false, hasFill = false;
       html += '<div class="section-label">' + grandchild.type + ' #' + selectedGrandchildIndex + '</div>';
       for (var i = 0; i < subDefs.length; i++) {
         if (BOX_MODEL_KEYS[subDefs[i].key]) { hasBox = true; continue; }
+        if (FILL_KEYS[subDefs[i].key]) { hasFill = true; continue; }
         html += renderPropHtml(subDefs[i], grandchild.props[subDefs[i].key]);
       }
+      if (hasFill) html += '<fill-picker color="' + (grandchild.props.fill || '') + '" opacity="' + (grandchild.props.fillOpacity != null ? grandchild.props.fillOpacity : 1) + '"></fill-picker>';
       if (hasBox) html += renderBoxModelHtml(grandchild.props);
       html += '<button class="remove-btn" id="remove-grandchild-btn">Remove</button>';
       html += '<div class="key-hint">';
@@ -1326,6 +1366,13 @@ function editorHtml(): string {
           debouncedRerender();
         });
       });
+      panel.querySelectorAll('fill-picker').forEach(function(fp) {
+        fp.addEventListener('fill-change', function(e) {
+          grandchild.props.fill = e.detail.color;
+          grandchild.props.fillOpacity = e.detail.opacity;
+          rerender();
+        });
+      });
 
       document.getElementById('remove-grandchild-btn').addEventListener('click', function() {
         child.children.splice(selectedGrandchildIndex, 1);
@@ -1343,21 +1390,23 @@ function editorHtml(): string {
       if (!child) { panel.innerHTML = ''; return; }
 
       var subDefs = SUB_PROP_DEFS[child.type] || [];
-      var hasBox = false;
+      var hasBox = false, hasFill = false;
       html += '<div class="section-label">' + child.type + ' #' + selectedChildIndex + '</div>';
       for (var i = 0; i < subDefs.length; i++) {
         if (BOX_MODEL_KEYS[subDefs[i].key]) { hasBox = true; continue; }
+        if (FILL_KEYS[subDefs[i].key]) { hasFill = true; continue; }
         html += renderPropHtml(subDefs[i], child.props[subDefs[i].key]);
       }
+      if (hasFill) html += '<fill-picker color="' + (child.props.fill || '') + '" opacity="' + (child.props.fillOpacity != null ? child.props.fillOpacity : 1) + '"></fill-picker>';
       if (hasBox) html += renderBoxModelHtml(child.props);
 
-      // If child is packed-row-item, show add-grandchild buttons
-      if (child.type === 'packed-row-item') {
+      // If child is a box, show add-grandchild buttons
+      if (child.type === 'box') {
         html += '<div class="section-label">Children (' + (child.children ? child.children.length : 0) + ')</div>';
         html += '<div class="add-child-bar">';
         html += '<button data-add-grandchild="text">+ Text</button>';
-        html += '<button data-add-grandchild="type-dot">+ Type Dot</button>';
-        html += '<button data-add-grandchild="suffix-logo">+ Logo</button>';
+        html += '<button data-add-grandchild="image-energy">+ Energy</button>';
+        html += '<button data-add-grandchild="image-logo">+ Logo</button>';
         html += '</div>';
       }
 
@@ -1394,6 +1443,13 @@ function editorHtml(): string {
           debouncedRerender();
         });
       });
+      panel.querySelectorAll('fill-picker').forEach(function(fp) {
+        fp.addEventListener('fill-change', function(e) {
+          child.props.fill = e.detail.color;
+          child.props.fillOpacity = e.detail.opacity;
+          rerender();
+        });
+      });
 
       // Add grandchild handlers
       panel.querySelectorAll('[data-add-grandchild]').forEach(function(btn) {
@@ -1401,11 +1457,11 @@ function editorHtml(): string {
           var gcType = btn.dataset.addGrandchild;
           var newGc;
           if (gcType === 'text') {
-            newGc = { type: 'text', props: { text: 'Text', fontSize: 24, fontFamily: 'title', fontWeight: 'bold', fill: '#000000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'none', textAnchor: 'start', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'top' } };
-          } else if (gcType === 'suffix-logo') {
-            newGc = { type: 'suffix-logo', props: { suffix: 'VSTAR', height: 55, filter: 'none', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' } };
+            newGc = { type: 'text', props: { text: 'Text', fontSize: 24, fontFamily: 'title', fontWeight: 'bold', fill: '#000000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'none', textAnchor: 'start', wrap: 0, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'top' } };
+          } else if (gcType === 'image-logo') {
+            newGc = { type: 'image', props: { src: 'logo', suffix: 'VSTAR', height: 55, filter: 'none', opacity: 1, clipToCard: 0, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' } };
           } else {
-            newGc = { type: 'type-dot', props: { energyType: 'Fire', radius: 28, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } };
+            newGc = { type: 'image', props: { src: 'energy', energyType: 'Fire', radius: 28, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } };
           }
           if (!child.children) child.children = [];
           child.children.push(newGc);
@@ -1434,20 +1490,25 @@ function editorHtml(): string {
       return;
     }
 
-    var hasBox = false;
+    html += '<div class="section-label">' + el.type + (el.id ? ' — ' + el.id : '') + '</div>';
+
+    var hasBox = false, hasFill = false;
     for (var i = 0; i < defs.length; i++) {
       if (BOX_MODEL_KEYS[defs[i].key]) { hasBox = true; continue; }
+      if (FILL_KEYS[defs[i].key]) { hasFill = true; continue; }
       html += renderPropHtml(defs[i], el.props[defs[i].key]);
     }
+    if (hasFill) html += '<fill-picker color="' + (el.props.fill || '') + '" opacity="' + (el.props.fillOpacity != null ? el.props.fillOpacity : 1) + '"></fill-picker>';
     if (hasBox) html += renderBoxModelHtml(el.props);
 
     if (el.children) {
       html += '<div class="section-label">Children (' + el.children.length + ')</div>';
       html += '<div class="add-child-bar">';
       html += '<button data-add-child="text">+ Text</button>';
-      html += '<button data-add-child="type-dot">+ Type Dot</button>';
-      html += '<button data-add-child="suffix-logo">+ Logo</button>';
-      html += '<button data-add-child="wrapped-text">+ Wrap</button>';
+      html += '<button data-add-child="text-wrap">+ Wrap Text</button>';
+      html += '<button data-add-child="image-energy">+ Energy</button>';
+      html += '<button data-add-child="image-logo">+ Logo</button>';
+      html += '<button data-add-child="box">+ Box</button>';
       html += '</div>';
     }
 
@@ -1481,6 +1542,13 @@ function editorHtml(): string {
         debouncedRerender();
       });
     });
+    panel.querySelectorAll('fill-picker').forEach(function(fp) {
+      fp.addEventListener('fill-change', function(e) {
+        el.props.fill = e.detail.color;
+        el.props.fillOpacity = e.detail.opacity;
+        rerender();
+      });
+    });
 
     // Add child handlers
     panel.querySelectorAll('[data-add-child]').forEach(function(btn) {
@@ -1488,13 +1556,15 @@ function editorHtml(): string {
         var childType = btn.dataset.addChild;
         var newChild;
         if (childType === 'text') {
-          newChild = { type: 'text', props: { text: 'Text', fontSize: 24, fontFamily: 'title', fontWeight: 'bold', fill: '#000000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'none', textAnchor: 'start', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'top' } };
-        } else if (childType === 'suffix-logo') {
-          newChild = { type: 'suffix-logo', props: { suffix: 'VSTAR', height: 55, filter: 'none', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' } };
-        } else if (childType === 'wrapped-text') {
-          newChild = { type: 'wrapped-text', props: { text: 'Description text', fontSize: 20, fontFamily: 'body', fontWeight: 'bold', fill: '#222222', opacity: 1, filter: 'none', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'top' } };
-        } else {
-          newChild = { type: 'type-dot', props: { energyType: 'Fire', radius: 28, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } };
+          newChild = { type: 'text', props: { text: 'Text', fontSize: 24, fontFamily: 'title', fontWeight: 'bold', fill: '#000000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'none', textAnchor: 'start', wrap: 0, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'top' } };
+        } else if (childType === 'text-wrap') {
+          newChild = { type: 'text', props: { text: 'Description text', fontSize: 20, fontFamily: 'body', fontWeight: 'bold', fill: '#222222', opacity: 1, stroke: '', strokeWidth: 0, filter: 'none', textAnchor: 'start', wrap: 1, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'top' } };
+        } else if (childType === 'image-logo') {
+          newChild = { type: 'image', props: { src: 'logo', suffix: 'VSTAR', height: 55, filter: 'none', opacity: 1, clipToCard: 0, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' } };
+        } else if (childType === 'image-energy') {
+          newChild = { type: 'image', props: { src: 'energy', energyType: 'Fire', radius: 28, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } };
+        } else if (childType === 'box') {
+          newChild = { type: 'box', props: { direction: 'row' }, children: [] };
         }
         el.children.push(newChild);
         rerender();
@@ -1516,10 +1586,10 @@ function editorHtml(): string {
     var BT = String.fromCharCode(96);
     var DS = String.fromCharCode(36);
     var snippets = elements.map(function(el) {
-      if (el.type === 'big-logo') {
+      if (el.type === 'image' && Number(el.props.clipToCard)) {
         var p = el.props;
         return 'const bigLogoH = ' + p.height + ';' + NL
-          + 'const [bigLogoSvg] = renderSuffixLogo("' + p.suffix + '", ' + p.x + ', ' + p.y + ', bigLogoH);' + NL
+          + 'const [bigLogoSvg] = renderSuffixLogo("' + p.suffix + '", ' + p.anchorX + ', ' + p.anchorY + ', bigLogoH);' + NL
           + 'lines.push(' + BT + '  <g opacity="' + p.opacity + '" clip-path="url(#card-clip)">' + DS + '{bigLogoSvg}</g>' + BT + ');';
       }
       return '// Element: ' + el.type + NL + JSON.stringify(el, null, 2);

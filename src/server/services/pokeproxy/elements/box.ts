@@ -1,13 +1,13 @@
 /**
- * StackElement — stacks children vertically with two-pass layout.
- * Pass 1: measure each child with allocatedWidth (inner width).
- * Pass 2: stack vertically, positioning children based on their hAlign.
+ * BoxElement — unified container with direction prop.
+ * Merges PackedRowElement (horizontal) + StackElement (vertical).
  */
 
 import type { LayoutNode, PropDef, NodeState } from "./types.js";
+import { packRow, buildPackItems } from "./packing.js";
 
-export class StackElement implements LayoutNode {
-  readonly type = "stack";
+export class BoxElement implements LayoutNode {
+  readonly type = "box";
   id?: string;
   props: Record<string, number | string>;
   bind?: Record<string, string>;
@@ -16,9 +16,10 @@ export class StackElement implements LayoutNode {
   constructor(props?: Record<string, number | string>, children?: LayoutNode[], bind?: Record<string, string>, id?: string) {
     if (id) this.id = id;
     this.props = {
-      anchorX: 20,
-      anchorY: 530,
-      width: 710,
+      anchorX: 0,
+      anchorY: 0,
+      direction: "row",
+      width: 0,
       gap: 0,
       marginTop: 0,
       marginRight: 0,
@@ -42,6 +43,7 @@ export class StackElement implements LayoutNode {
     return [
       { key: "anchorX", label: "Anchor X", type: "number", min: -200, max: 900, step: 1, isPosition: true },
       { key: "anchorY", label: "Anchor Y", type: "number", min: -200, max: 1100, step: 1, isPosition: true },
+      { key: "direction", label: "Direction", type: "select", options: ["row", "row-reverse", "column"] },
       { key: "width", label: "Width", type: "number", min: 0, max: 900, step: 1 },
       { key: "gap", label: "Gap", type: "number", min: 0, max: 50, step: 1 },
       { key: "marginTop", label: "Margin Top", type: "number", min: -50, max: 50, step: 1 },
@@ -60,6 +62,90 @@ export class StackElement implements LayoutNode {
   }
 
   measure(allocatedWidth?: number): { width: number; height: number } {
+    const direction = String(this.props.direction);
+    if (direction === "column") {
+      return this._measureColumn(allocatedWidth);
+    }
+    return this._measureRow(allocatedWidth);
+  }
+
+  render(x: number, y: number, allocatedWidth?: number): string {
+    const direction = String(this.props.direction);
+    if (direction === "column") {
+      return this._renderColumn(x, y);
+    }
+    return this._renderRow(x, y, allocatedWidth);
+  }
+
+  // ── Row layout (row / row-reverse) ──
+
+  private _measureRow(allocatedWidth?: number): { width: number; height: number } {
+    if (this.children.length === 0) return { width: 0, height: 0 };
+
+    const packItems = buildPackItems(this.children);
+    const packDir = String(this.props.direction) === "row-reverse" ? "rtl" : "ltr";
+
+    const padT = Number(this.props.paddingTop ?? 0);
+    const padR = Number(this.props.paddingRight ?? 0);
+    const padB = Number(this.props.paddingBottom ?? 0);
+    const padL = Number(this.props.paddingLeft ?? 0);
+
+    const rawWidth = Number(this.props.width ?? 0);
+    const containerWidth = rawWidth > 0 ? rawWidth : allocatedWidth;
+    const innerWidth = containerWidth != null ? Math.max(0, containerWidth - padL - padR) : undefined;
+    const { totalWidth, totalHeight } = packRow(packItems, packDir, innerWidth);
+
+    return {
+      width: padL + totalWidth + padR,
+      height: padT + totalHeight + padB,
+    };
+  }
+
+  private _renderRow(x: number, y: number, allocatedWidth?: number): string {
+    const idAttr = this.id ? ` data-element-id="${this.id}"` : "";
+    const mL = Number(this.props.marginLeft ?? 0);
+    const mT = Number(this.props.marginTop ?? 0);
+
+    if (this.children.length === 0) {
+      return `<g${idAttr}></g>`;
+    }
+
+    const packItems = buildPackItems(this.children);
+    const packDir = String(this.props.direction) === "row-reverse" ? "rtl" : "ltr";
+
+    const padT = Number(this.props.paddingTop ?? 0);
+    const padR = Number(this.props.paddingRight ?? 0);
+    const padB = Number(this.props.paddingBottom ?? 0);
+    const padL = Number(this.props.paddingLeft ?? 0);
+
+    const rawWidth = Number(this.props.width ?? 0);
+    const containerWidth = rawWidth > 0 ? rawWidth : allocatedWidth;
+    const innerWidth = containerWidth != null ? Math.max(0, containerWidth - padL - padR) : undefined;
+    const { positions, totalWidth, totalHeight } = packRow(packItems, packDir, innerWidth);
+
+    const parts: string[] = [];
+
+    // Background rect
+    const bgW = padL + totalWidth + padR;
+    const bgH = padT + totalHeight + padB;
+    const fill = String(this.props.fill ?? "");
+    if (fill) {
+      const fillOpacity = Number(this.props.fillOpacity ?? 1);
+      const rx = Number(this.props.rx ?? 0);
+      parts.push(`<rect width="${bgW}" height="${bgH}" rx="${rx}" fill="${fill}" opacity="${fillOpacity}"/>`);
+    }
+
+    for (let i = 0; i < this.children.length; i++) {
+      const pos = positions[i];
+      parts.push(`<g data-child-index="${i}">${this.children[i].render(pos.x + padL, pos.y + padT)}</g>`);
+    }
+
+    return `<g${idAttr} transform="translate(${x + mL},${y + mT})">\n${parts.join("\n")}\n</g>`;
+  }
+
+  // ── Column layout ──
+
+  private _measureColumn(allocatedWidth?: number): { width: number; height: number } {
     const totalWidth = Number(this.props.width ?? allocatedWidth ?? 0);
     const padT = Number(this.props.paddingTop ?? 0);
     const padR = Number(this.props.paddingRight ?? 0);
@@ -86,7 +172,7 @@ export class StackElement implements LayoutNode {
     return { width: totalWidth, height: padT + cursorY + padB };
   }
 
-  render(x: number, y: number): string {
+  private _renderColumn(x: number, y: number): string {
     const mL = Number(this.props.marginLeft ?? 0);
     const mT = Number(this.props.marginTop ?? 0);
     const idAttr = this.id ? ` data-element-id="${this.id}"` : "";
