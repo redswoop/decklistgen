@@ -192,9 +192,9 @@ describe("PackedRowElement", () => {
     expect(hpCluster.children[1].type).toBe("text");
     expect(hpCluster.children[2].type).toBe("type-dot");
 
-    const svg = hpCluster.render(538, 25);
+    const svg = hpCluster.render(514, 42);
     expect(svg).toContain(">HP</text>");
-    expect(svg).toContain(">130</text>");
+    expect(svg).toContain(">280</text>");
     expect(svg).toContain("circle"); // type dot
   });
 
@@ -406,7 +406,7 @@ describe("Name cluster default", () => {
     expect(nameCluster.children[1].type).toBe("suffix-logo");
 
     const svg = nameCluster.render(30, 62);
-    expect(svg).toContain(">Leafeon</text>");
+    expect(svg).toContain(">Arcanine</text>");
     expect(svg).toContain("<image");
   });
 });

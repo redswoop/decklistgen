@@ -303,14 +303,14 @@ describe("attack-block-1 default element", () => {
     expect(attackBlock.children[4].type).toBe("packed-row"); // weakness/resistance/retreat
 
     const svg = attackBlock.render(20, 610);
-    expect(svg).toContain(">Leaf Blade</text>");
-    expect(svg).toContain(">60</text>");
-    expect(svg).toContain(">Star Slash</text>");
-    expect(svg).toContain(">190</text>");
+    expect(svg).toContain(">Raging Claws</text>");
+    expect(svg).toContain(">30+</text>");
+    expect(svg).toContain(">Bright Flame</text>");
+    expect(svg).toContain(">250</text>");
     expect(svg).toContain("circle"); // energy type dots
     expect(svg).toContain("<tspan"); // wrapped text
-    expect(svg).toContain("Does 20 more damage");
-    expect(svg).toContain("VSTAR Power");
+    expect(svg).toContain("10 more damage");
+    expect(svg).toContain("Discard 2");
   });
 });
 

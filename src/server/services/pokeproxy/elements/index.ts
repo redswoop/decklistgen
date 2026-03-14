@@ -49,24 +49,24 @@ export function createElement(state: NodeState): LayoutNode {
 
 export function createDefaultElements(): LayoutNode[] {
   return [
-    createNode({ type: "big-logo", id: "big-logo-1", props: {} }),
+    createNode({ type: "big-logo", id: "big-logo-1", props: { x: -50, y: -38, height: 280, opacity: 0.85, suffix: "VSTAR-big" } }),
     createNode({
       type: "packed-row",
       id: "hp-cluster-1",
-      props: { anchorX: 538, anchorY: 25, direction: "ltr" },
+      props: { anchorX: 514, anchorY: 42, direction: "ltr" },
       children: [
-        { type: "text", props: { text: "HP", fontSize: 18, fontFamily: "title", fontWeight: "bold", fill: "#000000", opacity: 1, stroke: "", strokeWidth: 0, filter: "none", textAnchor: "start", marginTop: 0, marginRight: 4, marginBottom: 4, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "bottom" }, bind: {} },
-        { type: "text", props: { text: "130", fontSize: 50, fontFamily: "title", fontWeight: "bold", fill: "#000000", opacity: 1, stroke: "", strokeWidth: 0, filter: "none", textAnchor: "start", marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "bottom" }, bind: { text: "hp" } },
-        { type: "type-dot", props: { energyType: "Fire", radius: 28, marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { energyType: "types[0]" } },
+        { type: "text", props: { text: "HP", fontSize: 25, fontFamily: "title", fontWeight: "bold", fill: "#ffffff", opacity: 1, stroke: "", strokeWidth: 0, filter: "none", textAnchor: "start", marginTop: 0, marginRight: 4, marginBottom: 4, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "bottom" }, bind: {} },
+        { type: "text", props: { text: "280", fontSize: 52, fontFamily: "title", fontWeight: "bold", fill: "#ffffff", opacity: 1, stroke: "#000000", strokeWidth: 0, filter: "title-shadow", textAnchor: "start", marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "bottom" }, bind: { text: "hp" } },
+        { type: "type-dot", props: { energyType: "Fire", radius: 25, marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { energyType: "types[0]" } },
       ],
     }),
     createNode({
       type: "packed-row",
       id: "name-cluster-1",
-      props: { anchorX: 30, anchorY: 62, direction: "ltr" },
+      props: { anchorX: 45, anchorY: 46, direction: "ltr" },
       children: [
-        { type: "text", props: { text: "Leafeon", fontSize: 48, fontFamily: "title", fontWeight: "bold", fill: "#ffffff", opacity: 1, stroke: "#000000", strokeWidth: 2.5, filter: "title-shadow", textAnchor: "start", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "bottom" }, bind: { text: "_baseName" } },
-        { type: "suffix-logo", props: { suffix: "VSTAR", height: 55, filter: "title-shadow", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 4, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "bottom" }, bind: { suffix: "_nameSuffix" } },
+        { type: "text", props: { text: "Arcanine", fontSize: 48, fontFamily: "title", fontWeight: "bold", fill: "#ffffff", opacity: 1, stroke: "#000000", strokeWidth: 2.5, filter: "title-shadow", textAnchor: "start", marginTop: 0, marginRight: 0, marginBottom: 6, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "bottom" }, bind: { text: "_baseName" } },
+        { type: "suffix-logo", props: { suffix: "ex", height: 55, filter: "title-shadow", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 4, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "bottom" }, bind: { suffix: "_nameSuffix" } },
       ],
     }),
     createNode({
@@ -74,32 +74,32 @@ export function createDefaultElements(): LayoutNode[] {
       id: "attack-block-1",
       props: {
         anchorX: 20, anchorY: 0, width: 710, vAnchor: "bottom",
-        paddingTop: 4, paddingRight: 8, paddingBottom: 8, paddingLeft: 8,
-        fill: "#333333", fillOpacity: 0.1, rx: 5,
+        paddingTop: 4, paddingRight: 8, paddingBottom: 37, paddingLeft: 8,
+        fill: "#e6a7a7", fillOpacity: 0.1, rx: 5,
       },
       children: [
         { type: "packed-row", props: { direction: "ltr" }, children: [
-          { type: "type-dot", props: { energyType: "Grass", radius: 14, grow: 0, hAlign: "start", marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { energyType: "attacks[0].cost[0]" } },
-          { type: "type-dot", props: { energyType: "Colorless", radius: 14, grow: 0, hAlign: "start", marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { energyType: "attacks[0].cost[1]" } },
-          { type: "text", props: { text: "Leaf Blade", fontSize: 28, fontFamily: "title", fontWeight: "bold", fill: "#222222", opacity: 1, stroke: "", strokeWidth: 0, filter: "shadow", textAnchor: "start", grow: 1, hAlign: "start", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { text: "attacks[0].name" } },
-          { type: "text", props: { text: "60", fontSize: 36, fontFamily: "title", fontWeight: "bold", fill: "#cc0000", opacity: 1, stroke: "", strokeWidth: 0, filter: "shadow", textAnchor: "start", grow: 0, hAlign: "end", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { text: "attacks[0].damage" } },
+          { type: "type-dot", props: { energyType: "Fire", radius: 14, grow: 0, hAlign: "start", marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { energyType: "attacks[0].cost[0]" } },
+          { type: "type-dot", props: { energyType: "Fire", radius: 14, grow: 0, hAlign: "start", marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { energyType: "attacks[0].cost[1]" } },
+          { type: "text", props: { text: "Raging Claws", fontSize: 28, fontFamily: "title", fontWeight: "bold", fill: "#ffffff", opacity: 1, stroke: "", strokeWidth: 0, filter: "shadow", textAnchor: "start", grow: 1, hAlign: "start", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { text: "attacks[0].name" } },
+          { type: "text", props: { text: "30+", fontSize: 36, fontFamily: "title", fontWeight: "bold", fill: "#cc0000", opacity: 1, stroke: "", strokeWidth: 0, filter: "shadow", textAnchor: "start", grow: 0, hAlign: "end", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { text: "attacks[0].damage" } },
         ]},
         { type: "wrapped-text", props: {
-          text: "Does 20 more damage for each Grass energy attached to this Pokemon.",
-          fontSize: 20, fontFamily: "body", fontWeight: "bold", fill: "#222222", opacity: 1, filter: "shadow", marginTop: 4,
+          text: "This attack does 10 more damage for each damage counter on this Pokémon.",
+          fontSize: 27, fontFamily: "body", fontWeight: "bold", fill: "#ffffff", opacity: 1, filter: "title-shadow", marginTop: 4,
         }, bind: { text: "attacks[0].effect" } },
         { type: "packed-row", props: { direction: "ltr", marginTop: 6 }, children: [
-          { type: "type-dot", props: { energyType: "Grass", radius: 14, grow: 0, hAlign: "start", marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { energyType: "attacks[1].cost[0]" } },
-          { type: "type-dot", props: { energyType: "Colorless", radius: 14, grow: 0, hAlign: "start", marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { energyType: "attacks[1].cost[1]" } },
-          { type: "type-dot", props: { energyType: "Colorless", radius: 14, grow: 0, hAlign: "start", marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { energyType: "attacks[1].cost[2]" } },
-          { type: "text", props: { text: "Star Slash", fontSize: 28, fontFamily: "title", fontWeight: "bold", fill: "#222222", opacity: 1, stroke: "", strokeWidth: 0, filter: "shadow", textAnchor: "start", grow: 1, hAlign: "start", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { text: "attacks[1].name" } },
-          { type: "text", props: { text: "190", fontSize: 36, fontFamily: "title", fontWeight: "bold", fill: "#cc0000", opacity: 1, stroke: "", strokeWidth: 0, filter: "shadow", textAnchor: "start", grow: 0, hAlign: "end", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { text: "attacks[1].damage" } },
+          { type: "type-dot", props: { energyType: "Fire", radius: 14, grow: 0, hAlign: "start", marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { energyType: "attacks[1].cost[0]" } },
+          { type: "type-dot", props: { energyType: "Fire", radius: 14, grow: 0, hAlign: "start", marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { energyType: "attacks[1].cost[1]" } },
+          { type: "type-dot", props: { energyType: "Fire", radius: 14, grow: 0, hAlign: "start", marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { energyType: "attacks[1].cost[2]" } },
+          { type: "text", props: { text: "Bright Flame", fontSize: 28, fontFamily: "title", fontWeight: "bold", fill: "#222222", opacity: 1, stroke: "", strokeWidth: 0, filter: "shadow", textAnchor: "start", grow: 1, hAlign: "start", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { text: "attacks[1].name" } },
+          { type: "text", props: { text: "250", fontSize: 36, fontFamily: "title", fontWeight: "bold", fill: "#cc0000", opacity: 1, stroke: "", strokeWidth: 0, filter: "shadow", textAnchor: "start", grow: 0, hAlign: "end", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { text: "attacks[1].damage" } },
         ]},
         { type: "wrapped-text", props: {
-          text: "You can't use more than 1 VSTAR Power in a game.",
+          text: "Discard 2 {R} Energy from this Pokémon.",
           fontSize: 20, fontFamily: "body", fontWeight: "bold", fill: "#222222", opacity: 1, filter: "shadow", marginTop: 4,
         }, bind: { text: "attacks[1].effect" } },
-        { type: "packed-row", props: { direction: "ltr", marginTop: 8 }, children: [
+        { type: "packed-row", props: { direction: "ltr", marginTop: 4 }, children: [
           { type: "type-dot", props: { energyType: "Lightning", radius: 12, grow: 0, hAlign: "start", marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { energyType: "weaknesses[0].type" } },
           { type: "text", props: { text: "×2", fontSize: 22, fontFamily: "body", fontWeight: "bold", fill: "#222222", opacity: 1, stroke: "", strokeWidth: 0, filter: "shadow", textAnchor: "start", grow: 0, hAlign: "start", marginTop: 0, marginRight: 16, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { text: "weaknesses[0].value" } },
           { type: "type-dot", props: { energyType: "Fighting", radius: 12, grow: 0, hAlign: "start", marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "middle" }, bind: { energyType: "resistances[0].type" } },

@@ -150,7 +150,7 @@ describe("renderElements vAnchor", () => {
     const elements = createDefaultElements();
     const svg = renderElements(elements);
     expect(svg).toContain('data-element-id="attack-block-1"');
-    expect(svg).toContain(">Leaf Blade</text>");
+    expect(svg).toContain(">Raging Claws</text>");
   });
 });
 
