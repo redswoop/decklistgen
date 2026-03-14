@@ -102,6 +102,19 @@ describe("PackedRowElement", () => {
     expect(svg).not.toContain('<rect');
   });
 
+  test("width + grow stretches background rect to full width", () => {
+    const row = new PackedRowElement("row-1", { anchorX: 0, anchorY: 0, direction: "ltr", width: 500, fill: "#333", fillOpacity: 0.1, rx: 0 }, [
+      { type: "text", props: { text: "Name", fontSize: 20, fontFamily: "title", fontWeight: "bold", fill: "#000", opacity: 1, grow: 1, hAlign: "start", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "top" } },
+      { type: "text", props: { text: "60", fontSize: 20, fontFamily: "title", fontWeight: "bold", fill: "#c00", opacity: 1, grow: 0, hAlign: "end", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "top" } },
+    ]);
+    const svg = row.render();
+    // Background rect should span full 500px width
+    expect(svg).toContain('width="500"');
+    // Both text elements should render
+    expect(svg).toContain(">Name</text>");
+    expect(svg).toContain(">60</text>");
+  });
+
   test("HP cluster default renders all 3 children", () => {
     const elements = createDefaultElements();
     const hpCluster = elements.find(e => e.id === "hp-cluster-1") as PackedRowElement;

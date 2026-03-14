@@ -19,6 +19,7 @@ export class PackedRowElement implements CardElement {
       anchorX: 718,
       anchorY: 10,
       direction: "rtl",
+      width: 0,
       fill: "",
       fillOpacity: 1,
       rx: 0,
@@ -32,6 +33,7 @@ export class PackedRowElement implements CardElement {
       { key: "anchorX", label: "Anchor X", type: "number", min: -200, max: 900, step: 1, isPosition: true },
       { key: "anchorY", label: "Anchor Y", type: "number", min: -200, max: 1100, step: 1, isPosition: true },
       { key: "direction", label: "Direction", type: "select", options: ["ltr", "rtl"] },
+      { key: "width", label: "Width", type: "number", min: 0, max: 900, step: 1 },
       { key: "fill", label: "Fill", type: "color" },
       { key: "fillOpacity", label: "Fill Opacity", type: "range", min: 0, max: 1, step: 0.05 },
       { key: "rx", label: "Corner Radius", type: "number", min: 0, max: 30, step: 1 },
@@ -57,11 +59,14 @@ export class PackedRowElement implements CardElement {
         paddingBottom: Number(child.props.paddingBottom ?? 0),
         paddingLeft: Number(child.props.paddingLeft ?? 0),
         vAlign: (String(child.props.vAlign ?? "top")) as "top" | "middle" | "bottom",
+        grow: Number(child.props.grow ?? 0),
+        hAlign: (String(child.props.hAlign ?? "start")) as "start" | "center" | "end",
       };
     });
 
     const direction = String(this.props.direction) as "ltr" | "rtl";
-    const { positions, totalWidth, totalHeight } = packRow(packItems, direction);
+    const containerWidth = Number(this.props.width ?? 0) || undefined;
+    const { positions, totalWidth, totalHeight } = packRow(packItems, direction, containerWidth);
 
     const parts: string[] = [];
 

@@ -280,6 +280,7 @@ function editorHtml(): string {
       { key: 'anchorX', label: 'Anchor X', type: 'number', min: -200, max: 900, step: 1, isPosition: true },
       { key: 'anchorY', label: 'Anchor Y', type: 'number', min: -200, max: 1100, step: 1, isPosition: true },
       { key: 'direction', label: 'Direction', type: 'select', options: ['ltr', 'rtl'] },
+      { key: 'width', label: 'Width', type: 'number', min: 0, max: 900, step: 1 },
       { key: 'fill', label: 'Fill', type: 'color' },
       { key: 'fillOpacity', label: 'Fill Opacity', type: 'range', min: 0, max: 1, step: 0.05 },
       { key: 'rx', label: 'Corner Radius', type: 'number', min: 0, max: 30, step: 1 },
@@ -300,6 +301,8 @@ function editorHtml(): string {
       { key: 'strokeWidth', label: 'Stroke W', type: 'number', min: 0, max: 10, step: 0.5 },
       { key: 'filter', label: 'Filter', type: 'select', options: ['none', 'shadow', 'title-shadow', 'dmg-shadow'] },
       { key: 'textAnchor', label: 'Anchor', type: 'select', options: ['start', 'middle', 'end'] },
+      { key: 'grow', label: 'Grow', type: 'number', min: 0, max: 10, step: 1 },
+      { key: 'hAlign', label: 'H-Align', type: 'select', options: ['start', 'center', 'end'] },
       { key: 'marginTop', label: 'Margin Top', type: 'number', min: -50, max: 50, step: 1 },
       { key: 'marginRight', label: 'Margin Right', type: 'number', min: -50, max: 50, step: 1 },
       { key: 'marginBottom', label: 'Margin Bottom', type: 'number', min: -50, max: 50, step: 1 },
@@ -313,6 +316,8 @@ function editorHtml(): string {
     'type-dot': [
       { key: 'energyType', label: 'Type', type: 'select', options: ENERGY_TYPES },
       { key: 'radius', label: 'Radius', type: 'number', min: 5, max: 60, step: 1 },
+      { key: 'grow', label: 'Grow', type: 'number', min: 0, max: 10, step: 1 },
+      { key: 'hAlign', label: 'H-Align', type: 'select', options: ['start', 'center', 'end'] },
       { key: 'marginTop', label: 'Margin Top', type: 'number', min: -50, max: 50, step: 1 },
       { key: 'marginRight', label: 'Margin Right', type: 'number', min: -50, max: 50, step: 1 },
       { key: 'marginBottom', label: 'Margin Bottom', type: 'number', min: -50, max: 50, step: 1 },
@@ -327,6 +332,8 @@ function editorHtml(): string {
       { key: 'suffix', label: 'Suffix', type: 'select', options: ['V', 'ex', 'VSTAR'] },
       { key: 'height', label: 'Height', type: 'number', min: 10, max: 120, step: 1 },
       { key: 'filter', label: 'Filter', type: 'select', options: ['none', 'shadow', 'title-shadow'] },
+      { key: 'grow', label: 'Grow', type: 'number', min: 0, max: 10, step: 1 },
+      { key: 'hAlign', label: 'H-Align', type: 'select', options: ['start', 'center', 'end'] },
       { key: 'marginTop', label: 'Margin Top', type: 'number', min: -50, max: 50, step: 1 },
       { key: 'marginRight', label: 'Margin Right', type: 'number', min: -50, max: 50, step: 1 },
       { key: 'marginBottom', label: 'Margin Bottom', type: 'number', min: -50, max: 50, step: 1 },
@@ -421,12 +428,12 @@ function editorHtml(): string {
       },
       {
         type: 'packed-row', id: 'attack-1',
-        props: { anchorX: 20, anchorY: 530, direction: 'ltr', fill: '#333333', fillOpacity: 0.1, rx: 5 },
+        props: { anchorX: 20, anchorY: 530, direction: 'ltr', width: 710, fill: '#333333', fillOpacity: 0.1, rx: 5 },
         children: [
-          { type: 'type-dot', props: { energyType: 'Grass', radius: 14, marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[0].cost[0]' } },
-          { type: 'type-dot', props: { energyType: 'Colorless', radius: 14, marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[0].cost[1]' } },
-          { type: 'text', props: { text: 'Leaf Blade', fontSize: 28, fontFamily: 'title', fontWeight: 'bold', fill: '#222222', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[0].name' } },
-          { type: 'text', props: { text: '60', fontSize: 36, fontFamily: 'title', fontWeight: 'bold', fill: '#cc0000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[0].damage' } },
+          { type: 'type-dot', props: { energyType: 'Grass', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[0].cost[0]' } },
+          { type: 'type-dot', props: { energyType: 'Colorless', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[0].cost[1]' } },
+          { type: 'text', props: { text: 'Leaf Blade', fontSize: 28, fontFamily: 'title', fontWeight: 'bold', fill: '#222222', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 1, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[0].name' } },
+          { type: 'text', props: { text: '60', fontSize: 36, fontFamily: 'title', fontWeight: 'bold', fill: '#cc0000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'shadow', textAnchor: 'start', grow: 0, hAlign: 'end', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { text: 'attacks[0].damage' } },
         ]
       }
     ];
@@ -890,11 +897,11 @@ function editorHtml(): string {
         var childType = btn.dataset.addChild;
         var newChild;
         if (childType === 'text') {
-          newChild = { type: 'text', props: { text: 'Text', fontSize: 24, fontFamily: 'title', fontWeight: 'bold', fill: '#000000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'none', textAnchor: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'top' } };
+          newChild = { type: 'text', props: { text: 'Text', fontSize: 24, fontFamily: 'title', fontWeight: 'bold', fill: '#000000', opacity: 1, stroke: '', strokeWidth: 0, filter: 'none', textAnchor: 'start', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'top' } };
         } else if (childType === 'suffix-logo') {
-          newChild = { type: 'suffix-logo', props: { suffix: 'VSTAR', height: 55, filter: 'none', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' } };
+          newChild = { type: 'suffix-logo', props: { suffix: 'VSTAR', height: 55, filter: 'none', grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'bottom' } };
         } else {
-          newChild = { type: 'type-dot', props: { energyType: 'Fire', radius: 28, marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } };
+          newChild = { type: 'type-dot', props: { energyType: 'Fire', radius: 28, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' } };
         }
         el.children.push(newChild);
         rerender();
