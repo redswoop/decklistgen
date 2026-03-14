@@ -199,6 +199,20 @@ function editorHtml(): string {
   .selection-rect { fill: none; stroke: #4a9eff; stroke-width: 2; stroke-dasharray: 6 3; pointer-events: none; }
   .no-selection { padding: 12px; font-size: 12px; color: #666; font-style: italic; }
   .key-hint { font-size: 10px; color: #555; margin-top: 8px; line-height: 1.5; }
+  .box-model { margin: 8px 0; }
+  .box-layer { display: grid; grid-template-columns: 28px 1fr 28px; grid-template-rows: 22px 1fr 22px; position: relative; border: 1px dashed; border-radius: 3px; }
+  .box-layer-label { position: absolute; top: 1px; left: 4px; font-size: 9px; opacity: 0.5; pointer-events: none; }
+  .box-margin { border-color: rgba(246, 178, 107, 0.5); background: rgba(246, 178, 107, 0.06); }
+  .box-padding { border-color: rgba(147, 196, 125, 0.5); background: rgba(147, 196, 125, 0.06); }
+  .box-top { grid-column: 1 / -1; grid-row: 1; display: flex; align-items: center; justify-content: center; }
+  .box-left { grid-column: 1; grid-row: 2; display: flex; align-items: center; justify-content: center; }
+  .box-inner { grid-column: 2; grid-row: 2; }
+  .box-right { grid-column: 3; grid-row: 2; display: flex; align-items: center; justify-content: center; }
+  .box-bottom { grid-column: 1 / -1; grid-row: 3; display: flex; align-items: center; justify-content: center; }
+  .box-val { width: 28px; background: transparent; border: none; color: #ccc; text-align: center; font-size: 11px; padding: 1px 0; font-family: monospace; -moz-appearance: textfield; }
+  .box-val::-webkit-inner-spin-button, .box-val::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .box-val:focus { background: rgba(255,255,255,0.12); outline: 1px solid #4a9eff; border-radius: 2px; color: #fff; }
+  .box-val:hover { background: rgba(255,255,255,0.05); }
 </style>
 </head>
 <body>
@@ -1199,6 +1213,31 @@ function editorHtml(): string {
     document.querySelectorAll('.drop-indicator').forEach(function(el) { el.remove(); });
   }
 
+  var BOX_MODEL_KEYS = {marginTop:1,marginRight:1,marginBottom:1,marginLeft:1,paddingTop:1,paddingRight:1,paddingBottom:1,paddingLeft:1};
+
+  function renderBoxModelHtml(props) {
+    var mt = props.marginTop || 0, mr = props.marginRight || 0, mb = props.marginBottom || 0, ml = props.marginLeft || 0;
+    var pt = props.paddingTop || 0, pr = props.paddingRight || 0, pb = props.paddingBottom || 0, pl = props.paddingLeft || 0;
+    var h = '<div class="box-model">';
+    h += '<div class="box-layer box-margin">';
+    h += '<span class="box-layer-label">margin</span>';
+    h += '<div class="box-top"><input class="box-val" type="number" data-box-key="marginTop" value="' + mt + '"></div>';
+    h += '<div class="box-left"><input class="box-val" type="number" data-box-key="marginLeft" value="' + ml + '"></div>';
+    h += '<div class="box-inner">';
+    h += '<div class="box-layer box-padding">';
+    h += '<span class="box-layer-label">padding</span>';
+    h += '<div class="box-top"><input class="box-val" type="number" data-box-key="paddingTop" value="' + pt + '"></div>';
+    h += '<div class="box-left"><input class="box-val" type="number" data-box-key="paddingLeft" value="' + pl + '"></div>';
+    h += '<div class="box-inner"></div>';
+    h += '<div class="box-right"><input class="box-val" type="number" data-box-key="paddingRight" value="' + pr + '"></div>';
+    h += '<div class="box-bottom"><input class="box-val" type="number" data-box-key="paddingBottom" value="' + pb + '"></div>';
+    h += '</div></div>';
+    h += '<div class="box-right"><input class="box-val" type="number" data-box-key="marginRight" value="' + mr + '"></div>';
+    h += '<div class="box-bottom"><input class="box-val" type="number" data-box-key="marginBottom" value="' + mb + '"></div>';
+    h += '</div></div>';
+    return h;
+  }
+
   // ── Render a single prop row ──
   function renderPropHtml(def, val) {
     var html = '<div class="prop-row">';
@@ -1249,10 +1288,13 @@ function editorHtml(): string {
       if (!grandchild) { panel.innerHTML = ''; return; }
 
       var subDefs = SUB_PROP_DEFS[grandchild.type] || [];
+      var hasBox = false;
       html += '<div class="section-label">' + grandchild.type + ' #' + selectedGrandchildIndex + '</div>';
       for (var i = 0; i < subDefs.length; i++) {
+        if (BOX_MODEL_KEYS[subDefs[i].key]) { hasBox = true; continue; }
         html += renderPropHtml(subDefs[i], grandchild.props[subDefs[i].key]);
       }
+      if (hasBox) html += renderBoxModelHtml(grandchild.props);
       html += '<button class="remove-btn" id="remove-grandchild-btn">Remove</button>';
       html += '<div class="key-hint">';
       html += 'Arrows: nudge margin<br>';
@@ -1278,6 +1320,12 @@ function editorHtml(): string {
         input.addEventListener('input', handler);
         input.addEventListener('change', handler);
       });
+      panel.querySelectorAll('.box-val').forEach(function(input) {
+        input.addEventListener('change', function() {
+          grandchild.props[input.dataset.boxKey] = parseInt(input.value) || 0;
+          debouncedRerender();
+        });
+      });
 
       document.getElementById('remove-grandchild-btn').addEventListener('click', function() {
         child.children.splice(selectedGrandchildIndex, 1);
@@ -1295,10 +1343,13 @@ function editorHtml(): string {
       if (!child) { panel.innerHTML = ''; return; }
 
       var subDefs = SUB_PROP_DEFS[child.type] || [];
+      var hasBox = false;
       html += '<div class="section-label">' + child.type + ' #' + selectedChildIndex + '</div>';
       for (var i = 0; i < subDefs.length; i++) {
+        if (BOX_MODEL_KEYS[subDefs[i].key]) { hasBox = true; continue; }
         html += renderPropHtml(subDefs[i], child.props[subDefs[i].key]);
       }
+      if (hasBox) html += renderBoxModelHtml(child.props);
 
       // If child is packed-row-item, show add-grandchild buttons
       if (child.type === 'packed-row-item') {
@@ -1336,6 +1387,12 @@ function editorHtml(): string {
         };
         input.addEventListener('input', handler);
         input.addEventListener('change', handler);
+      });
+      panel.querySelectorAll('.box-val').forEach(function(input) {
+        input.addEventListener('change', function() {
+          child.props[input.dataset.boxKey] = parseInt(input.value) || 0;
+          debouncedRerender();
+        });
       });
 
       // Add grandchild handlers
@@ -1377,9 +1434,12 @@ function editorHtml(): string {
       return;
     }
 
+    var hasBox = false;
     for (var i = 0; i < defs.length; i++) {
+      if (BOX_MODEL_KEYS[defs[i].key]) { hasBox = true; continue; }
       html += renderPropHtml(defs[i], el.props[defs[i].key]);
     }
+    if (hasBox) html += renderBoxModelHtml(el.props);
 
     if (el.children) {
       html += '<div class="section-label">Children (' + el.children.length + ')</div>';
@@ -1414,6 +1474,12 @@ function editorHtml(): string {
       };
       input.addEventListener('input', handler);
       input.addEventListener('change', handler);
+    });
+    panel.querySelectorAll('.box-val').forEach(function(input) {
+      input.addEventListener('change', function() {
+        el.props[input.dataset.boxKey] = parseInt(input.value) || 0;
+        debouncedRerender();
+      });
     });
 
     // Add child handlers
