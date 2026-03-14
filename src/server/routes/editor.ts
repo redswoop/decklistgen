@@ -233,6 +233,7 @@ function editorHtml(): string {
   var zoomLevel = 0.55;
   var panX = 0, panY = 0;
   var isPanning = false, panStartX = 0, panStartY = 0, panStartPanX = 0, panStartPanY = 0;
+  var spaceHeld = false;
   var needsFit = true;
 
   // ── Zoom + Pan ──
@@ -461,10 +462,26 @@ function editorHtml(): string {
       applyTransform();
     }, { passive: false });
 
-    // Pan with click-drag on cards area
+    // Space key for pan mode (Photoshop-style)
+    window.addEventListener('keydown', function(e) {
+      if (e.code === 'Space' && !e.repeat && !spaceHeld) {
+        // Don't hijack space when typing in an input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+        e.preventDefault();
+        spaceHeld = true;
+        cardsArea.classList.add('panning');
+      }
+    });
+    window.addEventListener('keyup', function(e) {
+      if (e.code === 'Space' && spaceHeld) {
+        spaceHeld = false;
+        if (!isPanning) cardsArea.classList.remove('panning');
+      }
+    });
+
+    // Pan with click-drag: space+drag anywhere, middle-click, or drag on background
     cardsArea.addEventListener('mousedown', function(e) {
-      // Only pan on direct clicks on the cards area background, or middle button anywhere
-      if (e.button === 1 || (e.button === 0 && (e.target === cardsArea || e.target.id === 'cards-inner' || e.target.id === 'ref-card'))) {
+      if (e.button === 1 || (e.button === 0 && spaceHeld) || (e.button === 0 && (e.target === cardsArea || e.target.id === 'cards-inner' || e.target.id === 'ref-card'))) {
         e.preventDefault();
         isPanning = true;
         panStartX = e.clientX;
@@ -483,7 +500,7 @@ function editorHtml(): string {
     window.addEventListener('mouseup', function() {
       if (isPanning) {
         isPanning = false;
-        cardsArea.classList.remove('panning');
+        if (!spaceHeld) cardsArea.classList.remove('panning');
       }
     });
 
