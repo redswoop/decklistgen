@@ -10,6 +10,7 @@ import CardsView from "./components/CardsView.vue";
 import CardsFilterSidebar from "./components/CardsFilterSidebar.vue";
 import PublicDecksView from "./components/PublicDecksView.vue";
 import QueueView from "./components/QueueView.vue";
+import EditorView from "./components/editor/EditorView.vue";
 import ExportDialog from "./components/ExportDialog.vue";
 import ImportDialog from "./components/ImportDialog.vue";
 import SaveDeckDialog from "./components/SaveDeckDialog.vue";
@@ -129,7 +130,7 @@ watch([mobileLeftOpen, mobileRightOpen], ([left, right]) => {
 });
 
 // Views that take the full center pane (no sidebars)
-const fullWidthView = computed(() => currentView.value === 'queue' || currentView.value === 'public');
+const fullWidthView = computed(() => currentView.value === 'queue' || currentView.value === 'public' || currentView.value === 'editor');
 
 // Desktop collapsed state persisted to localStorage; on mobile, sidebars are always collapsed
 const savedLeftCollapsed = ref(saved.leftCollapsed);
@@ -383,6 +384,10 @@ function handleBrowseRegenerate(card: Card) {
           :class="['app-nav-tab', { active: currentView === 'queue' }]"
           @click="currentView = 'queue'"
         >Queue<span v-if="activeJobCount > 0" class="nav-badge">{{ activeJobCount }}</span></button>
+        <button
+          :class="['app-nav-tab', { active: currentView === 'editor' }]"
+          @click="currentView = 'editor'"
+        >Editor</button>
       </div>
       <div class="app-nav-spacer" />
       <button
@@ -456,6 +461,7 @@ function handleBrowseRegenerate(card: Card) {
           />
           <PublicDecksView v-else-if="currentView === 'public'" />
           <QueueView v-else-if="currentView === 'queue'" />
+          <EditorView v-else-if="currentView === 'editor'" />
           <WorkingDeckView
             v-else-if="selectedDeckId === '__working__'"
             @preview-card="handlePreview"
@@ -511,6 +517,8 @@ function handleBrowseRegenerate(card: Card) {
         @click="currentView = 'public'">Public</button>
       <button :class="['mobile-tab', { active: currentView === 'queue' }]"
         @click="currentView = 'queue'">Queue<span v-if="activeJobCount > 0" class="nav-badge mobile-nav-badge">{{ activeJobCount }}</span></button>
+      <button :class="['mobile-tab', { active: currentView === 'editor' }]"
+        @click="currentView = 'editor'">Editor</button>
     </nav>
 
     <!-- Mobile slide-over panels -->

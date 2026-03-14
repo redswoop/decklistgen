@@ -69,6 +69,10 @@ data/              # Persistent data files (prompts.json etc.)
 
 The `/gallery/` endpoint (`src/server/routes/gallery.ts`) is the place to preview and evaluate all visual samples — rendered cards, energy glyphs, etc. When adding new visual elements or previews, add them to the gallery page, not the main client app.
 
+## Client Architecture
+
+- All client UI must use Vue 3 components. No server-rendered HTML pages with embedded JS for client-facing features.
+
 ## Git
 
 - Commit messages: short imperative summary (e.g., "Add pokemon search endpoint")
