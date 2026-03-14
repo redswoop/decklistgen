@@ -281,6 +281,14 @@ function editorHtml(): string {
       { key: 'anchorY', label: 'Anchor Y', type: 'number', min: -200, max: 1100, step: 1, isPosition: true },
       { key: 'direction', label: 'Direction', type: 'select', options: ['ltr', 'rtl'] },
       { key: 'width', label: 'Width', type: 'number', min: 0, max: 900, step: 1 },
+      { key: 'marginTop', label: 'Margin Top', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'marginRight', label: 'Margin Right', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'marginBottom', label: 'Margin Bottom', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'marginLeft', label: 'Margin Left', type: 'number', min: -50, max: 50, step: 1 },
+      { key: 'paddingTop', label: 'Pad Top', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'paddingRight', label: 'Pad Right', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'paddingBottom', label: 'Pad Bottom', type: 'number', min: 0, max: 50, step: 1 },
+      { key: 'paddingLeft', label: 'Pad Left', type: 'number', min: 0, max: 50, step: 1 },
       { key: 'fill', label: 'Fill', type: 'color' },
       { key: 'fillOpacity', label: 'Fill Opacity', type: 'range', min: 0, max: 1, step: 0.05 },
       { key: 'rx', label: 'Corner Radius', type: 'number', min: 0, max: 30, step: 1 },
@@ -428,7 +436,7 @@ function editorHtml(): string {
       },
       {
         type: 'packed-row', id: 'attack-1',
-        props: { anchorX: 20, anchorY: 530, direction: 'ltr', width: 710, fill: '#333333', fillOpacity: 0.1, rx: 5 },
+        props: { anchorX: 20, anchorY: 530, direction: 'ltr', width: 710, paddingTop: 4, paddingRight: 8, paddingBottom: 4, paddingLeft: 8, fill: '#333333', fillOpacity: 0.1, rx: 5 },
         children: [
           { type: 'type-dot', props: { energyType: 'Grass', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 4, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[0].cost[0]' } },
           { type: 'type-dot', props: { energyType: 'Colorless', radius: 14, grow: 0, hAlign: 'start', marginTop: 0, marginRight: 6, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: 'middle' }, bind: { energyType: 'attacks[0].cost[1]' } },

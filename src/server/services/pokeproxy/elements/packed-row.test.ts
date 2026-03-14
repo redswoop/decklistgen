@@ -102,6 +102,34 @@ describe("PackedRowElement", () => {
     expect(svg).not.toContain('<rect');
   });
 
+  test("container padding insets children from background edge", () => {
+    const row = new PackedRowElement("row-1", { anchorX: 0, anchorY: 0, direction: "ltr", paddingLeft: 10, paddingTop: 5, paddingRight: 10, paddingBottom: 5, fill: "#333", fillOpacity: 1, rx: 0 }, [
+      { type: "text", props: { text: "Hi", fontSize: 20, fontFamily: "title", fontWeight: "bold", fill: "#000", opacity: 1, marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "top", grow: 0, hAlign: "start" } },
+    ]);
+    const svg = row.render();
+    // Text should be offset by container padding
+    expect(svg).toContain('x="10"'); // padLeft
+    expect(svg).toContain('y="5"');  // padTop
+  });
+
+  test("container padding with fixed width — children get inner width", () => {
+    const row = new PackedRowElement("row-1", { anchorX: 0, anchorY: 0, direction: "ltr", width: 200, paddingLeft: 20, paddingRight: 20, fill: "#333", fillOpacity: 1, rx: 0 }, [
+      { type: "text", props: { text: "X", fontSize: 20, fontFamily: "title", fontWeight: "bold", fill: "#000", opacity: 1, grow: 1, hAlign: "start", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "top" } },
+    ]);
+    const svg = row.render();
+    // Background rect should be full 200px wide
+    expect(svg).toContain('width="200"');
+  });
+
+  test("container margin offsets translate from anchor", () => {
+    const row = new PackedRowElement("row-1", { anchorX: 100, anchorY: 50, direction: "ltr", marginLeft: 5, marginTop: 3 }, [
+      { type: "text", props: { text: "Hi", fontSize: 20, fontFamily: "title", fontWeight: "bold", fill: "#000", opacity: 1, marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "top", grow: 0, hAlign: "start" } },
+    ]);
+    const svg = row.render();
+    // Translate should be anchor + margin: (105, 53)
+    expect(svg).toContain('translate(105,53)');
+  });
+
   test("width + grow stretches background rect to full width", () => {
     const row = new PackedRowElement("row-1", { anchorX: 0, anchorY: 0, direction: "ltr", width: 500, fill: "#333", fillOpacity: 0.1, rx: 0 }, [
       { type: "text", props: { text: "Name", fontSize: 20, fontFamily: "title", fontWeight: "bold", fill: "#000", opacity: 1, grow: 1, hAlign: "start", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, vAlign: "top" } },
