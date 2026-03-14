@@ -154,19 +154,30 @@ function editorHtml(): string {
   .ref-card img { border-radius: 12px; border: 2px solid #333; }
   .canvas-wrap { flex-shrink: 0; display: flex; align-items: center; justify-content: center; position: relative; }
   .canvas-wrap svg { cursor: crosshair; }
-  .sidebar { width: 280px; background: #16213e; border-left: 1px solid #333; overflow-y: auto; display: flex; flex-direction: column; }
-  .sidebar h3 { font-size: 13px; text-transform: uppercase; color: #888; padding: 12px 12px 6px; letter-spacing: 1px; }
-  .element-list { padding: 0 12px; }
-  .element-item { padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 13px; margin-bottom: 2px; border: 1px solid transparent; }
-  .element-item:hover { background: #0f3460; }
-  .element-item.selected { background: #0f3460; border-color: #4a9eff; }
-  .element-item.child { padding-left: 24px; font-size: 12px; color: #aaa; }
-  .element-item.grandchild { padding-left: 40px; font-size: 11px; color: #888; }
-  .element-item.child:hover { color: #e0e0e0; }
-  .element-item.child.selected { color: #e0e0e0; }
-  .element-item.grandchild:hover { color: #e0e0e0; }
-  .element-item.grandchild.selected { color: #e0e0e0; }
-  .props-panel { padding: 12px; flex: 1; }
+  .sidebar { width: 280px; background: #16213e; border-left: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; }
+  .sidebar h3 { font-size: 13px; text-transform: uppercase; color: #888; padding: 12px 12px 6px; letter-spacing: 1px; flex-shrink: 0; }
+  .tree-panel { display: flex; flex-direction: column; height: 50%; min-height: 80px; overflow: hidden; }
+  .element-list { padding: 0 8px; overflow-y: auto; flex: 1; }
+  .splitter { height: 6px; background: #1a1a2e; cursor: row-resize; flex-shrink: 0; border-top: 1px solid #333; border-bottom: 1px solid #333; }
+  .splitter:hover, .splitter.active { background: #4a9eff; }
+  .props-panel-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 80px; }
+  .props-panel { padding: 12px; overflow-y: auto; flex: 1; }
+  .tree-item { display: flex; align-items: center; padding: 3px 4px; border-radius: 4px; cursor: pointer; font-size: 13px; margin-bottom: 1px; border: 1px solid transparent; user-select: none; }
+  .tree-item:hover { background: #0f3460; }
+  .tree-item.selected { background: #0f3460; border-color: #4a9eff; }
+  .tree-item.level-1 { padding-left: 20px; font-size: 12px; color: #aaa; }
+  .tree-item.level-2 { padding-left: 36px; font-size: 11px; color: #888; }
+  .tree-item.level-1:hover, .tree-item.level-1.selected { color: #e0e0e0; }
+  .tree-item.level-2:hover, .tree-item.level-2.selected { color: #e0e0e0; }
+  .tree-item.dragging { opacity: 0.4; }
+  .fold-btn { width: 16px; text-align: center; cursor: pointer; color: #888; font-size: 10px; flex-shrink: 0; }
+  .fold-btn:hover { color: #e0e0e0; }
+  .fold-spacer { width: 16px; flex-shrink: 0; }
+  .vis-btn { width: 18px; text-align: center; cursor: pointer; opacity: 0.4; font-size: 11px; flex-shrink: 0; line-height: 1; }
+  .vis-btn:hover { opacity: 0.8; }
+  .vis-btn.is-hidden { opacity: 0.15; }
+  .item-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drop-indicator { height: 2px; background: #4a9eff; margin: 0 4px; border-radius: 1px; }
   .prop-row { margin-bottom: 10px; }
   .prop-row label { display: block; font-size: 11px; color: #888; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
   .prop-row input[type="number"] { width: 80px; background: #0f3460; color: #e0e0e0; border: 1px solid #444; border-radius: 3px; padding: 3px 6px; font-size: 13px; }
@@ -210,11 +221,16 @@ function editorHtml(): string {
     </div>
   </div>
   <div class="sidebar">
-    <h3>Elements</h3>
-    <div class="element-list" id="element-list"></div>
-    <h3>Properties</h3>
-    <div class="props-panel" id="props-panel">
-      <div class="no-selection">Click an element to select it</div>
+    <div class="tree-panel" id="tree-panel">
+      <h3>Elements</h3>
+      <div class="element-list" id="element-list"></div>
+    </div>
+    <div class="splitter" id="splitter"></div>
+    <div class="props-panel-wrap">
+      <h3>Properties</h3>
+      <div class="props-panel" id="props-panel">
+        <div class="no-selection">Click an element to select it</div>
+      </div>
     </div>
   </div>
 </div>
@@ -239,6 +255,7 @@ function editorHtml(): string {
   var isPanning = false, panStartX = 0, panStartY = 0, panStartPanX = 0, panStartPanY = 0;
   var spaceHeld = false;
   var needsFit = true;
+  var dragInfo = null;
 
   // ── Zoom + Pan ──
   function applyTransform() {
@@ -459,6 +476,46 @@ function editorHtml(): string {
     return { x: 0, y: 0 };
   }
 
+  function stripInternalProps(elems) {
+    var clean = JSON.parse(JSON.stringify(elems));
+    function walk(arr) {
+      if (!arr) return;
+      for (var i = 0; i < arr.length; i++) {
+        delete arr[i]._hidden;
+        delete arr[i]._collapsed;
+        if (arr[i].children) walk(arr[i].children);
+      }
+    }
+    walk(clean);
+    return clean;
+  }
+
+  // ── Apply visibility: hide elements in rendered SVG without affecting layout ──
+  function applyVisibility(svgEl) {
+    if (!svgEl || !elements) return;
+    for (var i = 0; i < elements.length; i++) {
+      var el = elements[i];
+      var g = svgEl.querySelector('[data-element-id="' + el.id + '"]');
+      if (!g) continue;
+      g.style.display = el._hidden ? 'none' : '';
+      if (el.children) {
+        for (var ci = 0; ci < el.children.length; ci++) {
+          var child = el.children[ci];
+          var childG = g.querySelector(':scope > [data-child-index="' + ci + '"]');
+          if (!childG) continue;
+          childG.style.display = child._hidden ? 'none' : '';
+          if (child.children) {
+            for (var gi = 0; gi < child.children.length; gi++) {
+              var gc = child.children[gi];
+              var gcG = childG.querySelector(':scope > g > [data-child-index="' + gi + '"]');
+              if (gcG) gcG.style.display = gc._hidden ? 'none' : '';
+            }
+          }
+        }
+      }
+    }
+  }
+
   // ── Init ──
   async function init() {
     var resp = await fetch(BASE + '/cards');
@@ -606,6 +663,35 @@ function editorHtml(): string {
 
     // Zoom to fit
     document.getElementById('btn-fit').addEventListener('click', zoomToFit);
+
+    // ── Splitter drag ──
+    var splitterEl = document.getElementById('splitter');
+    var treePanelEl = document.getElementById('tree-panel');
+    var isResizingSplitter = false;
+    splitterEl.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      isResizingSplitter = true;
+      splitterEl.classList.add('active');
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
+    });
+    window.addEventListener('mousemove', function(e) {
+      if (!isResizingSplitter) return;
+      var sidebarEl = document.querySelector('.sidebar');
+      var sidebarRect = sidebarEl.getBoundingClientRect();
+      var newHeight = e.clientY - sidebarRect.top;
+      newHeight = Math.max(80, Math.min(newHeight, sidebarRect.height - 80));
+      treePanelEl.style.height = newHeight + 'px';
+      treePanelEl.style.flex = 'none';
+    });
+    window.addEventListener('mouseup', function() {
+      if (isResizingSplitter) {
+        isResizingSplitter = false;
+        splitterEl.classList.remove('active');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    });
   }
 
   // ── Card pick + data binding ──
@@ -672,7 +758,7 @@ function editorHtml(): string {
   async function loadCard(cardId) {
     setStatus('Loading...');
     var url = BASE + '/render?cardId=' + encodeURIComponent(cardId) +
-      '&elements=' + encodeURIComponent(JSON.stringify(elements));
+      '&elements=' + encodeURIComponent(JSON.stringify(stripInternalProps(elements)));
     var resp = await fetch(url);
     if (!resp.ok) { setStatus('Error: ' + resp.statusText); return; }
     var svg = await resp.text();
@@ -696,6 +782,7 @@ function editorHtml(): string {
 
     var svgEl = wrap.querySelector('svg');
     svgEl.addEventListener('click', onCanvasClick);
+    applyVisibility(svgEl);
     setStatus('Ready');
     if (needsFit) {
       needsFit = false;
@@ -895,7 +982,7 @@ function editorHtml(): string {
     debouncedRerender();
   }
 
-  // ── Element list (hierarchical) ──
+  // ── Element list (hierarchical with fold/visibility/drag) ──
   function renderElementList() {
     var list = document.getElementById('element-list');
     if (!elements) { list.innerHTML = ''; return; }
@@ -903,37 +990,213 @@ function editorHtml(): string {
     for (var i = 0; i < elements.length; i++) {
       var el = elements[i];
       var isElSelected = (el.id === selectedElementId && selectedChildIndex == null);
-      var cls = 'element-item' + (isElSelected ? ' selected' : '');
-      html += '<div class="' + cls + '" data-id="' + el.id + '">' + el.id + '</div>';
+      var hasChildren = el.children && el.children.length > 0;
 
-      if (el.children) {
+      html += '<div class="tree-item level-0' + (isElSelected ? ' selected' : '') + '"'
+        + ' draggable="true" data-idx="' + i + '" data-id="' + el.id + '">';
+      if (hasChildren) {
+        html += '<span class="fold-btn" data-idx="' + i + '">' + (el._collapsed ? '&#9656;' : '&#9662;') + '</span>';
+      } else {
+        html += '<span class="fold-spacer"></span>';
+      }
+      html += '<span class="vis-btn' + (el._hidden ? ' is-hidden' : '') + '" data-idx="' + i + '">\u{1F441}</span>';
+      html += '<span class="item-label">' + el.id + '</span>';
+      html += '</div>';
+
+      if (hasChildren && !el._collapsed) {
         for (var ci = 0; ci < el.children.length; ci++) {
           var child = el.children[ci];
           var isChildSelected = (el.id === selectedElementId && selectedChildIndex === ci && selectedGrandchildIndex == null);
-          var childCls = 'element-item child' + (isChildSelected ? ' selected' : '');
-          html += '<div class="' + childCls + '" data-id="' + el.id + '" data-child="' + ci + '">'
-            + getChildLabel(child) + '</div>';
+          var childHasKids = child.children && child.children.length > 0;
 
-          // 3rd level: grandchildren (e.g. packed-row-item children)
-          if (child.children) {
+          html += '<div class="tree-item level-1' + (isChildSelected ? ' selected' : '') + '"'
+            + ' draggable="true" data-idx="' + i + '" data-id="' + el.id + '" data-child="' + ci + '">';
+          if (childHasKids) {
+            html += '<span class="fold-btn" data-idx="' + i + '" data-child="' + ci + '">' + (child._collapsed ? '&#9656;' : '&#9662;') + '</span>';
+          } else {
+            html += '<span class="fold-spacer"></span>';
+          }
+          html += '<span class="vis-btn' + (child._hidden ? ' is-hidden' : '') + '" data-idx="' + i + '" data-child="' + ci + '">\u{1F441}</span>';
+          html += '<span class="item-label">' + getChildLabel(child) + '</span>';
+          html += '</div>';
+
+          if (childHasKids && !child._collapsed) {
             for (var gi = 0; gi < child.children.length; gi++) {
-              var isGrandchildSelected = (el.id === selectedElementId && selectedChildIndex === ci && selectedGrandchildIndex === gi);
-              var gcCls = 'element-item grandchild' + (isGrandchildSelected ? ' selected' : '');
-              html += '<div class="' + gcCls + '" data-id="' + el.id + '" data-child="' + ci + '" data-grandchild="' + gi + '">'
-                + getChildLabel(child.children[gi]) + '</div>';
+              var gc = child.children[gi];
+              var isGcSelected = (el.id === selectedElementId && selectedChildIndex === ci && selectedGrandchildIndex === gi);
+
+              html += '<div class="tree-item level-2' + (isGcSelected ? ' selected' : '') + '"'
+                + ' draggable="true" data-idx="' + i + '" data-id="' + el.id + '" data-child="' + ci + '" data-grandchild="' + gi + '">';
+              html += '<span class="fold-spacer"></span>';
+              html += '<span class="vis-btn' + (gc._hidden ? ' is-hidden' : '') + '" data-idx="' + i + '" data-child="' + ci + '" data-grandchild="' + gi + '">\u{1F441}</span>';
+              html += '<span class="item-label">' + getChildLabel(gc) + '</span>';
+              html += '</div>';
             }
           }
         }
       }
     }
     list.innerHTML = html;
-    list.querySelectorAll('.element-item').forEach(function(item) {
-      item.addEventListener('click', function() {
+
+    // Selection click handlers
+    list.querySelectorAll('.tree-item').forEach(function(item) {
+      item.addEventListener('click', function(e) {
+        if (e.target.classList.contains('fold-btn') || e.target.classList.contains('vis-btn')) return;
+        var elId = item.dataset.id;
         var childIdx = (item.dataset.child != null) ? parseInt(item.dataset.child) : null;
-        var grandchildIdx = (item.dataset.grandchild != null) ? parseInt(item.dataset.grandchild) : null;
-        selectItem(item.dataset.id, childIdx, grandchildIdx);
+        var gcIdx = (item.dataset.grandchild != null) ? parseInt(item.dataset.grandchild) : null;
+        selectItem(elId, childIdx, gcIdx);
       });
     });
+
+    // Fold toggle handlers
+    list.querySelectorAll('.fold-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var idx = parseInt(btn.dataset.idx);
+        if (btn.dataset.child != null) {
+          var ci = parseInt(btn.dataset.child);
+          elements[idx].children[ci]._collapsed = !elements[idx].children[ci]._collapsed;
+        } else {
+          elements[idx]._collapsed = !elements[idx]._collapsed;
+        }
+        renderElementList();
+      });
+    });
+
+    // Visibility toggle handlers
+    list.querySelectorAll('.vis-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var idx = parseInt(btn.dataset.idx);
+        if (btn.dataset.grandchild != null) {
+          var ci = parseInt(btn.dataset.child);
+          var gi = parseInt(btn.dataset.grandchild);
+          elements[idx].children[ci].children[gi]._hidden = !elements[idx].children[ci].children[gi]._hidden;
+        } else if (btn.dataset.child != null) {
+          var ci = parseInt(btn.dataset.child);
+          elements[idx].children[ci]._hidden = !elements[idx].children[ci]._hidden;
+        } else {
+          elements[idx]._hidden = !elements[idx]._hidden;
+        }
+        renderElementList();
+        var svgEl = document.querySelector('#canvas-wrap svg');
+        if (svgEl) applyVisibility(svgEl);
+      });
+    });
+
+    // Drag and drop
+    setupTreeDragDrop();
+  }
+
+  function setupTreeDragDrop() {
+    var list = document.getElementById('element-list');
+    var items = list.querySelectorAll('.tree-item');
+
+    items.forEach(function(item) {
+      item.addEventListener('dragstart', function(e) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', '');
+        dragInfo = {
+          idx: parseInt(item.dataset.idx),
+          child: item.dataset.child != null ? parseInt(item.dataset.child) : null,
+          grandchild: item.dataset.grandchild != null ? parseInt(item.dataset.grandchild) : null
+        };
+        item.classList.add('dragging');
+      });
+
+      item.addEventListener('dragend', function() {
+        dragInfo = null;
+        item.classList.remove('dragging');
+        removeDropIndicators();
+      });
+
+      item.addEventListener('dragover', function(e) {
+        if (!dragInfo) return;
+        var tgtIdx = parseInt(item.dataset.idx);
+        var tgtChild = item.dataset.child != null ? parseInt(item.dataset.child) : null;
+        var tgtGc = item.dataset.grandchild != null ? parseInt(item.dataset.grandchild) : null;
+        var srcLevel = dragInfo.grandchild != null ? 2 : (dragInfo.child != null ? 1 : 0);
+        var tgtLevel = tgtGc != null ? 2 : (tgtChild != null ? 1 : 0);
+
+        if (srcLevel !== tgtLevel) return;
+        if (srcLevel === 1 && dragInfo.idx !== tgtIdx) return;
+        if (srcLevel === 2 && (dragInfo.idx !== tgtIdx || dragInfo.child !== tgtChild)) return;
+
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        removeDropIndicators();
+        var rect = item.getBoundingClientRect();
+        var indicator = document.createElement('div');
+        indicator.className = 'drop-indicator';
+        if (e.clientY > rect.top + rect.height / 2) {
+          item.after(indicator);
+        } else {
+          item.before(indicator);
+        }
+      });
+
+      item.addEventListener('dragleave', function() {
+        removeDropIndicators();
+      });
+
+      item.addEventListener('drop', function(e) {
+        e.preventDefault();
+        if (!dragInfo) return;
+        var tgtIdx = parseInt(item.dataset.idx);
+        var tgtChild = item.dataset.child != null ? parseInt(item.dataset.child) : null;
+        var tgtGc = item.dataset.grandchild != null ? parseInt(item.dataset.grandchild) : null;
+        var srcLevel = dragInfo.grandchild != null ? 2 : (dragInfo.child != null ? 1 : 0);
+        var tgtLevel = tgtGc != null ? 2 : (tgtChild != null ? 1 : 0);
+
+        if (srcLevel !== tgtLevel) { dragInfo = null; removeDropIndicators(); return; }
+
+        var rect = item.getBoundingClientRect();
+        var insertAfter = e.clientY > rect.top + rect.height / 2;
+
+        if (srcLevel === 0) {
+          var si = dragInfo.idx, ti = tgtIdx;
+          if (insertAfter) ti++;
+          if (si < ti) ti--;
+          if (si !== ti) {
+            var moved = elements.splice(si, 1)[0];
+            elements.splice(ti, 0, moved);
+          }
+        } else if (srcLevel === 1) {
+          if (dragInfo.idx !== tgtIdx) { dragInfo = null; removeDropIndicators(); return; }
+          var parent = elements[tgtIdx];
+          var si = dragInfo.child, ti = tgtChild;
+          if (insertAfter) ti++;
+          if (si < ti) ti--;
+          if (si !== ti) {
+            var moved = parent.children.splice(si, 1)[0];
+            parent.children.splice(ti, 0, moved);
+            if (selectedElementId === parent.id && selectedChildIndex === si) selectedChildIndex = ti;
+          }
+        } else if (srcLevel === 2) {
+          if (dragInfo.idx !== tgtIdx || dragInfo.child !== tgtChild) { dragInfo = null; removeDropIndicators(); return; }
+          var child = elements[tgtIdx].children[tgtChild];
+          var si = dragInfo.grandchild, ti = tgtGc;
+          if (insertAfter) ti++;
+          if (si < ti) ti--;
+          if (si !== ti) {
+            var moved = child.children.splice(si, 1)[0];
+            child.children.splice(ti, 0, moved);
+            if (selectedGrandchildIndex === si) selectedGrandchildIndex = ti;
+          }
+        }
+
+        dragInfo = null;
+        removeDropIndicators();
+        rerender();
+        renderElementList();
+        renderPropsPanel();
+      });
+    });
+  }
+
+  function removeDropIndicators() {
+    document.querySelectorAll('.drop-indicator').forEach(function(el) { el.remove(); });
   }
 
   // ── Render a single prop row ──
@@ -1177,7 +1440,7 @@ function editorHtml(): string {
 
   // ── Export ──
   function copyJson() {
-    var json = JSON.stringify(elements, null, 2);
+    var json = JSON.stringify(stripInternalProps(elements), null, 2);
     navigator.clipboard.writeText(json).then(function() { setStatus('JSON copied'); });
   }
 
