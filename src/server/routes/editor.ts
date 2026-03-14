@@ -233,6 +233,7 @@ function editorHtml(): string {
   var zoomLevel = 0.55;
   var panX = 0, panY = 0;
   var isPanning = false, panStartX = 0, panStartY = 0, panStartPanX = 0, panStartPanY = 0;
+  var needsFit = true;
 
   // ── Zoom + Pan ──
   function applyTransform() {
@@ -495,13 +496,12 @@ function editorHtml(): string {
 
     // Zoom to fit
     document.getElementById('btn-fit').addEventListener('click', zoomToFit);
-
-    zoomToFit();
   }
 
   // ── Card pick + data binding ──
   async function onCardPicked(cardId) {
     location.hash = cardId;
+    needsFit = true;
 
     // Load reference raw image
     var refEl = document.getElementById('ref-card');
@@ -577,6 +577,11 @@ function editorHtml(): string {
     var svgEl = wrap.querySelector('svg');
     svgEl.addEventListener('click', onCanvasClick);
     setStatus('Ready');
+    if (needsFit) {
+      needsFit = false;
+      // Delay to let ref image load and layout settle
+      setTimeout(zoomToFit, 100);
+    }
     if (selectedElementId) showSelection();
   }
 
