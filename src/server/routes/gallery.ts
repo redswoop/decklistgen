@@ -936,6 +936,12 @@ async function init() {
     // Load SVG async
     loadSvg(card.cardId);
   }
+
+  // Auto-open card from URL hash (e.g. #cards/sv01-019)
+  const hashCard = location.hash.match(/^#cards\/(.+)$/);
+  if (hashCard && cardData[hashCard[1]]) {
+    showPreview(hashCard[1]);
+  }
 }
 
 function cssId(cardId) {
@@ -978,6 +984,8 @@ function showPreview(cardId) {
   const card = cardData[cardId];
   if (!card) return;
   currentCardId = cardId;
+  // Update URL to remember this card
+  history.replaceState(null, '', '#cards/' + cardId);
 
   document.getElementById('lightbox-title').textContent = card.label + ' — ' + card.name;
   document.getElementById('lightbox-src').src = '/api/pokeproxy/image/' + cardId + '/source';
@@ -1073,6 +1081,7 @@ function showCleanPanel(cardId) {
 function closeLightbox() {
   document.getElementById('lightbox').classList.remove('active');
   currentCardId = null;
+  history.replaceState(null, '', '#cards');
 }
 
 function setStatus(msg) {
@@ -1081,6 +1090,18 @@ function setStatus(msg) {
 
 function setButtons(enabled) {
   document.querySelectorAll('.lightbox-actions button').forEach(b => b.disabled = !enabled);
+}
+
+async function pollJob(jobId) {
+  while (true) {
+    await new Promise(function(r) { setTimeout(r, 2000); });
+    var resp = await fetch('/api/pokeproxy/queue/' + jobId);
+    if (!resp.ok) throw new Error('Queue poll failed: HTTP ' + resp.status);
+    var job = await resp.json();
+    if (job.status === 'completed') return job;
+    if (job.status === 'failed') throw new Error(job.error || 'Generation failed');
+    if (job.status === 'running') setStatus('ComfyUI generating...');
+  }
 }
 
 async function doClean(force) {
@@ -1096,6 +1117,14 @@ async function doClean(force) {
     const url = '/api/pokeproxy/generate/' + cardId + (force ? '?force=true' : '');
     const resp = await fetch(url, { method: 'POST' });
     const data = await resp.json();
+    if (data.status === 'queued') {
+      setStatus('Queued — waiting for ComfyUI...');
+      var job = await pollJob(data.jobId);
+      data.seed = job.seed;
+      data.rule = job.ruleName;
+      data.prompt = job.prompt;
+      data.status = 'generated';
+    }
     if (data.status === 'generated' || data.status === 'already_exists') {
       const seedInfo = data.seed != null ? ' (seed ' + data.seed + ')' : '';
       const ruleInfo = data.rule ? ' [' + data.rule + ']' : '';
@@ -1179,7 +1208,8 @@ function setMode(mode) {
   });
   cardsView.style.display = mode === 'cards' ? '' : 'none';
   glyphsView.style.display = mode === 'glyphs' ? '' : 'none';
-  if (location.hash !== '#' + mode) location.hash = mode;
+  // Only update hash if it doesn't already match this mode (preserve card ID in hash)
+  if (!location.hash.startsWith('#' + mode)) history.replaceState(null, '', '#' + mode);
 
   if (mode === 'cards') {
     if (!cardsInitialized) {
@@ -1196,11 +1226,25 @@ function setMode(mode) {
   }
 }
 
+function getModeFromHash() {
+  return location.hash.startsWith('#glyphs') ? 'glyphs' : 'cards';
+}
+
 window.addEventListener('hashchange', function() {
-  setMode(location.hash === '#glyphs' ? 'glyphs' : 'cards');
+  var mode = getModeFromHash();
+  setMode(mode);
+  // Handle card navigation via hash
+  if (mode === 'cards') {
+    var match = location.hash.match(/^#cards\\/(.+)$/);
+    if (match && cardData[match[1]]) {
+      showPreview(match[1]);
+    } else if (!match) {
+      closeLightbox();
+    }
+  }
 });
 
-setMode(location.hash === '#glyphs' ? 'glyphs' : 'cards');
+setMode(getModeFromHash());
 </script>
 </body>
 </html>`;

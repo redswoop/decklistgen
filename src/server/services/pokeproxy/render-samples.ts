@@ -40,9 +40,13 @@ const CARDS: Record<string, { card: Record<string, unknown>; template: TemplateN
     template: "fullart",
     card: { name: "Flygon VMAX", category: "Pokemon", hp: 320, types: ["Dragon"], stage: "VMAX", suffix: "VMAX", rarity: "Rare VMAX", retreat: 2, localId: "7", evolveFrom: "Flygon V", set: { name: "Celebrations" }, attacks: [{ name: "Max Spiral", damage: "180", cost: ["Fighting", "Fighting"], effect: "Attach an Energy card from your discard pile to this Pokémon." }] },
   },
-  "06-vstar-fullart": {
-    template: "fullart",
+  "06-vstar": {
+    template: "vstar",
     card: { name: "Leafeon VSTAR", category: "Pokemon", hp: 260, types: ["Grass"], stage: "VSTAR", suffix: "VSTAR", rarity: "Rare VSTAR", retreat: 1, localId: "019", evolveFrom: "Leafeon V", set: { name: "Crown Zenith" }, attacks: [{ name: "Leaf Guard", damage: "180", cost: ["Grass", "Colorless", "Colorless"], effect: "During your opponent's next turn, this Pokémon takes 30 less damage from attacks." }] },
+  },
+  "06b-vstar-with-ability": {
+    template: "vstar",
+    card: { name: "Mawile VSTAR", category: "Pokemon", hp: 260, types: ["Psychic"], stage: "VSTAR", suffix: "V", rarity: "Holo Rare VSTAR", retreat: 1, localId: "071", evolveFrom: "Mawile V", set: { name: "Silver Tempest" }, abilities: [{ type: "Ability", name: "Star Rondo", effect: "During your turn, if this Pokémon is on your Bench, you may switch it with your Active Pokémon. If you do, switch 1 of your opponent's Benched Pokémon with their Active Pokémon. (You can't use more than 1 VSTAR Power in a game.)" }], attacks: [{ name: "Sudden Eater", damage: "90+", cost: ["Colorless", "Colorless"], effect: "If this Pokémon moved from your Bench to the Active Spot this turn, this attack does 90 more damage." }] },
   },
   "07-trainer-item": {
     template: "standard",

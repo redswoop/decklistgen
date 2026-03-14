@@ -16,6 +16,9 @@ function renderFullart(card: Record<string, unknown>) {
 function renderBasicEnergy(card: Record<string, unknown>) {
   return renderFromTemplate("basic-energy", card, TINY_PNG);
 }
+function renderVstar(card: Record<string, unknown>) {
+  return renderFromTemplate("vstar", card, TINY_PNG);
+}
 
 // ─── Test card fixtures ───
 
@@ -115,6 +118,42 @@ const CARDS = {
     set: { name: "Crown Zenith", id: "swsh12.5" },
     attacks: [
       { name: "Leaf Guard", damage: "180", cost: ["Grass", "Colorless", "Colorless"], effect: "During your opponent's next turn, this Pokémon takes 30 less damage from attacks." },
+    ],
+  },
+  vstarWithAbility: {
+    name: "Mawile VSTAR",
+    category: "Pokemon",
+    hp: 260,
+    types: ["Psychic"],
+    stage: "VSTAR",
+    suffix: "V",
+    rarity: "Holo Rare VSTAR",
+    retreat: 1,
+    localId: "071",
+    evolveFrom: "Mawile V",
+    set: { name: "Silver Tempest", id: "swsh12" },
+    abilities: [
+      { type: "Ability", name: "Star Rondo", effect: "During your turn, if this Pokémon is on your Bench, you may switch it with your Active Pokémon. If you do, switch 1 of your opponent's Benched Pokémon with their Active Pokémon. (You can't use more than 1 VSTAR Power in a game.)" },
+    ],
+    attacks: [
+      { name: "Sudden Eater", damage: "90+", cost: ["Colorless", "Colorless"], effect: "If this Pokémon moved from your Bench to the Active Spot this turn, this attack does 90 more damage." },
+    ],
+  },
+  vstarWithPowerAttack: {
+    name: "Charizard VSTAR",
+    category: "Pokemon",
+    hp: 280,
+    types: ["Fire"],
+    stage: "VSTAR",
+    suffix: "V",
+    rarity: "Holo Rare VSTAR",
+    retreat: 2,
+    localId: "019",
+    evolveFrom: "Charizard V",
+    set: { name: "Crown Zenith", id: "swsh12.5" },
+    attacks: [
+      { name: "Explosive Fire", damage: "130+", cost: ["Fire", "Fire", "Colorless"], effect: "If this Pokémon has any damage counters on it, this attack does 100 more damage." },
+      { name: "Star Blaze", damage: "320", cost: ["Fire", "Fire", "Fire", "Colorless"], effect: "Discard 2 Energy from this Pokémon. (You can't use more than 1 VSTAR Power in a game.)" },
     ],
   },
   trainerItem: {
@@ -279,7 +318,7 @@ describe("fullart renderer", () => {
     expect(svg).toContain("grad-VMAX");
   });
 
-  test("VSTAR pokemon renders with VSTAR badge", () => {
+  test("VSTAR pokemon renders with VSTAR badge (fullart fallback)", () => {
     const svg = renderFullart(CARDS.vstarPokemon);
     expect(svg).toContain("Leafeon");
     expect(svg).toContain("grad-VSTAR");
@@ -315,6 +354,69 @@ describe("fullart renderer", () => {
   test("weakness/resistance rendered for typed pokemon", () => {
     const svg = renderFullart(CARDS.exPokemon);
     expect(svg).toContain("×2");
+  });
+});
+
+describe("vstar renderer", () => {
+  beforeEach(() => resetIconIds());
+
+  test("VSTAR pokemon renders with gold VSTAR tag and suffix", () => {
+    const svg = renderVstar(CARDS.vstarPokemon);
+    expect(svg).toStartWith("<svg");
+    expect(svg).toEndWith("</svg>");
+    expect(svg).toContain("Leafeon");
+    expect(svg).toContain("VSTAR");
+    expect(svg).toContain("Leaf Guard");
+  });
+
+  test("VSTAR with ability renders attack before ability", () => {
+    const svg = renderVstar(CARDS.vstarWithAbility);
+    expect(svg).toContain("Mawile");
+    expect(svg).toContain("Sudden Eater");
+    expect(svg).toContain("Star Rondo");
+    // "VSTAR Power" label separate from ability name
+    expect(svg).toContain("VSTAR Power");
+    expect(svg).not.toContain("VSTAR Power:");
+    // Attack should appear before the VSTAR Power ability in the SVG
+    const attackIdx = svg.indexOf("Sudden Eater");
+    const abilityIdx = svg.indexOf("Star Rondo");
+    expect(attackIdx).toBeLessThan(abilityIdx);
+  });
+
+  test("VSTAR Power renders once-per-game note", () => {
+    const svg = renderVstar(CARDS.vstarWithAbility);
+    expect(svg).toContain("VSTAR Power in a game");
+    // No gold shimmer bar or star glyph
+    expect(svg).not.toContain("vstar-bar-grad");
+    expect(svg).not.toContain("&#x2605;");
+    expect(svg).not.toContain("gold-glow");
+  });
+
+  test("VSTAR Power attack renders with VSTAR Power styling", () => {
+    const svg = renderVstar(CARDS.vstarWithPowerAttack);
+    expect(svg).toContain("Charizard");
+    expect(svg).toContain("Explosive Fire");
+    expect(svg).toContain("Star Blaze");
+    expect(svg).toContain("VSTAR Power");
+    expect(svg).toContain("VSTAR Power in a game");
+    // Explosive Fire (regular) should appear before Star Blaze (VSTAR Power)
+    const regularIdx = svg.indexOf("Explosive Fire");
+    const vstarIdx = svg.indexOf("Star Blaze");
+    expect(regularIdx).toBeLessThan(vstarIdx);
+    // VSTAR Power label should appear before Star Blaze
+    const labelIdx = svg.indexOf("VSTAR Power");
+    expect(labelIdx).toBeLessThan(vstarIdx);
+  });
+
+  test("VSTAR renders evolution line", () => {
+    const svg = renderVstar(CARDS.vstarPokemon);
+    expect(svg).toContain("Evolves from Leafeon V");
+  });
+
+  test("VSTAR renders rules text", () => {
+    const svg = renderVstar(CARDS.vstarPokemon);
+    expect(svg).toContain("KO");
+    expect(svg).toContain("2 Prizes");
   });
 });
 
@@ -422,12 +524,14 @@ describe("SVG → PNG rendering", () => {
     const TEMPLATE_MAP: Record<string, TemplateName> = {};
     for (const [label, card] of Object.entries(CARDS)) {
       const category = (card as any).category;
+      const stage = (card as any).stage;
       const isEnergy = category === "Energy";
       const isBasicEnergy = isEnergy && (card as any).energyType === "Normal";
-      const isFullart = !isBasicEnergy && (
+      const isVstar = stage === "VSTAR";
+      const isFullart = !isBasicEnergy && !isVstar && (
         (card as any).suffix || (card as any).rarity?.toLowerCase().includes("rare") || isEnergy
       );
-      TEMPLATE_MAP[label] = isBasicEnergy ? "basic-energy" : isFullart ? "fullart" : "standard";
+      TEMPLATE_MAP[label] = isBasicEnergy ? "basic-energy" : isVstar ? "vstar" : isFullart ? "fullart" : "standard";
     }
 
     const results: Record<string, { svgLen: number; pngLen: number; width: number; height: number }> = {};

@@ -180,8 +180,10 @@ async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions):
   // Determine template — processed standard cards render as fullart (they've been expanded)
   const fullart = isFullArt(cardData as TcgdexCard);
   const isBasicEnergy = (cardData.category === "Energy") && !cardData.effect;
+  const isVstar = cardData.stage === "VSTAR" || (cardData.suffix === "VSTAR");
   let templateName: TemplateName;
   if (isBasicEnergy) templateName = "basic-energy";
+  else if (isVstar) templateName = "vstar";
   else if (fullart || isProcessed || opts?.fullart) templateName = "fullart";
   else templateName = "standard";
 

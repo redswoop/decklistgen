@@ -7,15 +7,17 @@ import { prepareCardProps, solveStandardLayout, solveFullartLayout } from "../ca
 import { render as renderStandard } from "./standard.js";
 import { render as renderFullart } from "./fullart.js";
 import { render as renderBasicEnergy } from "./basic-energy.js";
+import { render as renderVstar } from "./vstar.js";
 
 export { resetIconIds } from "../type-icons.js";
 
-export type TemplateName = "standard" | "fullart" | "basic-energy";
+export type TemplateName = "standard" | "fullart" | "basic-energy" | "vstar";
 
 const TEMPLATES: Record<TemplateName, (props: CardProps) => string> = {
   "standard": renderStandard,
   "fullart": renderFullart,
   "basic-energy": renderBasicEnergy,
+  "vstar": renderVstar,
 };
 
 export function renderFromTemplate(
@@ -32,7 +34,7 @@ export function renderFromTemplate(
   if (templateName === "basic-energy") {
     // Basic energy has no text layout to solve
     layout = { bodySize: 24, headSize: 28, lineH: 30 };
-  } else if (templateName === "fullart") {
+  } else if (templateName === "fullart" || templateName === "vstar") {
     layout = solveFullartLayout(card, {
       maxCover: opts?.maxCover,
       fontSize: opts?.fontSize,
