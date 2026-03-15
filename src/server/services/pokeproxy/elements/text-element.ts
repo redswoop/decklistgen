@@ -108,9 +108,16 @@ export class TextElement implements LayoutNode {
     const lines = ftWrap(fontFamily, text, fontSize, wrapWidth);
 
     let attrs = `font-family="${font}" font-size="${fontSize}" font-weight="${fontWeight}" fill="${fill}" opacity="${opacity}"`;
+    const stroke = String(this.props.stroke);
+    const strokeWidth = Number(this.props.strokeWidth);
+    if (stroke && strokeWidth > 0) {
+      attrs += ` stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linejoin="round" style="paint-order:stroke fill"`;
+    }
     if (filter && filter !== "none") {
       attrs += ` filter="url(#${filter})"`;
     }
+    const textAnchor = String(this.props.textAnchor || "start");
+    attrs += ` text-anchor="${textAnchor}"`;
     attrs += ` dominant-baseline="hanging"`;
 
     const tspans = lines.map((line, i) =>

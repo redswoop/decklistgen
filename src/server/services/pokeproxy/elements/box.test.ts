@@ -253,6 +253,42 @@ describe("BoxElement column mode", () => {
   });
 });
 
+describe("nested box padding not double-counted", () => {
+  test("box-in-column: padding only counted once", () => {
+    const inner = new BoxElement(
+      { direction: "row", paddingTop: 10, paddingBottom: 10 },
+      [new TextElement({ text: "A", fontSize: 20 })],
+    );
+    const outer = new BoxElement(
+      { width: 400, direction: "column" },
+      [inner],
+    );
+    const innerM = inner.measure(400);
+    // inner measure includes its own padding: 10 + 20 + 10 = 40
+    expect(innerM.height).toBe(40);
+    const outerM = outer.measure();
+    // outer should NOT add inner's padding again — just use innerM.height
+    expect(outerM.height).toBe(40);
+  });
+
+  test("box-in-row: padding only counted once", () => {
+    const inner = new BoxElement(
+      { direction: "column", width: 100, paddingLeft: 10, paddingRight: 10 },
+      [new TextElement({ text: "B", fontSize: 20 })],
+    );
+    const outer = new BoxElement(
+      { direction: "row" },
+      [inner],
+    );
+    const innerM = inner.measure();
+    // inner measure includes its own padding: width = 100
+    expect(innerM.width).toBe(100);
+    const outerM = outer.measure();
+    // outer should NOT add inner's padding again
+    expect(outerM.width).toBe(100);
+  });
+});
+
 describe("BoxElement toJSON round-trip", () => {
   test("row box round-trip", () => {
     const box = new BoxElement(

@@ -144,10 +144,12 @@ export class BoxElement implements LayoutNode {
       const child = this.children[i];
       const { height: childH } = child.measure(innerWidth);
 
-      const childMarginTop = Number(child.props.marginTop ?? 0);
-      const childMarginBottom = Number(child.props.marginBottom ?? 0);
-      const childPadTop = Number(child.props.paddingTop ?? 0);
-      const childPadBottom = Number(child.props.paddingBottom ?? 0);
+      // Box.measure() already includes its own padding/margin, so don't add them again
+      const isBox = child.type === "box";
+      const childMarginTop = isBox ? 0 : Number(child.props.marginTop ?? 0);
+      const childMarginBottom = isBox ? 0 : Number(child.props.marginBottom ?? 0);
+      const childPadTop = isBox ? 0 : Number(child.props.paddingTop ?? 0);
+      const childPadBottom = isBox ? 0 : Number(child.props.paddingBottom ?? 0);
 
       const outerH = childMarginTop + childPadTop + childH + childPadBottom + childMarginBottom;
       cursorY += outerH;
@@ -188,10 +190,12 @@ export class BoxElement implements LayoutNode {
       const child = this.children[i];
       const { width: childW, height: childH } = measurements[i];
 
-      const childMarginTop = Number(child.props.marginTop ?? 0);
-      const childMarginBottom = Number(child.props.marginBottom ?? 0);
-      const childPadTop = Number(child.props.paddingTop ?? 0);
-      const childPadBottom = Number(child.props.paddingBottom ?? 0);
+      // Box handles its own margin/padding in render(), so don't add them here
+      const isBox = child.type === "box";
+      const childMarginTop = isBox ? 0 : Number(child.props.marginTop ?? 0);
+      const childMarginBottom = isBox ? 0 : Number(child.props.marginBottom ?? 0);
+      const childPadTop = isBox ? 0 : Number(child.props.paddingTop ?? 0);
+      const childPadBottom = isBox ? 0 : Number(child.props.paddingBottom ?? 0);
 
       const contentY = cursorY + childMarginTop + childPadTop;
 

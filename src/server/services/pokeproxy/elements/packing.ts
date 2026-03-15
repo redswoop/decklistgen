@@ -125,17 +125,20 @@ export function packRow(
 export function buildPackItems(children: LayoutNode[]): PackItem[] {
   return children.map(child => {
     const { width, height } = child.measure();
+    // Box.measure() already includes its own margin/padding, so zero them out
+    // to prevent double-counting in packRow
+    const isBox = child.type === "box";
     return {
       contentWidth: width,
       contentHeight: height,
-      marginTop: Number(child.props.marginTop ?? 0),
-      marginRight: Number(child.props.marginRight ?? 0),
-      marginBottom: Number(child.props.marginBottom ?? 0),
-      marginLeft: Number(child.props.marginLeft ?? 0),
-      paddingTop: Number(child.props.paddingTop ?? 0),
-      paddingRight: Number(child.props.paddingRight ?? 0),
-      paddingBottom: Number(child.props.paddingBottom ?? 0),
-      paddingLeft: Number(child.props.paddingLeft ?? 0),
+      marginTop: isBox ? 0 : Number(child.props.marginTop ?? 0),
+      marginRight: isBox ? 0 : Number(child.props.marginRight ?? 0),
+      marginBottom: isBox ? 0 : Number(child.props.marginBottom ?? 0),
+      marginLeft: isBox ? 0 : Number(child.props.marginLeft ?? 0),
+      paddingTop: isBox ? 0 : Number(child.props.paddingTop ?? 0),
+      paddingRight: isBox ? 0 : Number(child.props.paddingRight ?? 0),
+      paddingBottom: isBox ? 0 : Number(child.props.paddingBottom ?? 0),
+      paddingLeft: isBox ? 0 : Number(child.props.paddingLeft ?? 0),
       vAlign: (String(child.props.vAlign ?? "top")) as "top" | "middle" | "bottom",
       grow: Number(child.props.grow ?? 0),
       hAlign: (String(child.props.hAlign ?? "start")) as "start" | "center" | "end",

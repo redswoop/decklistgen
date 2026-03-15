@@ -62,7 +62,8 @@ export class ImageElement implements LayoutNode {
       const r = Number(this.props.radius);
       const cx = x + r;
       const cy = y + r;
-      return renderTypeIcon(cx, cy, r, String(this.props.energyType));
+      const svg = renderTypeIcon(cx, cy, r, String(this.props.energyType));
+      return idAttr ? `<g${idAttr}>${svg}</g>` : svg;
     }
 
     // Logo rendering
@@ -77,7 +78,7 @@ export class ImageElement implements LayoutNode {
       return `<g${idAttr} opacity="${opacity}" clip-path="url(#card-clip)">${logoSvg}</g>`;
     }
 
-    return logoSvg;
+    return idAttr ? `<g${idAttr}>${logoSvg}</g>` : logoSvg;
   }
 
   toJSON(): NodeState {
