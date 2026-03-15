@@ -25,8 +25,8 @@ const props = withDefaults(defineProps<{
   selectedIds?: Set<string>;
   /** Set of stale card IDs (shows amber badge) */
   staleIds?: Set<string>;
-  /** Click behavior: 'preview' opens lightbox, 'variant-picker' emits pick-variant */
-  clickMode?: "preview" | "variant-picker";
+  /** Click behavior */
+  clickMode?: "preview";
 }>(), {
   cards: undefined,
   cardCounts: undefined,
@@ -275,11 +275,7 @@ function getCount(card: Card): number | undefined {
 }
 
 function handleTilePreview(card: Card) {
-  if (props.clickMode === "variant-picker") {
-    emit("pick-variant", card);
-  } else {
-    emit("preview-card", card, orderedCards.value);
-  }
+  emit("preview-card", card, orderedCards.value);
 }
 </script>
 
@@ -415,6 +411,7 @@ function handleTilePreview(card: Card) {
               @remove="emit('remove-card', $event)"
               @regenerate="emit('regenerate-card', $event)"
               @preview="handleTilePreview"
+              @pick-variant="emit('pick-variant', $event)"
               @toggle-select="emit('toggle-select', $event)"
             />
           </div>

@@ -38,6 +38,7 @@ const emit = defineEmits<{
   remove: [card: Card];
   regenerate: [card: Card];
   preview: [card: Card];
+  "pick-variant": [card: Card];
   "toggle-select": [cardId: string];
 }>();
 
@@ -107,6 +108,12 @@ const showSwapBadge = computed(() =>
       <span v-else-if="tileHasClean && imageMode === 'proxy'" class="tile-status tile-status-clean" title="Cleaned">&#x2713;</span>
 
       <div class="tile-actions">
+        <button
+          v-if="context === 'deck'"
+          class="tile-action tile-action-variant"
+          title="Pick variant art"
+          @click.stop="emit('pick-variant', card)"
+        >&#x2725;</button>
         <button
           class="tile-action tile-action-regen"
           :disabled="tileGenerating"

@@ -298,7 +298,6 @@ function handlePreview(card: Card, cards: Card[]) {
       :card-counts="cardCounts"
       :header-label="headerLabel"
       context="deck"
-      click-mode="variant-picker"
       @preview-card="handlePreview"
       @pick-variant="handlePickVariant"
       @add-card="handleAddCard"
