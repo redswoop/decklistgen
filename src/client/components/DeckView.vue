@@ -31,7 +31,7 @@ const emit = defineEmits<{
 }>();
 
 const { fetchDeck, updateDeck, deleteDeck, copyDeck } = useDecks();
-const { loadSavedDeck, addCard, decrementCard, getDeckCount, currentDeckId: workingDeckSourceId, items: workingItems, totalCards: workingTotalCards } = useDecklist();
+const { loadSavedDeck, addCard, removeCard, currentDeckId: workingDeckSourceId, items: workingItems, totalCards: workingTotalCards } = useDecklist();
 
 const deck = ref<SavedDeck | null>(null);
 const loading = ref(false);
@@ -60,21 +60,29 @@ watch(() => props.deckId, (id) => {
   loadDeck(id);
 }, { immediate: true });
 
-// Cards for the grid (from the saved deck, NOT the working deck)
+const useLive = computed(() => props.isWorkingDeckSource && props.workingDeckIsDirty);
+
+// Cards for the grid — switch to working deck when actively editing
 const deckCards = computed(() => {
   if (!deck.value) return [];
+  if (useLive.value) {
+    return workingItems.value.filter((i) => i.count > 0).map((i) => i.card);
+  }
   return deck.value.cards.map((dc) => dc.card);
 });
 
-// Count map: cardId -> count (use working deck counts only when actively editing)
+// Count map: cardId -> count
 const cardCounts = computed(() => {
   if (!deck.value) return {};
   const counts: Record<string, number> = {};
-  const useLive = props.isWorkingDeckSource && props.workingDeckIsDirty;
-  for (const dc of deck.value.cards) {
-    counts[dc.card.id] = useLive
-      ? getDeckCount(dc.card.setCode, dc.card.localId)
-      : dc.count;
+  if (useLive.value) {
+    for (const item of workingItems.value) {
+      if (item.count > 0) counts[item.card.id] = item.count;
+    }
+  } else {
+    for (const dc of deck.value.cards) {
+      counts[dc.card.id] = dc.count;
+    }
   }
   return counts;
 });
@@ -206,7 +214,7 @@ function handleRemoveCard(card: Card) {
   if (workingDeckSourceId.value !== deck.value.id) {
     loadSavedDeck(deck.value);
   }
-  decrementCard(card.setCode, card.localId);
+  removeCard(card.setCode, card.localId);
 }
 
 function handleRegenerate(card: Card) {
