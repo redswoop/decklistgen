@@ -110,7 +110,13 @@ async function handleApply() {
     for (const v of variantCards.value) {
       const count = allocation.value.get(v.id) ?? 0;
       if (count > 0) {
-        newCards.push({ count, card: v });
+        if (v.mechanicsHash !== props.card.mechanicsHash) {
+          // Different mechanics — keep original card for text, use variant for art only
+          newCards.push({ count, card: props.card, artCardId: v.id });
+        } else {
+          // Same mechanics — safe to use variant directly
+          newCards.push({ count, card: v });
+        }
       }
     }
     await updateDeck({ id: props.savedDeckId, data: { cards: consolidateDeckCards(newCards) } });

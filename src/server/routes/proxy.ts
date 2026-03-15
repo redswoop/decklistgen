@@ -145,14 +145,18 @@ const SYNTH_ABILITIES = [
   },
 ];
 
-/** Render SVG using the template engine. */
-async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions): Promise<string> {
+/** Render SVG using the template engine.
+ *  artCardId: optional override — use this card's image instead of cardId's image. */
+async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions, artCardId?: string): Promise<string> {
+  // Determine which card provides the image (art override or same card)
+  const imageId = artCardId ?? cardId;
+
   // Get best available image (optional — SVG can render without artwork)
   let imageB64 = "";
   let isProcessed = false;
 
   for (const suffix of ["_composite.png", "_clean.png", ".png"]) {
-    const p = cachePath(cardId, suffix);
+    const p = cachePath(imageId, suffix);
     if (existsSync(p)) {
       imageB64 = (await readFile(p)).toString("base64");
       isProcessed = suffix !== ".png";
@@ -160,12 +164,12 @@ async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions):
     }
   }
   if (!imageB64) {
-    if (await ensureSourceImage(cardId)) {
-      imageB64 = (await readFile(cachePath(cardId, ".png"))).toString("base64");
+    if (await ensureSourceImage(imageId)) {
+      imageB64 = (await readFile(cachePath(imageId, ".png"))).toString("base64");
     }
   }
 
-  // Load card data
+  // Load card data (always from the mechanics card, not the art card)
   await ensureCardLoaded(cardId);
   const cardData = loadCardData(cardId);
 
@@ -463,7 +467,7 @@ app.get("/print/:deckId", requireAuth, async (c) => {
   const cardSvgs: [number, string][] = [];
   for (const entry of entries) {
     const cardId = entry.card.id;
-    const svg = await generateSvgFromTemplate(cardId);
+    const svg = await generateSvgFromTemplate(cardId, undefined, entry.artCardId);
     cardSvgs.push([oneEach ? 1 : entry.count, svg]);
   }
 

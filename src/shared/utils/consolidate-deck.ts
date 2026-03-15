@@ -9,7 +9,7 @@ export function consolidateDeckCards(cards: DeckCard[]): DeckCard[] {
   const result: DeckCard[] = [];
 
   for (const dc of cards) {
-    const key = `${dc.card.setCode}:${dc.card.localId}`;
+    const key = `${dc.card.setCode}:${dc.card.localId}:${dc.artCardId ?? ""}`;
     const idx = seen.get(key);
     if (idx !== undefined) {
       result[idx] = { ...result[idx], count: result[idx].count + dc.count };

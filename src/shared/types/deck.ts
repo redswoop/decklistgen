@@ -4,6 +4,8 @@ import type { Card } from "./card.js";
 export interface DeckCard {
   count: number;
   card: Card;
+  /** When set, use this card's image instead of card's image (art override from a different variant) */
+  artCardId?: string;
 }
 
 /** A saved deck persisted on the server */
