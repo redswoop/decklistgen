@@ -5,6 +5,7 @@ import BeautifyDialog from "./BeautifyDialog.vue";
 import BatchGenerateDialog from "./BatchGenerateDialog.vue";
 import VariantPicker from "./VariantPicker.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import PrintDialog from "./PrintDialog.vue";
 import { useDecks } from "../composables/useDecks.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { generateCleanImage } from "../composables/usePokeproxy.js";
@@ -93,6 +94,7 @@ const headerLabel = computed(() => {
 
 const showBeautify = ref(false);
 const showBatchGenerate = ref(false);
+const showPrintDialog = ref(false);
 const variantPickerCard = ref<Card | null>(null);
 
 function handlePickVariant(card: Card) {
@@ -128,7 +130,7 @@ function handleEditDeck() {
 
 function handlePrint() {
   if (!deck.value) return;
-  window.open(api.deckPrintUrl(deck.value.id), "_blank");
+  showPrintDialog.value = true;
 }
 
 function handleExport() {
@@ -310,6 +312,12 @@ function handlePreview(card: Card, cards: Card[]) {
       @close="variantPickerCard = null"
       @open-lightbox="handleVariantPickerLightbox"
       @deck-updated="handleVariantPickerUpdated"
+    />
+
+    <PrintDialog
+      v-if="showPrintDialog && deck"
+      :deck-id="deck.id"
+      @close="showPrintDialog = false"
     />
 
     <ConfirmDialog

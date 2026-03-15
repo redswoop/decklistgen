@@ -438,13 +438,33 @@ app.get("/print/:deckId", requireAuth, async (c) => {
   const deck = await getDeck(deckId, user.id);
   if (!deck) return c.json({ error: "Deck not found" }, 404);
 
+  // Parse filter query params
+  const q = c.req.query();
+  const oneEach = q.qty === "one-each";
+  const noBasicEnergy = q.noBasicEnergy === "1";
+  const excludeSet = new Set((q.exclude || "").split(",").filter(Boolean));
+
+  const entries = deck.cards.filter((entry) => {
+    const { card } = entry;
+    if (excludeSet.has("pokemon") && card.category === "Pokemon") return false;
+    if (card.category === "Trainer" && card.trainerType) {
+      const key = card.trainerType.toLowerCase() + "s";
+      if (excludeSet.has(key)) return false;
+    }
+    if (noBasicEnergy && card.category === "Energy") {
+      const raw = loadCardData(card.id);
+      if (!raw.effect) return false;
+    }
+    return true;
+  });
+
   resetIconIds();
 
   const cardSvgs: [number, string][] = [];
-  for (const entry of deck.cards) {
+  for (const entry of entries) {
     const cardId = entry.card.id;
     const svg = await generateSvgFromTemplate(cardId);
-    cardSvgs.push([entry.count, svg]);
+    cardSvgs.push([oneEach ? 1 : entry.count, svg]);
   }
 
   const html = generatePrintHtml(cardSvgs);

@@ -1195,6 +1195,42 @@ body {
   color: white;
 }
 
+/* Print Dialog */
+.print-dialog {
+  width: 360px;
+}
+
+.print-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #7f8fa6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  margin-top: 12px;
+}
+
+.print-radio-group {
+  display: flex;
+  gap: 16px;
+}
+
+.print-radio,
+.print-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #e0e0e0;
+  cursor: pointer;
+}
+
+.print-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .confirm-dialog {
   width: 400px;
 }

@@ -5,6 +5,7 @@ import BeautifyDialog from "./BeautifyDialog.vue";
 import BatchGenerateDialog from "./BatchGenerateDialog.vue";
 import { useDecklist } from "../composables/useDecklist.js";
 import { generateCleanImage } from "../composables/usePokeproxy.js";
+import PrintDialog from "./PrintDialog.vue";
 import { api } from "../lib/client.js";
 import type { Card } from "../../shared/types/card.js";
 
@@ -39,6 +40,7 @@ const headerLabel = computed(() => {
 
 const showBeautify = ref(false);
 const showBatchGenerate = ref(false);
+const showPrintDialog = ref(false);
 
 function handleRemoveCard(card: Card) {
   removeCard(card.setCode, card.localId);
@@ -63,7 +65,7 @@ function handleSave() {
 
 function handlePrint() {
   if (!currentDeckId.value) return;
-  window.open(api.deckPrintUrl(currentDeckId.value), "_blank");
+  showPrintDialog.value = true;
 }
 </script>
 
@@ -119,6 +121,12 @@ function handlePrint() {
       v-if="showBatchGenerate"
       :cards="toDeckCards()"
       @close="showBatchGenerate = false"
+    />
+
+    <PrintDialog
+      v-if="showPrintDialog && currentDeckId"
+      :deck-id="currentDeckId"
+      @close="showPrintDialog = false"
     />
   </div>
 </template>

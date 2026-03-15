@@ -217,7 +217,12 @@ export const api = {
     const qs = params.toString();
     return qs ? `${base}?${qs}` : base;
   },
-  deckPrintUrl: (id: string) => `/api/pokeproxy/print/${id}`,
+  deckPrintUrl: (id: string, params?: Record<string, string>) => {
+    const base = `/api/pokeproxy/print/${id}`;
+    if (!params) return base;
+    const qs = new URLSearchParams(params).toString();
+    return qs ? `${base}?${qs}` : base;
+  },
   pokeproxyEnergyPreviewUrl: () => `/api/pokeproxy/energy-preview`,
   pokeproxyGenerate: (cardId: string, force = false) =>
     post<{ jobId: string; cardId: string; status: string }>(`/pokeproxy/generate/${cardId}${force ? "?force=true" : ""}`, {}),
