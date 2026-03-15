@@ -138,10 +138,13 @@ function stripInternalProps(elems: EditorElement[]): EditorElement[] {
   const clean: EditorElement[] = JSON.parse(JSON.stringify(elems));
   function walk(arr: EditorElement[]) {
     for (const item of arr) {
+      // Move _hidden into props so the server renderer can see it
+      if (item._hidden) item.props._hidden = 1;
       delete item._hidden;
       delete item._collapsed;
       if (item.children) walk(item.children);
       if (item.itemTemplate) {
+        if (item.itemTemplate._hidden) item.itemTemplate.props._hidden = 1;
         delete item.itemTemplate._hidden;
         delete item.itemTemplate._collapsed;
         if (item.itemTemplate.children) walk(item.itemTemplate.children);

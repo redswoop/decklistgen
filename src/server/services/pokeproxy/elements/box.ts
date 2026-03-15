@@ -121,7 +121,8 @@ export class BoxElement implements LayoutNode {
     for (let i = 0; i < this.children.length; i++) {
       const pos = positions[i];
       const ci = Number(this.children[i].props._templateIndex ?? i);
-      parts.push(`<g data-child-index="${ci}">${this.children[i].render(pos.x + padL, pos.y + padT)}</g>`);
+      const vis = Number(this.children[i].props._hidden) ? ' visibility="hidden"' : "";
+      parts.push(`<g data-child-index="${ci}"${vis}>${this.children[i].render(pos.x + padL, pos.y + padT)}</g>`);
     }
 
     return `<g${idAttr} transform="translate(${x + mL},${y + mT})">\n${parts.join("\n")}\n</g>`;
@@ -211,7 +212,8 @@ export class BoxElement implements LayoutNode {
       }
 
       const ci = Number(child.props._templateIndex ?? i);
-      parts.push(`<g data-child-index="${ci}">${child.render(contentX + padL, contentY + padT, innerWidth)}</g>`);
+      const vis = Number(child.props._hidden) ? ' visibility="hidden"' : "";
+      parts.push(`<g data-child-index="${ci}"${vis}>${child.render(contentX + padL, contentY + padT, innerWidth)}</g>`);
 
       const outerH = childMarginTop + childPadTop + childH + childPadBottom + childMarginBottom;
       cursorY += outerH;

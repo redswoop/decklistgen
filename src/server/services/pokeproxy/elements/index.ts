@@ -107,6 +107,10 @@ export function renderElements(elements: LayoutNode[]): string {
       y = CARD_H - y - height;
     }
 
-    return node.render(x, y);
+    const svg = node.render(x, y);
+    if (Number(node.props._hidden)) {
+      return `<g visibility="hidden">${svg}</g>`;
+    }
+    return svg;
   }).join("\n");
 }

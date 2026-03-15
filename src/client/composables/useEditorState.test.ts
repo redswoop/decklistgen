@@ -255,7 +255,7 @@ describe("useEditorState", () => {
   });
 
   describe("stripInternalProps", () => {
-    test("removes _hidden and _collapsed from elements", () => {
+    test("moves _hidden into props and removes _collapsed", () => {
       const input: EditorElement[] = [
         { type: "box", id: "a", props: { x: 1 }, _hidden: true, _collapsed: true },
       ];
@@ -263,9 +263,18 @@ describe("useEditorState", () => {
       expect(result[0]._hidden).toBeUndefined();
       expect(result[0]._collapsed).toBeUndefined();
       expect(result[0].props.x).toBe(1);
+      expect(result[0].props._hidden).toBe(1);
     });
 
-    test("recursively strips from children", () => {
+    test("non-hidden element has no _hidden prop", () => {
+      const input: EditorElement[] = [
+        { type: "box", id: "a", props: { x: 1 } },
+      ];
+      const result = state.stripInternalProps(input);
+      expect(result[0].props._hidden).toBeUndefined();
+    });
+
+    test("recursively moves _hidden into props for children", () => {
       const input: EditorElement[] = [
         {
           type: "box", id: "a", props: {},
@@ -276,6 +285,7 @@ describe("useEditorState", () => {
       ];
       const result = state.stripInternalProps(input);
       expect(result[0].children![0]._hidden).toBeUndefined();
+      expect(result[0].children![0].props._hidden).toBe(1);
     });
 
     test("does not modify original", () => {
