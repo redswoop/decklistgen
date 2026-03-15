@@ -161,6 +161,13 @@ const saveTooltip = computed(() => {
   return "Save changes to this deck";
 });
 
+// After save completes (dirty flips false), re-fetch deck so deck.value matches DB
+watch(() => props.workingDeckIsDirty, (dirty, wasDirty) => {
+  if (wasDirty && !dirty && props.isWorkingDeckSource && props.deckId) {
+    loadDeck(props.deckId, true);
+  }
+});
+
 function handleSave() {
   emit("save-update");
 }
