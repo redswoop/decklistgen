@@ -17,6 +17,11 @@ import { suggestTemplate } from "../../shared/utils/suggest-template.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../..", "cache");
 
+const VALID_CARD_ID = /^[a-zA-Z0-9._-]+$/;
+function isValidCardId(id: string): boolean {
+  return VALID_CARD_ID.test(id) && !id.includes("..");
+}
+
 const editorRouter = new Hono();
 
 /** Load the clean image for a card (used as editor background) */
@@ -81,6 +86,7 @@ editorRouter.get("/cards", async (c) => {
 editorRouter.get("/card-data", async (c) => {
   const cardId = c.req.query("cardId");
   if (!cardId) return c.text("Missing cardId", 400);
+  if (!isValidCardId(cardId)) return c.text("Invalid card ID", 400);
   const jsonPath = join(CACHE_DIR, `${cardId}.json`);
   if (!existsSync(jsonPath)) return c.json(null);
   try {
@@ -123,6 +129,7 @@ editorRouter.post("/render", async (c) => {
   const body = await c.req.json() as { cardId?: string; elements?: NodeState[] };
   const cardId = body.cardId;
   if (!cardId) return c.text("Missing cardId", 400);
+  if (!isValidCardId(cardId)) return c.text("Invalid card ID", 400);
 
   const imageB64 = await loadCleanImageB64(cardId);
   if (!imageB64) return c.text("No clean image found for card", 404);
@@ -147,6 +154,7 @@ editorRouter.post("/render", async (c) => {
 editorRouter.get("/raw-image", async (c) => {
   const cardId = c.req.query("cardId");
   if (!cardId) return c.text("Missing cardId", 400);
+  if (!isValidCardId(cardId)) return c.text("Invalid card ID", 400);
   const p = join(CACHE_DIR, `${cardId}.png`);
   if (!existsSync(p)) return c.text("No raw image found", 404);
   const buf = await readFile(p);

@@ -1,17 +1,22 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { Hono } from "hono";
-import { existsSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { templateRouter } from "./templates.js";
+import { createTemplateRouter } from "./templates.js";
 
-// Use a temp directory for tests
+// Use a temp directory for test isolation
 const TEST_DIR = join(import.meta.dir, "../../../cache/_test_templates");
 
-// We need to test the router with the real data directory
-// So we test via HTTP against the app
 const app = new Hono();
-app.route("/templates", templateRouter);
+app.route("/templates", createTemplateRouter(TEST_DIR));
+
+beforeAll(async () => {
+  await mkdir(TEST_DIR, { recursive: true });
+});
+
+afterAll(async () => {
+  await rm(TEST_DIR, { recursive: true, force: true });
+});
 
 describe("template CRUD", () => {
   const testTemplate = {
@@ -99,5 +104,33 @@ describe("template CRUD", () => {
       method: "DELETE",
     });
     expect(res.status).toBe(404);
+  });
+});
+
+describe("path traversal protection", () => {
+  test("GET /:id rejects path traversal", async () => {
+    const res = await app.request("/templates/..%2Fsecrets");
+    expect(res.status).toBe(400);
+  });
+
+  test("POST /:id rejects path traversal", async () => {
+    const res = await app.request("/templates/..%2Fsecrets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "evil", elements: [] }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("DELETE /:id rejects path traversal", async () => {
+    const res = await app.request("/templates/..%2Fsecrets", {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("GET /:id rejects dots in id", async () => {
+    const res = await app.request("/templates/foo.bar");
+    expect(res.status).toBe(400);
   });
 });
