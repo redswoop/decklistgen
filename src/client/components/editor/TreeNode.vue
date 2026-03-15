@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { useEditorState } from "../../composables/useEditorState.js";
 import { useEditorRenderer } from "../../composables/useEditorRenderer.js";
 import type { EditorElement } from "../../../shared/types/editor.js";
@@ -21,9 +21,7 @@ function isSelected(): boolean {
   return sp.length === p.length && sp.every((v, i) => v === p[i]);
 }
 
-function children(): EditorElement[] | undefined {
-  return getNodeChildren(props.node);
-}
+const childNodes = computed(() => getNodeChildren(props.node));
 
 function toggleFold() {
   props.node._collapsed = !props.node._collapsed;
@@ -136,7 +134,7 @@ const indent = `${16 + props.depth * 16}px`;
       @drop="onDrop"
     >
       <span
-        v-if="(children()?.length ?? 0) > 0"
+        v-if="(childNodes?.length ?? 0) > 0"
         class="fold-btn"
         @click.stop="toggleFold()"
       >{{ node._collapsed ? '\u25B6' : '\u25BC' }}</span>
@@ -163,9 +161,9 @@ const indent = `${16 + props.depth * 16}px`;
     </div>
 
     <!-- Recursive children -->
-    <template v-if="!node._collapsed && children()?.length">
+    <template v-if="!node._collapsed && childNodes?.length">
       <TreeNode
-        v-for="(child, ci) in children()"
+        v-for="(child, ci) in childNodes"
         :key="ci"
         :node="child"
         :path="[...path, ci]"

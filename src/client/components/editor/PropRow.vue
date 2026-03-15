@@ -44,6 +44,7 @@ function onBindClick() {
 }
 
 function onBindSubmit() {
+  if (!editingBinding.value) return;
   const path = bindingInput.value.trim();
   if (path) {
     emit("update:binding", props.def.key, path);
@@ -84,7 +85,6 @@ function onBindKeydown(e: KeyboardEvent) {
         placeholder="e.g. hp, attacks[0].name"
         @keydown="onBindKeydown"
         @blur="onBindSubmit"
-        ref="bindInputEl"
       />
     </div>
     <NumericStepper
@@ -104,13 +104,11 @@ function onBindKeydown(e: KeyboardEvent) {
         :max="def.max ?? 1"
         :step="def.step ?? 0.01"
         @input="onInput"
-        @change="onInput"
       />
     </template>
     <select
       v-else-if="def.type === 'select'"
       :value="String(value)"
-      @input="onInput"
       @change="onInput"
     >
       <option v-for="opt in def.options" :key="opt" :value="opt" :selected="String(opt) === String(value)">{{ opt }}</option>
@@ -119,7 +117,6 @@ function onBindKeydown(e: KeyboardEvent) {
       v-else-if="def.type === 'text'"
       type="text"
       :value="value ?? ''"
-      @input="onInput"
       @change="onInput"
     />
     <input
@@ -127,7 +124,6 @@ function onBindKeydown(e: KeyboardEvent) {
       type="color"
       :value="normalizeHex(value)"
       @input="onInput"
-      @change="onInput"
     />
   </div>
 </template>

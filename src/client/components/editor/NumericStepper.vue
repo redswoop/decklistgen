@@ -52,6 +52,12 @@ function commit() {
   // If NaN (empty/garbage), just revert — the displayed value returns to modelValue
 }
 
+function onInputText(e: Event) {
+  if (editing.value) {
+    editText.value = (e.target as HTMLInputElement).value;
+  }
+}
+
 function onKeydown(e: KeyboardEvent) {
   if (e.key === "Enter") {
     (e.target as HTMLInputElement).blur();
@@ -76,22 +82,15 @@ function onKeydown(e: KeyboardEvent) {
   <div class="stepper" :class="{ compact }">
     <button class="step-btn" tabindex="-1" title="Decrease" @click="stepDown">&minus;</button>
     <input
-      v-if="editing"
       type="text"
       inputmode="decimal"
       class="step-input"
-      v-model="editText"
+      :value="editing ? editText : modelValue"
+      :readonly="!editing"
+      @focus="onFocus"
       @blur="commit"
       @keydown="onKeydown"
-    />
-    <input
-      v-else
-      type="text"
-      inputmode="decimal"
-      class="step-input"
-      :value="modelValue"
-      readonly
-      @focus="onFocus"
+      @input="onInputText"
     />
     <button class="step-btn" tabindex="-1" title="Increase" @click="stepUp">&plus;</button>
   </div>

@@ -11,7 +11,7 @@ import FillPicker from "./FillPicker.vue";
 
 const FONT_KEYS: Record<string, boolean> = { fontSize: true, fontFamily: true, fontWeight: true };
 
-const { selectedPath, selectedNode, resolveNode, getNodeChildren, selectPath, cardData, resolveBinding } = useEditorState();
+const { selectedPath, selectedNode, resolveNode, getNodeChildren, selectPath, cardData, resolveBinding, markDirty } = useEditorState();
 const { rerender, debouncedRerender } = useEditorRenderer();
 
 // Filter prop defs to exclude box model and fill keys (those get their own widgets)
@@ -74,6 +74,7 @@ const selectedChildren = computed(() => {
 function onPropUpdate(key: string, value: string | number) {
   if (!selectedNode.value) return;
   selectedNode.value.node.props[key] = value;
+  markDirty();
   const def = selectedNode.value.propDefs.find((d) => d.key === key);
   if (def?.isPosition) debouncedRerender();
   else rerender();
@@ -91,6 +92,7 @@ function onBindingUpdate(key: string, path: string) {
     }
   }
   // Always rerender — repeater bindings resolve during expansion
+  markDirty();
   rerender();
 }
 
@@ -100,11 +102,13 @@ function onBindingClear(key: string) {
   if (Object.keys(selectedNode.value.node.bind).length === 0) {
     delete selectedNode.value.node.bind;
   }
+  markDirty();
 }
 
 function onBoxModelUpdate(key: string, value: number) {
   if (!selectedNode.value) return;
   selectedNode.value.node.props[key] = value;
+  markDirty();
   debouncedRerender();
 }
 
@@ -112,6 +116,7 @@ function onFillUpdate(color: string, opacity: number) {
   if (!selectedNode.value) return;
   selectedNode.value.node.props.fill = color;
   selectedNode.value.node.props[opacityKey.value] = opacity;
+  markDirty();
   rerender();
 }
 
@@ -150,6 +155,7 @@ function addChild(childType: string) {
     if (!node.children) node.children = [];
     node.children.push(newChild);
   }
+  markDirty();
   rerender();
 }
 
@@ -159,6 +165,7 @@ function removeSelected() {
   if (!resolved?.siblings || resolved.indexInSiblings == null) return;
   resolved.siblings.splice(resolved.indexInSiblings, 1);
   selectPath(selectedPath.value.slice(0, -1));
+  markDirty();
   rerender();
 }
 
@@ -166,6 +173,7 @@ function onItemsBindingUpdate(path: string) {
   if (!selectedNode.value || selectedNode.value.node.type !== "repeater") return;
   if (!selectedNode.value.node.bind) selectedNode.value.node.bind = {};
   selectedNode.value.node.bind.items = path;
+  markDirty();
   rerender();
 }
 
@@ -187,6 +195,7 @@ function onShowIfSubmit() {
     delete selectedNode.value.node.showIf;
   }
   editingShowIf.value = false;
+  markDirty();
   rerender();
 }
 
@@ -265,7 +274,7 @@ function onShowIfKeydown(e: KeyboardEvent) {
             class="items-binding-input"
             :value="selectedNode.node.bind?.items ?? ''"
             placeholder="e.g. attacks, cost"
-            @input="onItemsBindingUpdate(($event.target as HTMLInputElement).value)"
+            @change="onItemsBindingUpdate(($event.target as HTMLInputElement).value)"
           />
         </div>
       </template>
