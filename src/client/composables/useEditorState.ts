@@ -99,7 +99,11 @@ function selectItem(elementId: string | null, ...indices: (number | null | undef
   selectedPath.value = path;
 }
 
-function selectPath(path: (string | number)[]) {
+/** Tracks whether the last selection came from the canvas (for scroll-into-view). */
+const selectionSource = ref<"tree" | "canvas" | "">("");
+
+function selectPath(path: (string | number)[], source: "tree" | "canvas" | "" = "") {
+  selectionSource.value = source;
   selectedPath.value = [...path];
 }
 
@@ -207,6 +211,7 @@ export function useEditorState() {
     selectedNode,
     selectItem,
     selectPath,
+    selectionSource,
     resolveNode,
     getNodeChildren,
     applyBindings,

@@ -162,10 +162,12 @@ app.post("/logout", (c) => {
 
 /** Get current user */
 app.get("/me", (c) => {
+  const user = c.get("user");
+  // AUTH_DISABLED bypass: skip setup check if already authenticated by middleware
+  if (process.env.AUTH_DISABLED === "1" && user) return c.json(user);
   if (getUserCount() === 0) {
     return c.json({ needsSetup: true });
   }
-  const user = c.get("user");
   if (!user) return c.json({ error: "Not authenticated" }, 401);
   return c.json(user);
 });

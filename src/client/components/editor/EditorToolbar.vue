@@ -18,11 +18,18 @@ const allCards = ref<CardEntry[]>([]);
 const selectedCard = ref("");
 const templates = ref<TemplateSummary[]>([]);
 const selectedTemplate = ref("");
+const sortBy = ref<"id" | "name">("name");
 
-/** Cards filtered by the selected template */
+/** Cards filtered by the selected template, then sorted */
 const filteredCards = computed(() => {
-  if (!selectedTemplate.value) return allCards.value;
-  return allCards.value.filter(c => c.suggestedTemplate === selectedTemplate.value);
+  let cards = selectedTemplate.value
+    ? allCards.value.filter(c => c.suggestedTemplate === selectedTemplate.value)
+    : allCards.value;
+  if (sortBy.value === "name") {
+    cards = [...cards].sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id));
+  }
+  // "id" is the server default order, no re-sort needed
+  return cards;
 });
 
 const emit = defineEmits<{
@@ -54,6 +61,35 @@ async function onCardPicked(updateHash = true) {
   await loadCard(selectedCard.value);
 }
 
+function prevCard() {
+  const cards = filteredCards.value;
+  const idx = cards.findIndex(c => c.id === selectedCard.value);
+  if (idx > 0) {
+    selectedCard.value = cards[idx - 1].id;
+    onCardPicked();
+  }
+}
+
+function nextCard() {
+  const cards = filteredCards.value;
+  const idx = cards.findIndex(c => c.id === selectedCard.value);
+  if (idx >= 0 && idx < cards.length - 1) {
+    selectedCard.value = cards[idx + 1].id;
+    onCardPicked();
+  }
+}
+
+const hasPrev = computed(() => {
+  const idx = filteredCards.value.findIndex(c => c.id === selectedCard.value);
+  return idx > 0;
+});
+
+const hasNext = computed(() => {
+  const cards = filteredCards.value;
+  const idx = cards.findIndex(c => c.id === selectedCard.value);
+  return idx >= 0 && idx < cards.length - 1;
+});
+
 async function onTemplatePicked() {
   if (!selectedTemplate.value) return;
   const tmpl = await api.loadTemplate(selectedTemplate.value);
@@ -83,9 +119,15 @@ function onZoomInput(e: Event) {
   <div class="toolbar">
     <div class="toolbar-row toolbar-pickers">
       <label>Card:</label>
+      <button class="nav-btn" :disabled="!hasPrev" @click="prevCard" title="Previous card">&lsaquo;</button>
       <select v-model="selectedCard" @change="onCardPicked()">
         <option value="">-- pick a card ({{ filteredCards.length }}) --</option>
         <option v-for="card in filteredCards" :key="card.id" :value="card.id">{{ card.name ? `${card.name} (${card.id})` : card.id }}</option>
+      </select>
+      <button class="nav-btn" :disabled="!hasNext" @click="nextCard" title="Next card">&rsaquo;</button>
+      <select v-model="sortBy" class="sort-select" title="Sort cards by">
+        <option value="name">A-Z</option>
+        <option value="id">ID</option>
       </select>
 
       <div class="sep" />
@@ -129,6 +171,10 @@ function onZoomInput(e: Event) {
 .zoom-control button:hover { background: #1a5276; }
 .toolbar label { font-size: 12px; color: #aaa; flex-shrink: 0; }
 .toolbar select { background: #0f3460; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; padding: 4px 6px; font-size: 13px; min-width: 0; max-width: 180px; }
+.sort-select { max-width: 60px !important; font-size: 11px !important; padding: 3px 4px !important; }
+.nav-btn { background: #0f3460; color: #e0e0e0; border: 1px solid #444; border-radius: 3px; padding: 2px 8px; font-size: 18px; line-height: 1; cursor: pointer; flex-shrink: 0; }
+.nav-btn:hover:not(:disabled) { background: #1a5276; }
+.nav-btn:disabled { opacity: 0.3; cursor: default; }
 .template-name { font-size: 12px; color: #4a9eff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
 .dirty-dot { color: #e88; font-weight: bold; }
 .sidebar-toggle { display: none; background: #0f3460; color: #e0e0e0; border: 1px solid #444; border-radius: 3px; padding: 4px 10px; font-size: 16px; cursor: pointer; line-height: 1; flex-shrink: 0; }

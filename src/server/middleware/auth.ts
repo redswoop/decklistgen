@@ -8,6 +8,13 @@ export type AuthUser = User;
 
 /** Resolve session on every request. Does NOT block unauthenticated requests. */
 export const sessionMiddleware = createMiddleware<AppEnv>(async (c, next) => {
+  // Dev bypass: AUTH_DISABLED=1 auto-authenticates as superuser
+  if (process.env.AUTH_DISABLED === "1") {
+    c.set("user", { id: "dev", email: "dev@local", isAdmin: true, isAuthorized: true } as User);
+    await next();
+    return;
+  }
+
   const sessionId = getCookie(c, "session");
   if (sessionId) {
     const user = validateSession(sessionId);

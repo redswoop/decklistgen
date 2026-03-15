@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
 import { useEditorState } from "../../composables/useEditorState.js";
 import { useEditorRenderer } from "../../composables/useEditorRenderer.js";
 import type { EditorElement } from "../../../shared/types/editor.js";
@@ -12,14 +12,24 @@ const props = defineProps<{
   depth: number;
 }>();
 
-const { selectedPath, selectPath, getChildLabel, getNodeChildren } = useEditorState();
+const { selectedPath, selectPath, selectionSource, getChildLabel, getNodeChildren } = useEditorState();
 const { rerender } = useEditorRenderer();
+
+const treeItemEl = ref<HTMLElement | null>(null);
 
 function isSelected(): boolean {
   const sp = selectedPath.value;
   const p = props.path;
   return sp.length === p.length && sp.every((v, i) => v === p[i]);
 }
+
+// Scroll into view when selected from canvas
+watch(selectedPath, async () => {
+  if (selectionSource.value !== "canvas") return;
+  if (!isSelected()) return;
+  await nextTick();
+  treeItemEl.value?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}, { deep: true });
 
 const childNodes = computed(() => getNodeChildren(props.node));
 
@@ -119,6 +129,7 @@ const indent = `${16 + props.depth * 16}px`;
     <div v-if="dropPosition === 'before'" class="drop-indicator" />
 
     <div
+      ref="treeItemEl"
       class="tree-item"
       :class="{
         selected: isSelected(),
@@ -126,7 +137,7 @@ const indent = `${16 + props.depth * 16}px`;
       }"
       :style="{ paddingLeft: indent }"
       draggable="true"
-      @click.stop="selectPath(path)"
+      @click.stop="selectPath(path, 'tree')"
       @dragstart="onDragStart"
       @dragend="onDragEnd"
       @dragover="onDragOver"

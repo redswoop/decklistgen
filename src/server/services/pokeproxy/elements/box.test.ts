@@ -597,6 +597,254 @@ describe("repeater round-trip", () => {
   });
 });
 
+describe("filtered repeater preserves _templateIndex", () => {
+  test("attacks wrapper gets _templateIndex=1 when abilities filtered out", () => {
+    const { applyBindingsToTree } = require("../../../../shared/resolve-bindings.js");
+    const { readFileSync } = require("fs");
+    const { join } = require("path");
+
+    const tmplPath = join(__dirname, "../../../../../data/templates/pokemon-fullart.json");
+    const tmpl = JSON.parse(readFileSync(tmplPath, "utf-8"));
+
+    // Card with NO abilities — abilities repeater should be filtered
+    const cardData = {
+      hp: 280, name: "Test", _baseName: "Test", _nameSuffix: "",
+      types: ["Fire"],
+      attacks: [{ name: "Attack1", damage: "100", cost: ["Fire"], effect: "" }],
+      abilities: [], // empty!
+      weaknesses: [{ type: "Water", value: "×2" }],
+      resistances: [],
+      _stageLabel: "Basic",
+      _ruleText: "",
+      _footer: "Test • 001",
+      _retreatDots: ["Colorless"],
+    };
+
+    const expanded = applyBindingsToTree(tmpl.elements, cardData);
+    const contentBlock = expanded.find((e: any) => e.id === "content-block");
+    expect(contentBlock).toBeDefined();
+
+    // The first child should be the attacks wrapper with _templateIndex=1
+    // (abilities at index 0 was filtered out)
+    const firstChild = contentBlock.children[0];
+    expect(firstChild.type).toBe("box");
+    expect(firstChild.props._templateIndex).toBe(1); // NOT 0!
+
+    // Render and check data-child-index in SVG
+    const nodes = expanded.map((s: any) => createNode(s));
+    const svg = renderElements(nodes);
+
+    // Should have data-child-index="1" for attacks wrapper, NOT "0"
+    expect(svg).toContain('data-child-index="1"');
+    expect(svg).toContain(">Attack1</text>");
+  });
+
+  test("all children preserve correct _templateIndex with showIf filtering", () => {
+    const { applyBindingsToTree } = require("../../../../shared/resolve-bindings.js");
+    const { readFileSync } = require("fs");
+    const { join } = require("path");
+
+    const tmplPath = join(__dirname, "../../../../../data/templates/pokemon-fullart.json");
+    const tmpl = JSON.parse(readFileSync(tmplPath, "utf-8"));
+
+    // Card with NO abilities and NO rule text
+    const cardData = {
+      hp: 280, name: "Test", _baseName: "Test", _nameSuffix: "",
+      types: ["Fire"],
+      attacks: [{ name: "Attack1", damage: "100", cost: ["Fire"], effect: "" }],
+      abilities: [],
+      weaknesses: [{ type: "Water", value: "×2" }],
+      resistances: [],
+      _stageLabel: "Basic",
+      _ruleText: "", // empty — will be filtered
+      _footer: "Test • 001",
+      _retreatDots: ["Colorless"],
+    };
+
+    const expanded = applyBindingsToTree(tmpl.elements, cardData);
+    const contentBlock = expanded.find((e: any) => e.id === "content-block");
+
+    // Verify each remaining child has correct _templateIndex
+    for (const child of contentBlock.children) {
+      const ti = child.props._templateIndex;
+      expect(typeof ti).toBe("number");
+      // No child should have _templateIndex=0 (abilities was filtered)
+      // No child should have _templateIndex=3 (rule text was filtered)
+      expect(ti).not.toBe(0);
+      expect(ti).not.toBe(3);
+    }
+
+    // Render through createElement to verify data-child-index survives
+    const nodes = expanded.map((s: any) => createNode(s));
+    const contentBlockNode = nodes.find((n: any) => n.id === "content-block");
+    const svg = contentBlockNode.render(20, 0, 710);
+
+    // data-child-index="0" should NOT appear at the content-block level
+    // (abilities at template index 0 was filtered out)
+    // Verify attacks wrapper has index 1
+    expect(svg).toContain('data-child-index="1"');
+    // Verify weakness row has index 2
+    expect(svg).toContain('data-child-index="2"');
+    // Verify footer has index 4
+    expect(svg).toContain('data-child-index="4"');
+  });
+});
+
+describe("SVG click → template path integration", () => {
+  // Simulate the onCanvasClick DOM walk by parsing SVG and extracting
+  // data-child-index hierarchy, then verify svgPathToTemplatePath mapping
+  const { applyBindingsToTree } = require("../../../../shared/resolve-bindings.js");
+  const { svgPathToTemplatePath } = require("../../../../client/composables/useEditorTreeNav.js");
+  const { readFileSync } = require("fs");
+  const { join } = require("path");
+
+  function getNodeChildren(node: any): any[] | undefined {
+    if (node.type === "repeater") return node.itemTemplate?.children;
+    return node.children;
+  }
+
+  function loadTemplate() {
+    const tmplPath = join(__dirname, "../../../../../data/templates/pokemon-fullart.json");
+    return JSON.parse(readFileSync(tmplPath, "utf-8"));
+  }
+
+  /** Parse SVG to extract the data-child-index path from a target text to its element-id ancestor.
+   *  Builds a proper tree to simulate the browser DOM walk (child→parent). */
+  function findIndicesForText(svg: string, searchText: string): { elementId: string; indices: number[] } | null {
+    // Build a simple tree of <g> elements with their attributes and nesting
+    interface GNode { attrs: Record<string, string>; children: GNode[]; parent: GNode | null; start: number; end: number; textContent: string; }
+    const root: GNode = { attrs: {}, children: [], parent: null, start: 0, end: svg.length, textContent: "" };
+
+    // Find all <g ...>...</g> and <text ...>...</text> tags and build tree
+    const stack: GNode[] = [root];
+    const tagRe = /<(g|text)\b([^>]*)>|<\/(g|text)>/g;
+    let m;
+    while ((m = tagRe.exec(svg))) {
+      if (m[1]) {
+        // Opening tag
+        const attrs: Record<string, string> = {};
+        const attrRe = /([\w-]+)="([^"]*)"/g;
+        let am;
+        while ((am = attrRe.exec(m[2]))) {
+          attrs[am[1]] = am[2];
+        }
+        const node: GNode = { attrs, children: [], parent: stack[stack.length - 1], start: m.index, end: 0, textContent: "" };
+        stack[stack.length - 1].children.push(node);
+        stack.push(node);
+
+        // If it's a <text> tag, capture text content
+        if (m[1] === "text") {
+          const closePos = svg.indexOf("</text>", m.index);
+          if (closePos !== -1) {
+            // Extract text between > and </text>
+            const contentStart = svg.indexOf(">", m.index) + 1;
+            node.textContent = svg.substring(contentStart, closePos).replace(/<[^>]+>/g, "");
+          }
+        }
+      } else if (m[3]) {
+        // Closing tag
+        const node = stack.pop()!;
+        if (node !== root) node.end = m.index + m[0].length;
+      }
+    }
+
+    // Find the text node containing searchText
+    function findText(node: GNode): GNode | null {
+      if (node.textContent.includes(searchText)) return node;
+      for (const child of node.children) {
+        const found = findText(child);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    const textNode = findText(root);
+    if (!textNode) return null;
+
+    // Walk up from textNode, collecting data-child-index, stopping at data-element-id
+    const indices: number[] = [];
+    let elementId: string | null = null;
+    let current = textNode.parent;
+
+    while (current && current !== root) {
+      if (current.attrs["data-element-id"]) {
+        elementId = current.attrs["data-element-id"];
+        break;
+      }
+      if (current.attrs["data-child-index"] != null) {
+        indices.unshift(parseInt(current.attrs["data-child-index"]));
+      }
+      current = current.parent;
+    }
+
+    return elementId ? { elementId, indices } : null;
+  }
+
+  test("clicking attack text maps to attacks repeater when abilities absent", () => {
+    const tmpl = loadTemplate();
+    const cardData = {
+      hp: 280, name: "Test", _baseName: "Test", _nameSuffix: "",
+      types: ["Fire"],
+      attacks: [{ name: "TestAttack", damage: "100", cost: ["Fire"], effect: "" }],
+      abilities: [], // empty — abilities repeater filtered out
+      weaknesses: [{ type: "Water", value: "×2" }],
+      resistances: [],
+      _stageLabel: "Basic",
+      _ruleText: "",
+      _footer: "Test • 001",
+      _retreatDots: ["Colorless"],
+    };
+
+    const expanded = applyBindingsToTree(tmpl.elements, cardData);
+    const nodes = expanded.map((s: any) => createNode(s));
+    const svg = renderElements(nodes);
+
+    // Find the click path for the attack name
+    const result = findIndicesForText(svg, "TestAttack");
+    expect(result).not.toBeNull();
+    expect(result!.elementId).toBe("content-block");
+
+    // Map through svgPathToTemplatePath
+    const path = svgPathToTemplatePath(
+      result!.elementId, result!.indices, tmpl.elements, getNodeChildren,
+    );
+
+    // Path should point to attacks repeater (index 1), NOT abilities (index 0)
+    expect(path[0]).toBe("content-block");
+    expect(path[1]).toBe(1); // attacks repeater, NOT 0 (abilities)
+  });
+
+  test("clicking attack text maps correctly when both repeaters present", () => {
+    const tmpl = loadTemplate();
+    const cardData = {
+      hp: 280, name: "Test", _baseName: "Test", _nameSuffix: "",
+      types: ["Fire"],
+      attacks: [{ name: "TestAttack", damage: "100", cost: ["Fire"], effect: "" }],
+      abilities: [{ name: "TestAbility", type: "Ability:", effect: "Does stuff" }],
+      weaknesses: [{ type: "Water", value: "×2" }],
+      resistances: [],
+      _stageLabel: "Basic",
+      _ruleText: "",
+      _footer: "Test • 001",
+      _retreatDots: ["Colorless"],
+    };
+
+    const expanded = applyBindingsToTree(tmpl.elements, cardData);
+    const nodes = expanded.map((s: any) => createNode(s));
+    const svg = renderElements(nodes);
+
+    const result = findIndicesForText(svg, "TestAttack");
+    expect(result).not.toBeNull();
+
+    const path = svgPathToTemplatePath(
+      result!.elementId, result!.indices, tmpl.elements, getNodeChildren,
+    );
+
+    expect(path[0]).toBe("content-block");
+    expect(path[1]).toBe(1); // attacks repeater
+  });
+});
+
 describe("backward compat aliases", () => {
   test("packed-row creates BoxElement with direction: row", () => {
     const el = createNode({

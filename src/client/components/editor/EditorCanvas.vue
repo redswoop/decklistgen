@@ -83,7 +83,7 @@ function onCanvasClick(e: MouseEvent) {
   const indices: number[] = [];
   let elementId: string | null = null;
 
-  while (node && node.tagName !== "svg") {
+  while (node && node.tagName.toLowerCase() !== "svg") {
     if (node.dataset?.childIndex != null) {
       indices.unshift(parseInt(node.dataset.childIndex));
     }
@@ -96,9 +96,9 @@ function onCanvasClick(e: MouseEvent) {
 
   if (elementId) {
     const templatePath = svgPathToTemplatePath(elementId, indices, elements.value, getNodeChildren);
-    selectPath(templatePath);
+    selectPath(templatePath, "canvas");
   } else {
-    selectPath([]);
+    selectPath([], "canvas");
   }
 }
 
