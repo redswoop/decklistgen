@@ -20,6 +20,14 @@ export interface PropDef {
   step?: number;
   options?: string[];
   isPosition?: boolean;
+  group?: string;
+}
+
+export interface AlignOption {
+  value: string;
+  icon?: string;
+  text?: string;
+  title: string;
 }
 
 export interface NodeState {

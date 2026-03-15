@@ -80,6 +80,41 @@ describe("applyFilters", () => {
     });
   });
 
+  describe("deck code search", () => {
+    const cre063 = makeCard({ id: "swsh6-063", localId: "063", name: "Shadow Rider Calyrex VMAX", setCode: "CRE", setId: "swsh6" });
+    const cre064 = makeCard({ id: "swsh6-064", localId: "064", name: "Mewtwo", setCode: "CRE", setId: "swsh6" });
+    const sv01036 = makeCard({ id: "sv01-036", localId: "036", name: "Arcanine", setCode: "SVI", setId: "sv01" });
+    const cards = [cre063, cre064, sv01036];
+
+    test("matches 'CRE 063' format", () => {
+      expect(applyFilters(cards, { nameSearch: "CRE 063" })).toEqual([cre063]);
+    });
+
+    test("matches 'CRE063' no-space format", () => {
+      expect(applyFilters(cards, { nameSearch: "CRE063" })).toEqual([cre063]);
+    });
+
+    test("matches 'cre 63' case-insensitive, no leading zero", () => {
+      expect(applyFilters(cards, { nameSearch: "cre 63" })).toEqual([cre063]);
+    });
+
+    test("matches 'CRE-063' with dash", () => {
+      expect(applyFilters(cards, { nameSearch: "CRE-063" })).toEqual([cre063]);
+    });
+
+    test("matches TCGdex ID format 'swsh6-063'", () => {
+      expect(applyFilters(cards, { nameSearch: "swsh6-063" })).toEqual([cre063]);
+    });
+
+    test("falls back to name search when not a deck code", () => {
+      expect(applyFilters(cards, { nameSearch: "Shadow" })).toEqual([cre063]);
+    });
+
+    test("matches either deck code or name", () => {
+      expect(applyFilters(cards, { nameSearch: "Mewtwo" })).toEqual([cre064]);
+    });
+  });
+
   describe("trainerType skip for non-Trainer categories", () => {
     const supporter = makeCard({ id: "t1", name: "Boss's Orders", category: "Trainer", trainerType: "Supporter", energyTypes: [] });
     const item = makeCard({ id: "t2", name: "Nest Ball", category: "Trainer", trainerType: "Item", energyTypes: [] });

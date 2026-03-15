@@ -26,6 +26,7 @@ export interface Card {
   isTera: boolean;
   hasFoil: boolean;
   isPrintUnfriendly: boolean;
+  mechanicsHash: string;
 }
 
 export interface CardAttack {

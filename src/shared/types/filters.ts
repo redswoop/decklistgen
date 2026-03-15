@@ -1,6 +1,6 @@
 export interface CardFilters {
   sets?: string[];
-  era?: "sv" | "swsh";
+  era?: "sv" | "swsh" | "all";
   category?: "Pokemon" | "Trainer" | "Energy";
   trainerType?: string;
   rarities?: string[];
