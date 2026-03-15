@@ -261,7 +261,7 @@ export function useDecklist() {
   /** Find a working deck item matching by name but NOT by set+localId */
   function findSwappable(card: Card): DecklistItem | null {
     return items.value.find(
-      (i) => i.name === card.name && !(i.setCode === card.setCode && i.localId === card.localId)
+      (i) => i.name === card.name && i.card.mechanicsHash === card.mechanicsHash && !(i.setCode === card.setCode && i.localId === card.localId)
     ) ?? null;
   }
 

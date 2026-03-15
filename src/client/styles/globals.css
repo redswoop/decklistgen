@@ -1096,10 +1096,15 @@ body {
 
 .import-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   margin-top: 12px;
-  gap: 12px;
+  gap: 8px 12px;
+}
+
+.import-name-input {
+  flex: 1 1 100%;
 }
 
 .import-mode {
@@ -1114,6 +1119,11 @@ body {
   gap: 4px;
   cursor: pointer;
   color: #e0e0e0;
+}
+
+.import-mode label:has(input:disabled) {
+  opacity: 0.4;
+  cursor: default;
 }
 
 /* Export Dialog */
@@ -1969,11 +1979,11 @@ body {
 }
 
 /* Welcome state */
-.welcome-state {
+.welcome-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  flex: 1;
   padding: 40px;
 }
 
@@ -2023,6 +2033,10 @@ body {
 .welcome-btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.welcome-btn-all:hover:not(:disabled) {
+  border-color: #a855f7;
 }
 
 .welcome-btn-sv:hover:not(:disabled) {

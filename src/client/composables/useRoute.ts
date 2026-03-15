@@ -1,6 +1,6 @@
 import { ref, watch, onMounted, onUnmounted } from "vue";
 
-export type AppView = "browse" | "decks" | "cards" | "public" | "queue" | "editor";
+export type AppView = "browse" | "decks" | "cards" | "public" | "queue" | "editor" | "gallery" | "variants";
 
 function parseHash(): { view: AppView; deckId: string | null } {
   const hash = window.location.hash.replace(/^#\/?/, "");
@@ -25,6 +25,12 @@ function parseHash(): { view: AppView; deckId: string | null } {
   if (hash === "editor" || hash.startsWith("editor/")) {
     return { view: "editor", deckId: null };
   }
+  if (hash === "gallery" || hash.startsWith("gallery/")) {
+    return { view: "gallery", deckId: null };
+  }
+  if (hash === "variants") {
+    return { view: "variants", deckId: null };
+  }
   return { view: "browse", deckId: null };
 }
 
@@ -41,6 +47,8 @@ function toHash(view: AppView, deckId: string | null): string {
   if (view === "public") return "#/public";
   if (view === "queue") return "#/queue";
   if (view === "editor") return "#/editor";
+  if (view === "gallery") return "#/gallery";
+  if (view === "variants") return "#/variants";
   return "#/browse";
 }
 
@@ -66,20 +74,22 @@ export function useRoute() {
   const previewCardId = ref<string | null>(parseCardParam());
 
   // Sync URL when view/deck state changes
-  let suppressPopstate = false;
+  let suppressHashSync = false;
 
   watch([currentView, selectedDeckId], ([view, deckId]) => {
     const target = toHash(view, deckId);
-    if (window.location.hash !== target) {
-      suppressPopstate = true;
+    const current = window.location.hash;
+    // Don't clobber sub-paths (e.g. #/editor/cardId → #/editor)
+    if (current !== target && !current.startsWith(target + "/")) {
+      suppressHashSync = true;
       window.location.hash = target;
     }
   });
 
-  // React to back/forward navigation (covers both hash and pushState)
-  function onPopstate() {
-    if (suppressPopstate) {
-      suppressPopstate = false;
+  // React to back/forward navigation and programmatic hash changes
+  function onHashChange() {
+    if (suppressHashSync) {
+      suppressHashSync = false;
       return;
     }
     const parsed = parseHash();
@@ -89,16 +99,18 @@ export function useRoute() {
   }
 
   onMounted(() => {
-    window.addEventListener("popstate", onPopstate);
+    window.addEventListener("popstate", onHashChange);
+    window.addEventListener("hashchange", onHashChange);
     // Set initial hash if empty
     if (!window.location.hash) {
-      suppressPopstate = true;
+      suppressHashSync = true;
       window.location.hash = toHash(currentView.value, selectedDeckId.value);
     }
   });
 
   onUnmounted(() => {
-    window.removeEventListener("popstate", onPopstate);
+    window.removeEventListener("popstate", onHashChange);
+    window.removeEventListener("hashchange", onHashChange);
   });
 
   return { currentView, selectedDeckId, previewCardId };

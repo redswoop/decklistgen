@@ -50,7 +50,7 @@ const emit = defineEmits<{
 const { filters, setNameSearch } = useFilters();
 const { addCard } = useDecklist();
 const { imageMode, setImageMode } = usePokeproxy();
-const { loadingEra, loadEra } = useEraLoader();
+const { loadingEra, loadEra, loadAllEras } = useEraLoader();
 
 // Only query API when no external cards provided
 const localPage = ref(1);
@@ -284,73 +284,15 @@ function handleTilePreview(card: Card) {
 </script>
 
 <template>
-  <!-- Welcome state: no filters active (only in API mode) -->
-  <div v-if="!isExternalMode && !hasAnyFilter" class="welcome-state">
-    <div class="welcome-card">
-      <div class="welcome-title">Pokemon TCG Card Browser</div>
-      <div class="welcome-subtitle">Load an era to browse cards</div>
-      <div class="welcome-buttons">
-        <button
-          class="welcome-btn welcome-btn-sv"
-          :disabled="loadingEra"
-          @click="loadEra('sv')"
-        >
-          <span class="welcome-btn-label">Scarlet &amp; Violet</span>
-        </button>
-        <button
-          class="welcome-btn welcome-btn-swsh"
-          :disabled="loadingEra"
-          @click="loadEra('swsh')"
-        >
-          <span class="welcome-btn-label">Sword &amp; Shield</span>
-        </button>
-      </div>
-      <div v-if="loadingEra" class="welcome-loading">
-        <div class="era-progress"><div class="era-progress-bar" /></div>
-      </div>
-      <div class="welcome-hint">or pick individual sets from the sidebar</div>
-    </div>
-  </div>
-
-  <!-- Loading skeleton (API mode only) -->
-  <div v-else-if="!isExternalMode && isLoading" class="card-grid-wrapper">
-    <div class="card-grid-header">
-      <span class="card-count">Loading...</span>
-      <div class="grid-search-wrap">
-        <input type="text" class="grid-search" placeholder="Search cards..." disabled />
-      </div>
-      <select class="group-by-select" disabled>
-        <option>Set</option>
-      </select>
-      <div class="image-mode-toggle">
-        <button class="mode-btn active">Original</button>
-        <button class="mode-btn">Proxy</button>
-      </div>
-    </div>
-    <div class="skeleton-grid" :style="{ padding: `${PADDING}px`, gap: `${GAP}px` }">
-      <div
-        v-for="i in skeletonCount"
-        :key="i"
-        class="skeleton-card"
-        :style="{ width: `${cardWidth}px`, height: `${Math.ceil(cardWidth * 7 / 5)}px` }"
-      />
-    </div>
-  </div>
-
-  <!-- Empty state (external mode) -->
-  <div v-else-if="isExternalMode && allCardsRaw.length === 0" class="empty-state">
+  <!-- Empty state (external mode with no cards) -->
+  <div v-if="isExternalMode && allCardsRaw.length === 0" class="empty-state">
     No cards in this deck.
   </div>
 
-  <!-- No cards loaded (API mode) -->
-  <div v-else-if="!isExternalMode && allCards.length === 0 && !filters.era && !filters.sets?.length" class="empty-state">
-    No cards loaded. Select an era to load cards first.
-  </div>
-
-  <!-- Main grid -->
+  <!-- Normal flow: header always rendered, content switches below -->
   <div v-else class="card-grid-wrapper">
     <div class="card-grid-header">
-      <span class="card-count">{{ displayLabel }}</span>
+      <span class="card-count">{{ isLoading && !hasAnyFilter ? '' : displayLabel }}</span>
       <div class="grid-search-wrap">
         <input
           type="text"
@@ -379,7 +321,54 @@ function handleTilePreview(card: Card) {
         >{{ opt.label }}</button>
       </div>
     </div>
-    <div ref="scrollRef" class="card-grid-scroll">
+
+    <!-- Welcome state: no filters active (only in API mode) -->
+    <div v-if="!isExternalMode && !hasAnyFilter && !isLoading" class="welcome-content">
+      <div class="welcome-card">
+        <div class="welcome-title">Pokemon TCG Card Browser</div>
+        <div class="welcome-subtitle">Load an era to browse cards</div>
+        <div class="welcome-buttons">
+          <button
+            class="welcome-btn welcome-btn-all"
+            :disabled="loadingEra"
+            @click="loadAllEras()"
+          >
+            <span class="welcome-btn-label">All Eras</span>
+          </button>
+          <button
+            class="welcome-btn welcome-btn-sv"
+            :disabled="loadingEra"
+            @click="loadEra('sv')"
+          >
+            <span class="welcome-btn-label">Scarlet &amp; Violet</span>
+          </button>
+          <button
+            class="welcome-btn welcome-btn-swsh"
+            :disabled="loadingEra"
+            @click="loadEra('swsh')"
+          >
+            <span class="welcome-btn-label">Sword &amp; Shield</span>
+          </button>
+        </div>
+        <div v-if="loadingEra" class="welcome-loading">
+          <div class="era-progress"><div class="era-progress-bar" /></div>
+        </div>
+        <div class="welcome-hint">or pick individual sets from the sidebar</div>
+      </div>
+    </div>
+
+    <!-- Loading skeleton -->
+    <div v-else-if="!isExternalMode && isLoading && allCards.length === 0" class="skeleton-grid" :style="{ padding: `${PADDING}px`, gap: `${GAP}px` }">
+      <div
+        v-for="i in skeletonCount"
+        :key="i"
+        class="skeleton-card"
+        :style="{ width: `${cardWidth}px`, height: `${Math.ceil(cardWidth * 7 / 5)}px` }"
+      />
+    </div>
+
+    <!-- Main grid -->
+    <div v-else ref="scrollRef" class="card-grid-scroll">
       <div :style="{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }">
         <div
           v-for="vItem in virtualizer.getVirtualItems()"

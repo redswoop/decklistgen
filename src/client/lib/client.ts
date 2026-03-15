@@ -172,6 +172,25 @@ export const api = {
     get<{ variants: Card[] }>(`/cards/${cardId}/variants`),
   getCardTcgdex: (cardId: string) =>
     get<Record<string, unknown>>(`/cards/${cardId}/tcgdex`),
+  getVariantGroups: () =>
+    get<Array<{
+      name: string;
+      mechanicsHash: string;
+      count: number;
+      cards: Array<{
+        id: string;
+        localId: string;
+        name: string;
+        setCode: string;
+        setName: string;
+        category: string;
+        rarity: string;
+        isFullArt: boolean;
+        imageBase: string;
+        hp: number | null;
+        stage: string | null;
+      }>;
+    }>>("/cards/variant-groups"),
 
   // PokeProxy endpoints
   pokeproxyStatus: (cardId: string) =>
@@ -251,6 +270,49 @@ export const api = {
     del<{ ok: boolean; cardId: string }>(`/pokeproxy/customized/${cardId}`),
   batchDeleteCustomizations: (cardIds: string[]) =>
     post<{ ok: boolean; deleted: number }>("/pokeproxy/customized/batch/delete", { cardIds }),
+
+  // Gallery (mounted at /gallery, not /api/gallery)
+  galleryCards: async () => {
+    const resp = await fetch("/gallery/cards", { credentials: "include" });
+    return handleResponse<Array<{
+      label: string;
+      cardId: string;
+      name: string;
+      category: string;
+      stage: string | null;
+      hp: number | null;
+      rarity: string | null;
+      energyTypes: string[];
+      isFullArt: boolean;
+      hasClean: boolean;
+      hasComposite: boolean;
+      hasSvg: boolean;
+      hasSource: boolean;
+      cleanMeta: Record<string, unknown> | null;
+      promptRule: string | null;
+      promptText: string | null;
+      promptSkip: boolean;
+    }>>(resp);
+  },
+
+  // Font sizes (mounted at /gallery, not /api/gallery)
+  getFontSizes: async () => {
+    const resp = await fetch("/gallery/font-sizes", { credentials: "include" });
+    return handleResponse<{ current: Record<string, number>; defaults: Record<string, number> }>(resp);
+  },
+  saveFontSizes: async (overrides: Record<string, number>) => {
+    const resp = await fetch("/gallery/font-sizes", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(overrides),
+      credentials: "include",
+    });
+    return handleResponse<{ status: string }>(resp);
+  },
+  resetFontSizes: async () => {
+    const resp = await fetch("/gallery/font-sizes", { method: "DELETE", credentials: "include" });
+    return handleResponse<{ status: string }>(resp);
+  },
 
   // Queue endpoints
   queueList: () =>

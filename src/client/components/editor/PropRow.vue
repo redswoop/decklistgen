@@ -139,7 +139,6 @@ function onBindKeydown(e: KeyboardEvent) {
 .bind-toggle:hover { color: #4a9eff; }
 .bind-toggle.active { color: #4a9eff; }
 .binding-editor input { width: 100%; background: #0a1e3d; color: #4a9eff; border: 1px solid #4a9eff; border-radius: 3px; padding: 3px 6px; font-size: 12px; margin-bottom: 4px; }
-.prop-row :deep(.stepper) { max-width: 100%; }
 .prop-row input[type="text"] { width: 100%; background: #0f3460; color: #e0e0e0; border: 1px solid #444; border-radius: 3px; padding: 4px 6px; font-size: 13px; }
 .prop-row input[type="range"] { width: 100%; accent-color: #4a9eff; }
 .prop-row input[type="color"] { width: 100%; height: 28px; padding: 1px; border: 1px solid #444; border-radius: 3px; background: #0f3460; cursor: pointer; }

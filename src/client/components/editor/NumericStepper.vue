@@ -6,7 +6,6 @@ const props = defineProps<{
   min?: number;
   max?: number;
   step?: number;
-  compact?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -79,7 +78,7 @@ function onKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="stepper" :class="{ compact }">
+  <div class="stepper">
     <button class="step-btn" tabindex="-1" title="Decrease" @click="stepDown">&minus;</button>
     <input
       type="text"
@@ -97,13 +96,10 @@ function onKeydown(e: KeyboardEvent) {
 </template>
 
 <style scoped>
-.stepper { display: inline-flex; align-items: stretch; border: 1px solid #444; border-radius: 3px; overflow: hidden; height: 26px; }
-.stepper.compact { height: 22px; }
+.stepper { display: inline-flex; align-items: stretch; border: 1px solid #444; border-radius: 3px; overflow: hidden; height: 26px; width: fit-content; }
 .step-btn { background: #0a2040; color: #aaa; border: none; width: 22px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; flex-shrink: 0; user-select: none; }
-.stepper.compact .step-btn { width: 18px; font-size: 12px; }
 .step-btn:hover { background: #1a5276; color: #e0e0e0; }
 .step-btn:active { background: #4a9eff; color: #fff; }
-.step-input { width: 48px; background: #0f3460; color: #e0e0e0; border: none; border-left: 1px solid #444; border-right: 1px solid #444; padding: 0 4px; font-size: 13px; text-align: center; outline: none; min-width: 0; }
-.stepper.compact .step-input { width: 40px; font-size: 12px; }
+.step-input { width: 48px; height: 100%; background: #0f3460; color: #e0e0e0; border: none; border-left: 1px solid #444; border-right: 1px solid #444; padding: 0 4px; font-size: 13px; text-align: center; outline: none; min-width: 0; box-sizing: border-box; }
 .step-input:focus { background: #1a3d6d; }
 </style>

@@ -47,9 +47,17 @@ onMounted(async () => {
 
   // Restore card from URL hash (e.g., #/editor/sv4-123)
   const match = location.hash.match(/^#\/editor\/(.+)$/);
-  if (match && allCards.value.some(c => c.id === match[1])) {
-    selectedCard.value = match[1];
-    onCardPicked(false);
+  if (match) {
+    const card = allCards.value.find(c => c.id === match[1]);
+    if (card) {
+      selectedCard.value = card.id;
+      // Auto-select template if one isn't loaded yet
+      if (card.suggestedTemplate && !currentTemplateId.value) {
+        selectedTemplate.value = card.suggestedTemplate;
+        await onTemplatePicked();
+      }
+      await onCardPicked(false);
+    }
   }
 });
 

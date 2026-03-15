@@ -11,6 +11,8 @@ import CardsFilterSidebar from "./components/CardsFilterSidebar.vue";
 import PublicDecksView from "./components/PublicDecksView.vue";
 import QueueView from "./components/QueueView.vue";
 import EditorView from "./components/editor/EditorView.vue";
+import GalleryView from "./components/GalleryView.vue";
+import VariantsView from "./components/VariantsView.vue";
 import ExportDialog from "./components/ExportDialog.vue";
 import ImportDialog from "./components/ImportDialog.vue";
 import SaveDeckDialog from "./components/SaveDeckDialog.vue";
@@ -130,7 +132,7 @@ watch([mobileLeftOpen, mobileRightOpen], ([left, right]) => {
 });
 
 // Views that take the full center pane (no sidebars)
-const fullWidthView = computed(() => currentView.value === 'queue' || currentView.value === 'public' || currentView.value === 'editor');
+const fullWidthView = computed(() => currentView.value === 'queue' || currentView.value === 'public' || currentView.value === 'editor' || currentView.value === 'gallery' || currentView.value === 'variants');
 
 // Desktop collapsed state persisted to localStorage; on mobile, sidebars are always collapsed
 const savedLeftCollapsed = ref(saved.leftCollapsed);
@@ -388,6 +390,14 @@ function handleBrowseRegenerate(card: Card) {
           :class="['app-nav-tab', { active: currentView === 'editor' }]"
           @click="currentView = 'editor'"
         >Editor</button>
+        <button
+          :class="['app-nav-tab', { active: currentView === 'gallery' }]"
+          @click="currentView = 'gallery'"
+        >Gallery</button>
+        <button
+          :class="['app-nav-tab', { active: currentView === 'variants' }]"
+          @click="currentView = 'variants'"
+        >Variants</button>
       </div>
       <div class="app-nav-spacer" />
       <button
@@ -462,6 +472,8 @@ function handleBrowseRegenerate(card: Card) {
           <PublicDecksView v-else-if="currentView === 'public'" />
           <QueueView v-else-if="currentView === 'queue'" />
           <EditorView v-else-if="currentView === 'editor'" />
+          <GalleryView v-else-if="currentView === 'gallery'" />
+          <VariantsView v-else-if="currentView === 'variants'" @preview-card="handlePreview" />
           <WorkingDeckView
             v-else-if="selectedDeckId === '__working__'"
             @preview-card="handlePreview"
@@ -519,6 +531,10 @@ function handleBrowseRegenerate(card: Card) {
         @click="currentView = 'queue'">Queue<span v-if="activeJobCount > 0" class="nav-badge mobile-nav-badge">{{ activeJobCount }}</span></button>
       <button :class="['mobile-tab', { active: currentView === 'editor' }]"
         @click="currentView = 'editor'">Editor</button>
+      <button :class="['mobile-tab', { active: currentView === 'gallery' }]"
+        @click="currentView = 'gallery'">Gallery</button>
+      <button :class="['mobile-tab', { active: currentView === 'variants' }]"
+        @click="currentView = 'variants'">Variants</button>
     </nav>
 
     <!-- Mobile slide-over panels -->

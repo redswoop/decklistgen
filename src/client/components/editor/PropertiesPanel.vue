@@ -2,23 +2,31 @@
 import { computed, ref } from "vue";
 import { useEditorState } from "../../composables/useEditorState.js";
 import { useEditorRenderer } from "../../composables/useEditorRenderer.js";
-import { BOX_MODEL_KEYS, FILL_KEYS } from "../../../shared/constants/prop-defs.js";
+import { api } from "../../lib/client.js";
+import {
+  BOX_MODEL_KEYS, FILL_KEYS,
+  H_ALIGN_OPTIONS, V_ALIGN_OPTIONS, TEXT_ANCHOR_OPTIONS,
+  DIRECTION_OPTIONS, V_ANCHOR_OPTIONS, H_ANCHOR_OPTIONS, WRAP_OPTIONS,
+} from "../../../shared/constants/prop-defs.js";
 import type { EditorElement } from "../../../shared/types/editor.js";
 import PropRow from "./PropRow.vue";
-import FontRow from "./FontRow.vue";
+import FontControls from "./FontControls.vue";
 import BoxModelWidget from "./BoxModelWidget.vue";
-import FillPicker from "./FillPicker.vue";
+import ColorField from "./ColorField.vue";
+import AlignButtons from "./AlignButtons.vue";
+import XYRow from "./XYRow.vue";
 
 const FONT_KEYS: Record<string, boolean> = { fontSize: true, fontFamily: true, fontWeight: true };
 
 const { selectedPath, selectedNode, resolveNode, getNodeChildren, selectPath, cardData, resolveBinding, markDirty } = useEditorState();
 const { rerender, debouncedRerender } = useEditorRenderer();
 
-// Filter prop defs to exclude box model and fill keys (those get their own widgets)
-const filteredPropDefs = computed(() => {
-  if (!selectedNode.value) return [];
-  return selectedNode.value.propDefs.filter((d) => !BOX_MODEL_KEYS[d.key] && !FILL_KEYS[d.key] && !FONT_KEYS[d.key]);
-});
+async function onTokenUpdate(tokenName: string, value: number) {
+  const data = await api.getFontSizes();
+  const overrides = { ...data.current, [tokenName]: value };
+  await api.saveFontSizes(overrides);
+  rerender();
+}
 
 const hasFont = computed(() => {
   if (!selectedNode.value) return false;
@@ -41,6 +49,50 @@ const opacityKey = computed(() => {
   return selectedNode.value.propDefs.some((d) => d.key === "fillOpacity") ? "fillOpacity" : "opacity";
 });
 
+function hasProp(key: string): boolean {
+  return selectedNode.value?.propDefs.some((d) => d.key === key) ?? false;
+}
+
+function hasGroup(group: string): boolean {
+  return selectedNode.value?.propDefs.some((d) => d.group === group) ?? false;
+}
+
+// Direction options filtered to match the prop def's allowed values (repeater has fewer)
+const directionOptions = computed(() => {
+  if (!selectedNode.value) return DIRECTION_OPTIONS;
+  const def = selectedNode.value.propDefs.find((d) => d.key === "direction");
+  if (!def?.options) return DIRECTION_OPTIONS;
+  return DIRECTION_OPTIONS.filter((opt) => def.options!.includes(opt.value));
+});
+
+const contentDefs = computed(() =>
+  selectedNode.value?.propDefs.filter(d => d.group === 'content') ?? []);
+
+const layoutDefs = computed(() =>
+  selectedNode.value?.propDefs.filter(d => d.group === 'layout') ?? []);
+
+const appearanceDefs = computed(() =>
+  selectedNode.value?.propDefs.filter(d => d.group === 'appearance') ?? []);
+
+const hasWidthGap = computed(() => hasProp('width') && hasProp('gap'));
+
+const layoutSingleDefs = computed(() =>
+  layoutDefs.value.filter(d =>
+    !(hasWidthGap.value && (d.key === 'width' || d.key === 'gap'))
+  ));
+
+// Filter prop defs to exclude grouped, box model, fill, and font keys (safety net)
+const filteredPropDefs = computed(() => {
+  if (!selectedNode.value) return [];
+  return selectedNode.value.propDefs.filter((d) => {
+    if (BOX_MODEL_KEYS[d.key]) return false;
+    if (FONT_KEYS[d.key]) return false;
+    if (d.group) return false;
+    if (hasFill.value && FILL_KEYS[d.key]) return false;
+    return true;
+  });
+});
+
 const sectionLabel = computed(() => {
   if (!selectedNode.value) return "";
   const n = selectedNode.value;
@@ -61,7 +113,6 @@ const keyHint = computed(() => {
 const canAddChildren = computed(() => {
   if (!selectedNode.value) return false;
   const node = selectedNode.value.node;
-  // Root boxes, sub-boxes, and repeaters can have children added
   return node.type === "box" || node.type === "repeater";
 });
 
@@ -84,14 +135,12 @@ function onBindingUpdate(key: string, path: string) {
   if (!selectedNode.value) return;
   if (!selectedNode.value.node.bind) selectedNode.value.node.bind = {};
   selectedNode.value.node.bind[key] = path;
-  // For non-repeater items, eagerly resolve binding for display
   if (cardData.value && !selectedNode.value.insideRepeater) {
     const val = resolveBinding(path, cardData.value);
     if (val !== undefined) {
       selectedNode.value.node.props[key] = val as string | number;
     }
   }
-  // Always rerender — repeater bindings resolve during expansion
   markDirty();
   rerender();
 }
@@ -110,14 +159,6 @@ function onBoxModelUpdate(key: string, value: number) {
   selectedNode.value.node.props[key] = value;
   markDirty();
   debouncedRerender();
-}
-
-function onFillUpdate(color: string, opacity: number) {
-  if (!selectedNode.value) return;
-  selectedNode.value.node.props.fill = color;
-  selectedNode.value.node.props[opacityKey.value] = opacity;
-  markDirty();
-  rerender();
 }
 
 function addChild(childType: string) {
@@ -233,14 +274,156 @@ function onShowIfKeydown(e: KeyboardEvent) {
         />
       </div>
 
-      <FontRow
+      <!-- 1. Position (root only) -->
+      <XYRow
+        v-if="hasGroup('position')"
+        label="Anchor"
+        :x-value="Number(selectedNode.node.props.anchorX || 0)"
+        :y-value="Number(selectedNode.node.props.anchorY || 0)"
+        x-label="Anchor X"
+        y-label="Anchor Y"
+        :x-min="-200" :x-max="900" :x-step="1"
+        :y-min="-200" :y-max="1100" :y-step="1"
+        @update:x="v => onPropUpdate('anchorX', v)"
+        @update:y="v => onPropUpdate('anchorY', v)"
+      />
+
+      <!-- 2. Content -->
+      <PropRow
+        v-for="def in contentDefs"
+        :key="def.key"
+        :def="def"
+        :value="selectedNode.node.props[def.key] ?? (def.type === 'number' || def.type === 'range' ? 0 : '')"
+        :binding="selectedNode.node.bind?.[def.key]"
+        @update="onPropUpdate"
+        @update:binding="onBindingUpdate"
+        @clear:binding="onBindingClear"
+      />
+
+      <!-- 3. Typography -->
+      <FontControls
         v-if="hasFont"
-        :font-size="Number(selectedNode.node.props.fontSize || 24)"
+        :font-size="selectedNode.node.props.fontSize ?? 24"
         :font-family="String(selectedNode.node.props.fontFamily || 'title')"
         :font-weight="String(selectedNode.node.props.fontWeight || 'bold')"
         @update="onPropUpdate"
+        @update-token="onTokenUpdate"
+      />
+      <div v-if="hasProp('textAnchor')" class="align-pair">
+        <AlignButtons
+          label="Text Anchor"
+          :model-value="String(selectedNode.node.props.textAnchor || 'start')"
+          :options="TEXT_ANCHOR_OPTIONS"
+          @update:model-value="v => onPropUpdate('textAnchor', v)"
+        />
+        <AlignButtons
+          v-if="hasProp('wrap')"
+          label="Wrap"
+          :model-value="String(selectedNode.node.props.wrap ?? '0')"
+          :options="WRAP_OPTIONS"
+          @update:model-value="v => onPropUpdate('wrap', v)"
+        />
+      </div>
+
+      <!-- 4. Layout -->
+      <template v-if="hasGroup('direction')">
+        <AlignButtons
+          v-if="hasProp('direction')"
+          label="Direction"
+          :model-value="String(selectedNode.node.props.direction || 'row')"
+          :options="directionOptions"
+          @update:model-value="v => onPropUpdate('direction', v)"
+        />
+        <AlignButtons
+          v-if="hasProp('vAnchor')"
+          label="V-Anchor"
+          :model-value="String(selectedNode.node.props.vAnchor || 'top')"
+          :options="V_ANCHOR_OPTIONS"
+          @update:model-value="v => onPropUpdate('vAnchor', v)"
+        />
+        <AlignButtons
+          v-if="hasProp('hAnchor')"
+          label="H-Anchor"
+          :model-value="String(selectedNode.node.props.hAnchor || 'left')"
+          :options="H_ANCHOR_OPTIONS"
+          @update:model-value="v => onPropUpdate('hAnchor', v)"
+        />
+      </template>
+      <div v-if="hasGroup('align')" class="align-pair">
+        <AlignButtons
+          v-if="hasProp('hAlign')"
+          label="H-Align"
+          :model-value="String(selectedNode.node.props.hAlign || 'start')"
+          :options="H_ALIGN_OPTIONS"
+          @update:model-value="v => onPropUpdate('hAlign', v)"
+        />
+        <AlignButtons
+          v-if="hasProp('vAlign')"
+          label="V-Align"
+          :model-value="String(selectedNode.node.props.vAlign || 'top')"
+          :options="V_ALIGN_OPTIONS"
+          @update:model-value="v => onPropUpdate('vAlign', v)"
+        />
+      </div>
+      <div v-if="hasWidthGap" class="prop-pair">
+        <PropRow
+          :def="layoutDefs.find(d => d.key === 'width')!"
+          :value="selectedNode.node.props.width ?? 0"
+          :binding="selectedNode.node.bind?.width"
+          @update="onPropUpdate"
+          @update:binding="onBindingUpdate"
+          @clear:binding="onBindingClear"
+        />
+        <PropRow
+          :def="layoutDefs.find(d => d.key === 'gap')!"
+          :value="selectedNode.node.props.gap ?? 0"
+          :binding="selectedNode.node.bind?.gap"
+          @update="onPropUpdate"
+          @update:binding="onBindingUpdate"
+          @clear:binding="onBindingClear"
+        />
+      </div>
+      <PropRow
+        v-for="def in layoutSingleDefs"
+        :key="def.key"
+        :def="def"
+        :value="selectedNode.node.props[def.key] ?? (def.type === 'number' || def.type === 'range' ? 0 : '')"
+        :binding="selectedNode.node.bind?.[def.key]"
+        @update="onPropUpdate"
+        @update:binding="onBindingUpdate"
+        @clear:binding="onBindingClear"
       />
 
+      <!-- 5. Appearance -->
+      <ColorField
+        v-if="hasFill"
+        label="Fill"
+        :model-value="String(selectedNode.node.props.fill || '')"
+        :opacity="Number(selectedNode.node.props[opacityKey] ?? 1)"
+        @update:model-value="v => onPropUpdate('fill', v)"
+        @update:opacity="v => onPropUpdate(opacityKey, v)"
+      />
+      <ColorField
+        v-if="hasGroup('stroke')"
+        label="Stroke"
+        :model-value="String(selectedNode.node.props.stroke || '')"
+        :width="Number(selectedNode.node.props.strokeWidth || 0)"
+        :width-min="0" :width-max="10" :width-step="0.5"
+        @update:model-value="v => onPropUpdate('stroke', v)"
+        @update:width="v => onPropUpdate('strokeWidth', v)"
+      />
+      <PropRow
+        v-for="def in appearanceDefs"
+        :key="def.key"
+        :def="def"
+        :value="selectedNode.node.props[def.key] ?? (def.type === 'number' || def.type === 'range' ? 0 : '')"
+        :binding="selectedNode.node.bind?.[def.key]"
+        @update="onPropUpdate"
+        @update:binding="onBindingUpdate"
+        @clear:binding="onBindingClear"
+      />
+
+      <!-- Safety net: ungrouped props -->
       <PropRow
         v-for="def in filteredPropDefs"
         :key="def.key"
@@ -252,13 +435,7 @@ function onShowIfKeydown(e: KeyboardEvent) {
         @clear:binding="onBindingClear"
       />
 
-      <FillPicker
-        v-if="hasFill"
-        :color="String(selectedNode.node.props.fill || '')"
-        :opacity="Number(selectedNode.node.props[opacityKey] ?? 1)"
-        @update="onFillUpdate"
-      />
-
+      <!-- 6. Box Model -->
       <BoxModelWidget
         v-if="hasBoxModel"
         :values="selectedNode.node.props"
@@ -320,6 +497,10 @@ function onShowIfKeydown(e: KeyboardEvent) {
 .items-binding-row { margin-bottom: 8px; }
 .items-binding-input { width: 100%; background: #0a1e3d; color: #4a9eff; border: 1px solid #333; border-radius: 3px; padding: 4px 6px; font-size: 12px; box-sizing: border-box; }
 .items-binding-input:focus { border-color: #4a9eff; outline: none; }
+.align-pair { display: flex; gap: 4px; margin-bottom: 8px; }
+.align-pair :deep(.align-buttons) { margin-bottom: 0; }
+.prop-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.prop-pair :deep(.prop-row) { margin-bottom: 0; }
 
 @media (max-width: 768px) {
   .add-child-bar button { padding: 6px 12px; font-size: 12px; }

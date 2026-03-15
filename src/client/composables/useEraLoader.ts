@@ -28,6 +28,18 @@ export function useEraLoader() {
     }
   }
 
+  async function loadAllEras() {
+    loadingEra.value = true;
+    try {
+      await Promise.all([api.loadEra("sv"), api.loadEra("swsh")]);
+      invalidateAll();
+      setEra("all");
+      setSets([]);
+    } finally {
+      loadingEra.value = false;
+    }
+  }
+
   async function loadSet(code: string) {
     loadingSet.value = code;
     try {
@@ -47,7 +59,11 @@ export function useEraLoader() {
     if (filters.era && !pending.length) {
       loadingEra.value = true;
       try {
-        await api.loadEra(filters.era);
+        if (filters.era === "all") {
+          await Promise.all([api.loadEra("sv"), api.loadEra("swsh")]);
+        } else {
+          await api.loadEra(filters.era);
+        }
         invalidateAll();
       } finally {
         loadingEra.value = false;
@@ -68,6 +84,7 @@ export function useEraLoader() {
     loadingEra,
     loadingSet,
     loadEra,
+    loadAllEras,
     loadSet,
     restoreFromUrl,
   };

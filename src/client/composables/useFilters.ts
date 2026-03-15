@@ -45,7 +45,7 @@ function readUrl() {
   if (sets) filters.sets = sets.split(",");
 
   const era = p.get("era");
-  if (era === "sv" || era === "swsh") filters.era = era;
+  if (era === "sv" || era === "swsh" || era === "all") filters.era = era;
 
   const cat = p.get("cat");
   if (cat === "Pokemon" || cat === "Trainer" || cat === "Energy") filters.category = cat;
@@ -94,7 +94,7 @@ function getPendingSetLoads(): string[] {
 
 export function useFilters() {
   function setSets(sets: string[]) { filters.sets = sets.length ? sets : undefined; }
-  function setEra(era?: "sv" | "swsh") { filters.era = era; }
+  function setEra(era?: "sv" | "swsh" | "all") { filters.era = era; }
   function setCategory(category?: "Pokemon" | "Trainer" | "Energy") { filters.category = category; }
   function setTrainerType(trainerType?: string) { filters.trainerType = trainerType; }
   function setRarities(rarities: string[]) { filters.rarities = rarities.length ? rarities : undefined; }

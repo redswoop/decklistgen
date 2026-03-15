@@ -15,9 +15,9 @@ const {
 
 const { data: sets } = useSets();
 const { data: filterOpts } = useFilterOptions();
-const { loadingEra, loadingSet, loadEra, loadSet } = useEraLoader();
+const { loadingEra, loadingSet, loadEra, loadAllEras, loadSet } = useEraLoader();
 
-const sidebarEra = ref(filters.era ?? "");
+const sidebarEra = ref(filters.era ?? "all");
 
 // Collapsible filter groups
 const categoryOpen = ref(true);
@@ -37,7 +37,7 @@ const setInfo = computed(() => {
 
 const visibleSets = computed(() => {
   if (!sets.value) return [];
-  if (!sidebarEra.value) return sets.value;
+  if (!sidebarEra.value || sidebarEra.value === "all") return sets.value;
   return sets.value.filter((s) => s.era === sidebarEra.value);
 });
 
@@ -52,11 +52,10 @@ function formatSetLabel(code: string) {
 async function handleEraChange(e: Event) {
   const val = (e.target as HTMLSelectElement).value;
   sidebarEra.value = val;
-  const era = (val as "sv" | "swsh") || undefined;
-  if (era) {
-    await loadEra(era);
+  if (val === "sv" || val === "swsh") {
+    await loadEra(val);
   } else {
-    setEra(undefined);
+    await loadAllEras();
   }
 }
 
@@ -146,7 +145,7 @@ const propsFilterCount = computed(() => {
 
       <h2>Era</h2>
       <select :value="sidebarEra" :disabled="loadingEra" @change="handleEraChange">
-        <option value="">All Eras</option>
+        <option value="all">All Eras</option>
         <option value="sv">Scarlet &amp; Violet</option>
         <option value="swsh">Sword &amp; Shield</option>
       </select>

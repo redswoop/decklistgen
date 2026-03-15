@@ -136,7 +136,7 @@ const swappableItem = computed(() => {
   const card = currentCard.value;
   if (props.savedDeckCards?.length) {
     const matches = props.savedDeckCards.filter(
-      (dc) => dc.card.name === card.name && !(dc.card.setCode === card.setCode && dc.card.localId === card.localId)
+      (dc) => dc.card.name === card.name && dc.card.mechanicsHash === card.mechanicsHash && !(dc.card.setCode === card.setCode && dc.card.localId === card.localId)
     );
     if (!matches.length) return null;
     // Prefer the card the user actually clicked on (activeCard)

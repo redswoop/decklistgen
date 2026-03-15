@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { api } from "../lib/client.js";
 import { useDecklist, type DecklistItem } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
@@ -8,11 +8,12 @@ import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 
 const emit = defineEmits<{ close: [] }>();
 
-const { importDeck, markSaved } = useDecklist();
+const { importDeck, markSaved, currentDeckName, currentDeckId, items } = useDecklist();
 const { createDeck } = useDecks();
 
-const tab = ref<"url" | "paste">("url");
-const mode = ref<"replace" | "merge">("replace");
+const tab = ref<"paste" | "url">("paste");
+const mode = ref<"new" | "replace" | "merge">("new");
+const deckName = ref("");
 const loading = ref(false);
 const error = ref("");
 const success = ref("");
@@ -28,6 +29,16 @@ const playerFilter = ref("");
 // Paste tab state
 const pasteText = ref("");
 
+// Default mode: "new" if no deck loaded, "replace" if editing an existing deck
+if (currentDeckId.value && items.value.length > 0) {
+  mode.value = "replace";
+}
+
+const nameInputPlaceholder = computed(() => {
+  if (mode.value === "replace" && currentDeckName.value) return currentDeckName.value;
+  return "Deck name...";
+});
+
 function filteredPlayers() {
   if (!playerFilter.value) return players.value;
   const q = playerFilter.value.toLowerCase();
@@ -36,9 +47,8 @@ function filteredPlayers() {
   );
 }
 
-/** Auto-save imported cards as a deck on the server */
-async function autoSaveDeck(items: DecklistItem[], source: string, deckName?: string) {
-  const name = deckName || source || "Imported deck";
+/** Save imported cards as a deck on the server */
+async function saveDeck(items: DecklistItem[], source: string, name: string) {
   try {
     const deck = await createDeck({
       name,
@@ -48,8 +58,7 @@ async function autoSaveDeck(items: DecklistItem[], source: string, deckName?: st
     });
     markSaved(deck.id, deck.name);
   } catch (e) {
-    // Auto-save is best-effort — don't block the import on failure
-    console.warn("Auto-save deck failed:", e);
+    console.warn("Save deck failed:", e);
   }
 }
 
@@ -72,16 +81,18 @@ async function fetchPlayers() {
       }));
 
       const source = urlInput.value.trim();
-      importDeck(newItems, mode.value, source);
-      await autoSaveDeck(newItems, source);
+      const effectiveMode = mode.value === "new" ? "replace" : mode.value;
+      importDeck(newItems, effectiveMode, source);
+      const name = deckName.value.trim() || "Imported deck";
+      await saveDeck(newItems, source, name);
 
       const total = result.cards.reduce((s, c) => s + c.count, 0);
       if (result.unresolved && result.unresolved.length > 0) {
         const names = result.unresolved.map((u) => `${u.count}x ${u.name}`).join(", ");
         error.value = `Could not resolve: ${names}`;
-        success.value = `Imported ${total} cards (saved).`;
+        success.value = `Imported ${total} cards (saved as "${name}").`;
       } else {
-        success.value = `Imported ${total} cards (saved).`;
+        success.value = `Imported ${total} cards (saved as "${name}").`;
       }
       loading.value = false;
       return;
@@ -108,7 +119,7 @@ async function doImport() {
   loading.value = true;
   try {
     let result: ImportResult;
-    let deckName: string | undefined;
+    let autoName: string;
     if (tab.value === "url") {
       if (!selectedPlayer.value) {
         error.value = "Select a player first.";
@@ -116,9 +127,8 @@ async function doImport() {
         return;
       }
       result = await api.importLimitlessDeck(tournamentId.value, selectedPlayer.value);
-      // Use player name + deck archetype as the deck name
       const player = players.value.find((p) => p.name === selectedPlayer.value);
-      deckName = player?.deckName
+      autoName = player?.deckName
         ? `${player.deckName} (${selectedPlayer.value})`
         : selectedPlayer.value;
     } else {
@@ -128,7 +138,7 @@ async function doImport() {
         return;
       }
       result = await api.importText(pasteText.value);
-      deckName = "Pasted deck";
+      autoName = "Pasted deck";
     }
 
     const newItems: DecklistItem[] = result.cards.map((r) => ({
@@ -141,15 +151,18 @@ async function doImport() {
     }));
 
     const source = tab.value === "url" ? urlInput.value.trim() : "Pasted decklist";
-    importDeck(newItems, mode.value, source);
-    await autoSaveDeck(newItems, source, deckName);
+    const effectiveMode = mode.value === "new" ? "replace" : mode.value;
+    importDeck(newItems, effectiveMode, source);
+
+    const finalName = deckName.value.trim() || autoName;
+    await saveDeck(newItems, source, finalName);
 
     const total = result.cards.reduce((s, c) => s + c.count, 0);
     if (result.unresolved.length > 0) {
       const names = result.unresolved.map((u) => `${u.count}x ${u.name}`).join(", ");
       error.value = `Could not resolve: ${names}`;
     }
-    success.value = `Imported ${total} cards (saved).`;
+    success.value = `Imported ${total} cards (saved as "${finalName}").`;
   } catch (e: any) {
     error.value = e.message || "Import failed";
   } finally {
@@ -164,12 +177,29 @@ async function doImport() {
       <h3>Import Decklist</h3>
 
       <div class="import-tabs">
-        <button :class="['import-tab', { active: tab === 'url' }]" @click="tab = 'url'">
-          From URL
-        </button>
         <button :class="['import-tab', { active: tab === 'paste' }]" @click="tab = 'paste'">
           Paste List
         </button>
+        <button :class="['import-tab', { active: tab === 'url' }]" @click="tab = 'url'">
+          From URL
+        </button>
+      </div>
+
+      <!-- Paste Tab -->
+      <div v-if="tab === 'paste'" class="import-body">
+        <textarea
+          v-model="pasteText"
+          placeholder="Paste decklist here...
+
+PAR 089 x3  # Iron Valiant ex
+MEW 151 x2  # Mew ex
+
+or PTCGO format:
+
+4 Charizard ex OBF 125
+2 Charmander PAF 7"
+          class="import-textarea"
+        />
       </div>
 
       <!-- URL Tab -->
@@ -216,38 +246,25 @@ async function doImport() {
         </div>
       </div>
 
-      <!-- Paste Tab -->
-      <div v-if="tab === 'paste'" class="import-body">
-        <textarea
-          v-model="pasteText"
-          placeholder="Paste PTCGO/PTCGL decklist here...
-
-Pokémon: 15
-4 Charizard ex OBF 125
-2 Charmander PAF 7
-...
-
-Trainer: 32
-4 Arven OBF 186
-...
-
-Energy: 8
-5 Fire Energy SVE 2
-..."
-          class="import-textarea"
-        />
-      </div>
-
       <div v-if="success" class="import-success">{{ success }}</div>
       <div v-if="error" class="import-error">{{ error }}</div>
 
       <div class="import-footer">
+        <input
+          v-model="deckName"
+          type="text"
+          :placeholder="nameInputPlaceholder"
+          class="import-input import-name-input"
+        />
         <div class="import-mode">
           <label>
-            <input v-model="mode" type="radio" value="replace" /> Replace
+            <input v-model="mode" type="radio" value="new" /> New Deck
           </label>
           <label>
-            <input v-model="mode" type="radio" value="merge" /> Merge
+            <input v-model="mode" type="radio" value="replace" :disabled="!currentDeckId" :title="!currentDeckId ? 'No deck loaded to replace' : ''" /> Replace
+          </label>
+          <label>
+            <input v-model="mode" type="radio" value="merge" :disabled="!items.length" :title="!items.length ? 'No deck loaded to merge into' : ''" /> Merge
           </label>
         </div>
         <div class="dialog-actions">
