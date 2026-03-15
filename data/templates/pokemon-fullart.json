@@ -1,7 +1,6 @@
 {
   "id": "pokemon-fullart",
   "name": "Pokemon (Full Art)",
-  "description": "Full-art Pokemon card \u2014 data-driven attacks, abilities, energy costs via repeaters",
   "elements": [
     {
       "type": "image",
@@ -17,7 +16,8 @@
       },
       "bind": {
         "suffix": "_bigLogoSuffix"
-      }
+      },
+      "showIf": "_bigLogoSuffix"
     },
     {
       "type": "box",
@@ -32,7 +32,7 @@
           "type": "text",
           "props": {
             "text": "HP",
-            "fontSize": 25,
+            "fontSize": "$hpLabel.fullart",
             "fontFamily": "title",
             "fontWeight": "bold",
             "fill": "#ffffff",
@@ -48,8 +48,8 @@
         {
           "type": "text",
           "props": {
-            "text": "280",
-            "fontSize": 52,
+            "text": 170,
+            "fontSize": "$hp.fullart",
             "fontFamily": "title",
             "fontWeight": "bold",
             "fill": "#ffffff",
@@ -70,7 +70,7 @@
           "type": "image",
           "props": {
             "src": "energy",
-            "energyType": "Fire",
+            "energyType": "Metal",
             "radius": 25,
             "vAlign": "middle"
           },
@@ -92,8 +92,8 @@
         {
           "type": "text",
           "props": {
-            "text": "Arcanine",
-            "fontSize": 48,
+            "text": "Solgaleo",
+            "fontSize": "$cardName.fullart",
             "fontFamily": "title",
             "fontWeight": "bold",
             "fill": "#ffffff",
@@ -114,7 +114,7 @@
           "type": "image",
           "props": {
             "src": "logo",
-            "suffix": "ex",
+            "suffix": "",
             "height": 55,
             "filter": "title-shadow",
             "marginLeft": 4,
@@ -128,7 +128,7 @@
     },
     {
       "type": "box",
-      "id": "stage-line",
+      "id": "evolves-from",
       "props": {
         "anchorX": 47,
         "anchorY": 98,
@@ -139,19 +139,21 @@
         {
           "type": "text",
           "props": {
-            "text": "Stage 1 \u2014 Evolves from Growlithe",
-            "fontSize": 18,
+            "text": "Evolves from Cosmoem",
+            "fontSize": "$evolvesFrom.fullart",
             "fontFamily": "body",
             "fontWeight": "bold",
             "fill": "#ffffff",
-            "opacity": 0.7,
-            "filter": "shadow",
+            "opacity": 0.8,
+            "filter": "title-shadow",
             "textAnchor": "start",
             "wrap": 0,
-            "vAlign": "middle"
+            "vAlign": "middle",
+            "stroke": "#000000",
+            "strokeWidth": 2.5
           },
           "bind": {
-            "text": "_stageLabel"
+            "text": "_evolvesFrom"
           }
         }
       ]
@@ -200,7 +202,7 @@
                     "type": "text",
                     "props": {
                       "text": "Ability:",
-                      "fontSize": 22,
+                      "fontSize": "$abilityLabel.fullart",
                       "fontFamily": "title",
                       "fontWeight": "bold",
                       "fill": "#ff4444",
@@ -220,7 +222,7 @@
                     "type": "text",
                     "props": {
                       "text": "Ability Name",
-                      "fontSize": 22,
+                      "fontSize": "$abilityName.fullart",
                       "fontFamily": "title",
                       "fontWeight": "bold",
                       "fill": "#ffffff",
@@ -241,7 +243,7 @@
                 "type": "text",
                 "props": {
                   "text": "Ability effect text.",
-                  "fontSize": 20,
+                  "fontSize": "$abilityEffect.fullart",
                   "fontFamily": "body",
                   "fontWeight": "bold",
                   "fill": "#ffffff",
@@ -277,7 +279,8 @@
               {
                 "type": "box",
                 "props": {
-                  "direction": "row"
+                  "direction": "row",
+                  "marginBottom": 5
                 },
                 "children": [
                   {
@@ -293,7 +296,7 @@
                       "props": {
                         "src": "energy",
                         "energyType": "Colorless",
-                        "radius": 14,
+                        "radius": 19,
                         "grow": 0,
                         "hAlign": "start",
                         "marginRight": 4,
@@ -308,7 +311,7 @@
                     "type": "text",
                     "props": {
                       "text": "Attack Name",
-                      "fontSize": 28,
+                      "fontSize": "$attackName",
                       "fontFamily": "title",
                       "fontWeight": "bold",
                       "fill": "#ffffff",
@@ -317,7 +320,8 @@
                       "wrap": 0,
                       "grow": 1,
                       "hAlign": "start",
-                      "vAlign": "middle"
+                      "vAlign": "middle",
+                      "marginBottom": 5
                     },
                     "bind": {
                       "text": "name"
@@ -327,10 +331,10 @@
                     "type": "text",
                     "props": {
                       "text": "0",
-                      "fontSize": 36,
+                      "fontSize": "$damage",
                       "fontFamily": "title",
                       "fontWeight": "bold",
-                      "fill": "#cc0000",
+                      "fill": "#4fdedb",
                       "filter": "shadow",
                       "textAnchor": "start",
                       "wrap": 0,
@@ -349,7 +353,7 @@
                 "type": "text",
                 "props": {
                   "text": "Effect text.",
-                  "fontSize": 20,
+                  "fontSize": "$attackEffect.fullart",
                   "fontFamily": "body",
                   "fontWeight": "bold",
                   "fill": "#ffffff",
@@ -377,7 +381,7 @@
               "type": "text",
               "props": {
                 "text": "Weak",
-                "fontSize": 14,
+                "fontSize": "$label",
                 "fontFamily": "body",
                 "fontWeight": "bold",
                 "fill": "#888888",
@@ -394,7 +398,7 @@
               "type": "image",
               "props": {
                 "src": "energy",
-                "energyType": "Lightning",
+                "energyType": "Fire",
                 "radius": 12,
                 "grow": 0,
                 "hAlign": "start",
@@ -408,8 +412,8 @@
             {
               "type": "text",
               "props": {
-                "text": "\u00d72",
-                "fontSize": 22,
+                "text": "×2",
+                "fontSize": "$multiplier",
                 "fontFamily": "body",
                 "fontWeight": "bold",
                 "fill": "#ffffff",
@@ -429,7 +433,7 @@
               "type": "text",
               "props": {
                 "text": "Resist",
-                "fontSize": 14,
+                "fontSize": "$label",
                 "fontFamily": "body",
                 "fontWeight": "bold",
                 "fill": "#888888",
@@ -446,7 +450,7 @@
               "type": "image",
               "props": {
                 "src": "energy",
-                "energyType": "Fighting",
+                "energyType": "Grass",
                 "radius": 12,
                 "grow": 0,
                 "hAlign": "start",
@@ -461,7 +465,7 @@
               "type": "text",
               "props": {
                 "text": "-30",
-                "fontSize": 22,
+                "fontSize": "$multiplier",
                 "fontFamily": "body",
                 "fontWeight": "bold",
                 "fill": "#ffffff",
@@ -480,7 +484,7 @@
               "type": "text",
               "props": {
                 "text": "Retreat",
-                "fontSize": 14,
+                "fontSize": "$label",
                 "fontFamily": "body",
                 "fontWeight": "bold",
                 "fill": "#888888",
@@ -519,8 +523,8 @@
         {
           "type": "text",
           "props": {
-            "text": "When this ex is KO'd, opponent takes 2 Prizes.",
-            "fontSize": 16,
+            "text": "",
+            "fontSize": "$ruleText",
             "fontFamily": "body",
             "fontWeight": "normal",
             "fill": "#ffffff",
@@ -537,8 +541,8 @@
         {
           "type": "text",
           "props": {
-            "text": "Set Name \u2022 001",
-            "fontSize": 14,
+            "text": "Celebrations • 21",
+            "fontSize": "$footer",
             "fontFamily": "body",
             "fontWeight": "normal",
             "fill": "#ffffff",

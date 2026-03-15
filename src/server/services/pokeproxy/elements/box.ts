@@ -31,8 +31,11 @@ export class BoxElement implements LayoutNode {
       paddingBottom: 0,
       paddingLeft: 0,
       vAnchor: "top",
+      hAnchor: "left",
       fill: "",
       fillOpacity: 1,
+      stroke: "",
+      strokeWidth: 0,
       rx: 0,
       ...props,
     };
@@ -58,6 +61,26 @@ export class BoxElement implements LayoutNode {
       return this._renderColumn(x, y, allocatedWidth);
     }
     return this._renderRow(x, y, allocatedWidth);
+  }
+
+  private _bgRect(w: number, h: number): string | null {
+    const fill = String(this.props.fill ?? "");
+    const stroke = String(this.props.stroke ?? "");
+    if (!fill && !stroke) return null;
+    const rx = Number(this.props.rx ?? 0);
+    let attrs = `width="${w}" height="${h}"`;
+    if (rx) attrs += ` rx="${rx}"`;
+    if (fill) {
+      const fillOpacity = Number(this.props.fillOpacity ?? 1);
+      attrs += ` fill="${fill}" opacity="${fillOpacity}"`;
+    } else {
+      attrs += ` fill="none"`;
+    }
+    if (stroke) {
+      const sw = Number(this.props.strokeWidth ?? 1);
+      attrs += ` stroke="${stroke}" stroke-width="${sw}"`;
+    }
+    return `<rect ${attrs}/>`;
   }
 
   // ── Row layout (row / row-reverse) ──
@@ -111,12 +134,8 @@ export class BoxElement implements LayoutNode {
     // Background rect
     const bgW = padL + totalWidth + padR;
     const bgH = padT + totalHeight + padB;
-    const fill = String(this.props.fill ?? "");
-    if (fill) {
-      const fillOpacity = Number(this.props.fillOpacity ?? 1);
-      const rx = Number(this.props.rx ?? 0);
-      parts.push(`<rect width="${bgW}" height="${bgH}" rx="${rx}" fill="${fill}" opacity="${fillOpacity}"/>`);
-    }
+    const bgRect = this._bgRect(bgW, bgH);
+    if (bgRect) parts.push(bgRect);
 
     for (let i = 0; i < this.children.length; i++) {
       const pos = positions[i];
@@ -223,12 +242,8 @@ export class BoxElement implements LayoutNode {
     // Background rect
     const bgW = totalWidth;
     const bgH = padT + cursorY + padB;
-    const fill = String(this.props.fill ?? "");
-    if (fill) {
-      const fillOpacity = Number(this.props.fillOpacity ?? 1);
-      const rx = Number(this.props.rx ?? 0);
-      parts.unshift(`<rect width="${bgW}" height="${bgH}" rx="${rx}" fill="${fill}" opacity="${fillOpacity}"/>`);
-    }
+    const bgRect = this._bgRect(bgW, bgH);
+    if (bgRect) parts.unshift(bgRect);
 
     const translateY = y + mT;
     return `<g${idAttr} transform="translate(${x + mL},${translateY})">\n${parts.join("\n")}\n</g>`;

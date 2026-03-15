@@ -4,7 +4,9 @@
 
 import type { LayoutNode, NodeState } from "./types.js";
 import { join } from "node:path";
-import { CARD_H } from "../constants.js";
+import { CARD_W, CARD_H } from "../constants.js";
+import { resolveFontSizes } from "../../../../shared/resolve-font-sizes.js";
+import { getEffectiveFontSizes } from "../font-size-store.js";
 import { BoxElement } from "./box.js";
 import { TextElement } from "./text-element.js";
 import { ImageElement } from "./image-element.js";
@@ -86,6 +88,7 @@ export function createDefaultElements(): LayoutNode[] {
   try {
     const raw = require("node:fs").readFileSync(templatePath, "utf-8");
     const tmpl = JSON.parse(raw);
+    resolveFontSizes(tmpl.elements, getEffectiveFontSizes());
     return tmpl.elements.map((s: NodeState) => createNode(s));
   } catch {
     // Minimal fallback
@@ -105,6 +108,11 @@ export function renderElements(elements: LayoutNode[]): string {
     if (String(node.props.vAnchor) === "bottom") {
       const { height } = node.measure();
       y = CARD_H - y - height;
+    }
+
+    if (String(node.props.hAnchor) === "right") {
+      const { width } = node.measure();
+      x = CARD_W - x - width;
     }
 
     const svg = node.render(x, y);

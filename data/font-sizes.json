@@ -1,0 +1,16 @@
+{
+  "attackName": 40,
+  "attackEffect": 34,
+  "abilityLabel": 36,
+  "abilityName": 40,
+  "abilityEffect": 34,
+  "cardName": 44,
+  "cardName.fullart": 42,
+  "evolvesFrom.fullart": 34,
+  "attackEffect.fullart": 34,
+  "abilityLabel.fullart": 40,
+  "abilityName.fullart": 40,
+  "abilityEffect.fullart": 34,
+  "trainerType": 30,
+  "vstarPowerLabel": 40
+}

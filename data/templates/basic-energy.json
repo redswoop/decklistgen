@@ -17,7 +17,7 @@
           "type": "text",
           "props": {
             "text": "Set Name \u2022 001",
-            "fontSize": 18,
+            "fontSize": "$energyFooter",
             "fontFamily": "body",
             "fontWeight": "bold",
             "fill": "#ffffff",

@@ -4,6 +4,7 @@ import { SET_MAP, REVERSE_SET_MAP, getEra } from "../../shared/constants/set-cod
 import { isEx, isV, isVmax, isVstar, isAncient, isFuture, isTera } from "../../shared/utils/detect-attributes.js";
 import { isFullArt } from "../../shared/utils/detect-fullart.js";
 import { fetchSetCards } from "./tcgdex.js";
+import { computeMechanicsHash } from "./mechanics-hash.js";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
@@ -68,6 +69,7 @@ function normalizeCard(raw: TcgdexCard, setCode: string): Card {
     isTera: isTera(raw),
     hasFoil: !!variants.holo,
     isPrintUnfriendly: computePrintUnfriendly(raw.id),
+    mechanicsHash: computeMechanicsHash(raw),
   };
 }
 
@@ -181,7 +183,7 @@ export function getVariants(cardId: string): Card[] {
   if (!card) return [];
   const variants: Card[] = [];
   for (const c of cardIndex.values()) {
-    if (c.name === card.name) variants.push(c);
+    if (c.name === card.name && c.mechanicsHash === card.mechanicsHash) variants.push(c);
   }
   // Sort by set, then localId
   variants.sort((a, b) => {
@@ -191,6 +193,30 @@ export function getVariants(cardId: string): Card[] {
     return aNum - bNum;
   });
   return variants;
+}
+
+/** Get variant groups: cards grouped by name+mechanicsHash, sorted by count desc */
+export function getVariantGroups(): Array<{ name: string; mechanicsHash: string; count: number; cards: Card[] }> {
+  const groups = new Map<string, Card[]>();
+  for (const card of cardIndex.values()) {
+    const key = `${card.name}\0${card.mechanicsHash}`;
+    const list = groups.get(key);
+    if (list) list.push(card);
+    else groups.set(key, [card]);
+  }
+  const result = Array.from(groups.values())
+    .filter((cards) => cards.length > 1)
+    .map((cards) => ({
+      name: cards[0].name,
+      mechanicsHash: cards[0].mechanicsHash,
+      count: cards.length,
+      cards: cards.sort((a, b) => {
+        if (a.setId !== b.setId) return a.setId.localeCompare(b.setId);
+        return (parseInt(a.localId) || 0) - (parseInt(b.localId) || 0);
+      }),
+    }))
+    .sort((a, b) => b.count - a.count);
+  return result;
 }
 
 export function getFilterOptions(): FilterOptions {

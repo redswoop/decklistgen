@@ -144,11 +144,15 @@ export function parseDecklistHtml(html: string): LimitlessDecklist {
   return result;
 }
 
-/** Parse PTCGO/PTCGL text format into a flat card list with categories */
+/** Parse PTCGO/PTCGL text format into a flat card list with categories.
+ *  Also supports the app's own export format: "SET NUM xCOUNT  # name" */
 export function parsePtcgoText(text: string): LimitlessDecklist {
   const result: LimitlessDecklist = { pokemon: [], trainer: [], energy: [] };
   let currentCategory: "pokemon" | "trainer" | "energy" = "pokemon";
+  // Standard PTCGO: "4 Charizard ex OBF 125"
   const cardLineRe = /^(\d+(?:\.\d+)?)\s+(.+?)\s+([A-Z][A-Z0-9]{1,5})\s+(\d+)\s*$/;
+  // App export: "PAR 089 x3  # Iron Valiant ex"
+  const exportLineRe = /^([A-Z][A-Z0-9]{1,5})\s+(\d+)\s+x(\d+)(?:\s+#\s*(.*))?$/;
 
   for (const rawLine of text.split("\n")) {
     const line = rawLine.trim();
@@ -169,6 +173,18 @@ export function parsePtcgoText(text: string): LimitlessDecklist {
       continue;
     }
     if (lower.startsWith("total")) continue;
+
+    // Try app export format first
+    const exportMatch = line.match(exportLineRe);
+    if (exportMatch) {
+      result[currentCategory].push({
+        count: parseInt(exportMatch[3]),
+        name: exportMatch[4]?.trim() || "",
+        set: exportMatch[1],
+        number: exportMatch[2],
+      });
+      continue;
+    }
 
     const match = line.match(cardLineRe);
     if (match) {

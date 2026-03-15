@@ -14,10 +14,10 @@ import { requireAuth, requireAuthorized } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
-import { isFullArt } from "../../shared/utils/detect-fullart.js";
 import type { TcgdexCard } from "../../shared/types/card.js";
-import { resetIconIds, renderFromTemplate } from "../services/pokeproxy/templates/index.js";
-import type { TemplateName } from "../services/pokeproxy/templates/index.js";
+import { suggestTemplate } from "../../shared/utils/suggest-template.js";
+import { resetIconIds } from "../services/pokeproxy/templates/index.js";
+import { renderFromJsonTemplate } from "../services/pokeproxy/render-json-template.js";
 import { renderEnergyPreviewSvg } from "../services/pokeproxy/energy-preview.js";
 import { logAction, getClientIp } from "../services/logger.js";
 
@@ -117,8 +117,6 @@ async function ensureSourceImage(cardId: string): Promise<boolean> {
 }
 
 interface SvgRenderOptions {
-  fontSize?: number;
-  maxCover?: number;
   synth?: boolean;
   fullart?: boolean;
 }
@@ -177,23 +175,16 @@ async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions):
     cardData.abilities = SYNTH_ABILITIES;
   }
 
-  // Determine template — processed standard cards render as fullart (they've been expanded)
-  const fullart = isFullArt(cardData as TcgdexCard);
-  const isBasicEnergy = (cardData.category === "Energy") && !cardData.effect;
-  const isVstar = cardData.stage === "VSTAR" || (cardData.suffix === "VSTAR");
-  let templateName: TemplateName;
-  if (isBasicEnergy) templateName = "basic-energy";
-  else if (isVstar) templateName = "vstar";
-  else if (fullart || isProcessed || opts?.fullart) templateName = "fullart";
-  else templateName = "standard";
+  // Determine template
+  let templateName = suggestTemplate(cardData as TcgdexCard);
+  // Processed standard cards render as fullart (they've been expanded via ComfyUI)
+  if (templateName === "pokemon-standard" && (isProcessed || opts?.fullart)) {
+    templateName = "pokemon-fullart";
+  }
 
   resetIconIds();
 
-  const renderOpts: import("../services/pokeproxy/templates/index.js").FullartOptions = {};
-  if (opts?.fontSize != null) renderOpts.fontSize = opts.fontSize;
-  if (opts?.maxCover != null) renderOpts.maxCover = opts.maxCover;
-
-  return renderFromTemplate(templateName, cardData, imageB64, renderOpts);
+  return renderFromJsonTemplate(templateName, cardData, imageB64);
 }
 
 const app = new Hono<AppEnv>();
@@ -296,12 +287,7 @@ app.get("/svg/:cardId", async (c) => {
   if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
   logAction("proxy.svg", getClientIp(c), { cardId });
   const query = c.req.query();
-  // User-scoped settings as defaults (if authenticated), query params override
-  const user = c.get("user");
-  const stored = user ? getCardSettings(user.id, cardId) : {};
   const svgOpts: SvgRenderOptions = {};
-  svgOpts.fontSize = query.fontSize ? Math.max(1, Math.min(200, parseFloat(query.fontSize) || 0)) : stored.fontSize;
-  svgOpts.maxCover = query.maxCover ? Math.max(0, Math.min(1, parseFloat(query.maxCover) || 0)) : stored.maxCover;
   if (query.synth != null) svgOpts.synth = true;
   if (query.fullart != null) svgOpts.fullart = true;
   try {
@@ -457,11 +443,7 @@ app.get("/print/:deckId", requireAuth, async (c) => {
   const cardSvgs: [number, string][] = [];
   for (const entry of deck.cards) {
     const cardId = entry.card.id;
-    const stored = getCardSettings(user.id, cardId);
-    const svg = await generateSvgFromTemplate(cardId, {
-      fontSize: stored.fontSize,
-      maxCover: stored.maxCover,
-    });
+    const svg = await generateSvgFromTemplate(cardId);
     cardSvgs.push([entry.count, svg]);
   }
 

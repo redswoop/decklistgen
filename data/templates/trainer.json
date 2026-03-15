@@ -1,14 +1,13 @@
 {
   "id": "trainer",
   "name": "Trainer",
-  "description": "Trainer card \u2014 Supporter, Item, Stadium, Tool. Effect text with trainer type label and rules.",
   "elements": [
     {
       "type": "box",
       "id": "name-cluster",
       "props": {
         "anchorX": 45,
-        "anchorY": 46,
+        "anchorY": 76,
         "direction": "row"
       },
       "children": [
@@ -16,7 +15,7 @@
           "type": "text",
           "props": {
             "text": "Professor's Research",
-            "fontSize": 44,
+            "fontSize": "$cardName.trainer",
             "fontFamily": "title",
             "fontWeight": "bold",
             "fill": "#ffffff",
@@ -37,7 +36,36 @@
             "vAlign": "bottom"
           },
           "bind": {
-            "text": "name"
+            "text": "_baseName"
+          }
+        }
+      ]
+    },
+    {
+      "type": "box",
+      "id": "subtitle",
+      "props": {
+        "anchorX": 47,
+        "anchorY": 128,
+        "direction": "row"
+      },
+      "showIf": "_subtitle",
+      "children": [
+        {
+          "type": "text",
+          "props": {
+            "text": "Professor Oak",
+            "fontSize": "$subtitle.trainer",
+            "fontFamily": "body",
+            "fontWeight": "bold",
+            "fill": "#ffffff",
+            "opacity": 0.6,
+            "filter": "shadow",
+            "wrap": 0,
+            "vAlign": "middle"
+          },
+          "bind": {
+            "text": "_subtitle"
           }
         }
       ]
@@ -46,22 +74,31 @@
       "type": "box",
       "id": "trainer-type",
       "props": {
-        "anchorX": 590,
-        "anchorY": 46,
-        "direction": "row"
+        "anchorX": 30,
+        "anchorY": 20,
+        "direction": "row",
+        "hAnchor": "right",
+        "fill": "#ababab",
+        "rx": 16,
+        "paddingLeft": 16,
+        "paddingRight": 16,
+        "paddingBottom": 4,
+        "paddingTop": 4,
+        "strokeWidth": 3,
+        "stroke": "#050505"
       },
       "children": [
         {
           "type": "text",
           "props": {
             "text": "Supporter",
-            "fontSize": 22,
+            "fontSize": "$trainerType",
             "fontFamily": "title",
             "fontWeight": "bold",
-            "fill": "#FFD040",
+            "fill": "#f04628",
             "opacity": 1,
-            "stroke": "#000000",
-            "strokeWidth": 2,
+            "stroke": "#ffffff",
+            "strokeWidth": 4,
             "filter": "title-shadow",
             "textAnchor": "start",
             "wrap": 0,
@@ -73,7 +110,8 @@
             "paddingRight": 0,
             "paddingBottom": 0,
             "paddingLeft": 0,
-            "vAlign": "bottom"
+            "vAlign": "bottom",
+            "hAlign": "start"
           },
           "bind": {
             "text": "trainerType"
@@ -103,7 +141,7 @@
           "type": "text",
           "props": {
             "text": "Discard your hand and draw 7 cards.",
-            "fontSize": 26,
+            "fontSize": "$trainerEffect",
             "fontFamily": "body",
             "fontWeight": "bold",
             "fill": "#ffffff",
@@ -120,7 +158,7 @@
           "type": "text",
           "props": {
             "text": "Play only 1 Supporter per turn.",
-            "fontSize": 16,
+            "fontSize": "$ruleText",
             "fontFamily": "body",
             "fontWeight": "normal",
             "fill": "#ffffff",
@@ -136,8 +174,8 @@
         {
           "type": "text",
           "props": {
-            "text": "Set Name \u2022 001",
-            "fontSize": 14,
+            "text": "Celebrations • 24",
+            "fontSize": "$footer",
             "fontFamily": "body",
             "fontWeight": "normal",
             "fill": "#ffffff",

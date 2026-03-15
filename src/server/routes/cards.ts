@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { getAllCards, getCard, getFilterOptions, getVariants, loadSet, isSetLoaded } from "../services/card-store.js";
+import { getAllCards, getCard, getFilterOptions, getVariants, getVariantGroups, loadSet, isSetLoaded } from "../services/card-store.js";
 import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
 import { applyFilters } from "../../shared/utils/filter-cards.js";
 import type { CardFilters, SpecialAttribute } from "../../shared/types/filters.js";
@@ -50,6 +50,28 @@ app.get("/", (c) => {
 
   logAction("card.search", getClientIp(c), { nameSearch: filters.nameSearch, filters, resultCount: filtered.length });
   return c.json({ cards, total: filtered.length, page, pageSize });
+});
+
+app.get("/variant-groups", (c) => {
+  const groups = getVariantGroups();
+  return c.json(groups.map((g) => ({
+    name: g.name,
+    mechanicsHash: g.mechanicsHash,
+    count: g.count,
+    cards: g.cards.map((card) => ({
+      id: card.id,
+      localId: card.localId,
+      name: card.name,
+      setCode: card.setCode,
+      setName: card.setName,
+      category: card.category,
+      rarity: card.rarity,
+      isFullArt: card.isFullArt,
+      imageBase: card.imageBase,
+      hp: card.hp,
+      stage: card.stage,
+    })),
+  })));
 });
 
 app.get("/filters", (c) => {

@@ -29,7 +29,7 @@
           "type": "text",
           "props": {
             "text": "HP",
-            "fontSize": 25,
+            "fontSize": "$hpLabel.fullart",
             "fontFamily": "title",
             "fontWeight": "bold",
             "fill": "#ffffff",
@@ -44,7 +44,7 @@
           "type": "text",
           "props": {
             "text": "280",
-            "fontSize": 52,
+            "fontSize": "$hp.fullart",
             "fontFamily": "title",
             "fontWeight": "bold",
             "fill": "#ffffff",
@@ -86,7 +86,7 @@
           "type": "text",
           "props": {
             "text": "Charizard",
-            "fontSize": 48,
+            "fontSize": "$cardName.fullart",
             "fontFamily": "title",
             "fontWeight": "bold",
             "fill": "#ffffff",
@@ -119,7 +119,7 @@
     },
     {
       "type": "box",
-      "id": "stage-line",
+      "id": "evolves-from",
       "props": {
         "anchorX": 47,
         "anchorY": 98,
@@ -130,8 +130,8 @@
         {
           "type": "text",
           "props": {
-            "text": "VSTAR \u2014 Evolves from X",
-            "fontSize": 18,
+            "text": "Evolves from X",
+            "fontSize": "$evolvesFrom.vstar",
             "fontFamily": "body",
             "fontWeight": "bold",
             "fill": "#ffffff",
@@ -141,7 +141,7 @@
             "vAlign": "middle"
           },
           "bind": {
-            "text": "_stageLabel"
+            "text": "_evolvesFrom"
           }
         }
       ]
@@ -199,7 +199,7 @@
                       "props": {
                         "src": "energy",
                         "energyType": "Colorless",
-                        "radius": 14,
+                        "radius": 19,
                         "grow": 0,
                         "marginRight": 4,
                         "vAlign": "middle"
@@ -213,7 +213,7 @@
                     "type": "text",
                     "props": {
                       "text": "Attack",
-                      "fontSize": 28,
+                      "fontSize": "$attackName",
                       "fontFamily": "title",
                       "fontWeight": "bold",
                       "fill": "#ffffff",
@@ -230,7 +230,7 @@
                     "type": "text",
                     "props": {
                       "text": "0",
-                      "fontSize": 36,
+                      "fontSize": "$damage",
                       "fontFamily": "title",
                       "fontWeight": "bold",
                       "fill": "#cc0000",
@@ -251,7 +251,7 @@
                 "type": "text",
                 "props": {
                   "text": "Effect.",
-                  "fontSize": 20,
+                  "fontSize": "$attackEffect",
                   "fontFamily": "body",
                   "fontWeight": "bold",
                   "fill": "#ffffff",
@@ -271,7 +271,7 @@
           "type": "text",
           "props": {
             "text": "VSTAR Power",
-            "fontSize": 16,
+            "fontSize": "$vstarPowerLabel",
             "fontFamily": "title",
             "fontWeight": "bold",
             "fill": "#DAA520",
@@ -307,7 +307,7 @@
                     "type": "text",
                     "props": {
                       "text": "Ability:",
-                      "fontSize": 22,
+                      "fontSize": "$abilityLabel",
                       "fontFamily": "title",
                       "fontWeight": "bold",
                       "fill": "#DAA520",
@@ -325,7 +325,7 @@
                     "type": "text",
                     "props": {
                       "text": "Name",
-                      "fontSize": 22,
+                      "fontSize": "$abilityName",
                       "fontFamily": "title",
                       "fontWeight": "bold",
                       "fill": "#ffffff",
@@ -344,7 +344,7 @@
                 "type": "text",
                 "props": {
                   "text": "Effect.",
-                  "fontSize": 20,
+                  "fontSize": "$abilityEffect",
                   "fontFamily": "body",
                   "fontWeight": "bold",
                   "fill": "#ffffff",
@@ -372,7 +372,7 @@
               "type": "text",
               "props": {
                 "text": "Weak",
-                "fontSize": 14,
+                "fontSize": "$label",
                 "fontFamily": "body",
                 "fontWeight": "bold",
                 "fill": "#888888",
@@ -400,7 +400,7 @@
               "type": "text",
               "props": {
                 "text": "\u00d72",
-                "fontSize": 22,
+                "fontSize": "$multiplier",
                 "fontFamily": "body",
                 "fontWeight": "bold",
                 "fill": "#ffffff",
@@ -418,7 +418,7 @@
               "type": "text",
               "props": {
                 "text": "Resist",
-                "fontSize": 14,
+                "fontSize": "$label",
                 "fontFamily": "body",
                 "fontWeight": "bold",
                 "fill": "#888888",
@@ -446,7 +446,7 @@
               "type": "text",
               "props": {
                 "text": "-30",
-                "fontSize": 22,
+                "fontSize": "$multiplier",
                 "fontFamily": "body",
                 "fontWeight": "bold",
                 "fill": "#ffffff",
@@ -463,7 +463,7 @@
               "type": "text",
               "props": {
                 "text": "Retreat",
-                "fontSize": 14,
+                "fontSize": "$label",
                 "fontFamily": "body",
                 "fontWeight": "bold",
                 "fill": "#888888",
@@ -499,7 +499,7 @@
           "type": "text",
           "props": {
             "text": "Rule text.",
-            "fontSize": 16,
+            "fontSize": "$ruleText",
             "fontFamily": "body",
             "fontWeight": "normal",
             "fill": "#ffffff",
@@ -516,7 +516,7 @@
           "type": "text",
           "props": {
             "text": "Set \u2022 001",
-            "fontSize": 14,
+            "fontSize": "$footer",
             "fontFamily": "body",
             "fontWeight": "normal",
             "fill": "#ffffff",

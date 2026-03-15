@@ -174,4 +174,26 @@ Energy (10.5)
     const result = parsePtcgoText(text);
     expect(result.trainer[0].name).toBe("Boss's Orders");
   });
+
+  test("parses app export format (SET NUM xCOUNT # name)", () => {
+    const text = `PAR 089 x3  # Iron Valiant ex
+MEW 151 x2  # Mew ex
+SVI 196 x4  # Ultra Ball
+MEW 207 x11 # Basic Psychic Energy`;
+
+    const result = parsePtcgoText(text);
+    // Without section headers, all go into pokemon (default category)
+    expect(result.pokemon).toHaveLength(4);
+    expect(result.pokemon[0]).toEqual({ count: 3, name: "Iron Valiant ex", set: "PAR", number: "089" });
+    expect(result.pokemon[1]).toEqual({ count: 2, name: "Mew ex", set: "MEW", number: "151" });
+    expect(result.pokemon[2]).toEqual({ count: 4, name: "Ultra Ball", set: "SVI", number: "196" });
+    expect(result.pokemon[3]).toEqual({ count: 11, name: "Basic Psychic Energy", set: "MEW", number: "207" });
+  });
+
+  test("parses app export format without comment", () => {
+    const text = `PAR 089 x3`;
+    const result = parsePtcgoText(text);
+    expect(result.pokemon).toHaveLength(1);
+    expect(result.pokemon[0]).toEqual({ count: 3, name: "", set: "PAR", number: "089" });
+  });
 });

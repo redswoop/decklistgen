@@ -7,8 +7,11 @@ import { getCard, loadSet, isSetLoaded } from "../services/card-store.js";
 import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
 import type { TcgdexCard } from "../../shared/types/card.js";
 import { getRawPalettes, savePalettes, resetPalettes } from "../services/pokeproxy/energy-palette-store.js";
+import { getFontSizeOverrides, saveFontSizes, resetFontSizes } from "../services/pokeproxy/font-size-store.js";
+import { FONT_SIZES } from "../../shared/constants/font-sizes.js";
 import { ENERGY_COLORS_DARK, ENERGY_COLORS_LIGHT } from "../services/pokeproxy/constants.js";
 import { getFontStyle } from "../services/pokeproxy/type-icons.js";
+import { clearTemplateCache } from "../services/pokeproxy/render-json-template.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
 
@@ -163,6 +166,29 @@ app.put("/palettes", async (c) => {
 /** Reset palettes to defaults */
 app.delete("/palettes", (c) => {
   resetPalettes();
+  return c.json({ status: "reset" });
+});
+
+/** Get current overrides + defaults for font sizes */
+app.get("/font-sizes", (c) => {
+  return c.json({
+    current: getFontSizeOverrides(),
+    defaults: FONT_SIZES,
+  });
+});
+
+/** Save custom font size overrides */
+app.put("/font-sizes", async (c) => {
+  const overrides = await c.req.json<Record<string, number>>();
+  saveFontSizes(overrides);
+  clearTemplateCache();
+  return c.json({ status: "saved" });
+});
+
+/** Reset font sizes to defaults */
+app.delete("/font-sizes", (c) => {
+  resetFontSizes();
+  clearTemplateCache();
   return c.json({ status: "reset" });
 });
 
@@ -1227,7 +1253,8 @@ function setMode(mode) {
 }
 
 function getModeFromHash() {
-  return location.hash.startsWith('#glyphs') ? 'glyphs' : 'cards';
+  if (location.hash.startsWith('#glyphs')) return 'glyphs';
+  return 'cards';
 }
 
 window.addEventListener('hashchange', function() {
