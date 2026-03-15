@@ -115,11 +115,19 @@ function handleVariantPickerLightbox(card: Card) {
 }
 
 async function handleVariantPickerUpdated() {
-  if (props.deckId) await loadDeck(props.deckId, true);
+  if (props.deckId) {
+    await loadDeck(props.deckId, true);
+    // Sync working deck so it picks up variant changes from DB
+    if (deck.value) loadSavedDeck(deck.value);
+  }
 }
 
 async function handleBeautifyUpdated() {
-  if (props.deckId) await loadDeck(props.deckId, true);
+  if (props.deckId) {
+    await loadDeck(props.deckId, true);
+    // Sync working deck so it picks up beautify changes from DB
+    if (deck.value) loadSavedDeck(deck.value);
+  }
 }
 
 /** Re-fetch the current deck (called by parent after lightbox card replace) */
