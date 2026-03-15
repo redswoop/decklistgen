@@ -168,8 +168,8 @@ export const api = {
     get<Card>(`/cards/${cardId}`),
   getCardDetail: (cardId: string) =>
     get<CardDetail>(`/cards/${cardId}/detail`),
-  getVariants: (cardId: string) =>
-    get<{ variants: Card[] }>(`/cards/${cardId}/variants`),
+  getVariants: (cardId: string, byName = false) =>
+    get<{ variants: Card[] }>(`/cards/${cardId}/variants`, byName ? { byName: "1" } : undefined),
   getCardTcgdex: (cardId: string) =>
     get<Record<string, unknown>>(`/cards/${cardId}/tcgdex`),
   getVariantGroups: () =>
@@ -177,6 +177,7 @@ export const api = {
       name: string;
       mechanicsHash: string;
       count: number;
+      energyTypes: string[];
       cards: Array<{
         id: string;
         localId: string;

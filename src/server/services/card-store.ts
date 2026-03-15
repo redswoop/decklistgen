@@ -178,12 +178,16 @@ export function findCardByName(name: string): Card | undefined {
   return undefined;
 }
 
-export function getVariants(cardId: string): Card[] {
+export function getVariants(cardId: string, byName = false): Card[] {
   const card = cardIndex.get(cardId);
   if (!card) return [];
   const variants: Card[] = [];
   for (const c of cardIndex.values()) {
-    if (c.name === card.name && c.mechanicsHash === card.mechanicsHash) variants.push(c);
+    if (byName) {
+      if (c.name === card.name) variants.push(c);
+    } else {
+      if (c.name === card.name && c.mechanicsHash === card.mechanicsHash) variants.push(c);
+    }
   }
   // Sort by set, then localId
   variants.sort((a, b) => {

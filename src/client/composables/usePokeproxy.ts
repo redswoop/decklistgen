@@ -80,10 +80,10 @@ export function usePokeproxyStatus(cardId: Ref<string | undefined>) {
   });
 }
 
-export function useVariants(cardId: Ref<string | undefined>) {
+export function useVariants(cardId: Ref<string | undefined>, byName: Ref<boolean> = ref(false)) {
   return useQuery({
-    queryKey: computed(() => ["variants", cardId.value]),
-    queryFn: () => api.getVariants(cardId.value!).then((r) => r.variants),
+    queryKey: computed(() => ["variants", cardId.value, byName.value]),
+    queryFn: () => api.getVariants(cardId.value!, byName.value).then((r) => r.variants),
     enabled: computed(() => !!cardId.value),
   });
 }

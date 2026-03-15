@@ -25,9 +25,10 @@ const isMobile = useIsMobile();
 const { imageMode } = usePokeproxy();
 const { updateDeck } = useDecks();
 
-// Fetch all print variants for this card
+// Fetch variants — toggle between mechanics-matched and all same-name art
 const cardId = computed(() => props.card.id);
-const { data: variants, isLoading: variantsLoading } = useVariants(cardId);
+const showAllArt = ref(false);
+const { data: variants, isLoading: variantsLoading } = useVariants(cardId, showAllArt);
 
 // Total count of copies in deck matching this card's name
 const totalCount = computed(() => {
@@ -144,6 +145,12 @@ function handleOverlayClick(e: MouseEvent) {
         <span class="variant-picker-name">{{ card.name }}</span>
         <span class="variant-picker-total">{{ totalCount }} total</span>
       </div>
+
+      <!-- Show all art toggle -->
+      <label class="variant-picker-toggle">
+        <input type="checkbox" v-model="showAllArt" />
+        Show all art
+      </label>
 
       <!-- Loading -->
       <div v-if="variantsLoading" class="variant-picker-loading">

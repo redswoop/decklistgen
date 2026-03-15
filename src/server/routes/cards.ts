@@ -58,6 +58,7 @@ app.get("/variant-groups", (c) => {
     name: g.name,
     mechanicsHash: g.mechanicsHash,
     count: g.count,
+    energyTypes: g.cards[0].energyTypes,
     cards: g.cards.map((card) => ({
       id: card.id,
       localId: card.localId,
@@ -88,8 +89,9 @@ app.get("/:id", async (c) => {
 
 app.get("/:id/variants", async (c) => {
   const id = c.req.param("id");
+  const byName = c.req.query("byName") === "1";
   await ensureCardLoaded(id);
-  const variants = getVariants(id);
+  const variants = getVariants(id, byName);
   if (variants.length === 0) return c.json({ error: "Card not found" }, 404);
   return c.json({ variants });
 });

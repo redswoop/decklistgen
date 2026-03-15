@@ -21,6 +21,7 @@ interface VariantGroup {
   name: string;
   mechanicsHash: string;
   count: number;
+  energyTypes: string[];
   cards: VariantCard[];
 }
 
@@ -90,6 +91,7 @@ onMounted(async () => {
         <div class="vg-header" @click="toggle(gi)">
           <span class="vg-count">{{ g.count }}</span>
           <span class="vg-name">{{ g.name }}</span>
+          <span v-if="g.energyTypes.length" class="vg-energy">{{ g.energyTypes.join('/') }}</span>
           <span class="vg-meta">{{ g.cards[0].category }}<template v-if="g.cards[0].stage"> {{ g.cards[0].stage }}</template></span>
           <span class="vg-hash">{{ g.mechanicsHash }}</span>
           <span class="vg-chevron">{{ expandedIdx.has(gi) ? '\u25B2' : '\u25BC' }}</span>
@@ -206,6 +208,12 @@ onMounted(async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.vg-energy {
+  font-size: 11px;
+  color: var(--accent);
+  white-space: nowrap;
+  font-weight: 600;
 }
 .vg-meta {
   font-size: 11px;
