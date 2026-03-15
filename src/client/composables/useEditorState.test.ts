@@ -7,10 +7,16 @@ describe("useEditorState", () => {
 
   beforeEach(() => {
     state = useEditorState();
-    // Reset state between tests
+    // Reset all singleton state between tests
     state.elements.value = [];
     state.selectedPath.value = [];
     state.cardData.value = null;
+    state.currentCardId.value = null;
+    state.status.value = "Ready";
+    state.serverPos.value = {};
+    state.currentTemplateId.value = null;
+    state.currentTemplateName.value = "";
+    state.templateDirty.value = false;
   });
 
   describe("selectItem", () => {
