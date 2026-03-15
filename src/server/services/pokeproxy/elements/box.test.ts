@@ -231,6 +231,26 @@ describe("BoxElement column mode", () => {
     expect(width).toBe(200);
     expect(height).toBe(10);
   });
+
+  test("column without explicit width uses allocatedWidth in render", () => {
+    // A column box with no explicit width should use allocatedWidth from parent.
+    // This is the common case for repeater-generated wrapper boxes.
+    const row = new BoxElement(
+      { direction: "row", grow: 1 },
+      [new TextElement({ text: "Attack", fontSize: 20, grow: 1 })],
+    );
+    const col = new BoxElement(
+      { direction: "column" },
+      [row],
+    );
+    // Render with allocatedWidth=500 — the child row should get innerWidth from it
+    const svg = col.render(0, 0, 500);
+    // The row child should receive allocatedWidth and produce a proper layout.
+    // Without the fix, totalWidth would be 0 and grow would have nothing to expand into.
+    const { width } = col.measure(500);
+    expect(width).toBe(500);
+    expect(svg).toContain("<text");
+  });
 });
 
 describe("BoxElement toJSON round-trip", () => {
@@ -423,24 +443,24 @@ describe("deep nesting", () => {
 });
 
 describe("default elements", () => {
-  test("createDefaultElements returns image, box, box, box, box", () => {
+  test("createDefaultElements returns image + boxes from template", () => {
     const elements = createDefaultElements();
     expect(elements.length).toBe(5);
     expect(elements[0].type).toBe("image");
-    expect(elements[0].id).toBe("big-logo-1");
+    expect(elements[0].id).toBe("big-logo");
     expect(elements[1].type).toBe("box");
-    expect(elements[1].id).toBe("hp-cluster-1");
+    expect(elements[1].id).toBe("hp-cluster");
     expect(elements[2].type).toBe("box");
-    expect(elements[2].id).toBe("name-cluster-1");
+    expect(elements[2].id).toBe("name-cluster");
     expect(elements[3].type).toBe("box");
-    expect(elements[3].id).toBe("evolves-from-1");
+    expect(elements[3].id).toBe("stage-line");
     expect(elements[4].type).toBe("box");
-    expect(elements[4].id).toBe("attack-block-1");
+    expect(elements[4].id).toBe("content-block");
   });
 
   test("HP cluster renders all 3 children", () => {
     const elements = createDefaultElements();
-    const hpCluster = elements.find(e => e.id === "hp-cluster-1") as BoxElement;
+    const hpCluster = elements.find(e => e.id === "hp-cluster") as BoxElement;
     expect(hpCluster).toBeDefined();
     expect(hpCluster.children).toHaveLength(3);
     expect(hpCluster.children[0].type).toBe("text");
@@ -455,7 +475,7 @@ describe("default elements", () => {
 
   test("name cluster renders text + logo", () => {
     const elements = createDefaultElements();
-    const nameCluster = elements.find(e => e.id === "name-cluster-1") as BoxElement;
+    const nameCluster = elements.find(e => e.id === "name-cluster") as BoxElement;
     expect(nameCluster).toBeDefined();
     expect(nameCluster.children).toHaveLength(2);
     expect(nameCluster.children[0].type).toBe("text");
@@ -466,30 +486,78 @@ describe("default elements", () => {
     expect(svg).toContain("<image");
   });
 
-  test("attack block renders both attacks", () => {
+  test("content block contains repeaters for attacks and abilities", () => {
     const elements = createDefaultElements();
-    const attackBlock = elements.find(e => e.id === "attack-block-1") as BoxElement;
-    expect(attackBlock).toBeDefined();
-    expect(attackBlock.type).toBe("box");
-    expect(attackBlock.children).toHaveLength(5);
+    const contentBlock = elements.find(e => e.id === "content-block") as BoxElement;
+    expect(contentBlock).toBeDefined();
+    expect(contentBlock.type).toBe("box");
+    // Template has repeater children (rendered as empty boxes since repeaters aren't expanded here)
+    expect(contentBlock.children.length).toBeGreaterThan(0);
 
-    const svg = attackBlock.render(20, 610);
-    expect(svg).toContain(">Raging Claws</text>");
-    expect(svg).toContain(">30+</text>");
-    expect(svg).toContain(">Bright Flame</text>");
-    expect(svg).toContain(">250</text>");
-    expect(svg).toContain("circle");
-    expect(svg).toContain("<tspan");
-    expect(svg).toContain("10 more damage");
-    expect(svg).toContain("Discard 2");
+    // The content block should still render (repeaters become empty boxes)
+    const svg = contentBlock.render(20, 610);
+    expect(svg).toContain("data-element-id");
+    // Footer text is a direct child (not in a repeater)
+    expect(svg).toContain("Set Name");
   });
 
   test("renderElements produces combined SVG", () => {
     const elements = createDefaultElements();
     const svg = renderElements(elements);
-    expect(svg).toContain('data-element-id="big-logo-1"');
-    expect(svg).toContain('data-element-id="attack-block-1"');
+    expect(svg).toContain('data-element-id="big-logo"');
+    expect(svg).toContain('data-element-id="content-block"');
+  });
+});
+
+describe("repeater round-trip", () => {
+  test("template with repeaters expands and renders with card data", () => {
+    const { applyBindingsToTree } = require("../../../../shared/resolve-bindings.js");
+    const { readFileSync } = require("fs");
+    const { join } = require("path");
+
+    const tmplPath = join(__dirname, "../../../../../data/templates/pokemon-fullart.json");
+    const tmpl = JSON.parse(readFileSync(tmplPath, "utf-8"));
+
+    const cardData = {
+      hp: 280, name: "Arcanine ex", _baseName: "Arcanine", _nameSuffix: "ex",
+      types: ["Fire"],
+      attacks: [
+        { name: "Raging Claws", damage: "30+", cost: ["Fire", "Fire"], effect: "Does more damage" },
+        { name: "Bright Flame", damage: "250", cost: ["Fire", "Fire", "Fire"], effect: "" },
+      ],
+      abilities: [],
+      weaknesses: [{ type: "Lightning", value: "×2" }],
+      resistances: [{ type: "Fighting", value: "-30" }],
+      evolveFrom: "Growlithe",
+      _stageLabel: "Stage 1 — Evolves from Growlithe",
+      _ruleText: "When this ex is KO'd, opponent takes 2 Prizes.",
+      _footer: "Shrouded Fable • 036",
+      _retreatDots: ["Colorless", "Colorless"],
+    };
+
+    const expanded = applyBindingsToTree(tmpl.elements, cardData);
+    const nodes = expanded.map((s: any) => createNode(s));
+    const svg = renderElements(nodes);
+
+    // Card data resolved
+    expect(svg).toContain(">Arcanine</text>");
+    expect(svg).toContain(">280</text>");
     expect(svg).toContain(">Raging Claws</text>");
+    expect(svg).toContain(">30+</text>");
+    expect(svg).toContain(">Bright Flame</text>");
+    expect(svg).toContain(">250</text>");
+    // Energy dots rendered (circles from cost repeaters)
+    expect(svg).toContain("circle");
+    // Effect text for first attack
+    expect(svg).toContain("Does more damage");
+    // Empty effect filtered out by showIf
+    // Rules text
+    expect(svg).toContain("KO");
+    // Footer
+    expect(svg).toContain("Shrouded Fable");
+    // Retreat dots (2 Colorless)
+    // Abilities section absent (empty array, showIf filtered)
+    expect(svg).not.toContain("Ability Name");
   });
 });
 

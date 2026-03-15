@@ -5,6 +5,7 @@
 
 import type { LayoutNode, PropDef, NodeState } from "./types.js";
 import { packRow, buildPackItems } from "./packing.js";
+import { PROP_DEFS } from "@shared/constants/prop-defs.js";
 
 export class BoxElement implements LayoutNode {
   readonly type = "box";
@@ -40,25 +41,7 @@ export class BoxElement implements LayoutNode {
   }
 
   propDefs(): PropDef[] {
-    return [
-      { key: "anchorX", label: "Anchor X", type: "number", min: -200, max: 900, step: 1, isPosition: true },
-      { key: "anchorY", label: "Anchor Y", type: "number", min: -200, max: 1100, step: 1, isPosition: true },
-      { key: "direction", label: "Direction", type: "select", options: ["row", "row-reverse", "column"] },
-      { key: "width", label: "Width", type: "number", min: 0, max: 900, step: 1 },
-      { key: "gap", label: "Gap", type: "number", min: 0, max: 50, step: 1 },
-      { key: "marginTop", label: "Margin Top", type: "number", min: -50, max: 50, step: 1 },
-      { key: "marginRight", label: "Margin Right", type: "number", min: -50, max: 50, step: 1 },
-      { key: "marginBottom", label: "Margin Bottom", type: "number", min: -50, max: 50, step: 1 },
-      { key: "marginLeft", label: "Margin Left", type: "number", min: -50, max: 50, step: 1 },
-      { key: "paddingTop", label: "Pad Top", type: "number", min: 0, max: 50, step: 1 },
-      { key: "paddingRight", label: "Pad Right", type: "number", min: 0, max: 50, step: 1 },
-      { key: "paddingBottom", label: "Pad Bottom", type: "number", min: 0, max: 50, step: 1 },
-      { key: "paddingLeft", label: "Pad Left", type: "number", min: 0, max: 50, step: 1 },
-      { key: "vAnchor", label: "V-Anchor", type: "select", options: ["top", "bottom"] },
-      { key: "fill", label: "Fill", type: "color" },
-      { key: "fillOpacity", label: "Fill Opacity", type: "range", min: 0, max: 1, step: 0.05 },
-      { key: "rx", label: "Corner Radius", type: "number", min: 0, max: 30, step: 1 },
-    ];
+    return PROP_DEFS.box;
   }
 
   measure(allocatedWidth?: number): { width: number; height: number } {
@@ -72,7 +55,7 @@ export class BoxElement implements LayoutNode {
   render(x: number, y: number, allocatedWidth?: number): string {
     const direction = String(this.props.direction);
     if (direction === "column") {
-      return this._renderColumn(x, y);
+      return this._renderColumn(x, y, allocatedWidth);
     }
     return this._renderRow(x, y, allocatedWidth);
   }
@@ -137,7 +120,8 @@ export class BoxElement implements LayoutNode {
 
     for (let i = 0; i < this.children.length; i++) {
       const pos = positions[i];
-      parts.push(`<g data-child-index="${i}">${this.children[i].render(pos.x + padL, pos.y + padT)}</g>`);
+      const ci = Number(this.children[i].props._templateIndex ?? i);
+      parts.push(`<g data-child-index="${ci}">${this.children[i].render(pos.x + padL, pos.y + padT)}</g>`);
     }
 
     return `<g${idAttr} transform="translate(${x + mL},${y + mT})">\n${parts.join("\n")}\n</g>`;
@@ -146,7 +130,8 @@ export class BoxElement implements LayoutNode {
   // ── Column layout ──
 
   private _measureColumn(allocatedWidth?: number): { width: number; height: number } {
-    const totalWidth = Number(this.props.width ?? allocatedWidth ?? 0);
+    const rawWidth = Number(this.props.width ?? 0);
+    const totalWidth = rawWidth > 0 ? rawWidth : (allocatedWidth ?? 0);
     const padT = Number(this.props.paddingTop ?? 0);
     const padR = Number(this.props.paddingRight ?? 0);
     const padB = Number(this.props.paddingBottom ?? 0);
@@ -172,7 +157,7 @@ export class BoxElement implements LayoutNode {
     return { width: totalWidth, height: padT + cursorY + padB };
   }
 
-  private _renderColumn(x: number, y: number): string {
+  private _renderColumn(x: number, y: number, allocatedWidth?: number): string {
     const mL = Number(this.props.marginLeft ?? 0);
     const mT = Number(this.props.marginTop ?? 0);
     const idAttr = this.id ? ` data-element-id="${this.id}"` : "";
@@ -181,7 +166,8 @@ export class BoxElement implements LayoutNode {
       return `<g${idAttr}></g>`;
     }
 
-    const totalWidth = Number(this.props.width ?? 0);
+    const rawWidth = Number(this.props.width ?? 0);
+    const totalWidth = rawWidth > 0 ? rawWidth : (allocatedWidth ?? 0);
     const padT = Number(this.props.paddingTop ?? 0);
     const padR = Number(this.props.paddingRight ?? 0);
     const padB = Number(this.props.paddingBottom ?? 0);
@@ -220,7 +206,8 @@ export class BoxElement implements LayoutNode {
         contentX = 0;
       }
 
-      parts.push(`<g data-child-index="${i}">${child.render(contentX + padL, contentY + padT, innerWidth)}</g>`);
+      const ci = Number(child.props._templateIndex ?? i);
+      parts.push(`<g data-child-index="${ci}">${child.render(contentX + padL, contentY + padT, innerWidth)}</g>`);
 
       const outerH = childMarginTop + childPadTop + childH + childPadBottom + childMarginBottom;
       cursorY += outerH;

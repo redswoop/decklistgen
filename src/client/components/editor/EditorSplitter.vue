@@ -30,13 +30,41 @@ function onMouseUp() {
   window.removeEventListener("mousemove", onMouseMove);
   window.removeEventListener("mouseup", onMouseUp);
 }
+
+function onTouchStart(e: TouchEvent) {
+  if (e.touches.length !== 1) return;
+  e.preventDefault();
+  active.value = true;
+  startY = e.touches[0].clientY;
+  document.body.style.userSelect = "none";
+  window.addEventListener("touchmove", onTouchMove, { passive: false });
+  window.addEventListener("touchend", onTouchEnd);
+}
+
+function onTouchMove(e: TouchEvent) {
+  e.preventDefault();
+  if (e.touches.length !== 1) return;
+  emit("resize", e.touches[0].clientY - startY);
+  startY = e.touches[0].clientY;
+}
+
+function onTouchEnd() {
+  active.value = false;
+  document.body.style.userSelect = "";
+  window.removeEventListener("touchmove", onTouchMove);
+  window.removeEventListener("touchend", onTouchEnd);
+}
 </script>
 
 <template>
-  <div class="splitter" :class="{ active }" @mousedown="onMouseDown" />
+  <div class="splitter" :class="{ active }" @mousedown="onMouseDown" @touchstart="onTouchStart" />
 </template>
 
 <style scoped>
 .splitter { height: 6px; background: #1a1a2e; cursor: row-resize; flex-shrink: 0; border-top: 1px solid #333; border-bottom: 1px solid #333; }
 .splitter:hover, .splitter.active { background: #4a9eff; }
+
+@media (max-width: 768px) {
+  .splitter { height: 12px; }
+}
 </style>

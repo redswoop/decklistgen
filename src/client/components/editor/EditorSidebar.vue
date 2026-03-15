@@ -27,8 +27,18 @@ function onSplitterResize(deltaY: number) {
 </template>
 
 <style scoped>
-.sidebar { width: 280px; background: #16213e; border-left: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; }
+.sidebar { width: 280px; background: #16213e; border-left: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
 .sidebar h3 { font-size: 13px; text-transform: uppercase; color: #888; padding: 12px 12px 6px; letter-spacing: 1px; flex-shrink: 0; }
 .tree-panel { display: flex; flex-direction: column; height: 50%; min-height: 80px; overflow: hidden; }
 .props-panel-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 80px; }
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: absolute; right: 0; top: 0; bottom: 0; z-index: 10;
+    width: 300px; max-width: 85vw;
+    transform: translateX(100%); transition: transform 0.2s ease;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.5);
+  }
+  .sidebar.open { transform: translateX(0); }
+}
 </style>

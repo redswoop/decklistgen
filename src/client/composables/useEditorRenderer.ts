@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { useEditorState } from "./useEditorState.js";
 import { useEditorApi } from "./useEditorApi.js";
+import { applyBindingsToTree } from "../../shared/resolve-bindings.js";
 import { PROP_DEFS } from "../../shared/constants/prop-defs.js";
 
 const svgHtml = ref("");
@@ -25,7 +26,7 @@ export function useEditorRenderer() {
     const data = await api.fetchCardData(cardId);
     if (data) {
       cardData.value = data;
-      applyBindings();
+      applyBindings(); // Resolve simple bindings for properties panel display
     }
 
     await renderToSvg(cardId);
@@ -33,7 +34,13 @@ export function useEditorRenderer() {
 
   async function renderToSvg(cardId: string) {
     try {
-      const svg = await api.renderSvg(cardId, stripInternalProps(elements.value));
+      // Build render payload: strip internal props, then expand repeaters + apply bindings
+      const clean = stripInternalProps(elements.value);
+      const expanded = cardData.value
+        ? applyBindingsToTree(clean, cardData.value)
+        : clean;
+
+      const svg = await api.renderSvg(cardId, expanded);
       svgHtml.value = svg;
 
       // Record server positions for instant arrow-key feedback
@@ -57,7 +64,6 @@ export function useEditorRenderer() {
 
       if (needsFit) {
         needsFit = false;
-        // Delay for layout to settle
         setTimeout(() => fitCallback?.(), 100);
       }
     } catch (e) {

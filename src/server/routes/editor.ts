@@ -10,7 +10,10 @@ import { CARD_W, CARD_H } from "../services/pokeproxy/constants.js";
 import { createElement, createDefaultElements, renderElements } from "../services/pokeproxy/elements/index.js";
 import { getFontStyle } from "../services/pokeproxy/type-icons.js";
 import { splitNameSuffix } from "../services/pokeproxy/svg-helpers.js";
-import type { ElementState } from "../services/pokeproxy/elements/index.js";
+import { POKEMON_RULES, TRAINER_RULES } from "../services/pokeproxy/constants.js";
+import { getPokemonSuffix } from "../services/pokeproxy/text.js";
+import type { NodeState } from "../services/pokeproxy/elements/index.js";
+import { suggestTemplate } from "../../shared/utils/suggest-template.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../..", "cache");
 
@@ -45,17 +48,30 @@ function buildEditorSvg(imageB64: string, elementsHtml: string): string {
   return lines.join("\n");
 }
 
-// GET /cards — list cards that have clean images
+// GET /cards — list cards that have clean images, with category metadata
 editorRouter.get("/cards", async (c) => {
   try {
     const files = await readdir(CACHE_DIR);
-    const cardIds: string[] = [];
+    const cards: Array<{ id: string; category?: string; name?: string; suggestedTemplate?: string }> = [];
     for (const f of files) {
       const m = f.match(/^([a-zA-Z0-9._-]+?)_clean\.png$/);
-      if (m) cardIds.push(m[1]);
+      if (!m) continue;
+      const id = m[1];
+      const entry: { id: string; category?: string; name?: string; suggestedTemplate?: string } = { id };
+      // Try to read category from cached card JSON
+      const jsonPath = join(CACHE_DIR, `${id}.json`);
+      if (existsSync(jsonPath)) {
+        try {
+          const data = JSON.parse(await readFile(jsonPath, "utf-8"));
+          entry.category = (data.category as string) ?? undefined;
+          entry.name = (data.name as string) ?? undefined;
+          entry.suggestedTemplate = suggestTemplate(data);
+        } catch { /* skip metadata if JSON is malformed */ }
+      }
+      cards.push(entry);
     }
-    cardIds.sort();
-    return c.json(cardIds);
+    cards.sort((a, b) => a.id.localeCompare(b.id));
+    return c.json(cards);
   } catch {
     return c.json([]);
   }
@@ -73,6 +89,29 @@ editorRouter.get("/card-data", async (c) => {
     const [baseName, nameSuffix] = splitNameSuffix(name, data);
     data._baseName = baseName;
     data._nameSuffix = nameSuffix;
+
+    // Computed fields for templates
+    const category = (data.category as string) ?? "Pokemon";
+    const suffix = getPokemonSuffix(data);
+    const trainerType = (data.trainerType as string) ?? "";
+    let ruleText = "";
+    if (category === "Pokemon" && suffix in POKEMON_RULES) ruleText = POKEMON_RULES[suffix];
+    else if (category === "Trainer" && trainerType in TRAINER_RULES) ruleText = TRAINER_RULES[trainerType];
+    data._ruleText = ruleText;
+
+    const stage = (data.stage as string) ?? "Basic";
+    const evolveFrom = (data.evolveFrom as string) ?? "";
+    data._stageLabel = evolveFrom ? `${stage} — Evolves from ${evolveFrom}` : stage;
+
+    const setObj = data.set as Record<string, unknown> | undefined;
+    const setName = (setObj?.name as string) ?? "";
+    const localId = (data.localId as string) ?? "";
+    data._footer = setName && localId ? `${setName} • ${localId}` : setName || localId;
+
+    // Retreat cost as array of "Colorless" strings for repeater binding
+    const retreat = (data.retreat as number) ?? 0;
+    data._retreatDots = Array.from({ length: retreat }, () => "Colorless");
+
     return c.json(data);
   } catch {
     return c.json(null);
@@ -81,7 +120,7 @@ editorRouter.get("/card-data", async (c) => {
 
 // POST /render — { cardId, elements }
 editorRouter.post("/render", async (c) => {
-  const body = await c.req.json() as { cardId?: string; elements?: ElementState[] };
+  const body = await c.req.json() as { cardId?: string; elements?: NodeState[] };
   const cardId = body.cardId;
   if (!cardId) return c.text("Missing cardId", 400);
 

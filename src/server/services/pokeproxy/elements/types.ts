@@ -5,24 +5,8 @@
  * Containers (packed-row, stack) hold children; leaves (text, type-dot, etc.) don't.
  */
 
-export interface PropDef {
-  key: string;
-  label: string;
-  type: "number" | "range" | "select" | "text" | "color";
-  min?: number;
-  max?: number;
-  step?: number;
-  options?: string[];
-  isPosition?: boolean;
-}
-
-export interface NodeState {
-  type: string;
-  id?: string;
-  props: Record<string, number | string>;
-  bind?: Record<string, string>;
-  children?: NodeState[];
-}
+export type { PropDef, NodeState, ElementType, LegacyElementType } from "@shared/types/editor.js";
+import type { PropDef, NodeState } from "@shared/types/editor.js";
 
 export interface LayoutNode {
   readonly type: string;
@@ -35,9 +19,3 @@ export interface LayoutNode {
   render(x: number, y: number, allocatedWidth?: number): string;
   toJSON(): NodeState;
 }
-
-// Backward-compat aliases
-export type ElementState = NodeState;
-export type SubElementState = NodeState;
-export type CardElement = LayoutNode;
-export type SubElement = LayoutNode;

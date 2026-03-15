@@ -1,0 +1,156 @@
+{
+  "id": "trainer",
+  "name": "Trainer",
+  "description": "Trainer card \u2014 Supporter, Item, Stadium, Tool. Effect text with trainer type label and rules.",
+  "elements": [
+    {
+      "type": "box",
+      "id": "name-cluster",
+      "props": {
+        "anchorX": 45,
+        "anchorY": 46,
+        "direction": "row"
+      },
+      "children": [
+        {
+          "type": "text",
+          "props": {
+            "text": "Professor's Research",
+            "fontSize": 44,
+            "fontFamily": "title",
+            "fontWeight": "bold",
+            "fill": "#ffffff",
+            "opacity": 1,
+            "stroke": "#000000",
+            "strokeWidth": 2.5,
+            "filter": "title-shadow",
+            "textAnchor": "start",
+            "wrap": 0,
+            "marginTop": 0,
+            "marginRight": 0,
+            "marginBottom": 6,
+            "marginLeft": 0,
+            "paddingTop": 0,
+            "paddingRight": 0,
+            "paddingBottom": 0,
+            "paddingLeft": 0,
+            "vAlign": "bottom"
+          },
+          "bind": {
+            "text": "name"
+          }
+        }
+      ]
+    },
+    {
+      "type": "box",
+      "id": "trainer-type",
+      "props": {
+        "anchorX": 590,
+        "anchorY": 46,
+        "direction": "row"
+      },
+      "children": [
+        {
+          "type": "text",
+          "props": {
+            "text": "Supporter",
+            "fontSize": 22,
+            "fontFamily": "title",
+            "fontWeight": "bold",
+            "fill": "#FFD040",
+            "opacity": 1,
+            "stroke": "#000000",
+            "strokeWidth": 2,
+            "filter": "title-shadow",
+            "textAnchor": "start",
+            "wrap": 0,
+            "marginTop": 0,
+            "marginRight": 0,
+            "marginBottom": 6,
+            "marginLeft": 0,
+            "paddingTop": 0,
+            "paddingRight": 0,
+            "paddingBottom": 0,
+            "paddingLeft": 0,
+            "vAlign": "bottom"
+          },
+          "bind": {
+            "text": "trainerType"
+          }
+        }
+      ]
+    },
+    {
+      "type": "box",
+      "id": "content-block",
+      "props": {
+        "anchorX": 20,
+        "anchorY": 0,
+        "width": 710,
+        "direction": "column",
+        "vAnchor": "bottom",
+        "paddingTop": 8,
+        "paddingRight": 12,
+        "paddingBottom": 37,
+        "paddingLeft": 12,
+        "fill": "#000000",
+        "fillOpacity": 0.15,
+        "rx": 5
+      },
+      "children": [
+        {
+          "type": "text",
+          "props": {
+            "text": "Discard your hand and draw 7 cards.",
+            "fontSize": 26,
+            "fontFamily": "body",
+            "fontWeight": "bold",
+            "fill": "#ffffff",
+            "opacity": 1,
+            "filter": "shadow",
+            "wrap": 1,
+            "marginTop": 0
+          },
+          "bind": {
+            "text": "effect"
+          }
+        },
+        {
+          "type": "text",
+          "props": {
+            "text": "Play only 1 Supporter per turn.",
+            "fontSize": 16,
+            "fontFamily": "body",
+            "fontWeight": "normal",
+            "fill": "#ffffff",
+            "opacity": 0.6,
+            "filter": "none",
+            "wrap": 1,
+            "marginTop": 10
+          },
+          "bind": {
+            "text": "_ruleText"
+          }
+        },
+        {
+          "type": "text",
+          "props": {
+            "text": "Set Name \u2022 001",
+            "fontSize": 14,
+            "fontFamily": "body",
+            "fontWeight": "normal",
+            "fill": "#ffffff",
+            "opacity": 0.5,
+            "filter": "none",
+            "wrap": 0,
+            "marginTop": 6
+          },
+          "bind": {
+            "text": "_footer"
+          }
+        }
+      ]
+    }
+  ]
+}

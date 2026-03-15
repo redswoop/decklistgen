@@ -1,0 +1,45 @@
+{
+  "id": "basic-energy",
+  "name": "Basic Energy",
+  "description": "Basic Energy card \u2014 minimal overlay, just set info footer",
+  "elements": [
+    {
+      "type": "box",
+      "id": "footer",
+      "props": {
+        "anchorX": 375,
+        "anchorY": 0,
+        "direction": "row",
+        "vAnchor": "bottom"
+      },
+      "children": [
+        {
+          "type": "text",
+          "props": {
+            "text": "Set Name \u2022 001",
+            "fontSize": 18,
+            "fontFamily": "body",
+            "fontWeight": "bold",
+            "fill": "#ffffff",
+            "opacity": 0.7,
+            "filter": "shadow",
+            "textAnchor": "start",
+            "wrap": 0,
+            "marginTop": 0,
+            "marginRight": 0,
+            "marginBottom": 20,
+            "marginLeft": 0,
+            "paddingTop": 0,
+            "paddingRight": 0,
+            "paddingBottom": 0,
+            "paddingLeft": 0,
+            "vAlign": "middle"
+          },
+          "bind": {
+            "text": "_footer"
+          }
+        }
+      ]
+    }
+  ]
+}

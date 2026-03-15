@@ -14,6 +14,45 @@ export const ENERGY_TYPES = [
   "Colorless",
 ] as const;
 
+// ── Image prop building blocks ──
+
+export const IMAGE_SRC_DEF: PropDef = { key: "src", label: "Source", type: "select", options: ["energy", "logo"] };
+
+export const IMAGE_ENERGY_DEFS: PropDef[] = [
+  { key: "energyType", label: "Type", type: "select", options: [...ENERGY_TYPES] },
+  { key: "radius", label: "Radius", type: "number", min: 5, max: 60, step: 1 },
+];
+
+export const IMAGE_LOGO_DEFS: PropDef[] = [
+  { key: "suffix", label: "Logo", type: "select", options: ["V", "ex", "VSTAR", "VSTAR-big"] },
+  { key: "height", label: "Height", type: "number", min: 10, max: 600, step: 1 },
+  { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.05 },
+  { key: "clipToCard", label: "Clip", type: "select", options: ["0", "1"] },
+  { key: "filter", label: "Filter", type: "select", options: ["none", "shadow", "title-shadow"] },
+];
+
+export const IMAGE_COMMON_DEFS: PropDef[] = [
+  { key: "grow", label: "Grow", type: "number", min: 0, max: 10, step: 1 },
+  { key: "hAlign", label: "H-Align", type: "select", options: ["start", "center", "end"] },
+  { key: "marginTop", label: "Margin Top", type: "number", min: -50, max: 50, step: 1 },
+  { key: "marginRight", label: "Margin Right", type: "number", min: -50, max: 50, step: 1 },
+  { key: "marginBottom", label: "Margin Bottom", type: "number", min: -50, max: 50, step: 1 },
+  { key: "marginLeft", label: "Margin Left", type: "number", min: -50, max: 50, step: 1 },
+  { key: "paddingTop", label: "Pad Top", type: "number", min: 0, max: 50, step: 1 },
+  { key: "paddingRight", label: "Pad Right", type: "number", min: 0, max: 50, step: 1 },
+  { key: "paddingBottom", label: "Pad Bottom", type: "number", min: 0, max: 50, step: 1 },
+  { key: "paddingLeft", label: "Pad Left", type: "number", min: 0, max: 50, step: 1 },
+  { key: "vAlign", label: "V-Align", type: "select", options: ["top", "middle", "bottom"] },
+];
+
+/** Context-aware prop defs for an image element (child or server-side). */
+export function getImagePropDefs(src: string): PropDef[] {
+  const typeDefs = src === "energy" ? IMAGE_ENERGY_DEFS : IMAGE_LOGO_DEFS;
+  return [IMAGE_SRC_DEF, ...typeDefs, ...IMAGE_COMMON_DEFS];
+}
+
+// ── Root-level prop defs (with position props) ──
+
 export const PROP_DEFS: Record<string, PropDef[]> = {
   box: [
     { key: "anchorX", label: "Anchor X", type: "number", min: -200, max: 900, step: 1, isPosition: true },
@@ -41,12 +80,14 @@ export const PROP_DEFS: Record<string, PropDef[]> = {
     { key: "energyType", label: "Type", type: "select", options: [...ENERGY_TYPES] },
     { key: "radius", label: "Radius", type: "number", min: 5, max: 60, step: 1 },
     { key: "suffix", label: "Logo", type: "select", options: ["V", "ex", "VSTAR", "VSTAR-big"] },
-    { key: "height", label: "Height", type: "range", min: 10, max: 600, step: 1 },
+    { key: "height", label: "Height", type: "number", min: 10, max: 600, step: 1 },
     { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.05 },
     { key: "clipToCard", label: "Clip", type: "select", options: ["0", "1"] },
     { key: "filter", label: "Filter", type: "select", options: ["none", "shadow", "title-shadow"] },
   ],
 };
+
+// ── Child-level prop defs (with layout props, no position) ──
 
 export const SUB_PROP_DEFS: Record<string, PropDef[]> = {
   text: [
@@ -112,6 +153,10 @@ export const SUB_PROP_DEFS: Record<string, PropDef[]> = {
     { key: "paddingBottom", label: "Pad Bottom", type: "number", min: 0, max: 50, step: 1 },
     { key: "paddingLeft", label: "Pad Left", type: "number", min: 0, max: 50, step: 1 },
     { key: "vAlign", label: "V-Align", type: "select", options: ["top", "middle", "bottom"] },
+  ],
+  repeater: [
+    { key: "direction", label: "Direction", type: "select", options: ["row", "column"] },
+    { key: "gap", label: "Gap", type: "number", min: 0, max: 50, step: 1 },
   ],
 };
 

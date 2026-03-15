@@ -10,6 +10,7 @@ import decksRouter from "./routes/decks.js";
 import proxyRouter from "./routes/proxy.js";
 import galleryRouter from "./routes/gallery.js";
 import { editorRouter } from "./routes/editor.js";
+import { templateRouter } from "./routes/templates.js";
 import { authRouter } from "./routes/auth.js";
 import { adminRouter } from "./routes/admin.js";
 import { publicDecksRouter } from "./routes/public-decks.js";
@@ -69,6 +70,7 @@ app.route("/api/decklist", decklistRouter);
 app.route("/api/decks", decksRouter);
 app.route("/api/pokeproxy", proxyRouter);
 app.route("/gallery/editor", editorRouter);
+app.route("/gallery/editor/templates", templateRouter);
 app.route("/gallery", galleryRouter);
 
 // In production, serve static files

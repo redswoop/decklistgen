@@ -6,6 +6,7 @@
 import type { PropDef, LayoutNode, NodeState } from "./types.js";
 import { measureWidth, ftWrap } from "../text.js";
 import { FONT_TITLE, FONT_BODY } from "../constants.js";
+import { SUB_PROP_DEFS } from "@shared/constants/prop-defs.js";
 
 export class TextElement implements LayoutNode {
   readonly type = "text" as const;
@@ -43,30 +44,7 @@ export class TextElement implements LayoutNode {
   }
 
   propDefs(): PropDef[] {
-    return [
-      { key: "text", label: "Text", type: "text" },
-      { key: "fontSize", label: "Font Size", type: "number", min: 8, max: 120, step: 1 },
-      { key: "fontFamily", label: "Font", type: "select", options: ["title", "body"] },
-      { key: "fontWeight", label: "Weight", type: "select", options: ["normal", "bold"] },
-      { key: "fill", label: "Fill", type: "color" },
-      { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.05 },
-      { key: "stroke", label: "Stroke", type: "color" },
-      { key: "strokeWidth", label: "Stroke W", type: "number", min: 0, max: 10, step: 0.5 },
-      { key: "filter", label: "Filter", type: "select", options: ["none", "shadow", "title-shadow", "dmg-shadow"] },
-      { key: "textAnchor", label: "Anchor", type: "select", options: ["start", "middle", "end"] },
-      { key: "wrap", label: "Wrap", type: "select", options: ["0", "1"] },
-      { key: "grow", label: "Grow", type: "number", min: 0, max: 10, step: 1 },
-      { key: "hAlign", label: "H-Align", type: "select", options: ["start", "center", "end"] },
-      { key: "marginTop", label: "Margin Top", type: "number", min: -50, max: 50, step: 1 },
-      { key: "marginRight", label: "Margin Right", type: "number", min: -50, max: 50, step: 1 },
-      { key: "marginBottom", label: "Margin Bottom", type: "number", min: -50, max: 50, step: 1 },
-      { key: "marginLeft", label: "Margin Left", type: "number", min: -50, max: 50, step: 1 },
-      { key: "paddingTop", label: "Pad Top", type: "number", min: 0, max: 50, step: 1 },
-      { key: "paddingRight", label: "Pad Right", type: "number", min: 0, max: 50, step: 1 },
-      { key: "paddingBottom", label: "Pad Bottom", type: "number", min: 0, max: 50, step: 1 },
-      { key: "paddingLeft", label: "Pad Left", type: "number", min: 0, max: 50, step: 1 },
-      { key: "vAlign", label: "V-Align", type: "select", options: ["top", "middle", "bottom"] },
-    ];
+    return SUB_PROP_DEFS.text;
   }
 
   measure(allocatedWidth?: number): { width: number; height: number } {

@@ -1,5 +1,7 @@
 {
   "sv09-190": "Expand the image of the subject, and remove all of the text, footers, and headers in the image",
   "cel25-1": "Admin override prompt",
-  "me01-119": "Make this image in a van goh style"
+  "me01-119": "Make this image in a van goh style",
+  "sv01-240": "Expand the illustration from the reference image into a large, detailed scene. Remove all text and other non-illustrative elements.",
+  "swshp-SWSH152": " make the sky blue"
 }

@@ -3,7 +3,7 @@ import { useEditorRenderer } from "./useEditorRenderer.js";
 import { PROP_DEFS } from "../../shared/constants/prop-defs.js";
 
 export function useEditorKeyboard() {
-  const { elements, selectedElementId, selectedChildIndex, selectedGrandchildIndex, serverPos } = useEditorState();
+  const { elements, selectedPath, selectPath, resolveNode, getNodeChildren, serverPos, selectedElementId } = useEditorState();
   const { rerender, debouncedRerender } = useEditorRenderer();
 
   function onKeyDown(e: KeyboardEvent) {
@@ -11,73 +11,44 @@ export function useEditorKeyboard() {
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
 
-    if (!selectedElementId.value) return;
+    if (selectedPath.value.length === 0) return;
     if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
     e.preventDefault();
 
     const step = e.shiftKey ? 10 : 1;
-    const el = elements.value.find((el) => el.id === selectedElementId.value);
-    if (!el) return;
+    const resolved = resolveNode(selectedPath.value);
+    if (!resolved) return;
 
-    // ── Grandchild selected ──
-    if (selectedGrandchildIndex.value != null && selectedChildIndex.value != null && el.children) {
-      const child = el.children[selectedChildIndex.value];
-      if (!child?.children) return;
-      const gi = selectedGrandchildIndex.value;
-      const grandchild = child.children[gi];
-      if (!grandchild) return;
-
-      if (e.ctrlKey || e.metaKey) {
-        let newGi = gi;
-        if (e.key === "ArrowLeft" && gi > 0) newGi = gi - 1;
-        if (e.key === "ArrowRight" && gi < child.children.length - 1) newGi = gi + 1;
-        if (newGi !== gi) {
-          const tmp = child.children[gi];
-          child.children[gi] = child.children[newGi];
-          child.children[newGi] = tmp;
-          selectedGrandchildIndex.value = newGi;
-          rerender();
-        }
-        return;
-      }
-
-      if (e.key === "ArrowRight") grandchild.props.marginLeft = Number(grandchild.props.marginLeft || 0) + step;
-      if (e.key === "ArrowLeft") grandchild.props.marginLeft = Number(grandchild.props.marginLeft || 0) - step;
-      if (e.key === "ArrowDown") grandchild.props.marginTop = Number(grandchild.props.marginTop || 0) + step;
-      if (e.key === "ArrowUp") grandchild.props.marginTop = Number(grandchild.props.marginTop || 0) - step;
-      debouncedRerender();
-      return;
-    }
-
-    // ── Child selected ──
-    if (selectedChildIndex.value != null && el.children) {
-      const ci = selectedChildIndex.value;
-      const child = el.children[ci];
-      if (!child) return;
-
-      if (e.ctrlKey || e.metaKey) {
+    // ── Non-root: nudge margins or reorder ──
+    if (!resolved.isRoot) {
+      if ((e.ctrlKey || e.metaKey) && resolved.siblings && resolved.indexInSiblings != null) {
+        const ci = resolved.indexInSiblings;
         let newIdx = ci;
         if (e.key === "ArrowLeft" && ci > 0) newIdx = ci - 1;
-        if (e.key === "ArrowRight" && ci < el.children.length - 1) newIdx = ci + 1;
+        if (e.key === "ArrowRight" && ci < resolved.siblings.length - 1) newIdx = ci + 1;
         if (newIdx !== ci) {
-          const tmp = el.children[ci];
-          el.children[ci] = el.children[newIdx];
-          el.children[newIdx] = tmp;
-          selectedChildIndex.value = newIdx;
+          const tmp = resolved.siblings[ci];
+          resolved.siblings[ci] = resolved.siblings[newIdx];
+          resolved.siblings[newIdx] = tmp;
+          const newPath = [...selectedPath.value];
+          newPath[newPath.length - 1] = newIdx;
+          selectPath(newPath);
           rerender();
         }
         return;
       }
 
-      if (e.key === "ArrowRight") child.props.marginLeft = Number(child.props.marginLeft || 0) + step;
-      if (e.key === "ArrowLeft") child.props.marginLeft = Number(child.props.marginLeft || 0) - step;
-      if (e.key === "ArrowDown") child.props.marginTop = Number(child.props.marginTop || 0) + step;
-      if (e.key === "ArrowUp") child.props.marginTop = Number(child.props.marginTop || 0) - step;
+      const node = resolved.node;
+      if (e.key === "ArrowRight") node.props.marginLeft = Number(node.props.marginLeft || 0) + step;
+      if (e.key === "ArrowLeft") node.props.marginLeft = Number(node.props.marginLeft || 0) - step;
+      if (e.key === "ArrowDown") node.props.marginTop = Number(node.props.marginTop || 0) + step;
+      if (e.key === "ArrowUp") node.props.marginTop = Number(node.props.marginTop || 0) - step;
       debouncedRerender();
       return;
     }
 
-    // ── Element selected: move position ──
+    // ── Root element: move position ──
+    const el = resolved.node;
     const defs = PROP_DEFS[el.type];
     if (!defs) return;
     const posKeys = defs.filter((d) => d.isPosition);
@@ -92,7 +63,7 @@ export function useEditorKeyboard() {
 
     // Instant DOM update via transform for responsiveness
     const sp = el.id ? serverPos.value[el.id] : null;
-    if (sp) {
+    if (sp && selectedElementId.value) {
       const svgEl = document.querySelector("#editor-canvas-wrap svg");
       if (svgEl) {
         const g = svgEl.querySelector(`[data-element-id="${selectedElementId.value}"]`);

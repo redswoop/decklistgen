@@ -1,7 +1,23 @@
+import type { CardTemplate } from "../../shared/types/template.js";
+
 const BASE = "/gallery/editor";
+const TMPL = `${BASE}/templates`;
+
+export interface TemplateSummary {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface CardEntry {
+  id: string;
+  category?: string;
+  name?: string;
+  suggestedTemplate?: string;
+}
 
 export function useEditorApi() {
-  async function fetchCards(): Promise<string[]> {
+  async function fetchCards(): Promise<CardEntry[]> {
     const resp = await fetch(`${BASE}/cards`);
     return resp.json();
   }
@@ -26,5 +42,34 @@ export function useEditorApi() {
     return `${BASE}/raw-image?cardId=${encodeURIComponent(cardId)}`;
   }
 
-  return { fetchCards, fetchCardData, renderSvg, rawImageUrl };
+  // ── Template API ──
+
+  async function listTemplates(): Promise<TemplateSummary[]> {
+    const resp = await fetch(TMPL);
+    return resp.json();
+  }
+
+  async function loadTemplate(id: string): Promise<CardTemplate | null> {
+    const resp = await fetch(`${TMPL}/${encodeURIComponent(id)}`);
+    if (!resp.ok) return null;
+    return resp.json();
+  }
+
+  async function saveTemplate(template: CardTemplate): Promise<boolean> {
+    const resp = await fetch(`${TMPL}/${encodeURIComponent(template.id)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(template),
+    });
+    return resp.ok;
+  }
+
+  async function deleteTemplate(id: string): Promise<boolean> {
+    const resp = await fetch(`${TMPL}/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    return resp.ok;
+  }
+
+  return { fetchCards, fetchCardData, renderSvg, rawImageUrl, listTemplates, loadTemplate, saveTemplate, deleteTemplate };
 }

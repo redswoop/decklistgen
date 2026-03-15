@@ -70,7 +70,7 @@ function buildKleinWorkflow(
 
   // Scheduler
   workflow["75:62"] = {
-    inputs: { steps: 6, width: ["75:81", 0], height: ["75:81", 1] },
+    inputs: { steps: 4, width: ["75:81", 0], height: ["75:81", 1] },
     class_type: "Flux2Scheduler",
   };
 

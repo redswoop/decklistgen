@@ -3,6 +3,7 @@ export interface Card {
   id: string;              // "sv06.5-036"
   localId: string;         // "036"
   name: string;            // "Okidogi ex"
+  subtitle?: string;       // "Professor Magnolia" (from parenthetical in Supporter names)
   imageBase: string;
   category: "Pokemon" | "Trainer" | "Energy";
   trainerType?: "Item" | "Supporter" | "Stadium" | "Tool";
@@ -79,6 +80,8 @@ export interface TcgdexCard {
   resistances?: Array<{ type: string; value: string }>;
   description?: string;
   evolveFrom?: string;
+  /** Present on energy cards in raw TCGdex JSON. */
+  effect?: string;
 }
 
 /** Set info from TCGdex API */

@@ -4,8 +4,9 @@ import { useEditorState } from "../../composables/useEditorState.js";
 import { useEditorRenderer } from "../../composables/useEditorRenderer.js";
 import { useEditorViewport } from "../../composables/useEditorViewport.js";
 import { useEditorApi } from "../../composables/useEditorApi.js";
+import { svgPathToTemplatePath, templatePathToSvgTargets } from "../../composables/useEditorTreeNav.js";
 
-const { selectedElementId, selectedChildIndex, selectedGrandchildIndex, selectItem, currentCardId } = useEditorState();
+const { selectedPath, selectPath, elements, resolveNode, getNodeChildren, currentCardId } = useEditorState();
 const { svgHtml } = useEditorRenderer();
 const { zoomLevel, panX, panY, isPanning, spaceHeld, onWheel, startPan, onPanMove, endPan } = useEditorViewport();
 const api = useEditorApi();
@@ -31,25 +32,74 @@ function onMouseDown(e: MouseEvent) {
   }
 }
 
-function isBackground(e: MouseEvent): boolean {
-  const target = e.target as HTMLElement;
+function isBackground(e: MouseEvent | TouchEvent): boolean {
+  const target = (e.target ?? e) as HTMLElement;
   return target === cardsArea.value || target === cardsInner.value || target.classList.contains("ref-card");
+}
+
+// ── Touch support ──
+let touchStartX = 0;
+let touchStartY = 0;
+let lastPinchDist = 0;
+
+function onTouchStart(e: TouchEvent) {
+  if (e.touches.length === 1 && isBackground(e)) {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    startPan({ clientX: touchStartX, clientY: touchStartY } as MouseEvent);
+  } else if (e.touches.length === 2) {
+    lastPinchDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY,
+    );
+  }
+}
+
+function onTouchMove(e: TouchEvent) {
+  if (e.touches.length === 1 && isPanning.value) {
+    e.preventDefault();
+    onPanMove({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY } as MouseEvent);
+  } else if (e.touches.length === 2) {
+    e.preventDefault();
+    const dist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY,
+    );
+    if (lastPinchDist > 0) {
+      const delta = (dist - lastPinchDist) * 2;
+      onWheel({ deltaY: -delta, preventDefault() {} } as WheelEvent);
+    }
+    lastPinchDist = dist;
+  }
+}
+
+function onTouchEnd() {
+  endPan();
+  lastPinchDist = 0;
 }
 
 function onCanvasClick(e: MouseEvent) {
   let node = e.target as HTMLElement | null;
-  let childIdx: number | null = null;
+  const indices: number[] = [];
+  let elementId: string | null = null;
+
   while (node && node.tagName !== "svg") {
     if (node.dataset?.childIndex != null) {
-      childIdx = parseInt(node.dataset.childIndex);
+      indices.unshift(parseInt(node.dataset.childIndex));
     }
     if (node.dataset?.elementId) {
-      selectItem(node.dataset.elementId, childIdx);
-      return;
+      elementId = node.dataset.elementId;
+      break;
     }
     node = node.parentElement;
   }
-  selectItem(null);
+
+  if (elementId) {
+    const templatePath = svgPathToTemplatePath(elementId, indices, elements.value, getNodeChildren);
+    selectPath(templatePath);
+  } else {
+    selectPath([]);
+  }
 }
 
 // Selection highlight
@@ -58,73 +108,39 @@ function showSelection() {
   if (!wrap) return;
   const svgEl = wrap.querySelector("svg");
   if (!svgEl) return;
-  const old = svgEl.querySelector(".selection-rect");
-  if (old) old.remove();
-  if (!selectedElementId.value) return;
-  const parentG = svgEl.querySelector(`[data-element-id="${selectedElementId.value}"]`);
-  if (!parentG) return;
+  for (const old of svgEl.querySelectorAll(".selection-rect")) old.remove();
+  if (selectedPath.value.length === 0) return;
 
-  let target: Element = parentG;
-  if (selectedChildIndex.value != null) {
-    const childG = parentG.querySelector(`:scope > [data-child-index="${selectedChildIndex.value}"]`);
-    if (childG) target = childG;
-  }
+  const targets = templatePathToSvgTargets(selectedPath.value, svgEl, elements.value, getNodeChildren);
 
-  try {
-    const bbox = (target as SVGGraphicsElement).getBBox();
-    if (bbox.width === 0 && bbox.height === 0) return;
-    let tx = 0, ty = 0;
-    let n: Element | null = target;
-    while (n && n !== svgEl) {
-      const t = n.getAttribute("transform") || "";
-      const i = t.indexOf("translate(");
-      if (i >= 0) {
-        const inner = t.substring(i + 10, t.indexOf(")", i));
-        const parts = inner.includes(",") ? inner.split(",") : inner.split(" ");
-        if (parts.length >= 2) { tx += parseFloat(parts[0]); ty += parseFloat(parts[1]); }
-      }
-      n = n.parentElement;
-    }
-    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    rect.setAttribute("x", String(bbox.x + tx - 3));
-    rect.setAttribute("y", String(bbox.y + ty - 3));
-    rect.setAttribute("width", String(bbox.width + 6));
-    rect.setAttribute("height", String(bbox.height + 6));
-    rect.classList.add("selection-rect");
-    svgEl.appendChild(rect);
-  } catch { /* empty group */ }
-}
-
-// Apply visibility to SVG DOM
-function applyVisibility() {
-  const { elements } = useEditorState();
-  const wrap = document.getElementById("editor-canvas-wrap");
-  if (!wrap) return;
-  const svgEl = wrap.querySelector("svg");
-  if (!svgEl) return;
-  for (const el of elements.value) {
-    const g = svgEl.querySelector(`[data-element-id="${el.id}"]`) as HTMLElement | null;
-    if (!g) continue;
-    g.style.display = el._hidden ? "none" : "";
-    if (el.children) {
-      for (let ci = 0; ci < el.children.length; ci++) {
-        const child = el.children[ci];
-        const childG = g.querySelector(`:scope > [data-child-index="${ci}"]`) as HTMLElement | null;
-        if (!childG) continue;
-        childG.style.display = child._hidden ? "none" : "";
-        if (child.children) {
-          for (let gi = 0; gi < child.children.length; gi++) {
-            const gc = child.children[gi];
-            const gcG = childG.querySelector(`:scope > g > [data-child-index="${gi}"]`) as HTMLElement | null;
-            if (gcG) gcG.style.display = gc._hidden ? "none" : "";
-          }
+  for (const target of targets) {
+    try {
+      const bbox = (target as SVGGraphicsElement).getBBox();
+      if (bbox.width === 0 && bbox.height === 0) continue;
+      let tx = 0, ty = 0;
+      let n: Element | null = target;
+      while (n && n !== svgEl) {
+        const t = n.getAttribute("transform") || "";
+        const i = t.indexOf("translate(");
+        if (i >= 0) {
+          const inner = t.substring(i + 10, t.indexOf(")", i));
+          const parts = inner.includes(",") ? inner.split(",") : inner.split(" ");
+          if (parts.length >= 2) { tx += parseFloat(parts[0]); ty += parseFloat(parts[1]); }
         }
+        n = n.parentElement;
       }
-    }
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("x", String(bbox.x + tx - 3));
+      rect.setAttribute("y", String(bbox.y + ty - 3));
+      rect.setAttribute("width", String(bbox.width + 6));
+      rect.setAttribute("height", String(bbox.height + 6));
+      rect.classList.add("selection-rect");
+      svgEl.appendChild(rect);
+    } catch { /* empty group */ }
   }
 }
 
-// After SVG is injected, wire up click + visibility + selection
+// After SVG is injected, wire up click + selection
 watch(svgHtml, async () => {
   await nextTick();
   const wrap = document.getElementById("editor-canvas-wrap");
@@ -132,15 +148,14 @@ watch(svgHtml, async () => {
   const svgEl = wrap.querySelector("svg");
   if (svgEl) {
     svgEl.addEventListener("click", onCanvasClick);
-    applyVisibility();
     showSelection();
   }
 });
 
 // Update selection highlight when selection changes
-watch([selectedElementId, selectedChildIndex, selectedGrandchildIndex], () => {
+watch(selectedPath, () => {
   showSelection();
-});
+}, { deep: true });
 </script>
 
 <template>
@@ -152,6 +167,9 @@ watch([selectedElementId, selectedChildIndex, selectedGrandchildIndex], () => {
     @mousedown="onMouseDown"
     @mousemove="onPanMove"
     @mouseup="endPan"
+    @touchstart="onTouchStart"
+    @touchmove.prevent="onTouchMove"
+    @touchend="onTouchEnd"
   >
     <div
       ref="cardsInner"
@@ -167,12 +185,21 @@ watch([selectedElementId, selectedChildIndex, selectedGrandchildIndex], () => {
 </template>
 
 <style scoped>
-.cards-area { flex: 1; overflow: hidden; background: #111; position: relative; cursor: grab; }
+.cards-area { flex: 1; overflow: hidden; background: #111; position: relative; cursor: grab; touch-action: none; }
 .cards-area.panning { cursor: grabbing; }
 .cards-inner { display: flex; align-items: center; justify-content: center; gap: 24px; position: absolute; top: 50%; left: 50%; transform-origin: 0 0; }
 .ref-card { flex-shrink: 0; }
 .ref-card img { border-radius: 12px; border: 2px solid #333; }
 .canvas-wrap { flex-shrink: 0; display: flex; align-items: center; justify-content: center; position: relative; }
 :deep(.canvas-wrap svg) { cursor: crosshair; }
-:deep(.selection-rect) { fill: none; stroke: #4a9eff; stroke-width: 2; stroke-dasharray: 6 3; pointer-events: none; }
+:deep(.selection-rect) {
+  fill: rgba(74, 158, 255, 0.12);
+  stroke: #4af;
+  stroke-width: 3;
+  stroke-dasharray: 8 4;
+  stroke-dashoffset: 0;
+  pointer-events: none;
+  animation: march 0.6s linear infinite;
+}
+@keyframes march { to { stroke-dashoffset: -12; } }
 </style>

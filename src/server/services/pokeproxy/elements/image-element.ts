@@ -6,13 +6,7 @@
 import type { PropDef, LayoutNode, NodeState } from "./types.js";
 import { renderTypeIcon } from "../type-icons.js";
 import { renderSuffixLogo } from "../logos.js";
-
-const ENERGY_TYPES = [
-  "Grass", "Fire", "Water", "Lightning", "Psychic",
-  "Fighting", "Darkness", "Metal", "Fairy", "Dragon", "Colorless",
-];
-
-const SUFFIX_OPTIONS = ["V", "ex", "VSTAR", "VSTAR-big"];
+import { getImagePropDefs } from "@shared/constants/prop-defs.js";
 
 export class ImageElement implements LayoutNode {
   readonly type = "image" as const;
@@ -48,38 +42,7 @@ export class ImageElement implements LayoutNode {
   }
 
   propDefs(): PropDef[] {
-    const src = String(this.props.src);
-    const defs: PropDef[] = [
-      { key: "src", label: "Source", type: "select", options: ["energy", "logo"] },
-    ];
-    if (src === "energy") {
-      defs.push(
-        { key: "energyType", label: "Type", type: "select", options: ENERGY_TYPES },
-        { key: "radius", label: "Radius", type: "number", min: 5, max: 60, step: 1 },
-      );
-    } else {
-      defs.push(
-        { key: "suffix", label: "Logo", type: "select", options: SUFFIX_OPTIONS },
-        { key: "height", label: "Height", type: "number", min: 10, max: 600, step: 1 },
-        { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.05 },
-        { key: "clipToCard", label: "Clip", type: "select", options: ["0", "1"] },
-        { key: "filter", label: "Filter", type: "select", options: ["none", "shadow", "title-shadow"] },
-      );
-    }
-    defs.push(
-      { key: "grow", label: "Grow", type: "number", min: 0, max: 10, step: 1 },
-      { key: "hAlign", label: "H-Align", type: "select", options: ["start", "center", "end"] },
-      { key: "marginTop", label: "Margin Top", type: "number", min: -50, max: 50, step: 1 },
-      { key: "marginRight", label: "Margin Right", type: "number", min: -50, max: 50, step: 1 },
-      { key: "marginBottom", label: "Margin Bottom", type: "number", min: -50, max: 50, step: 1 },
-      { key: "marginLeft", label: "Margin Left", type: "number", min: -50, max: 50, step: 1 },
-      { key: "paddingTop", label: "Pad Top", type: "number", min: 0, max: 50, step: 1 },
-      { key: "paddingRight", label: "Pad Right", type: "number", min: 0, max: 50, step: 1 },
-      { key: "paddingBottom", label: "Pad Bottom", type: "number", min: 0, max: 50, step: 1 },
-      { key: "paddingLeft", label: "Pad Left", type: "number", min: 0, max: 50, step: 1 },
-      { key: "vAlign", label: "V-Align", type: "select", options: ["top", "middle", "bottom"] },
-    );
-    return defs;
+    return getImagePropDefs(String(this.props.src));
   }
 
   measure(): { width: number; height: number } {

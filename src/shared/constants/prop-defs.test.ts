@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { PROP_DEFS, SUB_PROP_DEFS, ENERGY_TYPES, BOX_MODEL_KEYS, FILL_KEYS } from "./prop-defs.js";
+import { PROP_DEFS, SUB_PROP_DEFS, ENERGY_TYPES, BOX_MODEL_KEYS, FILL_KEYS, getImagePropDefs } from "./prop-defs.js";
 
 describe("prop-defs", () => {
   test("ENERGY_TYPES has 11 entries", () => {
@@ -52,6 +52,33 @@ describe("prop-defs", () => {
         }
       }
     }
+  });
+
+  test("getImagePropDefs returns energy-only props for energy src", () => {
+    const defs = getImagePropDefs("energy");
+    const keys = defs.map(d => d.key);
+    expect(keys).toContain("src");
+    expect(keys).toContain("energyType");
+    expect(keys).toContain("radius");
+    expect(keys).not.toContain("suffix");
+    expect(keys).not.toContain("height");
+    expect(keys).not.toContain("clipToCard");
+    // Should include common layout defs
+    expect(keys).toContain("grow");
+    expect(keys).toContain("hAlign");
+    expect(keys).toContain("marginTop");
+    expect(keys).toContain("vAlign");
+  });
+
+  test("getImagePropDefs returns logo-only props for logo src", () => {
+    const defs = getImagePropDefs("logo");
+    const keys = defs.map(d => d.key);
+    expect(keys).toContain("src");
+    expect(keys).toContain("suffix");
+    expect(keys).toContain("height");
+    expect(keys).toContain("clipToCard");
+    expect(keys).not.toContain("energyType");
+    expect(keys).not.toContain("radius");
   });
 
   test("BOX_MODEL_KEYS has all 8 margin/padding keys", () => {

@@ -36,10 +36,16 @@ function normalizeCard(raw: TcgdexCard, setCode: string): Card {
   const variants = raw.variants ?? {};
   const rarity = raw.rarity ?? "Unknown";
 
+  // Extract parenthetical subtitle, e.g. "Professor's Research (Professor Magnolia)"
+  const parenMatch = raw.name.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  const name = parenMatch ? parenMatch[1] : raw.name;
+  const subtitle = parenMatch ? parenMatch[2] : undefined;
+
   return {
     id: raw.id,
     localId: raw.localId,
-    name: raw.name,
+    name,
+    subtitle,
     imageBase: raw.image ?? "",
     category,
     trainerType: raw.trainerType as Card["trainerType"],
@@ -133,7 +139,6 @@ export async function loadEra(era: "sv" | "swsh"): Promise<{ loaded: number; set
   return { loaded: total, sets: loadedCodes };
 }
 
-/** Find all variants of a card (same name across loaded cards) */
 /** Find a card by PTCGL set code and card number (handles zero-padding differences) */
 export function findCardBySetAndNumber(setCode: string, number: string): Card | undefined {
   const code = setCode.toUpperCase();
@@ -159,11 +164,14 @@ export function findCardBySetAndNumber(setCode: string, number: string): Card | 
   return undefined;
 }
 
-/** Find a card by name across all loaded sets */
+/** Find a card by name across all loaded sets.
+ *  Matches base name, and also "Name (Subtitle)" format for backward compat. */
 export function findCardByName(name: string): Card | undefined {
   const lower = name.toLowerCase();
+  // Strip parenthetical from search term too
+  const baseLower = lower.replace(/\s*\([^)]+\)\s*$/, "").trim();
   for (const c of cardIndex.values()) {
-    if (c.name.toLowerCase() === lower) return c;
+    if (c.name.toLowerCase() === baseLower) return c;
   }
   return undefined;
 }
