@@ -7,23 +7,26 @@ import { PROP_DEFS } from "../../shared/constants/prop-defs.js";
 const svgHtml = ref("");
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let needsFit = false;
+let fitCallback: (() => void) | null = null;
+let loadGen = 0;
 
 export function useEditorRenderer() {
   const { elements, currentCardId, serverPos, setStatus, stripInternalProps, applyBindings, cardData } = useEditorState();
   const api = useEditorApi();
-  let fitCallback: (() => void) | null = null;
 
   function onFit(cb: () => void) {
     fitCallback = cb;
   }
 
   async function loadCard(cardId: string) {
+    const gen = ++loadGen;
     setStatus("Loading...");
     currentCardId.value = cardId;
     needsFit = true;
 
     // Fetch card data for bindings
     const data = await api.fetchCardData(cardId);
+    if (gen !== loadGen) return;
     if (data) {
       cardData.value = data;
       applyBindings(); // Resolve simple bindings for properties panel display

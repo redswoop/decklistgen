@@ -140,16 +140,10 @@ function showSelection() {
   }
 }
 
-// After SVG is injected, wire up click + selection
+// After SVG is injected, update selection highlight
 watch(svgHtml, async () => {
   await nextTick();
-  const wrap = document.getElementById("editor-canvas-wrap");
-  if (!wrap) return;
-  const svgEl = wrap.querySelector("svg");
-  if (svgEl) {
-    svgEl.addEventListener("click", onCanvasClick);
-    showSelection();
-  }
+  showSelection();
 });
 
 // Update selection highlight when selection changes
@@ -179,7 +173,7 @@ watch(selectedPath, () => {
       <div class="ref-card">
         <img v-if="currentCardId" :src="api.rawImageUrl(currentCardId)" alt="Reference" />
       </div>
-      <div id="editor-canvas-wrap" class="canvas-wrap" v-html="svgHtml" />
+      <div id="editor-canvas-wrap" class="canvas-wrap" v-html="svgHtml" @click="onCanvasClick" />
     </div>
   </div>
 </template>

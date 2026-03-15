@@ -19,6 +19,7 @@ export interface CardEntry {
 export function useEditorApi() {
   async function fetchCards(): Promise<CardEntry[]> {
     const resp = await fetch(`${BASE}/cards`);
+    if (!resp.ok) return [];
     return resp.json();
   }
 
@@ -46,6 +47,7 @@ export function useEditorApi() {
 
   async function listTemplates(): Promise<TemplateSummary[]> {
     const resp = await fetch(TMPL);
+    if (!resp.ok) return [];
     return resp.json();
   }
 
