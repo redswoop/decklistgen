@@ -3,8 +3,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import FilterSidebar from "./components/FilterSidebar.vue";
 import CardGrid from "./components/CardGrid.vue";
 import DecklistPanel from "./components/DecklistPanel.vue";
-import DeckManagerSidebar from "./components/DeckManagerSidebar.vue";
-import DeckView from "./components/DeckView.vue";
+import DeckContextBar from "./components/DeckContextBar.vue";
+import DeckSwitcherPopover from "./components/DeckSwitcherPopover.vue";
 import WorkingDeckView from "./components/WorkingDeckView.vue";
 import CardsView from "./components/CardsView.vue";
 import CardsFilterSidebar from "./components/CardsFilterSidebar.vue";
@@ -38,8 +38,8 @@ const { isLoggedIn, loading: authLoading, checkAuth, isAdmin } = useAuth();
 const { activeJobCount } = useQueueBadge();
 const { restoreFromUrl } = useEraLoader();
 
-// View + deck selection synced to URL hash, card param for lightbox deep-links
-const { currentView, selectedDeckId, previewCardId } = useRoute();
+// View synced to URL hash, card param for lightbox deep-links
+const { currentView, previewCardId } = useRoute();
 
 // Instantiate queue polling at app level so completion detection works
 // even when the queue tab isn't visible (fixes single-card generation bug)
@@ -81,33 +81,22 @@ const { createDeck, updateDeck } = useDecks();
 const showExport = ref(false);
 const showImport = ref(false);
 const showSaveDeck = ref(false);
+const showSwitcher = ref(false);
 const previewCard = ref<Card | null>(null);
 const previewSource = ref<'grid' | 'deck'>('grid');
 const gridSearchCards = ref<Card[]>([]);
 const previewDeckMembership = ref<DeckMembership[] | undefined>(undefined);
-const viewedDeckName = ref<string | null>(null);
 const previewDeckName = ref<string | undefined>(undefined);
 const previewSavedDeckId = ref<string | undefined>(undefined);
 const previewSavedDeckCards = ref<DeckCard[] | undefined>(undefined);
-const viewedDeckCards = ref<DeckCard[]>([]);
 
-// Clear deck name when leaving decks view; close mobile panels on tab switch
-watch(currentView, (v) => {
-  if (v !== 'decks') viewedDeckName.value = null;
+// Close mobile panels on tab switch
+watch(currentView, () => {
   if (isMobile.value) {
     mobileLeftOpen.value = false;
     mobileRightOpen.value = false;
   }
 });
-
-function handleDeckLoaded(name: string | null, cards?: DeckCard[]) {
-  viewedDeckName.value = name;
-  viewedDeckCards.value = cards ?? [];
-  // Keep lightbox in sync if it's open with this deck
-  if (previewSavedDeckId.value && currentView.value === 'decks') {
-    previewSavedDeckCards.value = cards ?? [];
-  }
-}
 
 
 const effectiveSearchCards = computed(() => {
@@ -121,10 +110,8 @@ const isMobile = useIsMobile();
 const mobileLeftOpen = ref(false);
 const mobileRightOpen = ref(false);
 
-const leftPanelLabel = computed(() => {
-  if (currentView.value === 'browse' || currentView.value === 'cards') return 'Filters';
-  return 'Manage';
-});
+const leftPanelLabel = computed(() => currentView.value === 'browse' ? 'Deck' : 'Filters');
+const rightPanelLabel = computed(() => 'Filters');
 
 // Lock body scroll when a mobile panel is open
 watch([mobileLeftOpen, mobileRightOpen], ([left, right]) => {
@@ -137,8 +124,8 @@ const fullWidthView = computed(() => currentView.value === 'queue' || currentVie
 // Desktop collapsed state persisted to localStorage; on mobile, sidebars are always collapsed
 const savedLeftCollapsed = ref(saved.leftCollapsed);
 const savedRightCollapsed = ref(saved.rightCollapsed);
-const leftCollapsed = computed(() => isMobile.value || savedLeftCollapsed.value || fullWidthView.value);
-const rightCollapsed = computed(() => isMobile.value || savedRightCollapsed.value || fullWidthView.value || currentView.value === 'decks');
+const leftCollapsed = computed(() => isMobile.value || savedLeftCollapsed.value || fullWidthView.value || currentView.value === 'build');
+const rightCollapsed = computed(() => isMobile.value || savedRightCollapsed.value || fullWidthView.value || currentView.value === 'build');
 const leftPct = ref(saved.left);
 const rightPct = ref(saved.right);
 
@@ -224,10 +211,9 @@ function handlePreview(card: Card, cards: Card[]) {
   gridSearchCards.value = cards;
   previewSource.value = 'grid';
   previewDeckMembership.value = undefined;
-  const inDecksView = currentView.value === 'decks';
-  previewDeckName.value = inDecksView ? (viewedDeckName.value ?? undefined) : undefined;
-  previewSavedDeckId.value = inDecksView ? (selectedDeckId.value ?? undefined) : undefined;
-  previewSavedDeckCards.value = inDecksView ? viewedDeckCards.value : undefined;
+  previewDeckName.value = undefined;
+  previewSavedDeckId.value = undefined;
+  previewSavedDeckCards.value = undefined;
   setCardParam(card.id);
 }
 
@@ -308,10 +294,6 @@ async function handleSaveDeck(name: string) {
       importSource: importSource.value ?? undefined,
     });
     markSaved(deck.id, deck.name);
-    // If we were on the working deck view, switch to the saved deck
-    if (selectedDeckId.value === '__working__') {
-      selectedDeckId.value = deck.id;
-    }
   } catch (e) {
     console.error("Save deck failed:", e);
   }
@@ -333,17 +315,8 @@ async function handleWorkingSaveUpdate() {
   }
 }
 
-function handleSelectDeck(id: string) {
-  selectedDeckId.value = id;
-  if (isMobile.value) mobileLeftOpen.value = false;
-}
-
-// Ref to DeckView for triggering refresh after lightbox replaces a card
-const deckViewRef = ref<InstanceType<typeof DeckView> | null>(null);
-
 function handleDeckUpdated() {
-  // Trigger DeckView to re-fetch the deck
-  deckViewRef.value?.refresh();
+  // Placeholder for future lightbox card-replace refresh
 }
 
 function handleBrowseRegenerate(card: Card) {
@@ -367,13 +340,13 @@ function handleBrowseRegenerate(card: Card) {
       <span class="app-nav-title">DecklistGen</span>
       <div class="app-nav-tabs">
         <button
+          :class="['app-nav-tab', { active: currentView === 'build' }]"
+          @click="currentView = 'build'"
+        >Deck</button>
+        <button
           :class="['app-nav-tab', { active: currentView === 'browse' }]"
           @click="currentView = 'browse'"
         >Browse</button>
-        <button
-          :class="['app-nav-tab', { active: currentView === 'decks' }]"
-          @click="currentView = 'decks'"
-        >Decks</button>
         <button
           :class="['app-nav-tab', { active: currentView === 'cards' }]"
           @click="currentView = 'cards'"
@@ -414,10 +387,25 @@ function handleBrowseRegenerate(card: Card) {
         @click="toggleMobileRight"
       >
         <span class="mobile-action-icon">&#9776;</span>
-        <span>Deck</span>
-        <span v-if="totalCards > 0" class="mobile-deck-badge">{{ totalCards }}</span>
+        <span>{{ rightPanelLabel }}</span>
       </button>
       <UserMenu @open-admin="showAdmin = true" />
+    </div>
+
+    <!-- Deck context bar + switcher -->
+    <div class="dcb-wrapper">
+      <DeckContextBar
+        @save="showSaveDeck = true"
+        @save-update="handleWorkingSaveUpdate"
+        @import="showImport = true"
+        @toggle-switcher="showSwitcher = !showSwitcher"
+      />
+      <DeckSwitcherPopover
+        v-if="showSwitcher"
+        @close="showSwitcher = false"
+        @import="showImport = true"
+        @navigate-to-deck="currentView = 'build'; showSwitcher = false"
+      />
     </div>
 
     <!-- Main content area -->
@@ -434,24 +422,16 @@ function handleBrowseRegenerate(card: Card) {
       >&laquo;</button>
 
       <div class="layout" :class="{ 'is-dragging': dragging }">
-        <!-- Left pane -->
+        <!-- Left pane: Decklist on browse, filters on cards -->
         <div v-if="!leftCollapsed" class="layout-pane layout-side" :style="{ width: leftPct + '%' }">
-          <FilterSidebar v-if="currentView === 'browse'" @collapse="collapseLeft" />
+          <DecklistPanel
+            v-if="currentView === 'browse'"
+            @collapse="collapseLeft"
+            @preview-card="handleDeckPreview"
+          />
           <CardsFilterSidebar
             v-else-if="currentView === 'cards'"
             @collapse="collapseLeft"
-          />
-          <DeckManagerSidebar
-            v-else
-            :selected-deck-id="selectedDeckId"
-            :working-deck-item-count="items.length"
-            :working-deck-name="currentDeckName"
-            :working-deck-id="currentDeckId"
-            :working-deck-is-dirty="isDirty"
-            :working-deck-total-cards="totalCards"
-            @select-deck="handleSelectDeck"
-            @collapse="collapseLeft"
-            @import="showImport = true"
           />
         </div>
 
@@ -475,25 +455,12 @@ function handleBrowseRegenerate(card: Card) {
           <GalleryView v-else-if="currentView === 'gallery'" />
           <VariantsView v-else-if="currentView === 'variants'" @preview-card="handlePreview" />
           <WorkingDeckView
-            v-else-if="selectedDeckId === '__working__'"
+            v-else
             @preview-card="handlePreview"
             @export="showExport = true"
             @import="showImport = true"
             @save="showSaveDeck = true"
             @save-update="handleWorkingSaveUpdate"
-          />
-          <DeckView
-            v-else
-            ref="deckViewRef"
-            :deck-id="selectedDeckId"
-            :is-working-deck-source="currentDeckId === selectedDeckId"
-            :working-deck-is-dirty="isDirty"
-            @preview-card="handlePreview"
-            @export="showExport = true"
-            @deck-loaded="handleDeckLoaded"
-            @edit-working-deck="selectedDeckId = '__working__'"
-            @save-update="handleWorkingSaveUpdate"
-            @deleted="selectedDeckId = '__working__'"
           />
         </div>
 
@@ -504,25 +471,19 @@ function handleBrowseRegenerate(card: Card) {
           @mousedown="startDrag('right', $event)"
         />
 
-        <!-- Right pane -->
+        <!-- Right pane: Filters on browse -->
         <div v-if="!rightCollapsed" class="layout-pane layout-side" :style="{ width: rightPct + '%' }">
-          <DecklistPanel
-            @collapse="collapseRight"
-            @export="showExport = true"
-            @import="showImport = true"
-            @save="showSaveDeck = true"
-            @preview-card="handleDeckPreview"
-          />
+          <FilterSidebar v-if="currentView === 'browse'" @collapse="collapseRight" />
         </div>
       </div>
     </div>
 
     <!-- Mobile bottom tab bar -->
     <nav v-if="isMobile" class="mobile-tab-bar">
+      <button :class="['mobile-tab', { active: currentView === 'build' }]"
+        @click="currentView = 'build'">Deck</button>
       <button :class="['mobile-tab', { active: currentView === 'browse' }]"
         @click="currentView = 'browse'">Browse</button>
-      <button :class="['mobile-tab', { active: currentView === 'decks' }]"
-        @click="currentView = 'decks'">Decks</button>
       <button :class="['mobile-tab', { active: currentView === 'cards' }]"
         @click="currentView = 'cards'">Cards</button>
       <button :class="['mobile-tab', { active: currentView === 'public' }]"
@@ -548,31 +509,17 @@ function handleBrowseRegenerate(card: Card) {
       </Transition>
       <Transition name="slide-down">
         <div v-if="isMobile && mobileLeftOpen" class="mobile-panel mobile-panel-top">
-          <FilterSidebar v-if="currentView === 'browse'" @collapse="mobileLeftOpen = false" />
-          <CardsFilterSidebar v-else-if="currentView === 'cards'" @collapse="mobileLeftOpen = false" />
-          <DeckManagerSidebar
-            v-else
-            :selected-deck-id="selectedDeckId"
-            :working-deck-item-count="items.length"
-            :working-deck-name="currentDeckName"
-            :working-deck-id="currentDeckId"
-            :working-deck-is-dirty="isDirty"
-            :working-deck-total-cards="totalCards"
-            @select-deck="handleSelectDeck"
+          <DecklistPanel
+            v-if="currentView === 'browse'"
             @collapse="mobileLeftOpen = false"
-            @import="showImport = true"
+            @preview-card="handleDeckPreview"
           />
+          <CardsFilterSidebar v-else-if="currentView === 'cards'" @collapse="mobileLeftOpen = false" />
         </div>
       </Transition>
       <Transition name="slide-up">
         <div v-if="isMobile && mobileRightOpen" class="mobile-panel mobile-panel-bottom">
-          <DecklistPanel
-            @collapse="mobileRightOpen = false"
-            @export="showExport = true"
-            @import="showImport = true"
-            @save="showSaveDeck = true"
-            @preview-card="handleDeckPreview"
-          />
+          <FilterSidebar v-if="currentView === 'browse'" @collapse="mobileRightOpen = false" />
         </div>
       </Transition>
     </Teleport>

@@ -1,37 +1,39 @@
 import { ref, watch, onMounted, onUnmounted } from "vue";
 
-export type AppView = "browse" | "decks" | "cards" | "public" | "queue" | "editor" | "gallery" | "variants";
+export type AppView = "browse" | "build" | "cards" | "public" | "queue" | "editor" | "gallery" | "variants";
 
-function parseHash(): { view: AppView; deckId: string | null } {
+function parseHash(): { view: AppView } {
   const hash = window.location.hash.replace(/^#\/?/, "");
-  if (hash === "decks/working") {
-    return { view: "decks", deckId: "__working__" };
+  // Backward compat: #/decks* → build
+  if (hash === "decks" || hash.startsWith("decks/")) {
+    return { view: "build" };
   }
-  if (hash.startsWith("decks/")) {
-    return { view: "decks", deckId: hash.slice(6) || null };
+  if (hash === "build") {
+    return { view: "build" };
   }
-  if (hash === "decks") {
-    return { view: "decks", deckId: null };
+  if (hash === "browse") {
+    return { view: "browse" };
   }
   if (hash === "cards") {
-    return { view: "cards", deckId: null };
+    return { view: "cards" };
   }
   if (hash === "public" || hash.startsWith("public/")) {
-    return { view: "public", deckId: null };
+    return { view: "public" };
   }
   if (hash === "queue") {
-    return { view: "queue", deckId: null };
+    return { view: "queue" };
   }
   if (hash === "editor" || hash.startsWith("editor/")) {
-    return { view: "editor", deckId: null };
+    return { view: "editor" };
   }
   if (hash === "gallery" || hash.startsWith("gallery/")) {
-    return { view: "gallery", deckId: null };
+    return { view: "gallery" };
   }
   if (hash === "variants") {
-    return { view: "variants", deckId: null };
+    return { view: "variants" };
   }
-  return { view: "browse", deckId: null };
+  // Default: build (deck is home)
+  return { view: "build" };
 }
 
 function parseCardParam(): string | null {
@@ -39,10 +41,8 @@ function parseCardParam(): string | null {
   return params.get("card") || null;
 }
 
-function toHash(view: AppView, deckId: string | null): string {
-  if (view === "decks" && deckId === "__working__") return "#/decks/working";
-  if (view === "decks" && deckId) return `#/decks/${deckId}`;
-  if (view === "decks") return "#/decks";
+function toHash(view: AppView): string {
+  if (view === "build") return "#/build";
   if (view === "cards") return "#/cards";
   if (view === "public") return "#/public";
   if (view === "queue") return "#/queue";
@@ -70,14 +70,13 @@ export function setCardParam(id: string | null, replace = false) {
 export function useRoute() {
   const initial = parseHash();
   const currentView = ref<AppView>(initial.view);
-  const selectedDeckId = ref<string | null>(initial.deckId);
   const previewCardId = ref<string | null>(parseCardParam());
 
-  // Sync URL when view/deck state changes
+  // Sync URL when view state changes
   let suppressHashSync = false;
 
-  watch([currentView, selectedDeckId], ([view, deckId]) => {
-    const target = toHash(view, deckId);
+  watch(currentView, (view) => {
+    const target = toHash(view);
     const current = window.location.hash;
     // Don't clobber sub-paths (e.g. #/editor/cardId → #/editor)
     if (current !== target && !current.startsWith(target + "/")) {
@@ -94,7 +93,6 @@ export function useRoute() {
     }
     const parsed = parseHash();
     currentView.value = parsed.view;
-    selectedDeckId.value = parsed.deckId;
     previewCardId.value = parseCardParam();
   }
 
@@ -104,7 +102,7 @@ export function useRoute() {
     // Set initial hash if empty
     if (!window.location.hash) {
       suppressHashSync = true;
-      window.location.hash = toHash(currentView.value, selectedDeckId.value);
+      window.location.hash = toHash(currentView.value);
     }
   });
 
@@ -113,5 +111,5 @@ export function useRoute() {
     window.removeEventListener("hashchange", onHashChange);
   });
 
-  return { currentView, selectedDeckId, previewCardId };
+  return { currentView, previewCardId };
 }

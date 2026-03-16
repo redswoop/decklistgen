@@ -1,33 +1,20 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import BeautifyDialog from "./BeautifyDialog.vue";
 import { useDecklist } from "../composables/useDecklist.js";
-import { useDecks } from "../composables/useDecks.js";
-import { useToast } from "../composables/useToast.js";
-import { ApiError } from "../lib/client.js";
 import type { Card } from "../../shared/types/card.js";
 
 const emit = defineEmits<{
   collapse: [];
-  export: [];
-  import: [];
-  save: [];
   "preview-card": [card: Card];
 }>();
 
 const {
   items, totalCards, countColor, stats, DECK_SIZE,
-  incrementCard, removeCard, clear,
-  currentDeckId, currentDeckName, isDirty,
-  importSource, importedAt,
-  toDeckCards, markSaved,
+  incrementCard, removeCard,
+  currentDeckName,
 } = useDecklist();
 
-const { createDeck, updateDeck } = useDecks();
-
 const expandedSections = ref<Record<string, boolean>>({});
-const saving = ref(false);
-const showBeautify = ref(false);
 
 function toggle(section: string) {
   expandedSections.value[section] = !expandedSections.value[section];
@@ -36,70 +23,18 @@ function toggle(section: string) {
 function openPreview(card: Card) {
   emit("preview-card", card);
 }
-
-async function handleSave() {
-  if (items.value.length === 0) return;
-  saving.value = true;
-  try {
-    if (currentDeckId.value && isDirty.value) {
-      // Update existing dirty deck
-      await updateDeck({
-        id: currentDeckId.value,
-        data: {
-          name: currentDeckName.value,
-          cards: toDeckCards(),
-        },
-      });
-      markSaved(currentDeckId.value, currentDeckName.value);
-    } else {
-      // New deck or existing clean deck — show save dialog
-      emit("save");
-      saving.value = false;
-      return;
-    }
-  } catch (e) {
-    const toast = useToast();
-    if (e instanceof ApiError && e.isAuthError) {
-      toast.error(e.status === 401 ? "Sign in to save decks" : "Not authorized to save decks");
-    } else {
-      toast.error("Failed to save deck");
-    }
-    console.error("Save failed:", e);
-  } finally {
-    saving.value = false;
-  }
-}
 </script>
 
 <template>
   <div class="decklist-panel">
     <div class="decklist-header">
-      <h3>{{ currentDeckName || 'Decklist' }}</h3>
+      <h3>{{ currentDeckName || 'New Deck' }}</h3>
       <span class="deck-count" :style="{ color: countColor }">
         {{ totalCards }}/{{ DECK_SIZE }}
       </span>
       <button class="decklist-collapse-btn" @click="emit('collapse')">&rsaquo;</button>
     </div>
 
-    <!-- Deck info bar -->
-    <div v-if="currentDeckName" class="deck-info-bar">
-      <span v-if="isDirty" class="deck-dirty-badge">Unsaved</span>
-      <span v-if="importSource" class="deck-import-source" :title="importSource">
-        {{ importSource.length > 30 ? importSource.slice(0, 30) + '...' : importSource }}
-      </span>
-    </div>
-
-    <div class="decklist-actions">
-      <button class="btn-import" @click="emit('import')">Import</button>
-      <template v-if="items.length > 0">
-        <button class="btn-save" :disabled="saving" @click="handleSave">
-          {{ saving ? 'Saving...' : (currentDeckId && isDirty ? 'Save' : 'Save As...') }}
-        </button>
-        <button class="dm-action-btn" @click="showBeautify = true">Beautify</button>
-        <button class="btn-export" @click="emit('export')">Export</button>
-        <button class="btn-clear" @click="clear()">Clear</button>
-      </template>
-    </div>
     <div class="decklist-items">
       <div v-if="items.length === 0" class="empty-state">
         Click cards to add them to your decklist.
@@ -178,14 +113,5 @@ async function handleSave() {
         <span class="stats-chevron" style="visibility: hidden">&nbsp;</span>
       </div>
     </div>
-
-    <BeautifyDialog
-      v-if="showBeautify"
-      :deck-id="null"
-      :deck-name="currentDeckName || 'Working Deck'"
-      :deck-cards="toDeckCards()"
-      @close="showBeautify = false"
-      @updated="showBeautify = false"
-    />
   </div>
 </template>
