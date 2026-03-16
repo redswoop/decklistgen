@@ -112,7 +112,7 @@ async function handleApply() {
       if (count > 0) {
         if (v.mechanicsHash !== props.card.mechanicsHash) {
           // Different mechanics — keep original card for text, use variant for art only
-          newCards.push({ count, card: props.card, artCardId: v.id });
+          newCards.push({ count, card: props.card, artCard: v });
         } else {
           // Same mechanics — safe to use variant directly
           newCards.push({ count, card: v });

@@ -62,13 +62,19 @@ watch(() => props.deckId, (id) => {
 
 const useLive = computed(() => props.isWorkingDeckSource && props.workingDeckIsDirty);
 
+/** If an art override is set, return a card with the art card's imageBase for display */
+function displayCard(card: Card, artCard?: Card): Card {
+  if (!artCard) return card;
+  return { ...card, imageBase: artCard.imageBase };
+}
+
 // Cards for the grid — switch to working deck when actively editing
 const deckCards = computed(() => {
   if (!deck.value) return [];
   if (useLive.value) {
-    return workingItems.value.filter((i) => i.count > 0).map((i) => i.card);
+    return workingItems.value.filter((i) => i.count > 0).map((i) => displayCard(i.card, i.artCard));
   }
-  return deck.value.cards.map((dc) => dc.card);
+  return deck.value.cards.map((dc) => displayCard(dc.card, dc.artCard));
 });
 
 // Count map: cardId -> count

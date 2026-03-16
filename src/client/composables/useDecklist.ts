@@ -7,7 +7,7 @@ import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 export interface DecklistItem extends DecklistEntry {
   imageUrl: string;
   card: Card;
-  artCardId?: string;
+  artCard?: Card;
 }
 
 export interface DeckStats {
@@ -176,7 +176,7 @@ export function useDecklist() {
       name: dc.card.name,
       imageUrl: cardImageUrl(dc.card.imageBase, "low"),
       card: dc.card,
-      artCardId: dc.artCardId,
+      artCard: dc.artCard,
     }));
     currentDeckId.value = deck.id;
     currentDeckName.value = deck.name;
@@ -197,7 +197,7 @@ export function useDecklist() {
     return items.value.map((i) => ({
       count: i.count,
       card: i.card,
-      ...(i.artCardId ? { artCardId: i.artCardId } : {}),
+      ...(i.artCard ? { artCard: i.artCard } : {}),
     }));
   }
 

@@ -5,7 +5,7 @@ export interface DeckCard {
   count: number;
   card: Card;
   /** When set, use this card's image instead of card's image (art override from a different variant) */
-  artCardId?: string;
+  artCard?: Card;
 }
 
 /** A saved deck persisted on the server */

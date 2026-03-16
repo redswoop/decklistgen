@@ -146,7 +146,7 @@ const SYNTH_ABILITIES = [
 ];
 
 /** Render SVG using the template engine.
- *  artCardId: optional override — use this card's image instead of cardId's image. */
+ *  artCardId: optional override — use this card's image instead of cardId's. */
 async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions, artCardId?: string): Promise<string> {
   // Determine which card provides the image (art override or same card)
   const imageId = artCardId ?? cardId;
@@ -467,7 +467,7 @@ app.get("/print/:deckId", requireAuth, async (c) => {
   const cardSvgs: [number, string][] = [];
   for (const entry of entries) {
     const cardId = entry.card.id;
-    const svg = await generateSvgFromTemplate(cardId, undefined, entry.artCardId);
+    const svg = await generateSvgFromTemplate(cardId, undefined, entry.artCard?.id);
     cardSvgs.push([oneEach ? 1 : entry.count, svg]);
   }
 
