@@ -69,6 +69,26 @@ describe("TextElement single-line", () => {
     expect(svg).toContain('text-anchor="middle"');
   });
 
+  test("render escapes XML special characters", () => {
+    const item = new TextElement({ text: "Scarlet & Violet • 086", fontSize: 20 });
+    const svg = item.render(0, 0);
+    expect(svg).toContain("Scarlet &amp; Violet");
+    expect(svg).not.toContain("Scarlet & Violet");
+
+    const item2 = new TextElement({ text: "Damage < 100 > 50", fontSize: 20 });
+    const svg2 = item2.render(0, 0);
+    expect(svg2).toContain("&lt;");
+    expect(svg2).toContain("&gt;");
+  });
+
+  test("wrapped render escapes XML special characters", () => {
+    const item = new TextElement({ text: "Scarlet & Violet set info", fontSize: 20, wrap: 1 });
+    item.measure(500);
+    const svg = item.render(0, 0);
+    expect(svg).toContain("Scarlet &amp; Violet");
+    expect(svg).not.toContain("Scarlet & Violet");
+  });
+
   test("toJSON includes all props", () => {
     const item = new TextElement({ text: "X", fontSize: 12 }, { text: "hp" });
     const json = item.toJSON();

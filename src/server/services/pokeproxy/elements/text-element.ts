@@ -6,6 +6,7 @@
 import type { PropDef, LayoutNode, NodeState } from "./types.js";
 import { measureWidth, ftWrap } from "../text.js";
 import { FONT_TITLE, FONT_BODY } from "../constants.js";
+import { escapeXml } from "../svg-helpers.js";
 import { SUB_PROP_DEFS } from "@shared/constants/prop-defs.js";
 
 export class TextElement implements LayoutNode {
@@ -90,7 +91,7 @@ export class TextElement implements LayoutNode {
     }
     attrs += ` text-anchor="${String(textAnchor || "start")}"`;
     attrs += ` dominant-baseline="hanging"`;
-    return `<text ${attrs}>${String(text)}</text>`;
+    return `<text ${attrs}>${escapeXml(String(text))}</text>`;
   }
 
   private _renderWrapped(x: number, y: number): string {
@@ -121,7 +122,7 @@ export class TextElement implements LayoutNode {
     attrs += ` dominant-baseline="hanging"`;
 
     const tspans = lines.map((line, i) =>
-      `<tspan x="${x}" y="${y + i * lineH}">${line}</tspan>`
+      `<tspan x="${x}" y="${y + i * lineH}">${escapeXml(line)}</tspan>`
     ).join("");
 
     return `<text ${attrs}>${tspans}</text>`;
