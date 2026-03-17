@@ -4,7 +4,7 @@ import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import proxyRouter from "./proxy.js";
 import { loadSet } from "../services/card-store.js";
-import { resetIconIds } from "../services/pokeproxy/templates/index.js";
+import { resetIconIds } from "../services/pokeproxy/type-icons.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
 
