@@ -1,6 +1,7 @@
 import { getDb } from "./db/database.js";
 import type { SavedDeck, DeckSummary, DeckCard } from "../../shared/types/deck.js";
 import { consolidateDeckCards } from "../../shared/utils/consolidate-deck.js";
+import { pickCoverImage } from "../../shared/utils/pick-cover-image.js";
 
 interface DeckRow {
   id: string;
@@ -40,7 +41,7 @@ function toSummary(row: DeckRow & { display_name?: string }): DeckSummary {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     importSource: row.import_source ?? undefined,
-    coverImage: cards[0]?.card.imageBase,
+    coverImage: pickCoverImage(cards),
     isPublic: row.is_public === 1,
     isListed: row.is_listed === 1,
     ownerName: row.display_name,

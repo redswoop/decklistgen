@@ -9,7 +9,7 @@ const emit = defineEmits<{
   save: [];
   "save-update": [];
   import: [];
-  "toggle-switcher": [];
+  "go-to-gallery": [];
 }>();
 
 const {
@@ -84,6 +84,8 @@ const displayName = () => {
 <template>
   <div class="deck-context-bar">
     <div class="dcb-left">
+      <button class="dcb-btn dcb-gallery-btn" @click="emit('go-to-gallery')">Decks</button>
+
       <!-- Deck name (click to rename) -->
       <span v-if="renaming" class="dcb-name-edit">
         <input
@@ -123,15 +125,6 @@ const displayName = () => {
         @click="handleSave"
       >
         {{ saving ? 'Saving...' : (currentDeckId && isDirty ? 'Save' : 'Save As...') }}
-      </button>
-
-      <!-- Deck switcher toggle -->
-      <button
-        class="dcb-btn dcb-switcher-btn"
-        title="Switch deck"
-        @click="emit('toggle-switcher')"
-      >
-        &#x25BC;
       </button>
     </div>
   </div>
