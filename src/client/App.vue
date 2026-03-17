@@ -75,7 +75,7 @@ function saveLayout(partial: Partial<LayoutState>) {
 
 const saved = loadLayout();
 
-const { items, totalCards, toText, currentDeckName, currentDeckId, isDirty, toDeckCards, markSaved, importSource, importedAt } = useDecklist();
+const { items, totalCards, toText, currentDeckName, currentDeckId, isDirty, toDeckCards, markSaved, importSource, importedAt, undo, redo } = useDecklist();
 const { createDeck, updateDeck } = useDecks();
 
 // Deck sub-view: gallery (home) vs build (working deck)
@@ -186,6 +186,7 @@ function onDragEnd() {
 onUnmounted(() => {
   document.removeEventListener('mousemove', onDragMove);
   document.removeEventListener('mouseup', onDragEnd);
+  document.removeEventListener('keydown', handleUndoRedo);
 });
 
 function collapseLeft() {
@@ -280,8 +281,21 @@ watch(previewCardId, async (id) => {
   }
 });
 
+function handleUndoRedo(e: KeyboardEvent) {
+  const tag = (e.target as HTMLElement)?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    undo();
+  } else if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
+    e.preventDefault();
+    redo();
+  }
+}
+
 // Check auth + deep-link hydration on mount
 onMounted(async () => {
+  document.addEventListener('keydown', handleUndoRedo);
   await checkAuth();
   // Restore era/set data from URL params — must happen here (not in FilterSidebar)
   // because on mobile the sidebar doesn't mount until the user opens the panel

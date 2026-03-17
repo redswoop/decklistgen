@@ -59,6 +59,19 @@ function loadMeta(): DeckMeta {
 }
 
 const items = ref<DecklistItem[]>(loadItems());
+const undoStack = ref<DecklistItem[][]>([]);
+const redoStack = ref<DecklistItem[][]>([]);
+const MAX_UNDO = 50;
+
+function cloneItems(src: DecklistItem[]): DecklistItem[] {
+  return src.map(i => ({ ...i }));
+}
+
+function pushUndo() {
+  undoStack.value = [...undoStack.value.slice(-(MAX_UNDO - 1)), cloneItems(items.value)];
+  redoStack.value = [];
+}
+
 const meta = loadMeta();
 const currentDeckId = ref<string | null>(meta.deckId);
 const currentDeckName = ref(meta.deckName);
@@ -88,6 +101,7 @@ function currentSnapshot(): string {
 
 export function useDecklist() {
   function addCard(card: Card) {
+    pushUndo();
     const existing = items.value.find(
       (i) => i.setCode === card.setCode && i.localId === card.localId
     );
@@ -106,6 +120,7 @@ export function useDecklist() {
   }
 
   function incrementCard(setCode: string, localId: string) {
+    pushUndo();
     const item = items.value.find(
       (i) => i.setCode === setCode && i.localId === localId
     );
@@ -113,6 +128,7 @@ export function useDecklist() {
   }
 
   function removeCard(setCode: string, localId: string) {
+    pushUndo();
     const idx = items.value.findIndex(
       (i) => i.setCode === setCode && i.localId === localId
     );
@@ -125,6 +141,7 @@ export function useDecklist() {
   }
 
   function decrementCard(setCode: string, localId: string) {
+    pushUndo();
     const item = items.value.find(
       (i) => i.setCode === setCode && i.localId === localId
     );
@@ -132,6 +149,7 @@ export function useDecklist() {
   }
 
   function clear() {
+    pushUndo();
     items.value = [];
     currentDeckId.value = null;
     currentDeckName.value = "";
@@ -141,6 +159,7 @@ export function useDecklist() {
   }
 
   function importDeck(newItems: DecklistItem[], mode: "merge" | "replace", source?: string) {
+    pushUndo();
     if (mode === "replace") {
       items.value = newItems;
       importSource.value = source ?? null;
@@ -169,6 +188,15 @@ export function useDecklist() {
 
   /** Load a saved deck into the working deck */
   function loadSavedDeck(deck: SavedDeck) {
+    const isSameDeck = currentDeckId.value === deck.id;
+    if (isSameDeck) {
+      // Reloading same deck (e.g. after variant picker) — preserve undo history
+      pushUndo();
+    } else {
+      // Switching to a different deck — fresh undo history
+      undoStack.value = [];
+      redoStack.value = [];
+    }
     items.value = deck.cards.map((dc) => ({
       setCode: dc.card.setCode,
       localId: dc.card.localId,
@@ -250,6 +278,23 @@ export function useDecklist() {
     return result;
   });
 
+  function undo() {
+    if (!undoStack.value.length) return;
+    redoStack.value = [...redoStack.value, cloneItems(items.value)];
+    items.value = undoStack.value[undoStack.value.length - 1];
+    undoStack.value = undoStack.value.slice(0, -1);
+  }
+
+  function redo() {
+    if (!redoStack.value.length) return;
+    undoStack.value = [...undoStack.value, cloneItems(items.value)];
+    items.value = redoStack.value[redoStack.value.length - 1];
+    redoStack.value = redoStack.value.slice(0, -1);
+  }
+
+  const canUndo = computed(() => undoStack.value.length > 0);
+  const canRedo = computed(() => redoStack.value.length > 0);
+
   function toText() {
     return items.value
       .map((i) => `${i.setCode} ${i.localId} x${i.count}  # ${i.name}`)
@@ -273,6 +318,7 @@ export function useDecklist() {
 
   /** Replace a card version in-place, preserving count. If newCard already exists, merge counts. */
   function replaceCard(oldSetCode: string, oldLocalId: string, newCard: Card) {
+    pushUndo();
     const oldIdx = items.value.findIndex(
       (i) => i.setCode === oldSetCode && i.localId === oldLocalId
     );
@@ -302,6 +348,7 @@ export function useDecklist() {
 
   /** Replace all entries for a card name with new entries */
   function replaceByName(name: string, newEntries: { card: Card; count: number }[]) {
+    pushUndo();
     // Remove all entries with this name
     items.value = items.value.filter((i) => i.name !== name);
     // Add new entries
@@ -322,6 +369,7 @@ export function useDecklist() {
     totalCards, countColor, stats, DECK_SIZE,
     toText, isInDeck, getDeckCount,
     findSwappable, replaceCard, replaceByName,
+    undo, redo, canUndo, canRedo,
     // Deck management
     currentDeckId, currentDeckName, isDirty,
     importSource, importedAt,

@@ -3689,6 +3689,27 @@ body {
   transition: background 0.15s, color 0.15s;
 }
 
+.dcb-undo-btn,
+.dcb-redo-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: #aaa;
+  font-size: 14px;
+  padding: 3px 6px;
+  line-height: 1;
+}
+
+.dcb-undo-btn:hover:not(:disabled),
+.dcb-redo-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.dcb-undo-btn:disabled,
+.dcb-redo-btn:disabled {
+  color: #444;
+  cursor: not-allowed;
+}
+
 .dcb-save-btn {
   background: #e94560;
   color: white;

@@ -17,6 +17,7 @@ const {
   currentDeckId, currentDeckName, isDirty,
   toDeckCards, markSaved,
   importSource, importedAt,
+  undo, redo, canUndo, canRedo,
 } = useDecklist();
 
 const { createDeck, updateDeck } = useDecks();
@@ -117,6 +118,14 @@ const displayName = () => {
     </div>
 
     <div class="dcb-right">
+      <!-- Undo / Redo -->
+      <button class="dcb-btn dcb-undo-btn" :disabled="!canUndo"
+        :title="canUndo ? 'Undo (Ctrl+Z)' : 'Nothing to undo'"
+        @click="undo">&#x21A9;</button>
+      <button class="dcb-btn dcb-redo-btn" :disabled="!canRedo"
+        :title="canRedo ? 'Redo (Ctrl+Shift+Z)' : 'Nothing to redo'"
+        @click="redo">&#x21AA;</button>
+
       <!-- Save button -->
       <button
         class="dcb-btn dcb-save-btn"
