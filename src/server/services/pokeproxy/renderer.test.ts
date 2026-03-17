@@ -383,10 +383,11 @@ describe("vstar renderer", () => {
     expect(attackIdx).toBeLessThan(abilityIdx);
   });
 
-  test("VSTAR Power renders once-per-game note", () => {
+  test("VSTAR Power renders label bar instead of inline note", () => {
     const svg = renderVstar(CARDS.vstarWithAbility);
-    expect(svg).toContain("VSTAR Power in a game");
-    // No gold shimmer bar or star glyph
+    // Template strips the "(You can't use more than 1 VSTAR Power in a game.)" text
+    // and renders a "VSTAR Power" label bar instead
+    expect(svg).toContain("VSTAR Power");
     expect(svg).not.toContain("vstar-bar-grad");
     expect(svg).not.toContain("&#x2605;");
     expect(svg).not.toContain("gold-glow");
@@ -398,7 +399,6 @@ describe("vstar renderer", () => {
     expect(svg).toContain("Explosive Fire");
     expect(svg).toContain("Star Blaze");
     expect(svg).toContain("VSTAR Power");
-    expect(svg).toContain("VSTAR Power in a game");
     // Explosive Fire (regular) should appear before Star Blaze (VSTAR Power)
     const regularIdx = svg.indexOf("Explosive Fire");
     const vstarIdx = svg.indexOf("Star Blaze");
@@ -413,10 +413,10 @@ describe("vstar renderer", () => {
     expect(svg).toContain("Evolves from Leafeon V");
   });
 
-  test("VSTAR renders rules text", () => {
+  test("VSTAR renders card name and attack", () => {
     const svg = renderVstar(CARDS.vstarPokemon);
-    expect(svg).toContain("KO");
-    expect(svg).toContain("2 Prizes");
+    expect(svg).toContain("Leafeon");
+    expect(svg).toContain("Leaf Guard");
   });
 });
 

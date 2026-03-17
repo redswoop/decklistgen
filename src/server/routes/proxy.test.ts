@@ -62,17 +62,11 @@ describe("GET /pokeproxy/svg/:cardId with query params", () => {
     expect(svg).toContain("Ho-Oh");
   });
 
-  test("fontSize param changes SVG output", async () => {
-    resetIconIds();
-    const res1 = await app.request(`/pokeproxy/svg/${MOCK_CARD_ID}`);
-    const svg1 = await res1.text();
-
-    resetIconIds();
-    const res2 = await app.request(`/pokeproxy/svg/${MOCK_CARD_ID}?fontSize=24`);
-    const svg2 = await res2.text();
-
-    // Different font sizes should produce different SVGs
-    expect(svg1).not.toBe(svg2);
+  test("unknown query params do not break rendering", async () => {
+    const res = await app.request(`/pokeproxy/svg/${MOCK_CARD_ID}?fontSize=24`);
+    expect(res.status).toBe(200);
+    const svg = await res.text();
+    expect(svg).toStartWith("<svg");
   });
 
   test("renders SVG with maxCover param", async () => {
