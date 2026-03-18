@@ -20,9 +20,6 @@ import { useAuth } from "../composables/useAuth.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import CardZoom from "./lightbox/CardZoom.vue";
 import LightboxDevTools from "./lightbox/LightboxDevTools.vue";
-import LightboxProxySettings from "./lightbox/LightboxProxySettings.vue";
-import { useProxySettings } from "../composables/useProxySettings.js";
-import type { ProxySettings } from "../../shared/types/proxy-settings.js";
 import type { DeckMembership } from "../../shared/types/customized-card.js";
 import type { DeckCard } from "../../shared/types/deck.js";
 import { consolidateDeckCards } from "../../shared/utils/consolidate-deck.js";
@@ -67,8 +64,6 @@ const emit = defineEmits<{
 
 const { addCard, removeCard, getDeckCount, findSwappable, replaceCard } = useDecklist();
 const { isAuthorized } = useAuth();
-const { getSettings } = useProxySettings();
-
 // Search set navigation
 const searchIndex = ref(0);
 
@@ -269,15 +264,10 @@ const mainImageUrl = computed(() => {
     : null;
 });
 
-// Proxy settings for current card
-const currentProxySettings = computed(() =>
-  getSettings(currentCard.value.id)
-);
-
 // SVG Proxy
 const svgUrl = computed(() => {
   const v = cacheBust.value;
-  return api.pokeproxySvgUrl(currentCard.value.id, currentProxySettings.value, v);
+  return api.pokeproxySvgUrl(currentCard.value.id, undefined, v);
 });
 const svgLoading = ref(true);
 const svgError = ref(false);
@@ -341,16 +331,6 @@ async function handleRegenerateSvg() {
   }
 }
 
-// When proxy settings change, debounce SVG reload
-let settingsTimer: ReturnType<typeof setTimeout> | null = null;
-function onProxySettingsChange() {
-  if (settingsTimer) clearTimeout(settingsTimer);
-  settingsTimer = setTimeout(() => {
-    localBust.value++;
-    svgLoading.value = true;
-    svgError.value = false;
-  }, 300);
-}
 
 // Zoom
 const showZoom = ref(false);
@@ -665,12 +645,6 @@ function navigateToDeck(deckId: string) {
                 <span class="lb-dm-count">x{{ dm.count }}</span>
               </div>
             </div>
-
-            <!-- Proxy Settings -->
-            <LightboxProxySettings
-              :card="currentCard"
-              @change="onProxySettingsChange"
-            />
 
             <!-- Dev Tools (collapsible) -->
             <LightboxDevTools
