@@ -7,10 +7,11 @@
   "cardName": 44,
   "cardName.fullart": 42,
   "evolvesFrom.fullart": 34,
-  "attackEffect.fullart": 34,
+  "attackEffect.fullart": 29,
   "abilityLabel.fullart": 40,
   "abilityName.fullart": 40,
-  "abilityEffect.fullart": 34,
+  "abilityEffect.fullart": 29,
   "trainerType": 30,
+  "trainerEffect": 32,
   "vstarPowerLabel": 40
 }

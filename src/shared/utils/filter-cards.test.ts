@@ -106,6 +106,14 @@ describe("applyFilters", () => {
       expect(applyFilters(cards, { nameSearch: "swsh6-063" })).toEqual([cre063]);
     });
 
+    test("matches by exact card ID", () => {
+      expect(applyFilters(cards, { nameSearch: "sv01-036" })).toEqual([sv01036]);
+    });
+
+    test("matches card ID case-insensitively", () => {
+      expect(applyFilters(cards, { nameSearch: "SV01-036" })).toEqual([sv01036]);
+    });
+
     test("falls back to name search when not a deck code", () => {
       expect(applyFilters(cards, { nameSearch: "Shadow" })).toEqual([cre063]);
     });

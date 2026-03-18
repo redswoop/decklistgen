@@ -14,7 +14,7 @@
         {
           "type": "text",
           "props": {
-            "text": "Professor's Research",
+            "text": "Iono",
             "fontSize": "$cardName.trainer",
             "fontFamily": "title",
             "fontWeight": "bold",
@@ -36,7 +36,9 @@
             "vAlign": "bottom"
           },
           "bind": {
-            "text": "_baseName"
+            "text": "_baseName",
+            "fill": "_textFill",
+            "stroke": "_textStroke"
           }
         }
       ]
@@ -54,7 +56,7 @@
         {
           "type": "text",
           "props": {
-            "text": "Professor Oak",
+            "text": "",
             "fontSize": "$subtitle.trainer",
             "fontFamily": "body",
             "fontWeight": "bold",
@@ -65,7 +67,8 @@
             "vAlign": "middle"
           },
           "bind": {
-            "text": "_subtitle"
+            "text": "_subtitle",
+            "fill": "_subtleFill"
           }
         }
       ]
@@ -124,23 +127,31 @@
       "id": "content-block",
       "props": {
         "anchorX": 20,
-        "anchorY": 0,
+        "anchorY": 20,
         "width": 710,
         "direction": "column",
         "vAnchor": "bottom",
-        "paddingTop": 8,
-        "paddingRight": 12,
+        "paddingTop": 25,
+        "paddingRight": 25,
         "paddingBottom": 37,
-        "paddingLeft": 12,
+        "paddingLeft": 25,
         "fill": "#000000",
         "fillOpacity": 0.15,
-        "rx": 5
+        "rx": 25,
+        "filter": "glass-blur",
+        "marginLeft": 0,
+        "marginRight": 0,
+        "marginTop": 0
+      },
+      "bind": {
+        "fill": "_contentFill",
+        "fillOpacity": "_contentOpacity"
       },
       "children": [
         {
           "type": "text",
           "props": {
-            "text": "Discard your hand and draw 7 cards.",
+            "text": "Each player shuffles their hand and puts it on the bottom of their deck. If either player put any cards on the bottom of their deck in this way, each player draws a card for each of their remaining Prize cards.",
             "fontSize": "$trainerEffect",
             "fontFamily": "body",
             "fontWeight": "bold",
@@ -151,7 +162,8 @@
             "marginTop": 0
           },
           "bind": {
-            "text": "effect"
+            "text": "effect",
+            "fill": "_textFill"
           }
         },
         {
@@ -168,13 +180,14 @@
             "marginTop": 10
           },
           "bind": {
-            "text": "_ruleText"
+            "text": "_ruleText",
+            "fill": "_subtleFill"
           }
         },
         {
           "type": "text",
           "props": {
-            "text": "Celebrations • 24",
+            "text": "Paldea Evolved • 254",
             "fontSize": "$footer",
             "fontFamily": "body",
             "fontWeight": "normal",
@@ -185,7 +198,8 @@
             "marginTop": 6
           },
           "bind": {
-            "text": "_footer"
+            "text": "_footer",
+            "fill": "_subtleFill"
           }
         }
       ]

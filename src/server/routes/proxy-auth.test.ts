@@ -390,6 +390,24 @@ describe("POST /pokeproxy/generate/:cardId (requireAuthorized)", () => {
     unlinkSync(join(CACHE_DIR, `${MOCK_CARD_ID}_composite.png`));
   });
 
+  test("re-queues when existing clean is stale (rule/prompt changed)", async () => {
+    // Write a composite + meta with an old/stale rule
+    writeFileSync(join(CACHE_DIR, `${MOCK_CARD_ID}_composite.png`), TINY_PNG);
+    writeFileSync(
+      join(CACHE_DIR, `${MOCK_CARD_ID}_clean_meta.json`),
+      JSON.stringify({ rule: "standard-pokemon", prompt: "old fallback prompt" }),
+    );
+    const res = await postJson(`/pokeproxy/generate/${MOCK_CARD_ID}`, {}, authorizedSession);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // Should queue re-generation instead of returning already_exists
+    expect(body.status).toBe("queued");
+    expect(body.jobId).toBeTruthy();
+    // Clean up
+    unlinkSync(join(CACHE_DIR, `${MOCK_CARD_ID}_composite.png`));
+    unlinkSync(join(CACHE_DIR, `${MOCK_CARD_ID}_clean_meta.json`));
+  });
+
   test("queues nonexistent card (failure happens async)", async () => {
     const res = await postJson(`/pokeproxy/generate/${NONEXISTENT_CARD}`, {}, authorizedSession);
     expect(res.status).not.toBe(401);

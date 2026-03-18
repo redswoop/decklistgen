@@ -40,8 +40,11 @@ export function applyFilters(cards: Card[], filters: CardFilters): Card[] {
 
     if (filters.nameSearch) {
       const search = filters.nameSearch.trim();
-      // Try deck code match first (e.g. "CRE 063"), fall back to name substring
-      if (!matchesDeckCode(card, search) && !card.name.toLowerCase().includes(search.toLowerCase())) return false;
+      const searchLower = search.toLowerCase();
+      // Try card ID exact match, deck code match (e.g. "CRE 063"), then name substring
+      if (card.id.toLowerCase() !== searchLower
+        && !matchesDeckCode(card, search)
+        && !card.name.toLowerCase().includes(searchLower)) return false;
     }
 
     if (filters.specialAttributes?.length) {
