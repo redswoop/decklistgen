@@ -7,6 +7,7 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile, readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import type { CardTemplate } from "../../shared/types/template.js";
+import { clearTemplateCache } from "../services/pokeproxy/render-json-template.js";
 
 function isValidTemplateId(id: string): boolean {
   return /^[a-zA-Z0-9_-]+$/.test(id);
@@ -69,6 +70,7 @@ export function createTemplateRouter(dir?: string) {
     };
     const p = join(TEMPLATES_DIR, `${id}.json`);
     await writeFile(p, JSON.stringify(template, null, 2));
+    clearTemplateCache();
     return c.json({ ok: true, id });
   });
 

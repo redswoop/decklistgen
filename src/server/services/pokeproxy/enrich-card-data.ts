@@ -6,7 +6,7 @@
 
 import { splitNameSuffix, splitNameSubtitle } from "./svg-helpers.js";
 import { getPokemonSuffix } from "./text.js";
-import { POKEMON_RULES, TRAINER_RULES, TYPE_MATCHUPS } from "./constants.js";
+import { POKEMON_RULES, TRAINER_RULES, TYPE_MATCHUPS, TYPE_COLORS } from "./constants.js";
 
 /** Enrich raw card data with computed fields for template rendering. Mutates and returns `data`. */
 export function enrichCardData(data: Record<string, unknown>): Record<string, unknown> {
@@ -53,9 +53,33 @@ export function enrichCardData(data: Record<string, unknown>): Record<string, un
   const bigLogoSuffix = suffix === "VSTAR" ? "VSTAR-big" : undefined;
   if (bigLogoSuffix) data._bigLogoSuffix = bigLogoSuffix;
 
+  // Adaptive text mode — default "light" (white text for dark backgrounds)
+  const textMode = (data._textMode as string) ?? "light";
+  if (textMode === "dark") {
+    data._textFill = "#222222";
+    data._textStroke = "#ffffff";
+    data._textStrokeWidth = 2.5;
+    data._subtleFill = "#333333";
+    data._palette = "dark";
+    data._contentFill = "#ffffff";
+    data._contentOpacity = 0.12;
+  } else {
+    data._textFill = "#ffffff";
+    data._textStroke = "#000000";
+    data._textStrokeWidth = 2.5;
+    data._subtleFill = "#ffffff";
+    data._palette = "light";
+    data._contentFill = "#000000";
+    data._contentOpacity = 0.15;
+  }
+
+  // Ribbon color from primary energy type
+  const primaryType = ((data.types as string[]) ?? [])[0] ?? "";
+  data._ribbonColor = TYPE_COLORS[primaryType] ?? "";
+
   // Auto-compute weaknesses/resistances from TYPE_MATCHUPS if not present
   if (category !== "Trainer" && category !== "Energy") {
-    const cardType = ((data.types as string[]) ?? [])[0] ?? "";
+    const cardType = primaryType;
     if (!data.weaknesses && cardType in TYPE_MATCHUPS) {
       const [wt, wv] = TYPE_MATCHUPS[cardType];
       if (wt) data.weaknesses = [{ type: wt, value: wv! }];

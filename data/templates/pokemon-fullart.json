@@ -43,12 +43,15 @@
             "marginRight": 4,
             "marginBottom": 4,
             "vAlign": "bottom"
+          },
+          "bind": {
+            "fill": "_textFill"
           }
         },
         {
           "type": "text",
           "props": {
-            "text": 170,
+            "text": 210,
             "fontSize": "$hp.fullart",
             "fontFamily": "title",
             "fontWeight": "bold",
@@ -63,14 +66,16 @@
             "vAlign": "bottom"
           },
           "bind": {
-            "text": "hp"
+            "text": "hp",
+            "fill": "_textFill",
+            "stroke": "_textStroke"
           }
         },
         {
           "type": "image",
           "props": {
             "src": "energy",
-            "energyType": "Metal",
+            "energyType": "Darkness",
             "radius": 25,
             "vAlign": "middle"
           },
@@ -92,7 +97,7 @@
         {
           "type": "text",
           "props": {
-            "text": "Solgaleo",
+            "text": "Absol",
             "fontSize": "$cardName.fullart",
             "fontFamily": "title",
             "fontWeight": "bold",
@@ -107,14 +112,16 @@
             "vAlign": "bottom"
           },
           "bind": {
-            "text": "_baseName"
+            "text": "_baseName",
+            "fill": "_textFill",
+            "stroke": "_textStroke"
           }
         },
         {
           "type": "image",
           "props": {
             "src": "logo",
-            "suffix": "",
+            "suffix": "ex",
             "height": 55,
             "filter": "title-shadow",
             "marginLeft": 4,
@@ -139,7 +146,7 @@
         {
           "type": "text",
           "props": {
-            "text": "Evolves from Cosmoem",
+            "text": "",
             "fontSize": "$evolvesFrom.fullart",
             "fontFamily": "body",
             "fontWeight": "bold",
@@ -153,7 +160,9 @@
             "strokeWidth": 2.5
           },
           "bind": {
-            "text": "_evolvesFrom"
+            "text": "_evolvesFrom",
+            "fill": "_textFill",
+            "stroke": "_textStroke"
           }
         }
       ]
@@ -167,13 +176,20 @@
         "width": 710,
         "direction": "column",
         "vAnchor": "bottom",
-        "paddingTop": 4,
-        "paddingRight": 8,
+        "paddingTop": 15,
+        "paddingRight": 15,
         "paddingBottom": 37,
-        "paddingLeft": 8,
+        "paddingLeft": 15,
         "fill": "#000000",
         "fillOpacity": 0.15,
-        "rx": 5
+        "rx": 25,
+        "filter": "glass-blur",
+        "blurRadius": 5,
+        "marginTop": 0
+      },
+      "bind": {
+        "fill": "_contentFill",
+        "fillOpacity": "_contentOpacity"
       },
       "children": [
         {
@@ -234,7 +250,8 @@
                       "vAlign": "middle"
                     },
                     "bind": {
-                      "text": "name"
+                      "text": "name",
+                      "fill": "_textFill"
                     }
                   }
                 ]
@@ -254,7 +271,9 @@
                   "marginTop": 4
                 },
                 "bind": {
-                  "text": "effect"
+                  "text": "effect",
+                  "fill": "_textFill",
+                  "palette": "_palette"
                 },
                 "showIf": "effect"
               }
@@ -281,7 +300,11 @@
                 "type": "box",
                 "props": {
                   "direction": "row",
-                  "marginBottom": 5
+                  "marginBottom": 5,
+                  "fillGradient": "ribbon"
+                },
+                "bind": {
+                  "fill": "_ribbonColor"
                 },
                 "children": [
                   {
@@ -325,7 +348,8 @@
                       "marginBottom": 5
                     },
                     "bind": {
-                      "text": "name"
+                      "text": "name",
+                      "fill": "_textFill"
                     }
                   },
                   {
@@ -365,7 +389,9 @@
                   "marginTop": 4
                 },
                 "bind": {
-                  "text": "effect"
+                  "text": "effect",
+                  "fill": "_textFill",
+                  "palette": "_palette"
                 },
                 "showIf": "effect"
               }
@@ -400,7 +426,7 @@
               "type": "image",
               "props": {
                 "src": "energy",
-                "energyType": "Fire",
+                "energyType": "Grass",
                 "radius": 12,
                 "grow": 0,
                 "hAlign": "start",
@@ -428,7 +454,8 @@
                 "vAlign": "middle"
               },
               "bind": {
-                "text": "weaknesses[0].value"
+                "text": "weaknesses[0].value",
+                "fill": "_textFill"
               }
             },
             {
@@ -479,7 +506,8 @@
                 "vAlign": "middle"
               },
               "bind": {
-                "text": "resistances[0].value"
+                "text": "resistances[0].value",
+                "fill": "_textFill"
               }
             },
             {
@@ -525,7 +553,7 @@
         {
           "type": "text",
           "props": {
-            "text": "",
+            "text": "When this ex is KO'd, opponent takes 2 Prizes.",
             "fontSize": "$ruleText",
             "fontFamily": "body",
             "fontWeight": "normal",
@@ -536,14 +564,15 @@
             "marginTop": 6
           },
           "bind": {
-            "text": "_ruleText"
+            "text": "_ruleText",
+            "fill": "_subtleFill"
           },
           "showIf": "_ruleText"
         },
         {
           "type": "text",
           "props": {
-            "text": "Celebrations • 21",
+            "text": "Obsidian Flames • 214",
             "fontSize": "$footer",
             "fontFamily": "body",
             "fontWeight": "normal",
@@ -554,7 +583,8 @@
             "marginTop": 4
           },
           "bind": {
-            "text": "_footer"
+            "text": "_footer",
+            "fill": "_subtleFill"
           }
         }
       ]

@@ -17,7 +17,9 @@ import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import type { TcgdexCard } from "../../shared/types/card.js";
 import { suggestTemplate } from "../../shared/utils/suggest-template.js";
 import { resetIconIds } from "../services/pokeproxy/type-icons.js";
+import { setCardIdPrefix } from "../services/pokeproxy/svg-frame.js";
 import { renderFromJsonTemplate } from "../services/pokeproxy/render-json-template.js";
+import { analyzeImageBrightness } from "../services/pokeproxy/image-brightness.js";
 import { renderEnergyPreviewSvg } from "../services/pokeproxy/energy-preview.js";
 import { logAction, getClientIp } from "../services/logger.js";
 
@@ -147,7 +149,7 @@ const SYNTH_ABILITIES = [
 
 /** Render SVG using the template engine.
  *  artCardId: optional override — use this card's image instead of cardId's. */
-async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions, artCardId?: string): Promise<string> {
+async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions, artCardId?: string, idPrefix?: string): Promise<string> {
   // Determine which card provides the image (art override or same card)
   const imageId = artCardId ?? cardId;
 
@@ -186,9 +188,24 @@ async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions, 
     templateName = "pokemon-fullart";
   }
 
-  resetIconIds();
+  // Adaptive text mode: analyze image brightness for fullart/trainer templates
+  if (imageB64 && (templateName === "pokemon-fullart" || templateName === "trainer")) {
+    try {
+      const imageBuffer = Buffer.from(imageB64, "base64");
+      const brightness = await analyzeImageBrightness(imageBuffer);
+      cardData._textMode = brightness > 0.6 ? "dark" : "light";
+    } catch {
+      // Fall back to light mode on error
+    }
+  }
 
-  return renderFromJsonTemplate(templateName, cardData, imageB64);
+  resetIconIds();
+  // Set card-scoped ID prefix just before synchronous render — after all awaits,
+  // so concurrent requests can't stomp on each other's prefix.
+  setCardIdPrefix(idPrefix ?? `${cardId}-`);
+  const svg = renderFromJsonTemplate(templateName, cardData, imageB64);
+  setCardIdPrefix("");
+  return svg;
 }
 
 const app = new Hono<AppEnv>();
@@ -363,11 +380,6 @@ app.post("/generate/:cardId", requireAuthorized, async (c) => {
   const promptOverride = c.req.query("prompt") || undefined;
   const seed = seedParam ? Math.max(0, Math.min(999999999, parseInt(seedParam, 10) || 0)) : force ? Math.floor(Math.random() * 999999) : 42;
 
-  const existsSuffix = mode === "fullart" ? "_fullart.png" : "_composite.png";
-  if (!force && hasFile(cardId, existsSuffix)) {
-    return c.json({ cardId, status: "already_exists" });
-  }
-
   // Resolve prompt before queuing
   const cardData = loadCardData(cardId);
   let prompt: string;
@@ -391,6 +403,26 @@ app.post("/generate/:cardId", requireAuthorized, async (c) => {
       prompt = result.prompt;
       ruleName = result.ruleName;
     }
+  }
+
+  const existsSuffix = mode === "fullart" ? "_fullart.png" : "_composite.png";
+  if (!force && hasFile(cardId, existsSuffix)) {
+    // Check if existing clean is stale (generated with a different rule or prompt)
+    const metaSuffix = mode === "fullart" ? "_fullart_meta.json" : "_clean_meta.json";
+    const metaPath = cachePath(cardId, metaSuffix);
+    let stale = false;
+    if (existsSync(metaPath)) {
+      try {
+        const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+        if (meta.rule !== ruleName || meta.prompt !== prompt) {
+          stale = true;
+        }
+      } catch {}
+    }
+    if (!stale) {
+      return c.json({ cardId, status: "already_exists" });
+    }
+    // Stale clean — fall through to re-generate
   }
 
   // Resolve card name + image base for queue display
@@ -465,9 +497,10 @@ app.get("/print/:deckId", requireAuth, async (c) => {
   resetIconIds();
 
   const cardSvgs: [number, string][] = [];
-  for (const entry of entries) {
+  for (let ci = 0; ci < entries.length; ci++) {
+    const entry = entries[ci];
     const cardId = entry.card.id;
-    const svg = await generateSvgFromTemplate(cardId, undefined, entry.artCard?.id);
+    const svg = await generateSvgFromTemplate(cardId, undefined, entry.artCard?.id, `c${ci}-`);
     cardSvgs.push([oneEach ? 1 : entry.count, svg]);
   }
 

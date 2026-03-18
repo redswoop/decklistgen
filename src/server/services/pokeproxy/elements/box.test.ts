@@ -360,6 +360,177 @@ describe("BoxElement toJSON round-trip", () => {
   });
 });
 
+describe("BoxElement glass-blur filter", () => {
+  test("glass-blur renders <use> with clipped blur and overlay rect", () => {
+    const box = new BoxElement(
+      {
+        anchorX: 20, anchorY: 600, width: 710, direction: "column",
+        paddingTop: 4, paddingBottom: 37, paddingLeft: 8, paddingRight: 8,
+        fill: "#000000", fillOpacity: 0.15, rx: 5, filter: "glass-blur",
+      },
+      [new TextElement({ text: "Hello", fontSize: 20 })],
+      undefined,
+      "content-block",
+    );
+    const svg = box.render(20, 600);
+    // Should have a clipPath for glass
+    expect(svg).toContain('clip-path="url(#glass-clip-content-block)"');
+    // Should reference the background image
+    expect(svg).toContain('href="#bg-image"');
+    // Should apply a per-box glass-blur filter
+    expect(svg).toContain('filter="url(#glass-blur-content-block)"');
+    expect(svg).toContain('stdDeviation="18"');
+    // Should have an overlay rect
+    expect(svg).toContain('fill="#000000"');
+    expect(svg).toContain('opacity="0.15"');
+    // The <use> should offset by negative absolute position
+    expect(svg).toContain('x="-20"');
+    expect(svg).toContain('y="-600"');
+  });
+
+  test("glass-blur falls back to solid rect when no absX/absY (empty children)", () => {
+    // Edge case: box with no children renders empty <g>
+    const box = new BoxElement(
+      { direction: "column", fill: "#000", filter: "glass-blur" },
+      [],
+      undefined,
+      "empty-box",
+    );
+    const svg = box.render(0, 0);
+    expect(svg).toBe('<g data-element-id="empty-box"></g>');
+  });
+
+  test("filter=none renders standard solid rect", () => {
+    const box = new BoxElement(
+      {
+        anchorX: 0, anchorY: 0, width: 500, direction: "column",
+        fill: "#333", fillOpacity: 0.2, rx: 5, filter: "none",
+      },
+      [new TextElement({ text: "Hi", fontSize: 20 })],
+      undefined,
+      "solid-box",
+    );
+    const svg = box.render(0, 0);
+    expect(svg).toContain('<rect');
+    expect(svg).toContain('fill="#333"');
+    expect(svg).not.toContain('href="#bg-image"');
+    expect(svg).not.toContain('glass-blur-');
+  });
+
+  test("custom blurRadius controls stdDeviation", () => {
+    const box = new BoxElement(
+      {
+        direction: "column", width: 500, fill: "#000", fillOpacity: 0.1,
+        filter: "glass-blur", blurRadius: 8,
+      },
+      [new TextElement({ text: "Hi", fontSize: 20 })],
+      undefined,
+      "custom-blur",
+    );
+    const svg = box.render(10, 20);
+    expect(svg).toContain('stdDeviation="8"');
+    expect(svg).not.toContain('stdDeviation="18"');
+  });
+
+  test("row box with glass-blur renders correctly", () => {
+    const box = new BoxElement(
+      {
+        direction: "row", fill: "#000", fillOpacity: 0.1, rx: 10, filter: "glass-blur",
+      },
+      [new TextElement({ text: "Test", fontSize: 20 })],
+      undefined,
+      "row-glass",
+    );
+    const svg = box.render(50, 100);
+    expect(svg).toContain('clip-path="url(#glass-clip-row-glass)"');
+    expect(svg).toContain('filter="url(#glass-blur-row-glass)"');
+    expect(svg).toContain('href="#bg-image"');
+    expect(svg).toContain('x="-50"');
+    expect(svg).toContain('y="-100"');
+  });
+});
+
+describe("BoxElement fillGradient", () => {
+  test("fillGradient renders linearGradient as separate layer before content", () => {
+    const box = new BoxElement(
+      {
+        direction: "row", fill: "#D4301A", fillGradient: "ribbon",
+      },
+      [new TextElement({ text: "Attack", fontSize: 20 })],
+      undefined,
+      "attack-row",
+    );
+    const svg = box.render(0, 0);
+    expect(svg).toContain("<linearGradient");
+    expect(svg).toContain('id="grad-attack-row"');
+    expect(svg).toContain('stop-color="#D4301A"');
+    expect(svg).toContain('fill="url(#grad-attack-row)"');
+    // Gradient layer <g> should come before the content <g>
+    const gradIdx = svg.indexOf('fill="url(#grad-attack-row)"');
+    const textIdx = svg.indexOf(">Attack</text>");
+    expect(gradIdx).toBeLessThan(textIdx);
+    // They should be in separate <g> elements (gradient not inside content group)
+    const gradGroupEnd = svg.indexOf("</g>", gradIdx);
+    expect(gradGroupEnd).toBeLessThan(textIdx);
+  });
+
+  test("empty fillGradient renders solid rect", () => {
+    const box = new BoxElement(
+      {
+        direction: "row", fill: "#333", fillOpacity: 0.2, fillGradient: "",
+      },
+      [new TextElement({ text: "Hi", fontSize: 20 })],
+      undefined,
+      "solid-box",
+    );
+    const svg = box.render(0, 0);
+    expect(svg).toContain('fill="#333"');
+    expect(svg).not.toContain("<linearGradient");
+  });
+
+  test("unknown fillGradient name falls through to solid rect", () => {
+    const box = new BoxElement(
+      {
+        direction: "row", fill: "#333", fillOpacity: 0.5, fillGradient: "nonexistent",
+      },
+      [new TextElement({ text: "Hi", fontSize: 20 })],
+      undefined,
+      "fallback-box",
+    );
+    const svg = box.render(0, 0);
+    expect(svg).toContain('fill="#333"');
+    expect(svg).not.toContain("<linearGradient");
+  });
+
+  test("fillGradient without fill renders nothing (no gradient without color)", () => {
+    const box = new BoxElement(
+      {
+        direction: "row", fill: "", fillGradient: "ribbon",
+      },
+      [new TextElement({ text: "Hi", fontSize: 20 })],
+    );
+    const svg = box.render(0, 0);
+    expect(svg).not.toContain("<linearGradient");
+    expect(svg).not.toContain("<rect");
+  });
+
+  test("column box with fillGradient renders gradient layer before content", () => {
+    const box = new BoxElement(
+      {
+        direction: "column", width: 500, fill: "#D4301A", fillGradient: "ribbon",
+      },
+      [new TextElement({ text: "Attack", fontSize: 20 })],
+      undefined,
+      "col-grad",
+    );
+    const svg = box.render(0, 0);
+    expect(svg).toContain("<linearGradient");
+    const gradIdx = svg.indexOf('fill="url(#grad-col-grad)"');
+    const textIdx = svg.indexOf(">Attack</text>");
+    expect(gradIdx).toBeLessThan(textIdx);
+  });
+});
+
 describe("BoxElement propDefs", () => {
   test("propDefs has isPosition on anchorX/anchorY", () => {
     const box = new BoxElement(undefined, undefined, undefined, "box-1");

@@ -5,6 +5,7 @@ import BeautifyDialog from "./BeautifyDialog.vue";
 import BatchGenerateDialog from "./BatchGenerateDialog.vue";
 import VariantPicker from "./VariantPicker.vue";
 import PrintDialog from "./PrintDialog.vue";
+import ConfirmDialog from "./ConfirmDialog.vue";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
 import { generateCleanImage } from "../composables/usePokeproxy.js";
@@ -53,6 +54,7 @@ const headerLabel = computed(() => {
 const showBeautify = ref(false);
 const showBatchGenerate = ref(false);
 const showPrintDialog = ref(false);
+const showSaveBeforePrint = ref(false);
 const variantPickerCard = ref<Card | null>(null);
 
 // --- Search-to-add ---
@@ -117,6 +119,18 @@ function handlePreview(card: Card, cards: Card[]) {
 
 function handlePrint() {
   if (!currentDeckId.value) return;
+  if (isDirty.value) {
+    showSaveBeforePrint.value = true;
+    return;
+  }
+  showPrintDialog.value = true;
+}
+
+async function handleSaveAndPrint() {
+  showSaveBeforePrint.value = false;
+  emit("save-update");
+  // Brief delay to let the save complete before opening print
+  await new Promise((r) => setTimeout(r, 300));
   showPrintDialog.value = true;
 }
 
@@ -245,6 +259,16 @@ async function handleBeautifyUpdated() {
       v-if="showPrintDialog && currentDeckId"
       :deck-id="currentDeckId"
       @close="showPrintDialog = false"
+    />
+
+    <ConfirmDialog
+      v-if="showSaveBeforePrint"
+      title="Unsaved Changes"
+      message="Your deck has unsaved changes. Save before printing?"
+      confirm-label="Save & Print"
+      :confirm-danger="false"
+      @confirm="handleSaveAndPrint"
+      @close="showSaveBeforePrint = false"
     />
   </div>
 </template>
