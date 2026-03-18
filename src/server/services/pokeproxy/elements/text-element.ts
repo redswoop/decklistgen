@@ -5,9 +5,25 @@
 
 import type { PropDef, LayoutNode, NodeState } from "./types.js";
 import { measureWidth, ftWrap } from "../text.js";
-import { FONT_TITLE, FONT_BODY } from "../constants.js";
+import { FONT_TITLE, FONT_BODY, ENERGY_COLORS_DARK, ENERGY_COLORS_LIGHT } from "../constants.js";
+import type { EnergyPalette } from "../constants.js";
 import { escapeXml } from "../svg-helpers.js";
 import { SUB_PROP_DEFS } from "@shared/constants/prop-defs.js";
+
+export function expandEnergyTokens(text: string, fontSize: number, palette: EnergyPalette): string {
+  return text.replace(/\{([A-Z])\}/g, (_, letter: string) => {
+    const color = palette[letter] ?? "#888";
+    const glyphSize = Math.floor(fontSize * 1.1);
+    // Shift glyph up to vertically center with surrounding text.
+    // The icon font has different metrics, so we nudge by ~15% of fontSize.
+    const dy = -Math.round(fontSize * 0.15);
+    const baseline = `dy="${dy}" dominant-baseline="auto"`;
+    if (letter === "N") {
+      return `<tspan fill="${color}" font-size="${glyphSize}" ${baseline}>&#x25CF;</tspan>`;
+    }
+    return `<tspan font-family="EssentiarumTCG" fill="${color}" font-size="${glyphSize}" ${baseline}>${letter}</tspan>`;
+  });
+}
 
 export class TextElement implements LayoutNode {
   readonly type = "text" as const;
@@ -28,6 +44,7 @@ export class TextElement implements LayoutNode {
       filter: "none",
       textAnchor: "start",
       wrap: 0,
+      palette: "dark",
       grow: 0,
       hAlign: "start",
       marginTop: 0,
@@ -91,7 +108,9 @@ export class TextElement implements LayoutNode {
     }
     attrs += ` text-anchor="${String(textAnchor || "start")}"`;
     attrs += ` dominant-baseline="hanging"`;
-    return `<text ${attrs}>${escapeXml(String(text))}</text>`;
+    const pal = String(this.props.palette) === "light" ? ENERGY_COLORS_LIGHT : ENERGY_COLORS_DARK;
+    const content = expandEnergyTokens(escapeXml(String(text)), Number(fontSize), pal);
+    return `<text ${attrs}>${content}</text>`;
   }
 
   private _renderWrapped(x: number, y: number): string {
@@ -121,9 +140,11 @@ export class TextElement implements LayoutNode {
     attrs += ` text-anchor="${textAnchor}"`;
     attrs += ` dominant-baseline="hanging"`;
 
-    const tspans = lines.map((line, i) =>
-      `<tspan x="${x}" y="${y + i * lineH}">${escapeXml(line)}</tspan>`
-    ).join("");
+    const pal = String(this.props.palette) === "light" ? ENERGY_COLORS_LIGHT : ENERGY_COLORS_DARK;
+    const tspans = lines.map((line, i) => {
+      const content = expandEnergyTokens(escapeXml(line), fontSize, pal);
+      return `<tspan x="${x}" y="${y + i * lineH}">${content}</tspan>`;
+    }).join("");
 
     return `<text ${attrs}>${tspans}</text>`;
   }

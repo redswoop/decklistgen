@@ -1,8 +1,9 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { TextElement } from "./text-element.js";
+import { TextElement, expandEnergyTokens } from "./text-element.js";
 import { createNode } from "./index.js";
 import { resetIconIds } from "../type-icons.js";
 import { measureWidth } from "../text.js";
+import { ENERGY_COLORS_DARK, ENERGY_COLORS_LIGHT } from "../constants.js";
 
 beforeEach(() => {
   resetIconIds();
@@ -147,5 +148,82 @@ describe("TextElement wrapped mode", () => {
     const restored = createNode(json);
     expect(restored).toBeInstanceOf(TextElement);
     expect(restored.props.text).toBe("Effect text");
+  });
+});
+
+describe("expandEnergyTokens", () => {
+  test("replaces {P} with EssentiarumTCG tspan and Psychic color", () => {
+    const result = expandEnergyTokens("Costs {P}", 20, ENERGY_COLORS_DARK);
+    expect(result).toContain('font-family="EssentiarumTCG"');
+    expect(result).toContain(`fill="${ENERGY_COLORS_DARK.P}"`);
+    expect(result).toContain('font-size="22"'); // floor(20 * 1.1)
+    expect(result).toContain(">P</tspan>");
+    expect(result).toContain('dy="-3"'); // baseline alignment offset
+    expect(result).toContain('dominant-baseline="auto"');
+    expect(result).toStartWith("Costs ");
+  });
+
+  test("replaces {N} (Dragon) with filled circle instead of letter", () => {
+    const result = expandEnergyTokens("{N}", 20, ENERGY_COLORS_DARK);
+    expect(result).toContain("&#x25CF;");
+    expect(result).not.toContain('font-family="EssentiarumTCG"');
+    expect(result).toContain(`fill="${ENERGY_COLORS_DARK.N}"`);
+    expect(result).toContain('dy="-3"');
+  });
+
+  test("text with no tokens is returned unchanged", () => {
+    const result = expandEnergyTokens("Plain text", 20, ENERGY_COLORS_DARK);
+    expect(result).toBe("Plain text");
+  });
+
+  test("multiple tokens in one string", () => {
+    const result = expandEnergyTokens("{R}{R}{C}", 20, ENERGY_COLORS_DARK);
+    expect(result).not.toContain("{R}");
+    expect(result).not.toContain("{C}");
+    const tspanCount = (result.match(/<tspan/g) || []).length;
+    expect(tspanCount).toBe(3);
+  });
+
+  test("light palette uses light colors", () => {
+    const result = expandEnergyTokens("{P}", 20, ENERGY_COLORS_LIGHT);
+    expect(result).toContain(`fill="${ENERGY_COLORS_LIGHT.P}"`);
+  });
+
+  test("unknown letter falls back to #888", () => {
+    const result = expandEnergyTokens("{Z}", 20, ENERGY_COLORS_DARK);
+    expect(result).toContain('fill="#888"');
+  });
+});
+
+describe("TextElement energy glyphs", () => {
+  test("single-line render expands energy tokens", () => {
+    const item = new TextElement({ text: "Discard {P} energy", fontSize: 20 });
+    const svg = item.render(0, 0);
+    expect(svg).toContain('font-family="EssentiarumTCG"');
+    expect(svg).toContain(`fill="${ENERGY_COLORS_DARK.P}"`);
+    expect(svg).not.toContain("{P}");
+  });
+
+  test("wrapped render expands energy tokens per line", () => {
+    const item = new TextElement({ text: "Discard {P} energy", fontSize: 20, fontFamily: "body", wrap: 1 });
+    item.measure(500);
+    const svg = item.render(0, 0);
+    expect(svg).toContain('font-family="EssentiarumTCG"');
+    expect(svg).not.toContain("{P}");
+  });
+
+  test("palette light uses light colors", () => {
+    const item = new TextElement({ text: "{R}", fontSize: 20, palette: "light" });
+    const svg = item.render(0, 0);
+    expect(svg).toContain(`fill="${ENERGY_COLORS_LIGHT.R}"`);
+  });
+
+  test("XML escaping works alongside energy tokens", () => {
+    const item = new TextElement({ text: "Costs {P} & {R}", fontSize: 20 });
+    const svg = item.render(0, 0);
+    expect(svg).toContain("&amp;");
+    expect(svg).toContain('font-family="EssentiarumTCG"');
+    expect(svg).not.toContain("{P}");
+    expect(svg).not.toContain("{R}");
   });
 });

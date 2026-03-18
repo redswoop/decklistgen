@@ -156,6 +156,7 @@ export const SUB_PROP_DEFS: Record<string, PropDef[]> = {
     { key: "filter", label: "Filter", type: "select", options: ["none", "shadow", "title-shadow", "dmg-shadow"], group: "appearance" },
     { key: "textAnchor", label: "Anchor", type: "select", options: ["start", "middle", "end"], group: "align" },
     { key: "wrap", label: "Wrap", type: "select", options: ["0", "1"], group: "align" },
+    { key: "palette", label: "Energy Palette", type: "select", options: ["dark", "light"], default: "dark", group: "appearance" },
     { key: "grow", label: "Grow", type: "number", min: 0, max: 10, step: 1, group: "layout" },
     { key: "hAlign", label: "H-Align", type: "select", options: ["start", "center", "end"], group: "align" },
     { key: "marginTop", label: "Margin Top", type: "number", min: -50, max: 50, step: 1 },

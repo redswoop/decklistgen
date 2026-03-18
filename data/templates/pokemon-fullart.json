@@ -250,6 +250,7 @@
                   "opacity": 0.9,
                   "filter": "shadow",
                   "wrap": 1,
+                  "palette": "light",
                   "marginTop": 4
                 },
                 "bind": {
@@ -360,6 +361,7 @@
                   "opacity": 1,
                   "filter": "shadow",
                   "wrap": 1,
+                  "palette": "light",
                   "marginTop": 4
                 },
                 "bind": {

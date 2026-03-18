@@ -257,6 +257,7 @@
                   "fill": "#ffffff",
                   "filter": "shadow",
                   "wrap": 1,
+                  "palette": "light",
                   "marginTop": 4
                 },
                 "bind": {
@@ -351,6 +352,7 @@
                   "opacity": 0.9,
                   "filter": "shadow",
                   "wrap": 1,
+                  "palette": "light",
                   "marginTop": 4
                 },
                 "bind": {
