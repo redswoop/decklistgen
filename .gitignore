@@ -5,8 +5,6 @@ cache/
 *.tsbuildinfo
 .DS_Store
 *.swp
-pokeproxy/.venv/
-pokeproxy/__pycache__/
 data/logs/
 data/decklistgen.db*
 *.bak
