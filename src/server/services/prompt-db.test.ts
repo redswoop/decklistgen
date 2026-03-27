@@ -78,21 +78,20 @@ const CARDS = {
 };
 
 describe("prompt-db", () => {
-  test("all non-energy cards get expand prompt", () => {
+  test("all cards get expand prompt", () => {
     for (const [label, card] of Object.entries(CARDS)) {
       const result = getPromptForCard(card);
-      if (card.category === "Energy" && card.energyType === "Normal") continue;
       expect(result.skip).toBe(false);
       expect(result.prompt).toBe(EXPAND_PROMPT);
       console.log(`${label.padEnd(20)} rule=${result.ruleName}`);
     }
   });
 
-  test("basic energy is skipped", () => {
+  test("basic energy gets expand prompt", () => {
     const result = getPromptForCard(CARDS.energyBasic);
-    expect(result.ruleName).toBe("energy-skip");
-    expect(result.skip).toBe(true);
-    expect(result.prompt).toBeNull();
+    expect(result.ruleName).toBe("default");
+    expect(result.skip).toBe(false);
+    expect(result.prompt).toBe(EXPAND_PROMPT);
   });
 
   test("special energy gets expand prompt", () => {

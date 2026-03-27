@@ -10,7 +10,7 @@ import { join } from "node:path";
 
 export const EXPAND_PROMPT =
   "Expand the illustration from the reference image into a large, detailed scene. " +
-  "Remove all text and other non-illustrative elements.";
+  "Remove all text, headers, and other non-illustrative elements.";
 
 const CARD_PROMPTS_PATH = join(import.meta.dir, "../../../data/card-prompts.json");
 
@@ -63,10 +63,8 @@ export function getPromptForCard(card: Record<string, unknown>): PromptResult {
     return { ruleName: `card:${cardId}`, prompt: overrides[cardId], skip: false };
   }
 
-  // Basic energy — skip (no artwork to expand)
-  if ((card.category as string) === "Energy" && (card.energyType as string) === "Normal") {
-    return { ruleName: "energy-skip", prompt: null, skip: true };
-  }
+  // Basic energy gets the same expand prompt as everything else
+  // (cleaned artwork is used by the basic-energy template)
 
   // Everything else gets expand prompt
   return { ruleName: "default", prompt: EXPAND_PROMPT, skip: false };

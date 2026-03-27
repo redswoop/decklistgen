@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import sharp from "sharp";
 import { join } from "node:path";
 import { getCard, loadSet, isSetLoaded } from "../services/card-store.js";
 import { ping as comfyPing, COMFYUI_URL } from "../services/comfyui.js";
@@ -29,9 +30,8 @@ const CACHE_DIR = join(import.meta.dir, "../../../cache");
 const VALID_CARD_ID = /^[a-zA-Z0-9._-]+$/;
 
 const FULLART_DEFAULT_PROMPT =
-  "Expand this image into a full illustration that fills the entire canvas. " +
-  "Remove all text, borders, and card frame elements. " +
-  "The subject should be the main focus with a detailed, atmospheric background.";
+  "Expand the illustration from the reference image into a large, detailed scene. " +
+  "Remove all text, headers, and other non-illustrative elements.";
 
 function isValidCardId(cardId: string): boolean {
   return VALID_CARD_ID.test(cardId) && !cardId.includes("..");
@@ -279,7 +279,8 @@ app.post("/status/batch", async (c) => {
   return c.json(results);
 });
 
-/** Serve a cleaned/composite image from cache */
+/** Serve a cleaned/composite image from cache.
+ *  Optional ?w=<pixels> query param returns a resized thumbnail (cached on disk). */
 app.get("/image/:cardId/:type", async (c) => {
   const cardId = c.req.param("cardId");
   if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
@@ -288,13 +289,39 @@ app.get("/image/:cardId/:type", async (c) => {
     return c.json({ error: "type must be 'clean', 'composite', 'source', or 'fullart'" }, 400);
   }
 
-  const filePath = cachePath(cardId, type === "source" ? ".png" : `_${type}.png`);
+  const suffix = type === "source" ? ".png" : `_${type}.png`;
+  const filePath = cachePath(cardId, suffix);
   if (!existsSync(filePath)) {
     return c.json({ error: "Not found" }, 404);
   }
 
-  const data = await readFile(filePath);
-  return new Response(data, {
+  const wParam = c.req.query("w");
+  const targetWidth = wParam ? Math.max(16, Math.min(2048, parseInt(wParam, 10) || 0)) : 0;
+
+  if (!targetWidth) {
+    const data = await readFile(filePath);
+    return new Response(data, {
+      headers: {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=86400",
+      },
+    });
+  }
+
+  // Serve a resized thumbnail, cached on disk
+  const thumbPath = cachePath(cardId, `${suffix.replace(".png", "")}_w${targetWidth}.png`);
+  const sourceMtime = statSync(filePath).mtimeMs;
+  const thumbExists = existsSync(thumbPath);
+  const thumbFresh = thumbExists && statSync(thumbPath).mtimeMs >= sourceMtime;
+
+  if (!thumbFresh) {
+    const data = await readFile(filePath);
+    const resized = await sharp(data).resize({ width: targetWidth }).png().toBuffer();
+    await writeFile(thumbPath, resized);
+  }
+
+  const thumbData = await readFile(thumbPath);
+  return new Response(thumbData, {
     headers: {
       "Content-Type": "image/png",
       "Cache-Control": "public, max-age=86400",

@@ -10,11 +10,6 @@ import WebSocket from "ws";
 const COMFYUI_URL = (process.env.COMFYUI_URL ?? "http://localhost:8188").replace(/\/+$/, "");
 const FLUX_W = 736;
 const FLUX_H = 1024;
-const FALLBACK_PROMPT =
-  "Expand the image of the subject, and remove all of the text, footers, " +
-  "and headers in the image, and then add a thin silver border with rounded " +
-  "edges around it, behind the subject";
-
 interface WorkflowNode {
   inputs: Record<string, unknown>;
   class_type: string;
@@ -230,10 +225,10 @@ async function fetchOutputImage(filename: string, subfolder = ""): Promise<Buffe
 export async function cleanCardImage(
   imageBase64: string,
   seed = 42,
-  prompt?: string,
+  prompt: string,
 ): Promise<string> {
   const workflow = buildKleinWorkflow(
-    prompt ?? FALLBACK_PROMPT,
+    prompt,
     seed,
     FLUX_W,
     FLUX_H,

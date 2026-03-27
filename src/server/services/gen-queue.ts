@@ -21,9 +21,8 @@ const CACHE_DIR = join(import.meta.dir, "../../../cache");
 const MAX_HISTORY = 50;
 
 const FULLART_DEFAULT_PROMPT =
-  "Expand this image into a full illustration that fills the entire canvas. " +
-  "Remove all text, borders, and card frame elements. " +
-  "The subject should be the main focus with a detailed, atmospheric background.";
+  "Expand the illustration from the reference image into a large, detailed scene. " +
+  "Remove all text, headers, and other non-illustrative elements.";
 
 // --- State ---
 

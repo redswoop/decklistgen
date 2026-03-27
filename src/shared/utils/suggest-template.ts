@@ -17,6 +17,8 @@ export function suggestTemplate(card: TcgdexCard): TemplateName {
 
   // Basic energy: category is Energy and no effect text (special energies have effect)
   if (category === "Energy" && !card.effect) return "basic-energy";
+  // Special energy cards use the trainer layout (name + effect text + footer)
+  if (category === "Energy" && card.effect) return "trainer";
   if (category === "Trainer") return "trainer";
   if (stage === "VSTAR") return "pokemon-vstar";
   if (isFullArt(card)) return "pokemon-fullart";

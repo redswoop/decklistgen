@@ -26,9 +26,15 @@ export function enrichCardData(data: Record<string, unknown>): Record<string, un
   const category = (data.category as string) ?? "Pokemon";
   const suffix = getPokemonSuffix(data);
   const trainerType = (data.trainerType as string) ?? "";
+  // Special energy cards use the trainer template — set trainerType for the badge
+  if (category === "Energy" && data.effect && !trainerType) {
+    data.trainerType = "Special Energy";
+  }
+
   let ruleText = "";
   if (category === "Pokemon" && suffix in POKEMON_RULES) ruleText = POKEMON_RULES[suffix];
-  else if (category === "Trainer" && trainerType in TRAINER_RULES) ruleText = TRAINER_RULES[trainerType];
+  else if ((category === "Trainer" || category === "Energy") && (data.trainerType as string) in TRAINER_RULES)
+    ruleText = TRAINER_RULES[data.trainerType as string];
   data._ruleText = ruleText;
 
   // Stage — normalize "Stage1" → "Stage 1" for display
@@ -76,6 +82,11 @@ export function enrichCardData(data: Record<string, unknown>): Record<string, un
   // Ribbon color from primary energy type
   const primaryType = ((data.types as string[]) ?? [])[0] ?? "";
   data._ribbonColor = TYPE_COLORS[primaryType] ?? "";
+
+  // Energy label for basic energy badge (e.g. "Fire Energy")
+  if (category === "Energy" && !data.effect) {
+    data._energyLabel = primaryType ? `${primaryType} Energy` : "Basic Energy";
+  }
 
   // Auto-compute weaknesses/resistances from TYPE_MATCHUPS if not present
   if (category !== "Trainer" && category !== "Energy") {

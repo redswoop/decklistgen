@@ -104,6 +104,9 @@ export function isGenerating(cardId: string): boolean {
   return generatingSet.has(cardId);
 }
 
+/** Thumbnail width used for grid tiles when resolution is "low" */
+const THUMB_WIDTH = 250;
+
 /** Get the image URL, respecting mode and availability */
 export function getCardImageUrl(
   card: { id: string; imageBase: string },
@@ -117,8 +120,9 @@ export function getCardImageUrl(
 
   // Prefer composite, then clean, then fall back to original
   const v = getGenerationVersion(card.id);
-  if (s.hasComposite) return api.pokeproxyImageUrl(card.id, "composite", v);
-  if (s.hasClean) return api.pokeproxyImageUrl(card.id, "clean", v);
+  const w = resolution === "low" ? THUMB_WIDTH : undefined;
+  if (s.hasComposite) return api.pokeproxyImageUrl(card.id, "composite", v, w);
+  if (s.hasClean) return api.pokeproxyImageUrl(card.id, "clean", v, w);
 
   return cardImageUrl(card.imageBase, resolution); // Fall back to original art
 }

@@ -7,13 +7,8 @@ describe("suggestTemplate", () => {
   });
 
   it("returns trainer for special energy (energy with effect)", () => {
-    // Special energies have an effect field — they're still Energy category but not basic
-    // Actually they should NOT be trainer, let's think... the function checks Energy first
-    // If category=Energy and effect exists, it falls through to fullart/standard check
     const card = { id: "e2", localId: "2", name: "Jet Energy", category: "Energy" as const, effect: "Some effect" };
-    const result = suggestTemplate(card);
-    // Special energies aren't basic-energy and aren't trainer — they fall through to standard
-    expect(result).toBe("pokemon-standard");
+    expect(suggestTemplate(card)).toBe("trainer");
   });
 
   it("returns trainer for trainer cards", () => {

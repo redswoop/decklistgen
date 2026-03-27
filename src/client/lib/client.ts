@@ -205,9 +205,13 @@ export const api = {
       hasClean: boolean; hasComposite: boolean; hasSvg: boolean; mtime?: number;
       skip?: boolean; isStale?: boolean; staleSummary?: string;
     }>>("/pokeproxy/status/batch", { cardIds, includeGenInfo: true }),
-  pokeproxyImageUrl: (cardId: string, type: "clean" | "composite" = "composite", version?: number) => {
+  pokeproxyImageUrl: (cardId: string, type: "clean" | "composite" = "composite", version?: number, width?: number) => {
     const base = `/api/pokeproxy/image/${cardId}/${type}`;
-    return version ? `${base}?v=${version}` : base;
+    const params = new URLSearchParams();
+    if (version) params.set("v", String(version));
+    if (width) params.set("w", String(width));
+    const qs = params.toString();
+    return qs ? `${base}?${qs}` : base;
   },
   pokeproxySvgUrl: (cardId: string, settings?: ProxySettings, version?: number) => {
     const base = `/api/pokeproxy/svg/${cardId}`;
