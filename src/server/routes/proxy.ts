@@ -20,7 +20,15 @@ import { suggestTemplate } from "../../shared/utils/suggest-template.js";
 import { resetIconIds } from "../services/pokeproxy/type-icons.js";
 import { setCardIdPrefix } from "../services/pokeproxy/svg-frame.js";
 import { renderFromJsonTemplate } from "../services/pokeproxy/render-json-template.js";
-import { analyzeImageBrightness } from "../services/pokeproxy/image-brightness.js";
+// Lazy-loaded: sharp has compatibility issues with some Bun versions
+let _analyzeImageBrightness: ((buf: Buffer) => Promise<number>) | null = null;
+async function getAnalyzeImageBrightness() {
+  if (!_analyzeImageBrightness) {
+    const mod = await import("../services/pokeproxy/image-brightness.js");
+    _analyzeImageBrightness = mod.analyzeImageBrightness;
+  }
+  return _analyzeImageBrightness;
+}
 import { renderEnergyPreviewSvg } from "../services/pokeproxy/energy-preview.js";
 import { logAction, getClientIp } from "../services/logger.js";
 
@@ -191,6 +199,7 @@ async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions, 
   // Adaptive text mode: analyze image brightness for fullart/trainer templates
   if (imageB64 && (templateName === "pokemon-fullart" || templateName === "trainer")) {
     try {
+      const analyzeImageBrightness = await getAnalyzeImageBrightness();
       const imageBuffer = Buffer.from(imageB64, "base64");
       const brightness = await analyzeImageBrightness(imageBuffer);
       cardData._textMode = brightness > 0.6 ? "dark" : "light";
