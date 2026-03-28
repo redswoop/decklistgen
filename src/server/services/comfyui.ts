@@ -272,7 +272,7 @@ export async function cleanCardImage(
         const { filename, subfolder } = saveNode.images[0];
         const imageBuffer = await fetchOutputImage(filename, subfolder);
         resolve(imageBuffer.toString("base64"));
-      } catch (e: any) {
+      } catch (e) {
         reject(e);
       }
     };
@@ -281,7 +281,7 @@ export async function cleanCardImage(
       // WebSocket is connected — now submit the prompt
       try {
         promptId = await submitPrompt(workflow, clientId);
-      } catch (e: any) {
+      } catch (e) {
         finish(false, e);
       }
     });

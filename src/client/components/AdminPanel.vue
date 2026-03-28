@@ -82,8 +82,8 @@ async function handleCreateCode() {
     newCodeMaxUses.value = "";
     newCodeAuthorized.value = true;
     await loadCodes();
-  } catch (e: any) {
-    createCodeError.value = e.message;
+  } catch (e) {
+    createCodeError.value = e instanceof Error ? e.message : String(e);
   }
   creatingCode.value = false;
 }
@@ -145,8 +145,8 @@ async function handleCreateLink() {
     newDisplayName.value = "";
     newIsAuthorized.value = true;
     await loadLinks();
-  } catch (e: any) {
-    createError.value = e.message;
+  } catch (e) {
+    createError.value = e instanceof Error ? e.message : String(e);
   }
   creating.value = false;
 }

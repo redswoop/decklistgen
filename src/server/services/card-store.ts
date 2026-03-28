@@ -134,8 +134,8 @@ export async function loadEra(era: "sv" | "swsh"): Promise<{ loaded: number; set
       const count = await loadSet(code);
       total += count;
       loadedCodes.push(code);
-    } catch (e: any) {
-      console.warn(`  Skipping set ${code}: ${e.message}`);
+    } catch (e) {
+      console.warn(`  Skipping set ${code}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   return { loaded: total, sets: loadedCodes };

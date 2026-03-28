@@ -8,13 +8,6 @@ export interface User {
   updatedAt: string;
 }
 
-export interface Session {
-  id: string;
-  userId: string;
-  createdAt: string;
-  expiresAt: string;
-}
-
 export interface MagicLink {
   token: string;
   email: string;

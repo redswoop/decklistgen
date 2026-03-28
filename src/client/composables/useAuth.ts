@@ -37,8 +37,9 @@ export function useAuth() {
       const user = await api.login({ email, password });
       currentUser.value = user;
       needsSetup.value = false;
-    } catch (e: any) {
-      error.value = e.message.includes("401") ? "Invalid email or password" : e.message;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      error.value = msg.includes("401") ? "Invalid email or password" : msg;
       throw e;
     }
   }
@@ -49,10 +50,11 @@ export function useAuth() {
       const user = await api.redeemMagicLink(token, password);
       currentUser.value = user;
       needsSetup.value = false;
-    } catch (e: any) {
-      if (e.message.includes("409")) error.value = "An account with this email already exists";
-      else if (e.message.includes("400")) error.value = "Invalid, expired, or already used link";
-      else error.value = e.message;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("409")) error.value = "An account with this email already exists";
+      else if (msg.includes("400")) error.value = "Invalid, expired, or already used link";
+      else error.value = msg;
       throw e;
     }
   }
@@ -63,8 +65,8 @@ export function useAuth() {
       const user = await api.setup({ email, password, displayName });
       currentUser.value = user;
       needsSetup.value = false;
-    } catch (e: any) {
-      error.value = e.message;
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e);
       throw e;
     }
   }
@@ -75,9 +77,10 @@ export function useAuth() {
       const user = await api.register({ email, password, displayName, inviteCode: inviteCode || undefined });
       currentUser.value = user;
       needsSetup.value = false;
-    } catch (e: any) {
-      if (e.message.includes("409")) error.value = "An account with this email already exists";
-      else error.value = e.message;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("409")) error.value = "An account with this email already exists";
+      else error.value = msg;
       throw e;
     }
   }

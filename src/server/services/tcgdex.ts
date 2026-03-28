@@ -41,7 +41,7 @@ export async function fetchCard(tcgdexId: string, localId: string): Promise<Tcgd
     const cardId = `${tcgdexId}-${num}`;
     try {
       return await cachedFetch<TcgdexCard>(cardId, `${BASE_URL}/cards/${cardId}`);
-    } catch (e: any) {
+    } catch (e) {
       if (num !== candidates[candidates.length - 1]) continue;
       throw e;
     }

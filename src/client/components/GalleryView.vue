@@ -39,8 +39,8 @@ async function loadSvg(cardId: string) {
     const resp = await fetch(`/api/pokeproxy/svg/${cardId}?t=${cacheBust.value}`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     svgCache.value[cardId] = await resp.text();
-  } catch (e: any) {
-    svgCache.value[cardId] = `<span style="color:#666;font-size:12px">Failed: ${e.message}</span>`;
+  } catch (e) {
+    svgCache.value[cardId] = `<span style="color:#666;font-size:12px">Failed: ${e instanceof Error ? e.message : String(e)}</span>`;
   }
 }
 
@@ -74,8 +74,8 @@ async function loadLightboxSvg(cardId: string) {
     const resp = await fetch(`/api/pokeproxy/svg/${cardId}?t=${cacheBust.value}`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     lightboxSvg.value = await resp.text();
-  } catch (e: any) {
-    lightboxSvg.value = `<span style="color:#888">Failed: ${e.message}</span>`;
+  } catch (e) {
+    lightboxSvg.value = `<span style="color:#888">Failed: ${e instanceof Error ? e.message : String(e)}</span>`;
   }
 }
 
@@ -103,7 +103,7 @@ async function pollJob(jobId: string): Promise<void> {
     await new Promise(r => setTimeout(r, 2000));
     const job = await api.queueGet(jobId);
     if (job.status === "completed") return;
-    if (job.status === "failed") throw new Error((job as any).error || "Generation failed");
+    if (job.status === "failed") throw new Error(job.error || "Generation failed");
     if (job.status === "running") lightboxStatus.value = "ComfyUI generating...";
   }
 }
@@ -132,8 +132,8 @@ async function doClean(force: boolean) {
     loadSvg(card.cardId);
     await refetch();
     lightboxStatus.value = "Done";
-  } catch (e: any) {
-    lightboxStatus.value = `Error: ${e.message}`;
+  } catch (e) {
+    lightboxStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
   } finally {
     lightboxBusy.value = false;
   }
@@ -150,8 +150,8 @@ async function doRegen() {
     loadLightboxSvg(cardId);
     loadSvg(cardId);
     lightboxStatus.value = "SVG updated";
-  } catch (e: any) {
-    lightboxStatus.value = `Error: ${e.message}`;
+  } catch (e) {
+    lightboxStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
   } finally {
     lightboxBusy.value = false;
   }
@@ -167,8 +167,8 @@ async function savePrompt() {
     promptSaveStatus.value = "Saved";
     activeCard.value.promptText = text;
     activeCard.value.promptRule = `card:${activeCard.value.cardId}`;
-  } catch (e: any) {
-    promptSaveStatus.value = `Error: ${e.message}`;
+  } catch (e) {
+    promptSaveStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
   }
 }
 
@@ -197,8 +197,8 @@ async function loadFontSizes() {
     }
     fontSizeEdited.value = edited;
     fontSizeStatus.value = "";
-  } catch (e: any) {
-    fontSizeStatus.value = `Error: ${e.message}`;
+  } catch (e) {
+    fontSizeStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
   } finally {
     fontSizeLoading.value = false;
   }
@@ -238,8 +238,8 @@ async function saveFontSizeOverrides() {
     await api.saveFontSizes(overrides);
     fontSizeOverrides.value = overrides;
     fontSizeStatus.value = "Saved";
-  } catch (e: any) {
-    fontSizeStatus.value = `Error: ${e.message}`;
+  } catch (e) {
+    fontSizeStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
   }
 }
 
@@ -254,8 +254,8 @@ async function resetFontSizeOverrides() {
     }
     fontSizeEdited.value = edited;
     fontSizeStatus.value = "Reset to defaults";
-  } catch (e: any) {
-    fontSizeStatus.value = `Error: ${e.message}`;
+  } catch (e) {
+    fontSizeStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
   }
 }
 

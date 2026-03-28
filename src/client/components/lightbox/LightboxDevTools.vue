@@ -97,7 +97,7 @@ async function savePrompt() {
     promptText.value = promptEdited.value;
     promptRuleName.value = `card:${props.currentCard.id}`;
     promptEditing.value = false;
-  } catch (e: any) {
+  } catch (e) {
     if (e instanceof ApiError && e.isAuthError) {
       toast.error(e.status === 401 ? "Sign in to save prompts" : "Not authorized to save prompts");
     } else {

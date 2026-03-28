@@ -31,19 +31,14 @@ async function getAnalyzeImageBrightness() {
 }
 import { renderEnergyPreviewSvg } from "../services/pokeproxy/energy-preview.js";
 import { logAction, getClientIp } from "../services/logger.js";
+import { isValidCardId } from "../../shared/validation.js";
 
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
 
-const VALID_CARD_ID = /^[a-zA-Z0-9._-]+$/;
-
 const FULLART_DEFAULT_PROMPT =
   "Expand the illustration from the reference image into a large, detailed scene. " +
   "Remove all text, headers, and other non-illustrative elements.";
-
-function isValidCardId(cardId: string): boolean {
-  return VALID_CARD_ID.test(cardId) && !cardId.includes("..");
-}
 
 function cachePath(cardId: string, suffix: string): string {
   return join(CACHE_DIR, `${cardId}${suffix}`);
@@ -355,7 +350,7 @@ app.get("/svg/:cardId", async (c) => {
         "Cache-Control": "no-cache",
       },
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("SVG generation failed:", e);
     return c.json({ error: "SVG generation failed" }, 500);
   }

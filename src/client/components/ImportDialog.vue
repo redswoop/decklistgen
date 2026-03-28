@@ -106,8 +106,8 @@ async function fetchPlayers() {
     if (players.value.length === 0) {
       error.value = "No decklists found in this tournament.";
     }
-  } catch (e: any) {
-    error.value = e.message || "Failed to fetch tournament";
+  } catch (e) {
+    error.value = (e instanceof Error ? e.message : String(e)) || "Failed to fetch tournament";
   } finally {
     loading.value = false;
   }
@@ -163,8 +163,8 @@ async function doImport() {
       error.value = `Could not resolve: ${names}`;
     }
     success.value = `Imported ${total} cards (saved as "${finalName}").`;
-  } catch (e: any) {
-    error.value = e.message || "Import failed";
+  } catch (e) {
+    error.value = (e instanceof Error ? e.message : String(e)) || "Import failed";
   } finally {
     loading.value = false;
   }

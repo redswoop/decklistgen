@@ -63,7 +63,7 @@ app.post("/import/limitless/players", async (c) => {
       playerCount: details.players,
       players,
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("Limitless player fetch failed:", e);
     return c.json({ error: "Failed to fetch tournament data" }, 502);
   }
@@ -84,7 +84,7 @@ app.post("/import/limitless/deck", async (c) => {
 
     const result = await resolveDecklist(player.decklist);
     return c.json(result);
-  } catch (e: any) {
+  } catch (e) {
     console.error("Limitless deck fetch failed:", e);
     return c.json({ error: "Failed to fetch decklist" }, 502);
   }
@@ -100,7 +100,7 @@ app.post("/import/text", async (c) => {
     const parsed = parsePtcgoText(text);
     const result = await resolveDecklist(parsed);
     return c.json(result);
-  } catch (e: any) {
+  } catch (e) {
     console.error("Text import failed:", e);
     return c.json({ error: "Failed to parse decklist text" }, 500);
   }
@@ -144,8 +144,8 @@ async function resolveDecklist(decklist: LimitlessDecklist): Promise<ImportResul
     if (SET_MAP[code]) {
       try {
         await loadSet(code);
-      } catch (e: any) {
-        console.warn(`Failed to load set ${code}: ${e.message}`);
+      } catch (e) {
+        console.warn(`Failed to load set ${code}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
   }

@@ -49,15 +49,15 @@ function toggle(idx: number) {
 }
 
 function handleCardClick(card: VariantCard, group: VariantGroup) {
-  emit("previewCard", card as any, group.cards as any);
+  emit("previewCard", card, group.cards);
 }
 
 onMounted(async () => {
   loading.value = true;
   try {
     groups.value = await api.getVariantGroups();
-  } catch (e: any) {
-    error.value = e.message;
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : String(e);
   } finally {
     loading.value = false;
   }

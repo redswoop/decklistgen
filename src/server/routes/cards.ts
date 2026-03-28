@@ -7,9 +7,9 @@ import { applyFilters } from "../../shared/utils/filter-cards.js";
 import type { CardFilters, SpecialAttribute } from "../../shared/types/filters.js";
 import type { CardDetail } from "../../shared/types/card.js";
 import { logAction, getClientIp } from "../services/logger.js";
+import { VALID_CARD_ID } from "../../shared/validation.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
-const VALID_CARD_ID = /^[a-zA-Z0-9._-]+$/;
 
 async function ensureCardLoaded(cardId: string): Promise<void> {
   if (getCard(cardId)) return;

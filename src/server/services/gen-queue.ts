@@ -220,8 +220,8 @@ async function executeGeneration(job: QueueJob): Promise<void> {
         const cropped = await sharp(srcData).extract(crop).png().toBuffer();
         inputBase64 = cropped.toString("base64");
       }
-    } catch (e: any) {
-      console.error(`[gen-queue] Art crop failed for ${cardId}, using full image:`, e.message);
+    } catch (e) {
+      console.error(`[gen-queue] Art crop failed for ${cardId}, using full image:`, e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -279,10 +279,10 @@ async function processNext(): Promise<void> {
     await executeGeneration(job);
     job.status = "completed";
     job.completedAt = Date.now();
-  } catch (e: any) {
+  } catch (e) {
     job.status = "failed";
     job.completedAt = Date.now();
-    job.error = e.message || "Unknown error";
+    job.error = (e instanceof Error ? e.message : String(e)) || "Unknown error";
     console.error(`[gen-queue] Job ${jobId} failed for ${job.cardId}:`, e);
   }
 

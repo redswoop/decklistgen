@@ -13,13 +13,9 @@ import { getEffectiveFontSizes } from "../services/pokeproxy/font-size-store.js"
 import { buildCardSvg } from "../services/pokeproxy/svg-frame.js";
 import { resolveFontSizes } from "../../shared/resolve-font-sizes.js";
 import { suggestTemplate } from "../../shared/utils/suggest-template.js";
+import { isValidCardId } from "../../shared/validation.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../..", "cache");
-
-const VALID_CARD_ID = /^[a-zA-Z0-9._-]+$/;
-function isValidCardId(id: string): boolean {
-  return VALID_CARD_ID.test(id) && !id.includes("..");
-}
 
 const editorRouter = new Hono();
 

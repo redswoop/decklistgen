@@ -30,9 +30,10 @@ async function validateToken(token: string) {
     magicEmail.value = info.email;
     magicDisplayName.value = info.displayName;
     mode.value = "magic";
-  } catch (e: any) {
-    if (e.message.includes("410")) magicError.value = "This link has expired or already been used.";
-    else if (e.message.includes("404")) magicError.value = "Invalid invite code.";
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("410")) magicError.value = "This link has expired or already been used.";
+    else if (msg.includes("404")) magicError.value = "Invalid invite code.";
     else magicError.value = "Could not validate invite code.";
   } finally {
     magicLoading.value = false;
