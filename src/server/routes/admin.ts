@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { requireAdmin } from "../middleware/auth.js";
 import { listAllUsers, setUserAuthorized, setUserAdmin, deleteUser } from "../services/user-store.js";
 import { createMagicLink, listMagicLinks, deleteMagicLink } from "../services/magic-link-store.js";
+import { createInviteCode, listInviteCodes, deleteInviteCode } from "../services/invite-store.js";
 import { migrateAll } from "../services/db/migrate.js";
 import type { AppEnv } from "../types.js";
 
@@ -83,6 +84,42 @@ app.delete("/magic-links/:token", (c) => {
   const token = c.req.param("token");
   const ok = deleteMagicLink(token);
   if (!ok) return c.json({ error: "Link not found or already used" }, 404);
+  return c.json({ ok: true });
+});
+
+/** Create an invite code */
+app.post("/invite-codes", async (c) => {
+  const user = c.get("user")!;
+  const { label, isAuthorized, maxUses } = await c.req.json<{
+    label: string;
+    isAuthorized?: boolean;
+    maxUses?: number | null;
+  }>();
+
+  if (!label?.trim()) {
+    return c.json({ error: "Label is required" }, 400);
+  }
+
+  const code = createInviteCode({
+    label: label.trim(),
+    isAuthorized: isAuthorized ?? true,
+    maxUses: maxUses ?? null,
+    createdBy: user.id,
+  });
+
+  return c.json(code, 201);
+});
+
+/** List all invite codes */
+app.get("/invite-codes", (c) => {
+  return c.json(listInviteCodes());
+});
+
+/** Delete an invite code */
+app.delete("/invite-codes/:code", (c) => {
+  const code = c.req.param("code");
+  const ok = deleteInviteCode(code);
+  if (!ok) return c.json({ error: "Code not found" }, 404);
   return c.json({ ok: true });
 });
 

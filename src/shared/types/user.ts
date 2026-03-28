@@ -30,3 +30,13 @@ export interface MagicLink {
 export interface AdminUser extends User {
   hasPassword: boolean;
 }
+
+export interface InviteCode {
+  code: string;
+  label: string;
+  isAuthorized: boolean;
+  maxUses: number | null;
+  useCount: number;
+  createdBy: string;
+  createdAt: string;
+}

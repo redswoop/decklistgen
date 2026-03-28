@@ -42,10 +42,12 @@ function initSchema(db: Database) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS invite_codes (
       code TEXT PRIMARY KEY,
+      label TEXT NOT NULL,
+      is_authorized INTEGER NOT NULL DEFAULT 1,
+      max_uses INTEGER,
+      use_count INTEGER NOT NULL DEFAULT 0,
       created_by TEXT NOT NULL REFERENCES users(id),
-      used_by TEXT REFERENCES users(id),
-      created_at TEXT NOT NULL,
-      used_at TEXT
+      created_at TEXT NOT NULL
     )
   `);
 
@@ -109,6 +111,20 @@ function initSchema(db: Database) {
   } catch {
     // Column already exists — ignore
   }
+
+  // Migrate invite_codes table to reusable codes schema
+  try {
+    db.exec("ALTER TABLE invite_codes ADD COLUMN label TEXT NOT NULL DEFAULT ''");
+  } catch { /* already exists */ }
+  try {
+    db.exec("ALTER TABLE invite_codes ADD COLUMN is_authorized INTEGER NOT NULL DEFAULT 1");
+  } catch { /* already exists */ }
+  try {
+    db.exec("ALTER TABLE invite_codes ADD COLUMN max_uses INTEGER");
+  } catch { /* already exists */ }
+  try {
+    db.exec("ALTER TABLE invite_codes ADD COLUMN use_count INTEGER NOT NULL DEFAULT 0");
+  } catch { /* already exists */ }
 }
 
 export function getDb(): Database {

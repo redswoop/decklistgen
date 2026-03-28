@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { api } from "../lib/client.js";
-import type { AdminUser, MagicLink } from "../../shared/types/user.js";
+import type { AdminUser, MagicLink, InviteCode } from "../../shared/types/user.js";
 
 const emit = defineEmits<{
   (e: "close"): void;
@@ -22,11 +22,21 @@ const newIsAuthorized = ref(true);
 const creating = ref(false);
 const createError = ref<string | null>(null);
 
+// Invite codes state
+const inviteCodes = ref<InviteCode[]>([]);
+const codesLoading = ref(true);
+const newCodeLabel = ref("");
+const newCodeAuthorized = ref(true);
+const newCodeMaxUses = ref<string>("");
+const creatingCode = ref(false);
+const createCodeError = ref<string | null>(null);
+const copiedCode = ref<string | null>(null);
+
 // Delete confirmation
 const confirmDeleteUser = ref<string | null>(null);
 const copiedToken = ref<string | null>(null);
 
-const activeTab = ref<"users" | "invites">("users");
+const activeTab = ref<"users" | "invites" | "codes">("users");
 
 async function loadUsers() {
   usersLoading.value = true;
@@ -44,9 +54,59 @@ async function loadLinks() {
   linksLoading.value = false;
 }
 
+async function loadCodes() {
+  codesLoading.value = true;
+  try {
+    inviteCodes.value = await api.listInviteCodes();
+  } catch {}
+  codesLoading.value = false;
+}
+
+async function handleCreateCode() {
+  if (!newCodeLabel.value.trim()) return;
+  creatingCode.value = true;
+  createCodeError.value = null;
+  try {
+    const maxUses = newCodeMaxUses.value.trim() ? parseInt(newCodeMaxUses.value.trim(), 10) : null;
+    if (maxUses !== null && (isNaN(maxUses) || maxUses < 1)) {
+      createCodeError.value = "Max uses must be a positive number or empty for unlimited";
+      creatingCode.value = false;
+      return;
+    }
+    await api.createInviteCode({
+      label: newCodeLabel.value.trim(),
+      isAuthorized: newCodeAuthorized.value,
+      maxUses,
+    });
+    newCodeLabel.value = "";
+    newCodeMaxUses.value = "";
+    newCodeAuthorized.value = true;
+    await loadCodes();
+  } catch (e: any) {
+    createCodeError.value = e.message;
+  }
+  creatingCode.value = false;
+}
+
+async function handleDeleteCode(code: string) {
+  try {
+    await api.deleteInviteCode(code);
+    await loadCodes();
+  } catch {}
+}
+
+function copyCode(code: string) {
+  navigator.clipboard.writeText(code);
+  copiedCode.value = code;
+  setTimeout(() => {
+    if (copiedCode.value === code) copiedCode.value = null;
+  }, 2000);
+}
+
 onMounted(() => {
   loadUsers();
   loadLinks();
+  loadCodes();
 });
 
 async function toggleAuthorized(user: AdminUser) {
@@ -133,9 +193,13 @@ function formatDate(iso: string): string {
             @click="activeTab = 'users'"
           >Users</button>
           <button
+            :class="['tab', { active: activeTab === 'codes' }]"
+            @click="activeTab = 'codes'"
+          >Codes</button>
+          <button
             :class="['tab', { active: activeTab === 'invites' }]"
             @click="activeTab = 'invites'"
-          >Invites</button>
+          >Magic Links</button>
         </div>
         <div class="header-spacer" />
         <button class="close-btn" @click="emit('close')">&times;</button>
@@ -203,6 +267,87 @@ function formatDate(iso: string): string {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Codes Tab -->
+      <div v-if="activeTab === 'codes'" class="admin-body">
+        <div class="invite-form">
+          <h3 class="section-title">Create Invite Code</h3>
+          <div class="form-row">
+            <input
+              v-model="newCodeLabel"
+              type="text"
+              placeholder="Label (e.g. Pokemon Work Group)"
+              class="form-input"
+            />
+            <input
+              v-model="newCodeMaxUses"
+              type="text"
+              inputmode="numeric"
+              placeholder="Max uses (blank = unlimited)"
+              class="form-input form-input-sm"
+            />
+            <label class="form-checkbox">
+              <input type="checkbox" v-model="newCodeAuthorized" />
+              <span>Authorized</span>
+            </label>
+            <button
+              class="form-submit"
+              :disabled="creatingCode || !newCodeLabel.trim()"
+              @click="handleCreateCode"
+            >{{ creatingCode ? "..." : "Create" }}</button>
+          </div>
+          <div v-if="createCodeError" class="form-error">{{ createCodeError }}</div>
+        </div>
+
+        <div v-if="codesLoading" class="loading">Loading codes...</div>
+        <table v-else-if="inviteCodes.length" class="admin-table">
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Code</th>
+              <th>Uses</th>
+              <th>Authorized</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="code in inviteCodes" :key="code.code">
+              <td>
+                <span class="user-name">{{ code.label }}</span>
+              </td>
+              <td>
+                <code class="code-value">{{ code.code }}</code>
+              </td>
+              <td>
+                <span class="use-count">
+                  {{ code.useCount }}{{ code.maxUses != null ? ` / ${code.maxUses}` : "" }}
+                </span>
+              </td>
+              <td>
+                <span :class="['badge', code.isAuthorized ? 'badge-auth' : 'badge-free']">
+                  {{ code.isAuthorized ? "Yes" : "No" }}
+                </span>
+              </td>
+              <td class="date-cell">{{ formatDate(code.createdAt) }}</td>
+              <td>
+                <div class="action-btns">
+                  <button
+                    class="action-btn"
+                    :class="{ 'action-copied': copiedCode === code.code }"
+                    @click="copyCode(code.code)"
+                  >{{ copiedCode === code.code ? "Copied" : "Copy" }}</button>
+                  <button
+                    class="action-btn action-delete"
+                    @click="handleDeleteCode(code.code)"
+                  >Del</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-else class="empty-state">No invite codes yet.</div>
       </div>
 
       <!-- Invites Tab -->
@@ -636,6 +781,25 @@ function formatDate(iso: string): string {
 .action-copied {
   color: #2ecc71;
   border-color: #2ecc71;
+}
+
+.code-value {
+  font-family: monospace;
+  font-size: 13px;
+  color: #7fb3d3;
+  background: #1a1a2e;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.use-count {
+  font-size: 12px;
+  color: #e0e0e0;
+}
+
+.form-input-sm {
+  max-width: 180px;
 }
 
 /* Invite form */

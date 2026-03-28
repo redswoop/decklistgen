@@ -6,7 +6,7 @@ import type { ProxySettings } from "../../shared/types/proxy-settings.js";
 import type { SavedDeck, DeckSummary, DeckCard } from "../../shared/types/deck.js";
 import type { CustomizedCardsResponse } from "../../shared/types/customized-card.js";
 import type { BeautifyOptions, BeautifyPreview } from "../../shared/types/beautify.js";
-import type { User, AdminUser, MagicLink } from "../../shared/types/user.js";
+import type { User, AdminUser, MagicLink, InviteCode } from "../../shared/types/user.js";
 import type { QueueJob } from "../../shared/types/queue.js";
 
 const BASE = "/api";
@@ -116,7 +116,7 @@ export const api = {
     post<User>("/auth/setup", data),
   login: (data: { email: string; password: string }) =>
     post<User>("/auth/login", data),
-  register: (data: { email: string; password: string; displayName: string }) =>
+  register: (data: { email: string; password: string; displayName: string; inviteCode?: string }) =>
     post<User>("/auth/register", data),
   logout: () => post<{ ok: boolean }>("/auth/logout", {}),
 
@@ -137,6 +137,10 @@ export const api = {
     post<MagicLink>("/admin/magic-links", data),
   listMagicLinks: () => get<MagicLink[]>("/admin/magic-links"),
   deleteMagicLink: (token: string) => del<{ ok: boolean }>(`/admin/magic-links/${token}`),
+  createInviteCode: (data: { label: string; isAuthorized?: boolean; maxUses?: number | null }) =>
+    post<InviteCode>("/admin/invite-codes", data),
+  listInviteCodes: () => get<InviteCode[]>("/admin/invite-codes"),
+  deleteInviteCode: (code: string) => del<{ ok: boolean }>(`/admin/invite-codes/${code}`),
 
   // Sets & cards
   getSets: () => get<SetInfo[]>("/sets"),

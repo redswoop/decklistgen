@@ -5,10 +5,11 @@ import { api } from "../lib/client.js";
 
 const { needsSetup, error, login, register, redeemMagicLink, setup } = useAuth();
 
-const mode = ref<"login" | "register" | "magic">(needsSetup.value ? "setup" : "login");
+const mode = ref<"login" | "register" | "magic" | "invite">(needsSetup.value ? "setup" : "login");
 const email = ref("");
 const password = ref("");
 const displayName = ref("");
+const registerInviteCode = ref("");
 const submitting = ref(false);
 
 // Magic link state
@@ -18,6 +19,41 @@ const magicDisplayName = ref("");
 const magicLoading = ref(false);
 const magicError = ref<string | null>(null);
 
+const inviteInput = ref("");
+
+async function validateToken(token: string) {
+  magicLoading.value = true;
+  magicError.value = null;
+  try {
+    const info = await api.validateMagicLink(token);
+    magicToken.value = token;
+    magicEmail.value = info.email;
+    magicDisplayName.value = info.displayName;
+    mode.value = "magic";
+  } catch (e: any) {
+    if (e.message.includes("410")) magicError.value = "This link has expired or already been used.";
+    else if (e.message.includes("404")) magicError.value = "Invalid invite code.";
+    else magicError.value = "Could not validate invite code.";
+  } finally {
+    magicLoading.value = false;
+  }
+}
+
+function extractToken(input: string): string {
+  // Accept full URL (/magic/TOKEN, ?magic=TOKEN) or just the token
+  const urlMatch = input.match(/\/magic\/([a-f0-9]+)/);
+  if (urlMatch) return urlMatch[1];
+  const paramMatch = input.match(/[?&]magic=([a-f0-9]+)/);
+  if (paramMatch) return paramMatch[1];
+  return input.trim();
+}
+
+async function handleInviteSubmit() {
+  const token = extractToken(inviteInput.value);
+  if (!token) return;
+  await validateToken(token);
+}
+
 onMounted(async () => {
   // Check URL for magic link token: /magic/TOKEN or ?magic=TOKEN
   const path = window.location.pathname;
@@ -25,21 +61,7 @@ onMounted(async () => {
   const token = magicMatch?.[1] || new URLSearchParams(window.location.search).get("magic");
 
   if (token) {
-    magicLoading.value = true;
-    magicError.value = null;
-    try {
-      const info = await api.validateMagicLink(token);
-      magicToken.value = token;
-      magicEmail.value = info.email;
-      magicDisplayName.value = info.displayName;
-      mode.value = "magic";
-    } catch (e: any) {
-      if (e.message.includes("410")) magicError.value = "This link has expired or already been used.";
-      else if (e.message.includes("404")) magicError.value = "Invalid link.";
-      else magicError.value = "Could not validate link.";
-    } finally {
-      magicLoading.value = false;
-    }
+    await validateToken(token);
   }
 });
 
@@ -54,7 +76,7 @@ async function handleSubmit() {
       // Clean up URL
       window.history.replaceState({}, "", "/");
     } else if (mode.value === "register") {
-      await register(email.value, password.value, displayName.value);
+      await register(email.value, password.value, displayName.value, registerInviteCode.value || undefined);
     } else {
       await login(email.value, password.value);
     }
@@ -113,6 +135,27 @@ async function handleSubmit() {
         </form>
       </template>
 
+      <!-- Invite code entry -->
+      <template v-else-if="mode === 'invite' && !magicLoading">
+        <div class="auth-notice">Paste your invite code or link below.</div>
+        <form class="auth-form" @submit.prevent="handleInviteSubmit">
+          <div class="auth-field">
+            <label>Invite Code</label>
+            <input
+              v-model="inviteInput"
+              type="text"
+              placeholder="Paste code or link"
+              required
+              autocomplete="off"
+            />
+          </div>
+          <div v-if="magicError" class="auth-error">{{ magicError }}</div>
+          <button class="auth-submit" type="submit" :disabled="magicLoading">
+            {{ magicLoading ? "..." : "Continue" }}
+          </button>
+        </form>
+      </template>
+
       <!-- Normal login / register / setup -->
       <template v-else-if="!magicLoading">
         <form class="auth-form" @submit.prevent="handleSubmit">
@@ -147,6 +190,15 @@ async function handleSubmit() {
               :autocomplete="mode === 'register' ? 'new-password' : 'current-password'"
             />
           </div>
+          <div v-if="mode === 'register'" class="auth-field">
+            <label>Invite Code <span class="field-hint">(optional)</span></label>
+            <input
+              v-model="registerInviteCode"
+              type="text"
+              placeholder="Enter code if you have one"
+              autocomplete="off"
+            />
+          </div>
 
           <div v-if="error" class="auth-error">{{ error }}</div>
 
@@ -154,7 +206,14 @@ async function handleSubmit() {
             {{ submitting ? "..." : needsSetup ? "Create Admin Account" : mode === "register" ? "Create Account" : "Log In" }}
           </button>
         </form>
-        <div v-if="!needsSetup" class="auth-toggle">
+      </template>
+
+      <!-- Toggle links (always visible when not in setup/magic/loading) -->
+      <div v-if="!needsSetup && !magicLoading && mode !== 'magic'" class="auth-toggle">
+        <template v-if="mode === 'invite'">
+          <button class="auth-toggle-btn" @click="mode = 'login'; magicError = null; error = null">Back to Log In</button>
+        </template>
+        <template v-else>
           <template v-if="mode === 'login'">
             Don't have an account?
             <button class="auth-toggle-btn" @click="mode = 'register'; error = null">Register</button>
@@ -163,8 +222,11 @@ async function handleSubmit() {
             Already have an account?
             <button class="auth-toggle-btn" @click="mode = 'login'; error = null">Log In</button>
           </template>
-        </div>
-      </template>
+          <span class="auth-divider">·</span>
+          Have an invite?
+          <button class="auth-toggle-btn" @click="mode = 'invite'; error = null">Enter code</button>
+        </template>
+      </div>
     </div>
   </div>
 </template>
@@ -294,5 +356,16 @@ async function handleSubmit() {
 
 .auth-toggle-btn:hover {
   color: #d13553;
+}
+
+.auth-divider {
+  margin: 0 4px;
+}
+
+.field-hint {
+  font-weight: 400;
+  opacity: 0.6;
+  text-transform: none;
+  letter-spacing: 0;
 }
 </style>

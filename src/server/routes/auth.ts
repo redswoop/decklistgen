@@ -3,6 +3,7 @@ import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { createUser, findUserByEmail, findUserById, verifyPassword, getUserCount, createUserWithoutPassword, setPassword } from "../services/user-store.js";
 import { createSession, deleteSession } from "../services/session-store.js";
 import { findMagicLink, redeemMagicLink } from "../services/magic-link-store.js";
+import { validateInviteCode, incrementInviteUse } from "../services/invite-store.js";
 import type { AppEnv } from "../types.js";
 
 const app = new Hono<AppEnv>();
@@ -94,12 +95,13 @@ app.post("/magic/:token", async (c) => {
   return c.json(user, 201);
 });
 
-/** Self-service registration — creates an unauthorized account */
+/** Self-service registration — creates an account, optionally with an invite code */
 app.post("/register", async (c) => {
-  const { email, password, displayName } = await c.req.json<{
+  const { email, password, displayName, inviteCode } = await c.req.json<{
     email: string;
     password: string;
     displayName: string;
+    inviteCode?: string;
   }>();
 
   if (!email?.trim() || !password || !displayName?.trim()) {
@@ -109,12 +111,25 @@ app.post("/register", async (c) => {
     return c.json({ error: "Password must be at least 8 characters" }, 400);
   }
 
+  // Validate invite code if provided
+  let isAuthorized = false;
+  if (inviteCode?.trim()) {
+    const invite = validateInviteCode(inviteCode.trim());
+    if (!invite) {
+      return c.json({ error: "Invalid or exhausted invite code" }, 400);
+    }
+    isAuthorized = invite.isAuthorized;
+  }
+
   const existing = findUserByEmail(email);
   if (existing) {
     return c.json({ error: "An account with this email already exists" }, 409);
   }
 
-  const user = await createUser({ email, password, displayName, isAdmin: false, isAuthorized: false });
+  const user = await createUser({ email, password, displayName, isAdmin: false, isAuthorized });
+  if (inviteCode?.trim()) {
+    incrementInviteUse(inviteCode.trim());
+  }
   const session = createSession(user.id);
   setSessionCookie(c, session.id);
 

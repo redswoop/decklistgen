@@ -2,6 +2,7 @@ import { getDb } from "./db/database.js";
 import type { InviteCode } from "../../shared/types/user.js";
 
 function generateCode(): string {
+  // Readable 8-char code, no ambiguous chars (0/O, 1/l/I)
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
   let code = "";
   const bytes = crypto.getRandomValues(new Uint8Array(8));
@@ -13,43 +14,57 @@ function generateCode(): string {
 
 interface InviteRow {
   code: string;
+  label: string;
+  is_authorized: number;
+  max_uses: number | null;
+  use_count: number;
   created_by: string;
-  used_by: string | null;
   created_at: string;
-  used_at: string | null;
 }
 
 function rowToInvite(row: InviteRow): InviteCode {
   return {
     code: row.code,
+    label: row.label,
+    isAuthorized: row.is_authorized === 1,
+    maxUses: row.max_uses,
+    useCount: row.use_count,
     createdBy: row.created_by,
-    usedBy: row.used_by,
     createdAt: row.created_at,
-    usedAt: row.used_at,
   };
 }
 
-export function createInviteCode(createdBy: string): InviteCode {
+export function createInviteCode(opts: {
+  label: string;
+  isAuthorized: boolean;
+  maxUses: number | null;
+  createdBy: string;
+}): InviteCode {
   const code = generateCode();
   const now = new Date().toISOString();
 
   getDb()
-    .query("INSERT INTO invite_codes (code, created_by, created_at) VALUES (?, ?, ?)")
-    .run(code, createdBy, now);
+    .query(
+      "INSERT INTO invite_codes (code, label, is_authorized, max_uses, use_count, created_by, created_at) VALUES (?, ?, ?, ?, 0, ?, ?)",
+    )
+    .run(code, opts.label, opts.isAuthorized ? 1 : 0, opts.maxUses, opts.createdBy, now);
 
-  return { code, createdBy, usedBy: null, createdAt: now, usedAt: null };
+  return { code, label: opts.label, isAuthorized: opts.isAuthorized, maxUses: opts.maxUses, useCount: 0, createdBy: opts.createdBy, createdAt: now };
 }
 
-export function redeemInviteCode(code: string, userId: string): boolean {
+/** Validate an invite code and return it if it can still be used */
+export function validateInviteCode(code: string): InviteCode | null {
   const row = getDb().query("SELECT * FROM invite_codes WHERE code = ?").get(code) as InviteRow | null;
-  if (!row || row.used_by) return false;
+  if (!row) return null;
+  if (row.max_uses != null && row.use_count >= row.max_uses) return null;
+  return rowToInvite(row);
+}
 
-  const now = new Date().toISOString();
+/** Increment the use count for a code. Call after successful registration. */
+export function incrementInviteUse(code: string): void {
   getDb()
-    .query("UPDATE invite_codes SET used_by = ?, used_at = ? WHERE code = ?")
-    .run(userId, now, code);
-
-  return true;
+    .query("UPDATE invite_codes SET use_count = use_count + 1 WHERE code = ?")
+    .run(code);
 }
 
 export function listInviteCodes(): InviteCode[] {
@@ -58,8 +73,6 @@ export function listInviteCodes(): InviteCode[] {
 }
 
 export function deleteInviteCode(code: string): boolean {
-  const row = getDb().query("SELECT used_by FROM invite_codes WHERE code = ?").get(code) as { used_by: string | null } | null;
-  if (!row || row.used_by) return false; // Can't delete used codes
-  const result = getDb().query("DELETE FROM invite_codes WHERE code = ? AND used_by IS NULL").run(code);
+  const result = getDb().query("DELETE FROM invite_codes WHERE code = ?").run(code);
   return result.changes > 0;
 }

@@ -69,10 +69,10 @@ export function useAuth() {
     }
   }
 
-  async function register(email: string, password: string, displayName: string) {
+  async function register(email: string, password: string, displayName: string, inviteCode?: string) {
     error.value = null;
     try {
-      const user = await api.register({ email, password, displayName });
+      const user = await api.register({ email, password, displayName, inviteCode: inviteCode || undefined });
       currentUser.value = user;
       needsSetup.value = false;
     } catch (e: any) {
