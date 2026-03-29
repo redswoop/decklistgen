@@ -669,12 +669,14 @@ body {
 .tile-placeholder {
   aspect-ratio: 5/7;
   background: #0f3460;
+  color: #7f8fa6;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 11px;
   padding: 8px;
   text-align: center;
+  word-break: break-word;
 }
 
 /* Decklist Panel */

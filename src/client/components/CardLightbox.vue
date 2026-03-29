@@ -24,6 +24,12 @@ import type { DeckMembership } from "../../shared/types/customized-card.js";
 import type { DeckCard } from "../../shared/types/deck.js";
 import { consolidateDeckCards } from "../../shared/utils/consolidate-deck.js";
 import { deduplicateByArt } from "../../shared/utils/variant-allocation.js";
+import { getRarityRank } from "../../shared/utils/rarity-rank.js";
+
+function artTier(rarity: string): number {
+  const rank = getRarityRank(rarity);
+  return rank <= 3 ? 0 : rank;
+}
 
 useGenerationQueryClient();
 const { imageMode } = usePokeproxy();
@@ -96,12 +102,14 @@ const activeCardId = computed(() => activeCard.value.id);
 const { data: rawVariants } = useVariants(activeCardId);
 const variants = computed(() => rawVariants.value ? deduplicateByArt(rawVariants.value) : undefined);
 
-// Same-art printings of the current card (other set IDs sharing the same illustrator)
+// Same-art printings of the current card (same illustrator + same art tier, different set)
 const sameArtPrintings = computed(() => {
   if (!rawVariants.value) return [];
   const current = currentCard.value;
+  if (!current.illustrator) return [];
+  const currentTier = artTier(current.rarity);
   return rawVariants.value.filter(
-    (v) => v.id !== current.id && v.illustrator === current.illustrator && current.illustrator !== "",
+    (v) => v.id !== current.id && v.illustrator === current.illustrator && artTier(v.rarity) === currentTier,
   );
 });
 const variantIndex = ref(0);

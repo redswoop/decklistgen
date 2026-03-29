@@ -1,3 +1,5 @@
+import { getRarityRank } from "./rarity-rank.js";
+
 /**
  * Distribute `total` copies across variant IDs.
  * Round-robin randomized: shuffles variants, then deals one copy at a time.
@@ -33,13 +35,25 @@ export function useForAll(variantIds: string[], selectedId: string, total: numbe
 }
 
 /**
- * Pick one representative card per unique artwork (by illustrator).
- * Collapses same-art reprints from different sets so beautify maximizes visual diversity.
+ * Map rarity rank to an art tier for dedup purposes.
+ * Ranks 0–3 (Common through Rare/Holo) share the same "regular" artwork.
+ * Each premium rank (4+) gets unique art treatments.
  */
-export function deduplicateByArt<T extends { illustrator: string; id: string }>(variants: T[]): T[] {
+function artTier(rarity: string): number {
+  const rank = getRarityRank(rarity);
+  return rank <= 3 ? 0 : rank;
+}
+
+/**
+ * Pick one representative card per unique artwork.
+ * Key: illustrator + art tier — same artist at the "regular" tier (Common/Uncommon/Rare)
+ * is the same art reprinted. Premium tiers each get distinct artwork.
+ */
+export function deduplicateByArt<T extends { illustrator: string; rarity: string; id: string }>(variants: T[]): T[] {
   const seen = new Map<string, T>();
   for (const v of variants) {
-    const key = v.illustrator || v.id;
+    const tier = artTier(v.rarity);
+    const key = v.illustrator ? `${v.illustrator}:${tier}` : v.id;
     if (!seen.has(key)) seen.set(key, v);
   }
   return [...seen.values()];

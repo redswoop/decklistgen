@@ -87,28 +87,50 @@ describe("isValidAllocation", () => {
 });
 
 describe("deduplicateByArt", () => {
-  const card = (id: string, illustrator: string) => ({ id, illustrator });
+  const card = (id: string, illustrator: string, rarity = "Common") => ({ id, illustrator, rarity });
 
-  test("keeps one representative per unique illustrator", () => {
+  test("keeps one representative per unique illustrator at same rarity", () => {
     const variants = [
-      card("sv01-100", "Artist A"),
-      card("sv02-100", "Artist A"),  // same art, different set
-      card("sv03-100", "Artist B"),
+      card("sv01-100", "Artist A", "Common"),
+      card("sv02-100", "Artist A", "Common"),  // same art, different set
+      card("sv03-100", "Artist B", "Common"),
     ];
     const result = deduplicateByArt(variants);
     expect(result).toHaveLength(2);
     expect(result.map(r => r.illustrator)).toEqual(["Artist A", "Artist B"]);
   });
 
-  test("keeps first printing when same illustrator appears multiple times", () => {
+  test("keeps same illustrator at different rarity tiers as separate art", () => {
     const variants = [
-      card("sv01-100", "Artist A"),
-      card("sv02-100", "Artist A"),
-      card("sv03-100", "Artist A"),
+      card("sv05-144", "AYUMI", "Uncommon"),
+      card("me01-167", "AYUMI", "Ultra Rare"),
+      card("sv06-223", "AYUMI", "Hyper rare"),
+    ];
+    const result = deduplicateByArt(variants);
+    expect(result).toHaveLength(3);
+  });
+
+  test("collapses same illustrator at same rarity tier across sets", () => {
+    const variants = [
+      card("sv05-144", "AYUMI", "Uncommon"),
+      card("sv08.5-101", "AYUMI", "Uncommon"),  // same art reprinted
+      card("me01-167", "AYUMI", "Ultra Rare"),   // different art
+    ];
+    const result = deduplicateByArt(variants);
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe("sv05-144");
+    expect(result[1].id).toBe("me01-167");
+  });
+
+  test("treats Common/Uncommon/Rare as same regular art tier", () => {
+    const variants = [
+      card("a", "Artist A", "Common"),
+      card("b", "Artist A", "Uncommon"),
+      card("c", "Artist A", "Rare"),
+      card("d", "Artist A", "Holo Rare"),
     ];
     const result = deduplicateByArt(variants);
     expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("sv01-100");
   });
 
   test("falls back to id when illustrator is empty", () => {
