@@ -179,6 +179,14 @@ export function findCardByName(name: string): Card | undefined {
   return undefined;
 }
 
+/** For basic energy, match by energy type rather than exact name.
+ *  "Basic Fighting Energy" and "Fighting Energy" are the same card across eras. */
+function isBasicEnergyMatch(a: Card, b: Card): boolean {
+  if (a.category !== "Energy" || b.category !== "Energy") return false;
+  if (a.mechanicsHash !== "basic" || b.mechanicsHash !== "basic") return false;
+  return a.energyTypes.length > 0 && a.energyTypes[0] === b.energyTypes[0];
+}
+
 export function getVariants(cardId: string, byName = false): Card[] {
   const card = cardIndex.get(cardId);
   if (!card) return [];
@@ -186,6 +194,8 @@ export function getVariants(cardId: string, byName = false): Card[] {
   for (const c of cardIndex.values()) {
     if (byName) {
       if (c.name === card.name) variants.push(c);
+    } else if (isBasicEnergyMatch(card, c)) {
+      variants.push(c);
     } else {
       if (c.name === card.name && c.mechanicsHash === card.mechanicsHash) variants.push(c);
     }

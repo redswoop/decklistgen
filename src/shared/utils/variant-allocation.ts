@@ -53,7 +53,8 @@ export function deduplicateByArt<T extends { illustrator: string; rarity: string
   const seen = new Map<string, T>();
   for (const v of variants) {
     const tier = artTier(v.rarity);
-    const key = v.illustrator ? `${v.illustrator}:${tier}` : v.id;
+    // No illustrator (e.g. basic energy): dedup by tier alone
+    const key = v.illustrator ? `${v.illustrator}:${tier}` : `_unknown:${tier}`;
     if (!seen.has(key)) seen.set(key, v);
   }
   return [...seen.values()];

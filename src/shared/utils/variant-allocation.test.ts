@@ -133,10 +133,19 @@ describe("deduplicateByArt", () => {
     expect(result).toHaveLength(1);
   });
 
-  test("falls back to id when illustrator is empty", () => {
+  test("collapses unknown illustrators at same tier (e.g. basic energy)", () => {
     const variants = [
-      card("sv01-100", ""),
-      card("sv02-100", ""),
+      card("sv01-258", "", "Uncommon"),
+      card("swsh12-157", "", "Uncommon"),
+    ];
+    const result = deduplicateByArt(variants);
+    expect(result).toHaveLength(1);
+  });
+
+  test("keeps unknown illustrators at different tiers", () => {
+    const variants = [
+      card("sv01-258", "", "Common"),
+      card("swsh12-157", "", "Ultra Rare"),
     ];
     const result = deduplicateByArt(variants);
     expect(result).toHaveLength(2);
