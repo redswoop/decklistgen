@@ -129,6 +129,8 @@ async function beautifyWorkingDeck() {
       variants = variants.filter(
         (v) => !excludeSet.has(v.rarity.toLowerCase())
       );
+      // Skip cards with no image (e.g. unreleased promos)
+      variants = variants.filter((v) => !!v.imageBase);
 
       // Deduplicate same-art printings — one representative per unique artwork
       variants = deduplicateByArt(variants);
