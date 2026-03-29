@@ -5,7 +5,7 @@ import type { DecklistEntry, DecklistOutput, LimitlessPlayer, ImportResult } fro
 import type { ProxySettings } from "../../shared/types/proxy-settings.js";
 import type { SavedDeck, DeckSummary, DeckCard } from "../../shared/types/deck.js";
 import type { CustomizedCardsResponse } from "../../shared/types/customized-card.js";
-import type { BeautifyOptions, BeautifyPreview } from "../../shared/types/beautify.js";
+import type { BeautifyOptions } from "../../shared/types/beautify.js";
 import type { User, AdminUser, MagicLink, InviteCode } from "../../shared/types/user.js";
 import type { QueueJob } from "../../shared/types/queue.js";
 
@@ -259,7 +259,7 @@ export const api = {
   copyDeck: (id: string, name?: string) =>
     post<SavedDeck>(`/decks/${id}/copy`, { name }),
   beautifyDeck: (id: string, options: BeautifyOptions) =>
-    post<{ deck?: SavedDeck; candidates?: BeautifyPreview[] }>(`/decks/${id}/beautify`, options),
+    post<{ deck: SavedDeck }>(`/decks/${id}/beautify`, options),
   setDeckVisibility: (id: string, visibility: { isPublic?: boolean; isListed?: boolean }) =>
     patch<SavedDeck>(`/decks/${id}/visibility`, visibility),
 

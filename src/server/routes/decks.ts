@@ -10,8 +10,8 @@ import {
 } from "../services/deck-store.js";
 import { getVariants } from "../services/card-store.js";
 import type { Card } from "../../shared/types/card.js";
-import type { BeautifyOptions, BeautifyPreview } from "../../shared/types/beautify.js";
-import { getRarityRank, sortByRarityDesc, getTopRarityVariants } from "../../shared/utils/rarity-rank.js";
+import type { BeautifyOptions } from "../../shared/types/beautify.js";
+import { getTopRarityVariants } from "../../shared/utils/rarity-rank.js";
 import { deduplicateByArt } from "../../shared/utils/variant-allocation.js";
 import { logAction, getClientIp } from "../services/logger.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -171,23 +171,6 @@ app.post("/:id/beautify", async (c) => {
     }
   }
 
-  // Manual mode: return candidates without modifying
-  if (mode === "manual") {
-    const candidates: BeautifyPreview[] = [];
-    for (const [name, { cardId, entries }] of byName) {
-      let variants = getVariants(cardId);
-      if (excludePrintUnfriendly) {
-        variants = variants.filter((v) => !v.isPrintUnfriendly);
-      }
-      if (excludeSet.size > 0) {
-        variants = variants.filter((v) => !excludeSet.has(v.rarity.toLowerCase()));
-      }
-      candidates.push({ name, currentCards: entries, variants });
-    }
-    return c.json({ candidates });
-  }
-
-  // Best or random mode: apply changes
   const newCards: SavedDeck["cards"] = [];
   for (const [name, { totalCount, cardId }] of byName) {
     let variants = getVariants(cardId);
@@ -204,20 +187,19 @@ app.post("/:id/beautify", async (c) => {
     variants = deduplicateByArt(variants);
 
     if (variants.length === 0) {
-      // All filtered out — keep original
       const original = deck.cards.find((c) => c.card.name === name)!;
       newCards.push({ count: totalCount, card: original.card });
       continue;
     }
 
     if (mode === "best") {
-      // Concentrate on the highest-rarity variant(s) only
-      variants = getTopRarityVariants(variants);
+      // Single highest-rarity variant, all copies on it
+      const best = getTopRarityVariants(variants)[0];
+      newCards.push({ count: totalCount, card: best });
     } else {
-      variants = shuffle(variants);
+      // Diverse: spread across as many unique arts as possible
+      newCards.push(...spreadRoundRobin(shuffle(variants), totalCount));
     }
-
-    newCards.push(...spreadRoundRobin(variants, totalCount));
   }
 
   const updated = await updateDeck(deck.id, user.id, { cards: newCards });
