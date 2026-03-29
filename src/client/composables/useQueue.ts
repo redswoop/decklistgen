@@ -2,7 +2,7 @@ import { ref, computed, watch, type Ref } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../lib/client.js";
 import type { QueueJob } from "../../shared/types/queue.js";
-import { onGenerationCompleted, hasActiveGenerations } from "./usePokeproxy.js";
+import { onGenerationCompleted, onGenerationFailed, hasActiveGenerations } from "./usePokeproxy.js";
 
 // Module-level state for badge (accessible without full composable mount)
 const activeJobCount = ref(0);
@@ -55,11 +55,14 @@ export function useQueue(isActive: Ref<boolean>) {
       (j) => j.status === "pending" || j.status === "running",
     ).length;
 
-    // Detect newly completed jobs
+    // Detect newly completed or failed jobs
     for (const job of list) {
       if (job.status === "completed" && !_lastCompletedIds.has(job.id)) {
         _lastCompletedIds.add(job.id);
         onGenerationCompleted(job.cardId, queryClient);
+      } else if (job.status === "failed" && !_lastCompletedIds.has(job.id)) {
+        _lastCompletedIds.add(job.id);
+        onGenerationFailed(job.cardId, job.error);
       }
     }
 

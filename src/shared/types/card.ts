@@ -27,6 +27,7 @@ export interface Card {
   hasFoil: boolean;
   isPrintUnfriendly: boolean;
   mechanicsHash: string;
+  illustrator: string;
 }
 
 export interface CardAttack {
@@ -81,6 +82,7 @@ export interface TcgdexCard {
   resistances?: Array<{ type: string; value: string }>;
   description?: string;
   evolveFrom?: string;
+  illustrator?: string;
   /** Present on energy cards in raw TCGdex JSON. */
   effect?: string;
 }

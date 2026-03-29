@@ -6,7 +6,7 @@ import { useVariants, usePokeproxy, usePokeproxyBatch, getCardImageUrl } from ".
 import { useDecks } from "../composables/useDecks.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
-import { randomizeAllocation, useForAll, isValidAllocation } from "../../shared/utils/variant-allocation.js";
+import { randomizeAllocation, useForAll, isValidAllocation, deduplicateByArt } from "../../shared/utils/variant-allocation.js";
 import { consolidateDeckCards } from "../../shared/utils/consolidate-deck.js";
 
 const props = defineProps<{
@@ -39,8 +39,8 @@ const totalCount = computed(() => {
   return sum;
 });
 
-// All variant IDs (use variants from API, or just the current card)
-const variantCards = computed<Card[]>(() => variants.value ?? [props.card]);
+// All variant IDs — deduplicate same-art reprints to reduce noise
+const variantCards = computed<Card[]>(() => deduplicateByArt(variants.value ?? [props.card]));
 const variantIds = computed(() => variantCards.value.map((c) => c.id));
 
 // Batch-fetch proxy status for variant cards so proxy images resolve

@@ -33,6 +33,19 @@ export function useForAll(variantIds: string[], selectedId: string, total: numbe
 }
 
 /**
+ * Pick one representative card per unique artwork (by illustrator).
+ * Collapses same-art reprints from different sets so beautify maximizes visual diversity.
+ */
+export function deduplicateByArt<T extends { illustrator: string; id: string }>(variants: T[]): T[] {
+  const seen = new Map<string, T>();
+  for (const v of variants) {
+    const key = v.illustrator || v.id;
+    if (!seen.has(key)) seen.set(key, v);
+  }
+  return [...seen.values()];
+}
+
+/**
  * Check that allocation values sum to the expected total and all values are non-negative integers.
  */
 export function isValidAllocation(allocation: Map<string, number>, expectedTotal: number): boolean {

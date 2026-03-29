@@ -1308,7 +1308,7 @@ body {
   border: 1px solid #0f3460;
   border-radius: 12px;
   width: 960px;
-  max-height: 85vh;
+  height: 85vh;
   overflow: hidden;
   backdrop-filter: blur(8px);
 }
@@ -1363,6 +1363,11 @@ body {
   justify-content: center;
   gap: 4px;
   flex-wrap: wrap;
+}
+
+.lb-same-art {
+  font-size: 11px;
+  opacity: 0.7;
 }
 
 .lb-tag {
@@ -1436,13 +1441,12 @@ body {
 }
 
 .lb-left {
-  width: 400px;
   flex-shrink: 0;
-  padding: 20px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .lb-card-image {
@@ -1451,6 +1455,7 @@ body {
   border-radius: 10px;
   overflow: hidden;
   transition: box-shadow 0.2s;
+  flex-shrink: 0;
 }
 
 .lb-card-image:hover {
@@ -1585,18 +1590,23 @@ body {
 }
 
 /* Image row: version picker + card image side by side */
-.lb-image-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-/* Version picker (vertical column) */
+/* Version picker (horizontal row) */
 .lb-versions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.lb-variant-set {
+  display: block;
+  text-align: center;
+  font-size: 9px;
+  color: #7f8fa6;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .lb-version {
@@ -1670,17 +1680,20 @@ body {
 }
 
 /* Variants row */
-.lb-variants {
-  display: flex;
+.lb-variants-section {
+  padding-bottom: 12px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(15, 52, 96, 0.4);
+}
+
+.lb-variants-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
-  overflow-x: auto;
-  max-width: 100%;
-  padding: 2px;
 }
 
 .lb-variant {
   position: relative;
-  width: 48px;
   flex-shrink: 0;
   cursor: pointer;
   border-radius: 4px;
@@ -1732,7 +1745,6 @@ body {
   line-height: 1;
 }
 
-/* Right panel */
 .lb-right {
   flex: 1;
   min-width: 0;
@@ -3462,7 +3474,6 @@ body {
   .lb-left {
     width: 100%;
     padding: 8px 12px;
-    flex-shrink: 0;
   }
 
   .lb-img {
@@ -3485,11 +3496,12 @@ body {
     max-width: 240px;
   }
 
-  .lb-right {
-    width: 100%;
-    padding: 0;
-    border-left: none;
-    border-top: 1px solid rgba(15, 52, 96, 0.6);
+  .lb-variants-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .lb-variants-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .lb-info-scroll {
@@ -3548,15 +3560,8 @@ body {
     width: 44px;
   }
 
-  .lb-image-row {
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-  }
-
-  /* Variants row tighter */
-  .lb-variants {
-    justify-content: center;
+  .lb-variants-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   /* Deck controls: bigger buttons */

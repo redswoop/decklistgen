@@ -70,6 +70,7 @@ function normalizeCard(raw: TcgdexCard, setCode: string): Card {
     hasFoil: !!variants.holo,
     isPrintUnfriendly: computePrintUnfriendly(raw.id),
     mechanicsHash: computeMechanicsHash(raw),
+    illustrator: raw.illustrator ?? "",
   };
 }
 

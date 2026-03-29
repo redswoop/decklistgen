@@ -23,6 +23,7 @@ import LightboxDevTools from "./lightbox/LightboxDevTools.vue";
 import type { DeckMembership } from "../../shared/types/customized-card.js";
 import type { DeckCard } from "../../shared/types/deck.js";
 import { consolidateDeckCards } from "../../shared/utils/consolidate-deck.js";
+import { deduplicateByArt } from "../../shared/utils/variant-allocation.js";
 
 useGenerationQueryClient();
 const { imageMode } = usePokeproxy();
@@ -90,9 +91,19 @@ function nextCard() {
   if (searchIndex.value < props.searchCards.length - 1) searchIndex.value++;
 }
 
-// Variant navigation
+// Variant navigation — deduplicate same-art reprints
 const activeCardId = computed(() => activeCard.value.id);
-const { data: variants } = useVariants(activeCardId);
+const { data: rawVariants } = useVariants(activeCardId);
+const variants = computed(() => rawVariants.value ? deduplicateByArt(rawVariants.value) : undefined);
+
+// Same-art printings of the current card (other set IDs sharing the same illustrator)
+const sameArtPrintings = computed(() => {
+  if (!rawVariants.value) return [];
+  const current = currentCard.value;
+  return rawVariants.value.filter(
+    (v) => v.id !== current.id && v.illustrator === current.illustrator && current.illustrator !== "",
+  );
+});
 const variantIndex = ref(0);
 
 watch([variants, activeCardId], () => {
@@ -406,120 +417,100 @@ function navigateToDeck(deckId: string) {
               <span v-for="t in tags" :key="t" class="lb-tag">{{ t }}</span>
             </template>
           </div>
+          <div v-if="sameArtPrintings.length" class="lb-meta lb-same-art">
+            Also printed in: {{ sameArtPrintings.map(v => `${v.setName} #${v.localId}`).join(', ') }}
+          </div>
         </div>
         <button class="nav-btn" :disabled="searchIndex >= searchCards.length - 1" @click="nextCard">&rsaquo;</button>
         <button class="lightbox-close" @click="emit('close')">&times;</button>
       </div>
 
-      <!-- Body: image left, info right -->
+      <!-- Body: top area (image + variants grid), bottom area (version picker + info) -->
       <div class="lb-body">
-        <!-- Left: version picker + card image + variants -->
+        <!-- Left: card image + version picker -->
         <div class="lb-left">
-          <div class="lb-image-row">
-            <!-- Version picker (vertical, left of image) -->
-            <div class="lb-versions">
-              <!-- Original -->
-              <div :class="['lb-version', { active: selectedVersion === 'original' }]">
-                <div class="lb-version-thumb" @click="selectVersion('original')">
-                  <img
-                    v-if="currentCard.imageBase"
-                    :src="cardImageUrl(currentCard.imageBase, 'low')"
-                    class="lb-version-img"
-                  />
-                  <div v-else class="lb-version-placeholder">?</div>
-                </div>
-                <span class="lb-version-label">Original</span>
-              </div>
-
-              <!-- Cleaned -->
-              <div :class="['lb-version', { active: selectedVersion === 'cleaned' }]">
-                <div class="lb-version-thumb" @click="selectVersion('cleaned')">
-                  <div v-if="generating" class="lb-version-placeholder">
-                    <div class="generate-spinner small"></div>
-                  </div>
-                  <img
-                    v-else-if="cleanedImageUrl"
-                    :src="cleanedImageUrl"
-                    class="lb-version-img"
-                  />
-                  <div v-else class="lb-version-placeholder">--</div>
-                </div>
-                <span class="lb-version-label">Cleaned</span>
-              </div>
-
-              <!-- Proxy -->
-              <div :class="['lb-version', { active: selectedVersion === 'proxy' }]">
-                <div class="lb-version-thumb" @click="selectVersion('proxy')">
-                  <img
-                    v-if="!svgLoading && !svgError"
-                    :src="svgUrl"
-                    class="lb-version-img"
-                  />
-                  <div v-else class="lb-version-placeholder">
-                    <div v-if="svgLoading || svgRegenerating" class="generate-spinner small"></div>
-                    <span v-else>--</span>
-                  </div>
-                </div>
-                <span class="lb-version-label">Proxy</span>
-              </div>
+          <div class="lb-card-image" @click="handleMainImageClick">
+            <img
+              v-if="mainImageUrl"
+              :src="mainImageUrl"
+              :alt="currentCard.name"
+              class="lb-img"
+            />
+            <div v-else class="lb-img-placeholder">{{ selectedVersion !== 'proxy' ? currentCard.name : '' }}</div>
+            <img
+              :src="svgUrl"
+              :alt="currentCard.name"
+              :class="['lb-img-svg', { loaded: selectedVersion === 'proxy' && !svgLoading && !svgError }]"
+              @load="onSvgLoad"
+              @error="onSvgError"
+            />
+            <div v-if="generating" class="lb-generating-overlay">
+              <div class="generate-spinner"></div>
+              <div class="lb-gen-text">Generating...</div>
             </div>
-
-            <!-- Main card image -->
-            <div class="lb-card-image" @click="handleMainImageClick">
-              <img
-                v-if="mainImageUrl"
-                :src="mainImageUrl"
-                :alt="currentCard.name"
-                class="lb-img"
-              />
-              <div v-else class="lb-img-placeholder">{{ selectedVersion !== 'proxy' ? currentCard.name : '' }}</div>
-              <!-- SVG proxy layered on top (always loads, only visible in proxy mode) -->
-              <img
-                :src="svgUrl"
-                :alt="currentCard.name"
-                :class="['lb-img-svg', { loaded: selectedVersion === 'proxy' && !svgLoading && !svgError }]"
-                @load="onSvgLoad"
-                @error="onSvgError"
-              />
-              <!-- Generation in-progress overlay -->
-              <div v-if="generating" class="lb-generating-overlay">
-                <div class="generate-spinner"></div>
-                <div class="lb-gen-text">Generating...</div>
-              </div>
-              <!-- Needs-generation overlay -->
-              <div v-else-if="needsGeneration" class="lb-generate-cta" @click.stop="handleMainImageClick">
-                <span class="lb-generate-cta-text">{{ isAuthorized ? 'Click to generate' : 'Authorization required' }}</span>
-              </div>
-              <div v-if="!needsGeneration && !generating" class="lb-zoom-hint">Click to zoom</div>
-              <button
-                v-if="canRegenerate"
-                class="lb-regen-btn"
-                @click.stop="handleRegenerate"
-                title="Regenerate cleaned image"
-              >&#x21bb;</button>
+            <div v-else-if="needsGeneration" class="lb-generate-cta" @click.stop="handleMainImageClick">
+              <span class="lb-generate-cta-text">{{ isAuthorized ? 'Click to generate' : 'Authorization required' }}</span>
             </div>
+            <div v-if="!needsGeneration && !generating" class="lb-zoom-hint">Click to zoom</div>
+            <button
+              v-if="canRegenerate"
+              class="lb-regen-btn"
+              @click.stop="handleRegenerate"
+              title="Regenerate cleaned image"
+            >&#x21bb;</button>
           </div>
 
-          <!-- Variants row -->
-          <div v-if="hasMultipleVariants" class="lb-variants">
-            <div
-              v-for="(v, i) in variants"
-              :key="v.id"
-              :class="['lb-variant', { active: i === variantIndex }]"
-              @click="variantIndex = i"
-            >
-              <img v-if="v.imageBase" :src="getCardImageUrl(v, imageMode, 'low') ?? cardImageUrl(v.imageBase, 'low')" class="lb-variant-img" />
-              <div v-else class="lb-variant-placeholder">?</div>
-              <span v-if="getContextDeckCount(v.setCode, v.localId)" class="lb-variant-badge">
-                {{ getContextDeckCount(v.setCode, v.localId) }}
-              </span>
+          <div class="lb-versions">
+            <div :class="['lb-version', { active: selectedVersion === 'original' }]">
+              <div class="lb-version-thumb" @click="selectVersion('original')">
+                <img v-if="currentCard.imageBase" :src="cardImageUrl(currentCard.imageBase, 'low')" class="lb-version-img" />
+                <div v-else class="lb-version-placeholder">?</div>
+              </div>
+              <span class="lb-version-label">Original</span>
+            </div>
+            <div :class="['lb-version', { active: selectedVersion === 'cleaned' }]">
+              <div class="lb-version-thumb" @click="selectVersion('cleaned')">
+                <div v-if="generating" class="lb-version-placeholder"><div class="generate-spinner small"></div></div>
+                <img v-else-if="cleanedImageUrl" :src="cleanedImageUrl" class="lb-version-img" />
+                <div v-else class="lb-version-placeholder">--</div>
+              </div>
+              <span class="lb-version-label">Cleaned</span>
+            </div>
+            <div :class="['lb-version', { active: selectedVersion === 'proxy' }]">
+              <div class="lb-version-thumb" @click="selectVersion('proxy')">
+                <img v-if="!svgLoading && !svgError" :src="svgUrl" class="lb-version-img" />
+                <div v-else class="lb-version-placeholder">
+                  <div v-if="svgLoading || svgRegenerating" class="generate-spinner small"></div>
+                  <span v-else>--</span>
+                </div>
+              </div>
+              <span class="lb-version-label">Proxy</span>
             </div>
           </div>
         </div>
 
-        <!-- Right: info panel -->
+        <!-- Right: scrolling stack — variants, card stats, actions -->
         <div class="lb-right">
           <div class="lb-info-scroll">
+            <!-- Variant grid -->
+            <div v-if="hasMultipleVariants" class="lb-variants-section">
+              <div class="lb-variants-grid">
+                <div
+                  v-for="(v, i) in variants"
+                  :key="v.id"
+                  :class="['lb-variant', { active: i === variantIndex }]"
+                  @click="variantIndex = i"
+                >
+                  <img v-if="v.imageBase" :src="getCardImageUrl(v, imageMode, 'low') ?? cardImageUrl(v.imageBase, 'low')" class="lb-variant-img" />
+                  <div v-else class="lb-variant-placeholder">?</div>
+                  <span v-if="getContextDeckCount(v.setCode, v.localId)" class="lb-variant-badge">
+                    {{ getContextDeckCount(v.setCode, v.localId) }}
+                  </span>
+                  <span class="lb-variant-set">{{ v.setCode }} #{{ v.localId }}</span>
+                </div>
+              </div>
+            </div>
+
             <!-- Card metadata -->
             <div v-if="currentCard.category === 'Pokemon'" class="lb-card-meta-block">
               <div class="lb-stage-line">

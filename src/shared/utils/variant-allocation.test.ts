@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { randomizeAllocation, useForAll, isValidAllocation } from "./variant-allocation.js";
+import { randomizeAllocation, useForAll, isValidAllocation, deduplicateByArt } from "./variant-allocation.js";
 
 describe("randomizeAllocation", () => {
   test("distributes total across variants", () => {
@@ -83,5 +83,54 @@ describe("isValidAllocation", () => {
 
   test("invalid with empty allocation and non-zero total", () => {
     expect(isValidAllocation(new Map(), 3)).toBe(false);
+  });
+});
+
+describe("deduplicateByArt", () => {
+  const card = (id: string, illustrator: string) => ({ id, illustrator });
+
+  test("keeps one representative per unique illustrator", () => {
+    const variants = [
+      card("sv01-100", "Artist A"),
+      card("sv02-100", "Artist A"),  // same art, different set
+      card("sv03-100", "Artist B"),
+    ];
+    const result = deduplicateByArt(variants);
+    expect(result).toHaveLength(2);
+    expect(result.map(r => r.illustrator)).toEqual(["Artist A", "Artist B"]);
+  });
+
+  test("keeps first printing when same illustrator appears multiple times", () => {
+    const variants = [
+      card("sv01-100", "Artist A"),
+      card("sv02-100", "Artist A"),
+      card("sv03-100", "Artist A"),
+    ];
+    const result = deduplicateByArt(variants);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("sv01-100");
+  });
+
+  test("falls back to id when illustrator is empty", () => {
+    const variants = [
+      card("sv01-100", ""),
+      card("sv02-100", ""),
+    ];
+    const result = deduplicateByArt(variants);
+    expect(result).toHaveLength(2);
+  });
+
+  test("handles empty input", () => {
+    expect(deduplicateByArt([])).toEqual([]);
+  });
+
+  test("all unique illustrators keeps all variants", () => {
+    const variants = [
+      card("a", "Artist A"),
+      card("b", "Artist B"),
+      card("c", "Artist C"),
+    ];
+    const result = deduplicateByArt(variants);
+    expect(result).toHaveLength(3);
   });
 });

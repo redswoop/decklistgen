@@ -12,6 +12,7 @@ import { getVariants } from "../services/card-store.js";
 import type { Card } from "../../shared/types/card.js";
 import type { BeautifyOptions, BeautifyPreview } from "../../shared/types/beautify.js";
 import { getRarityRank, sortByRarityDesc, getTopRarityVariants } from "../../shared/utils/rarity-rank.js";
+import { deduplicateByArt } from "../../shared/utils/variant-allocation.js";
 import { logAction, getClientIp } from "../services/logger.js";
 import { requireAuth } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
@@ -196,6 +197,9 @@ app.post("/:id/beautify", async (c) => {
     if (excludeSet.size > 0) {
       variants = variants.filter((v) => !excludeSet.has(v.rarity.toLowerCase()));
     }
+
+    // Deduplicate same-art printings — one representative per unique artwork
+    variants = deduplicateByArt(variants);
 
     if (variants.length === 0) {
       // All filtered out — keep original

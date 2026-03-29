@@ -7,6 +7,7 @@ import { getTopRarityVariants } from "../../shared/utils/rarity-rank.js";
 import type { BeautifyMode, BeautifyPreview } from "../../shared/types/beautify.js";
 import type { DeckCard } from "../../shared/types/deck.js";
 import type { Card } from "../../shared/types/card.js";
+import { deduplicateByArt } from "../../shared/utils/variant-allocation.js";
 
 const props = defineProps<{
   deckId: string | null;
@@ -128,6 +129,9 @@ async function beautifyWorkingDeck() {
       variants = variants.filter(
         (v) => !excludeSet.has(v.rarity.toLowerCase())
       );
+
+      // Deduplicate same-art printings — one representative per unique artwork
+      variants = deduplicateByArt(variants);
 
       if (variants.length === 0) continue;
 

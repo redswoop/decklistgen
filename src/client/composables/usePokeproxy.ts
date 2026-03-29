@@ -147,6 +147,13 @@ export async function onGenerationCompleted(
   qc?.invalidateQueries({ queryKey: ["pokeproxy-batch"] });
 }
 
+/** Called when a generation job fails (from useQueue's completion watcher) */
+export function onGenerationFailed(cardId: string, error?: string) {
+  generatingSet.delete(cardId);
+  const toast = useToast();
+  toast.error(`Generation failed for ${cardId}: ${error || "unknown error"}`);
+}
+
 /** Submit generation (now non-blocking — returns immediately after queuing) */
 export async function generateCleanImage(cardId: string, force = false) {
   if (generatingSet.has(cardId)) return;
