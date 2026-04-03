@@ -263,49 +263,6 @@ function handlePreview(card: Card, cards: Card[]) {
 
   <!-- Deck loaded -->
   <div v-else-if="deck" class="dm-view">
-    <div class="dm-view-toolbar">
-      <span v-if="renaming" class="dm-view-name">
-        <input
-          ref="renameInput"
-          v-model="renameValue"
-          class="dm-rename-input dm-view-rename-input"
-          @keyup.enter="confirmRename"
-          @keyup.escape="renaming = false"
-          @blur="confirmRename"
-        />
-      </span>
-      <span v-else class="dm-view-name">{{ deck.name }}</span>
-      <div class="dm-view-actions">
-        <button class="dm-action-btn" title="Edit this deck" @click="handleEditDeck">
-          Edit
-        </button>
-        <button
-          class="dm-action-btn"
-          :disabled="!canSave"
-          :title="saveTooltip"
-          @click="handleSave"
-        >
-          Save
-        </button>
-        <button class="dm-action-btn" title="Rename this deck" @click="startRename">
-          Rename
-        </button>
-        <button class="dm-action-btn" title="Create a copy of this deck" @click="handleDuplicate">
-          Duplicate
-        </button>
-        <button class="dm-action-btn" title="Upgrade card variants" @click="showBeautify = true">
-          Beautify
-        </button>
-        <button class="dm-action-btn" title="Generate proxy artwork for cards in this deck" @click="showBatchGenerate = true">
-          Generate
-        </button>
-        <button class="dm-action-btn" title="Open printable proxy sheet" @click="handlePrint">Print</button>
-        <button class="dm-action-btn" @click="handleExport">Export</button>
-        <button class="dm-action-btn dm-action-btn-danger" title="Delete this deck" @click="showDeleteConfirm = true">
-          Delete
-        </button>
-      </div>
-    </div>
     <CardGrid
       :cards="deckCards"
       :card-counts="cardCounts"
@@ -316,7 +273,30 @@ function handlePreview(card: Card, cards: Card[]) {
       @add-card="handleAddCard"
       @remove-card="handleRemoveCard"
       @regenerate-card="handleRegenerate"
-    />
+    >
+      <template #toolbar>
+        <div class="dm-view-actions">
+          <input
+            v-if="renaming"
+            ref="renameInput"
+            v-model="renameValue"
+            class="dm-rename-input dm-view-rename-input"
+            @keyup.enter="confirmRename"
+            @keyup.escape="renaming = false"
+            @blur="confirmRename"
+          />
+          <button class="dm-action-btn" title="Edit this deck" @click="handleEditDeck">Edit</button>
+          <button class="dm-action-btn" :disabled="!canSave" :title="saveTooltip" @click="handleSave">Save</button>
+          <button class="dm-action-btn" title="Rename this deck" @click="startRename">Rename</button>
+          <button class="dm-action-btn" title="Create a copy of this deck" @click="handleDuplicate">Duplicate</button>
+          <button class="dm-action-btn" title="Upgrade card variants" @click="showBeautify = true">Beautify</button>
+          <button class="dm-action-btn" title="Generate proxy artwork" @click="showBatchGenerate = true">Generate</button>
+          <button class="dm-action-btn" title="Open printable proxy sheet" @click="handlePrint">Print</button>
+          <button class="dm-action-btn" @click="handleExport">Export</button>
+          <button class="dm-action-btn dm-action-btn-danger" title="Delete this deck" @click="showDeleteConfirm = true">Delete</button>
+        </div>
+      </template>
+    </CardGrid>
 
     <BeautifyDialog
       v-if="showBeautify && deck"

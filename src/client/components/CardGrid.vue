@@ -8,6 +8,7 @@ import { usePokeproxy, usePokeproxyBatch, type ImageMode } from "../composables/
 import { useEraLoader } from "../composables/useEraLoader.js";
 import CardTile from "./CardTile.vue";
 import type { TileContext } from "./CardTile.vue";
+import { api } from "../lib/client.js";
 import type { Card } from "../../shared/types/card.js";
 
 const props = withDefaults(defineProps<{
@@ -48,7 +49,7 @@ const emit = defineEmits<{
 }>();
 
 const { filters, setNameSearch } = useFilters();
-const { addCard } = useDecklist();
+const { addCard, getDeckCount } = useDecklist();
 const { imageMode, setImageMode } = usePokeproxy();
 const { loadingEra, loadEra, loadAllEras } = useEraLoader();
 
@@ -231,10 +232,52 @@ const groupByOptions: { value: GroupBy; label: string }[] = [
   { value: "category", label: "Category" },
 ];
 
+// Deck context API search
+const isDeckContext = computed(() => props.context === "deck");
+const apiSearchQuery = ref("");
+const apiSearchResults = ref<Card[]>([]);
+const apiSearchLoading = ref(false);
+const showApiDropdown = ref(false);
+let apiSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(apiSearchQuery, (q) => {
+  if (apiSearchTimer) clearTimeout(apiSearchTimer);
+  if (!q || q.length < 2) {
+    apiSearchResults.value = [];
+    showApiDropdown.value = false;
+    return;
+  }
+  apiSearchLoading.value = true;
+  apiSearchTimer = setTimeout(async () => {
+    try {
+      const { cards } = await api.getCards({ nameSearch: q }, 1, 20);
+      apiSearchResults.value = cards;
+      showApiDropdown.value = cards.length > 0;
+    } catch {
+      apiSearchResults.value = [];
+    } finally {
+      apiSearchLoading.value = false;
+    }
+  }, 250);
+});
+
+function selectApiResult(card: Card) {
+  apiSearchQuery.value = "";
+  apiSearchResults.value = [];
+  showApiDropdown.value = false;
+  emit("preview-card", card, [card]);
+}
+
+function handleApiSearchBlur() {
+  setTimeout(() => { showApiDropdown.value = false; }, 200);
+}
+
 // Search input handler
 function handleSearchInput(e: Event) {
   const val = (e.target as HTMLInputElement).value;
-  if (isExternalMode.value) {
+  if (isDeckContext.value) {
+    apiSearchQuery.value = val;
+  } else if (isExternalMode.value) {
     localSearch.value = val;
   } else {
     setNameSearch(val);
@@ -242,16 +285,21 @@ function handleSearchInput(e: Event) {
 }
 
 function clearSearch() {
-  if (isExternalMode.value) {
+  if (isDeckContext.value) {
+    apiSearchQuery.value = "";
+    apiSearchResults.value = [];
+    showApiDropdown.value = false;
+  } else if (isExternalMode.value) {
     localSearch.value = "";
   } else {
     setNameSearch("");
   }
 }
 
-const searchValue = computed(() =>
-  isExternalMode.value ? localSearch.value : (filters.nameSearch ?? "")
-);
+const searchValue = computed(() => {
+  if (isDeckContext.value) return apiSearchQuery.value;
+  return isExternalMode.value ? localSearch.value : (filters.nameSearch ?? "");
+});
 
 const displayLabel = computed(() => {
   if (props.headerLabel) return props.headerLabel;
@@ -280,46 +328,79 @@ function handleTilePreview(card: Card) {
 </script>
 
 <template>
-  <!-- Empty state (external mode with no cards) -->
-  <div v-if="isExternalMode && allCardsRaw.length === 0" class="empty-state">
-    No cards in this deck.
-  </div>
-
   <!-- Normal flow: header always rendered, content switches below -->
-  <div v-else class="card-grid-wrapper">
+  <div class="card-grid-wrapper">
     <div class="card-grid-header">
       <span class="card-count">{{ isLoading && !hasAnyFilter ? '' : displayLabel }}</span>
-      <div class="grid-search-wrap">
-        <input
-          type="text"
-          class="grid-search"
-          placeholder="Search cards..."
-          :value="searchValue"
-          @input="handleSearchInput"
-        />
-        <button
-          v-if="searchValue"
-          class="grid-search-clear"
-          @click="clearSearch"
-        >&times;</button>
+      <slot name="toolbar" />
+      <div class="card-grid-header-controls">
+        <div class="grid-search-wrap">
+          <input
+            type="text"
+            class="grid-search"
+            :placeholder="isDeckContext ? 'Search cards to add...' : 'Search cards...'"
+            :value="searchValue"
+            @input="handleSearchInput"
+            @focus="isDeckContext && apiSearchResults.length > 0 && (showApiDropdown = true)"
+            @blur="isDeckContext && handleApiSearchBlur()"
+          />
+          <span v-if="isDeckContext && apiSearchLoading" class="grid-search-spinner" />
+          <button
+            v-if="searchValue"
+            class="grid-search-clear"
+            @click="clearSearch"
+          >&times;</button>
+          <!-- API search dropdown (deck context only) -->
+          <div v-if="isDeckContext && showApiDropdown" class="grid-search-dropdown">
+            <div
+              v-for="card in apiSearchResults"
+              :key="card.id"
+              class="grid-search-result"
+              @mousedown.prevent="selectApiResult(card)"
+            >
+              <img
+                v-if="card.imageBase"
+                :src="card.imageBase + '/low.png'"
+                class="grid-search-thumb"
+              />
+              <div v-else class="grid-search-thumb-placeholder" />
+              <div class="grid-search-result-info">
+                <span class="grid-search-result-name">{{ card.name }}</span>
+                <span class="grid-search-result-set">{{ card.setCode }} {{ card.localId }}</span>
+              </div>
+              <span
+                v-if="getDeckCount(card.setCode, card.localId) > 0"
+                class="grid-search-result-count"
+              >&times;{{ getDeckCount(card.setCode, card.localId) }}</span>
+            </div>
+          </div>
+        </div>
+        <select v-model="groupBy" class="group-by-select">
+          <option v-for="opt in groupByOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+        <div class="image-mode-toggle">
+          <button
+            v-for="opt in modeOptions"
+            :key="opt.value"
+            :class="['mode-btn', { active: imageMode === opt.value }]"
+            @click="setImageMode(opt.value)"
+          >{{ opt.label }}</button>
+        </div>
       </div>
-      <select v-model="groupBy" class="group-by-select">
-        <option v-for="opt in groupByOptions" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
-      <div class="image-mode-toggle">
-        <button
-          v-for="opt in modeOptions"
-          :key="opt.value"
-          :class="['mode-btn', { active: imageMode === opt.value }]"
-          @click="setImageMode(opt.value)"
-        >{{ opt.label }}</button>
+    </div>
+
+    <!-- Empty deck state -->
+    <div v-if="isDeckContext && allCardsRaw.length === 0" class="dm-welcome">
+      <div class="dm-welcome-inner">
+        <div class="dm-welcome-title">Your Deck</div>
+        <div class="dm-welcome-sub">Search above to find and add cards.</div>
       </div>
     </div>
 
     <!-- Welcome state: no filters active (only in API mode) -->
-    <div v-if="!isExternalMode && !hasAnyFilter && !isLoading" class="welcome-content">
+    <div v-else-if="!isExternalMode && !hasAnyFilter && !isLoading" class="welcome-content">
       <div class="welcome-card">
         <div class="welcome-title">Pokemon TCG Card Browser</div>
         <div class="welcome-subtitle">Load an era to browse cards</div>

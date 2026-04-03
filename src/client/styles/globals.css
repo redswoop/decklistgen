@@ -423,11 +423,18 @@ body {
 .card-grid-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
+  gap: 8px;
+  padding: 6px 16px;
   border-bottom: 1px solid #0f3460;
   flex-shrink: 0;
   flex-wrap: wrap;
+}
+
+.card-grid-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .card-count {
@@ -2240,6 +2247,96 @@ body {
   background: rgba(255,255,255,0.08);
 }
 
+.grid-search-spinner {
+  position: absolute;
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border: 2px solid #333;
+  border-top-color: #e94560;
+  border-radius: 50%;
+  animation: grid-search-spin 0.6s linear infinite;
+}
+
+@keyframes grid-search-spin {
+  to { transform: translateY(-50%) rotate(360deg); }
+}
+
+.grid-search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 0 0 6px 6px;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.grid-search-result {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  cursor: pointer;
+  gap: 8px;
+}
+
+.grid-search-result:hover {
+  background: rgba(233, 69, 96, 0.1);
+}
+
+.grid-search-thumb {
+  width: 32px;
+  height: 45px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.grid-search-thumb-placeholder {
+  width: 32px;
+  height: 45px;
+  background: #1a1a2e;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.grid-search-result-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.grid-search-result-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e0e0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grid-search-result-set {
+  font-size: 11px;
+  color: #7f8fa6;
+}
+
+.grid-search-result-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e94560;
+  flex-shrink: 0;
+  padding: 2px 6px;
+  background: rgba(233, 69, 96, 0.15);
+  border-radius: 4px;
+}
+
 /* Resize handles */
 .resize-handle {
   width: 6px;
@@ -3961,117 +4058,6 @@ body {
 
 /* ═══ Working Deck View Search ═══ */
 
-.wdv-search-bar {
-  padding: 8px 16px;
-  border-bottom: 1px solid #0f3460;
-  flex-shrink: 0;
-}
-
-.wdv-search-wrap {
-  position: relative;
-  max-width: 500px;
-}
-
-.wdv-search-input {
-  width: 100%;
-  padding: 7px 12px;
-  background: #1a1a2e;
-  border: 1px solid #0f3460;
-  border-radius: 6px;
-  color: #e0e0e0;
-  font-size: 13px;
-}
-
-.wdv-search-input:focus {
-  outline: none;
-  border-color: #e94560;
-}
-
-.wdv-search-input::placeholder {
-  color: #555;
-}
-
-.wdv-search-spinner {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 14px;
-  height: 14px;
-  border: 2px solid #333;
-  border-top-color: #e94560;
-  border-radius: 50%;
-  animation: wdv-spin 0.6s linear infinite;
-}
-
-@keyframes wdv-spin {
-  to { transform: translateY(-50%) rotate(360deg); }
-}
-
-.wdv-search-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: #16213e;
-  border: 1px solid #0f3460;
-  border-top: none;
-  border-radius: 0 0 6px 6px;
-  max-height: 320px;
-  overflow-y: auto;
-  z-index: 50;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-}
-
-.wdv-search-result {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 12px;
-  cursor: pointer;
-  transition: background 0.1s;
-}
-
-.wdv-search-result:hover {
-  background: rgba(233, 69, 96, 0.1);
-}
-
-.wdv-search-thumb {
-  width: 28px;
-  height: 39px;
-  border-radius: 3px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.wdv-search-thumb-placeholder {
-  width: 28px;
-  height: 39px;
-  border-radius: 3px;
-  background: #0f3460;
-  flex-shrink: 0;
-}
-
-.wdv-search-result-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.wdv-search-result-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: #e0e0e0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.wdv-search-result-set {
-  font-size: 11px;
-  color: #7f8fa6;
-}
-
 /* Mobile overrides for context bar */
 @media (max-width: 768px) {
   .deck-context-bar {
@@ -4094,9 +4080,6 @@ body {
     border-radius: 12px;
   }
 
-  .wdv-search-wrap {
-    max-width: 100%;
-  }
 }
 
 /* ═══ Deck Gallery View ═══ */

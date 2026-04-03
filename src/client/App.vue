@@ -524,7 +524,7 @@ function handleTabClick(tab: string) {
           />
           <WorkingDeckView
             v-else
-            @preview-card="handlePreview"
+            @preview-card="handleDeckPreview"
             @export="showExport = true"
             @import="showImport = true"
             @save="showSaveDeck = true"

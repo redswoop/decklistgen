@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed } from "vue";
 import CardGrid from "./CardGrid.vue";
 import BeautifyDialog from "./BeautifyDialog.vue";
 import BatchGenerateDialog from "./BatchGenerateDialog.vue";
@@ -10,7 +10,6 @@ import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
 import { useAuth } from "../composables/useAuth.js";
 import { generateCleanImage } from "../composables/usePokeproxy.js";
-import { api } from "../lib/client.js";
 import type { Card } from "../../shared/types/card.js";
 
 const emit = defineEmits<{
@@ -58,49 +57,6 @@ const showBatchGenerate = ref(false);
 const showPrintDialog = ref(false);
 const showSaveBeforePrint = ref(false);
 const variantPickerCard = ref<Card | null>(null);
-
-// --- Search-to-add ---
-const searchQuery = ref("");
-const searchResults = ref<Card[]>([]);
-const searchLoading = ref(false);
-const showDropdown = ref(false);
-let searchTimer: ReturnType<typeof setTimeout> | null = null;
-
-watch(searchQuery, (q) => {
-  if (searchTimer) clearTimeout(searchTimer);
-  if (!q || q.length < 2) {
-    searchResults.value = [];
-    showDropdown.value = false;
-    return;
-  }
-  searchLoading.value = true;
-  searchTimer = setTimeout(async () => {
-    try {
-      const { cards } = await api.getCards({ nameSearch: q }, 1, 20);
-      searchResults.value = cards;
-      showDropdown.value = cards.length > 0;
-    } catch {
-      searchResults.value = [];
-    } finally {
-      searchLoading.value = false;
-    }
-  }, 250);
-});
-
-function selectSearchResult(card: Card) {
-  searchQuery.value = "";
-  searchResults.value = [];
-  showDropdown.value = false;
-  // Open lightbox for the card — user can add from there
-  emit("preview-card", card, [card]);
-}
-
-function handleSearchBlur() {
-  // Delay to allow click on dropdown items
-  setTimeout(() => {
-    showDropdown.value = false;
-  }, 200);
-}
 
 // --- Card grid handlers ---
 function handleRemoveCard(card: Card) {
@@ -164,63 +120,8 @@ async function handleBeautifyUpdated() {
 
 <template>
   <div class="dm-view">
-    <!-- Search bar -->
-    <div class="wdv-search-bar">
-      <div class="wdv-search-wrap">
-        <input
-          v-model="searchQuery"
-          type="text"
-          class="wdv-search-input"
-          placeholder="Search cards to add..."
-          @focus="showDropdown = searchResults.length > 0"
-          @blur="handleSearchBlur"
-        />
-        <span v-if="searchLoading" class="wdv-search-spinner" />
-        <div v-if="showDropdown" class="wdv-search-dropdown">
-          <div
-            v-for="card in searchResults"
-            :key="card.id"
-            class="wdv-search-result"
-            @mousedown.prevent="selectSearchResult(card)"
-          >
-            <img
-              v-if="card.imageBase"
-              :src="card.imageBase + '/low.png'"
-              class="wdv-search-thumb"
-            />
-            <div v-else class="wdv-search-thumb-placeholder" />
-            <div class="wdv-search-result-info">
-              <span class="wdv-search-result-name">{{ card.name }}</span>
-              <span class="wdv-search-result-set">{{ card.setCode }} {{ card.localId }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Toolbar (actions only — name/count/save moved to context bar) -->
-    <div v-if="items.length > 0" class="dm-view-toolbar">
-      <div class="dm-view-actions">
-        <button class="dm-action-btn" @click="showBeautify = true" :disabled="items.length === 0">Beautify</button>
-        <button class="dm-action-btn" @click="showBatchGenerate = true" :disabled="items.length === 0 || !isLoggedIn" :title="!isLoggedIn ? 'Sign in to generate card images' : undefined">Generate</button>
-        <button class="dm-action-btn" :disabled="!currentDeckId" :title="!isLoggedIn ? 'Sign in to save and print decks' : (!currentDeckId ? 'Save the deck first to print' : 'Open printable proxy sheet')" @click="handlePrint">Print</button>
-        <button class="dm-action-btn" @click="emit('import')">Import</button>
-        <button class="dm-action-btn" @click="emit('export')" :disabled="items.length === 0">Export</button>
-        <button class="dm-action-btn dm-action-btn-danger" @click="clear()" :disabled="items.length === 0">Clear</button>
-      </div>
-    </div>
-
-    <!-- Empty state -->
-    <div v-if="items.length === 0" class="dm-welcome">
-      <div class="dm-welcome-inner">
-        <div class="dm-welcome-title">Your Deck</div>
-        <div class="dm-welcome-sub">Search above or browse cards to add them to your deck.</div>
-      </div>
-    </div>
-
-    <!-- Card grid -->
+    <!-- Card grid (always rendered so search is available) -->
     <CardGrid
-      v-else
       :cards="deckCards"
       :card-counts="cardCounts"
       :header-label="headerLabel"
@@ -230,7 +131,18 @@ async function handleBeautifyUpdated() {
       @add-card="handleAddCard"
       @remove-card="handleRemoveCard"
       @regenerate-card="handleRegenerate"
-    />
+    >
+      <template #toolbar>
+        <div class="dm-view-actions">
+          <button class="dm-action-btn" @click="showBeautify = true" :disabled="items.length === 0">Beautify</button>
+          <button class="dm-action-btn" @click="showBatchGenerate = true" :disabled="items.length === 0 || !isLoggedIn" :title="!isLoggedIn ? 'Sign in to generate card images' : undefined">Generate</button>
+          <button class="dm-action-btn" :disabled="!currentDeckId" :title="!isLoggedIn ? 'Sign in to save and print decks' : (!currentDeckId ? 'Save the deck first to print' : 'Open printable proxy sheet')" @click="handlePrint">Print</button>
+          <button class="dm-action-btn" @click="emit('import')">Import</button>
+          <button class="dm-action-btn" @click="emit('export')" :disabled="items.length === 0">Export</button>
+          <button class="dm-action-btn dm-action-btn-danger" @click="clear()" :disabled="items.length === 0">Clear</button>
+        </div>
+      </template>
+    </CardGrid>
 
     <BeautifyDialog
       v-if="showBeautify"

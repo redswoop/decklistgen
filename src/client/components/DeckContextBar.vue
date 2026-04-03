@@ -84,6 +84,7 @@ const displayName = () => {
   if (items.value.length === 0 && !currentDeckId.value) return "New Deck";
   return currentDeckName.value || "Untitled Deck";
 };
+
 </script>
 
 <template>
