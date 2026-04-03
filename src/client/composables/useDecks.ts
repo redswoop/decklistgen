@@ -1,6 +1,7 @@
 import { computed } from "vue";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/vue-query";
 import { api } from "../lib/client.js";
+import { useAuth } from "./useAuth.js";
 import type { SavedDeck, DeckCard } from "../../shared/types/deck.js";
 import type { BeautifyOptions } from "../../shared/types/beautify.js";
 
@@ -8,10 +9,12 @@ const DECKS_KEY = ["decks"] as const;
 
 export function useDecks() {
   const queryClient = useQueryClient();
+  const { isLoggedIn } = useAuth();
 
   const { data: decks, isLoading } = useQuery({
     queryKey: DECKS_KEY,
     queryFn: () => api.listDecks(),
+    enabled: isLoggedIn,
   });
 
   function invalidate() {

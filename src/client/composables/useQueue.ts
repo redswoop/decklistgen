@@ -1,6 +1,7 @@
 import { ref, computed, watch, type Ref } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../lib/client.js";
+import { useAuth } from "./useAuth.js";
 import type { QueueJob } from "../../shared/types/queue.js";
 import { onGenerationCompleted, onGenerationFailed, hasActiveGenerations } from "./usePokeproxy.js";
 
@@ -28,6 +29,7 @@ let _refetchFn: (() => void) | null = null;
  */
 export function useQueue(isActive: Ref<boolean>) {
   const queryClient = useQueryClient();
+  const { isLoggedIn } = useAuth();
 
   const { data, refetch } = useQuery({
     queryKey: ["queue"],
@@ -35,7 +37,9 @@ export function useQueue(isActive: Ref<boolean>) {
       const result = await api.queueList();
       return result.jobs;
     },
+    enabled: isLoggedIn,
     refetchInterval: computed(() => {
+      if (!isLoggedIn.value) return false;
       if (isActive.value) return 2000;
       if (activeJobCount.value > 0 || hasActiveGenerations.value) return 5000;
       return false;
