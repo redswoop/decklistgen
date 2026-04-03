@@ -78,6 +78,14 @@ body {
   color: #e0e0e0;
 }
 
+.app-nav-tab.requires-auth {
+  opacity: 0.45;
+}
+
+.app-nav-tab.requires-auth:hover:not(.active) {
+  opacity: 0.7;
+}
+
 .nav-badge {
   background: #e94560;
   color: white;
@@ -100,6 +108,59 @@ body {
 
 .app-nav-spacer {
   flex: 1;
+}
+
+.sign-in-btn {
+  padding: 3px 12px;
+  background: #e94560;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.sign-in-btn:hover {
+  background: #d13553;
+}
+
+.auth-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.auth-dialog {
+  position: relative;
+}
+
+.auth-dialog-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #7f8fa6;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 1;
+  line-height: 1;
+}
+
+.auth-dialog-close:hover {
+  color: #e0e0e0;
+}
+
+/* When AuthPage is inside a dialog, remove the full-page centering */
+.auth-dialog .auth-page {
+  min-height: auto;
+  background: none;
 }
 
 .auth-loading {
@@ -3320,6 +3381,10 @@ body {
     background: rgba(15, 52, 96, 0.4);
   }
 
+  .mobile-tab.requires-auth {
+    opacity: 0.45;
+  }
+
   /* Content padding so nothing hides behind bottom tab bar */
   .app-content {
     padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
@@ -4110,6 +4175,14 @@ body {
   text-align: center;
   color: #7f8fa6;
   font-size: 14px;
+}
+
+.deck-gallery-anon {
+  padding: 40px;
+  text-align: center;
+  color: #7f8fa6;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .deck-gallery-grid {

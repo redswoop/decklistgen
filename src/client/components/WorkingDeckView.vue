@@ -8,6 +8,7 @@ import PrintDialog from "./PrintDialog.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
+import { useAuth } from "../composables/useAuth.js";
 import { generateCleanImage } from "../composables/usePokeproxy.js";
 import { api } from "../lib/client.js";
 import type { Card } from "../../shared/types/card.js";
@@ -28,6 +29,7 @@ const {
 } = useDecklist();
 
 const { fetchDeck } = useDecks();
+const { isLoggedIn } = useAuth();
 
 /** If an art override is set, return a card with the art card's imageBase for display */
 function displayCard(card: Card, artCard?: Card): Card {
@@ -200,8 +202,8 @@ async function handleBeautifyUpdated() {
     <div v-if="items.length > 0" class="dm-view-toolbar">
       <div class="dm-view-actions">
         <button class="dm-action-btn" @click="showBeautify = true" :disabled="items.length === 0">Beautify</button>
-        <button class="dm-action-btn" @click="showBatchGenerate = true" :disabled="items.length === 0">Generate</button>
-        <button class="dm-action-btn" :disabled="!currentDeckId" :title="currentDeckId ? 'Open printable proxy sheet' : 'Save the deck first to print'" @click="handlePrint">Print</button>
+        <button class="dm-action-btn" @click="showBatchGenerate = true" :disabled="items.length === 0 || !isLoggedIn" :title="!isLoggedIn ? 'Sign in to generate card images' : undefined">Generate</button>
+        <button class="dm-action-btn" :disabled="!currentDeckId" :title="!isLoggedIn ? 'Sign in to save and print decks' : (!currentDeckId ? 'Save the deck first to print' : 'Open printable proxy sheet')" @click="handlePrint">Print</button>
         <button class="dm-action-btn" @click="emit('import')">Import</button>
         <button class="dm-action-btn" @click="emit('export')" :disabled="items.length === 0">Export</button>
         <button class="dm-action-btn dm-action-btn-danger" @click="clear()" :disabled="items.length === 0">Clear</button>

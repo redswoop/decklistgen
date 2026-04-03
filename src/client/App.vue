@@ -24,6 +24,7 @@ import ToastContainer from "./components/ToastContainer.vue";
 import { useDecklist } from "./composables/useDecklist.js";
 import { useDecks } from "./composables/useDecks.js";
 import { useAuth } from "./composables/useAuth.js";
+import { useAuthDialog } from "./composables/useAuthDialog.js";
 import { useRoute, setCardParam } from "./composables/useRoute.js";
 import { useIsMobile } from "./composables/useIsMobile.js";
 import { useEraLoader } from "./composables/useEraLoader.js";
@@ -34,9 +35,10 @@ import type { Card } from "../shared/types/card.js";
 import type { DeckCard } from "../shared/types/deck.js";
 import type { DeckMembership } from "../shared/types/customized-card.js";
 
-const { isLoggedIn, loading: authLoading, checkAuth, isAdmin } = useAuth();
+const { isLoggedIn, loading: authLoading, checkAuth, isAdmin, needsSetup } = useAuth();
 const { activeJobCount } = useQueueBadge();
 const { restoreFromUrl } = useEraLoader();
+const { showAuthDialog } = useAuthDialog();
 
 // View synced to URL hash, card param for lightbox deep-links
 const { currentView, previewCardId } = useRoute();
@@ -293,6 +295,13 @@ function handleUndoRedo(e: KeyboardEvent) {
   }
 }
 
+// Redirect anonymous users away from auth-required views
+watch([currentView, isLoggedIn], ([view, loggedIn]) => {
+  if (!loggedIn && authRequiredTabs.has(view)) {
+    currentView.value = 'browse';
+  }
+});
+
 // Check auth + deep-link hydration on mount
 onMounted(async () => {
   document.addEventListener('keydown', handleUndoRedo);
@@ -313,6 +322,7 @@ onMounted(async () => {
 });
 
 async function handleSaveDeck(name: string) {
+  if (!isLoggedIn.value) { showAuthDialog.value = true; return; }
   showSaveDeck.value = false;
   try {
     const deck = await createDeck({
@@ -328,7 +338,7 @@ async function handleSaveDeck(name: string) {
 }
 
 async function handleWorkingSaveUpdate() {
-  if (!currentDeckId.value || !isDirty.value) return;
+  if (!isLoggedIn.value || !currentDeckId.value || !isDirty.value) return;
   try {
     await updateDeck({
       id: currentDeckId.value,
@@ -365,8 +375,15 @@ function handleGoToGallery() {
   currentView.value = 'build';
 }
 
-function handleDeckTabClick() {
-  currentView.value = 'build';
+// Tabs that require authentication
+const authRequiredTabs = new Set(['queue', 'editor']);
+
+function handleTabClick(tab: string) {
+  if (authRequiredTabs.has(tab) && !isLoggedIn.value) {
+    showAuthDialog.value = true;
+    return;
+  }
+  currentView.value = tab as typeof currentView.value;
 }
 </script>
 
@@ -376,10 +393,10 @@ function handleDeckTabClick() {
     <div class="auth-loading-text">Loading...</div>
   </div>
 
-  <!-- Auth gate -->
-  <AuthPage v-else-if="!isLoggedIn" />
+  <!-- First-time setup: full-page gate -->
+  <AuthPage v-else-if="needsSetup" />
 
-  <!-- Main app -->
+  <!-- Main app (accessible to everyone) -->
   <div v-else class="app">
     <!-- Navigation bar -->
     <div class="app-nav">
@@ -387,35 +404,37 @@ function handleDeckTabClick() {
       <div class="app-nav-tabs">
         <button
           :class="['app-nav-tab', { active: currentView === 'build' }]"
-          @click="handleDeckTabClick"
+          @click="handleTabClick('build')"
         >Deck</button>
         <button
           :class="['app-nav-tab', { active: currentView === 'browse' }]"
-          @click="currentView = 'browse'"
+          @click="handleTabClick('browse')"
         >Browse</button>
         <button
           :class="['app-nav-tab', { active: currentView === 'cards' }]"
-          @click="currentView = 'cards'"
+          @click="handleTabClick('cards')"
         >Cards</button>
         <button
           :class="['app-nav-tab', { active: currentView === 'public' }]"
-          @click="currentView = 'public'"
+          @click="handleTabClick('public')"
         >Public</button>
         <button
-          :class="['app-nav-tab', { active: currentView === 'queue' }]"
-          @click="currentView = 'queue'"
+          :class="['app-nav-tab', { active: currentView === 'queue', 'requires-auth': !isLoggedIn }]"
+          :title="!isLoggedIn ? 'Sign in to view generation queue' : undefined"
+          @click="handleTabClick('queue')"
         >Queue<span v-if="activeJobCount > 0" class="nav-badge">{{ activeJobCount }}</span></button>
         <button
-          :class="['app-nav-tab', { active: currentView === 'editor' }]"
-          @click="currentView = 'editor'"
+          :class="['app-nav-tab', { active: currentView === 'editor', 'requires-auth': !isLoggedIn }]"
+          :title="!isLoggedIn ? 'Sign in to use the editor' : undefined"
+          @click="handleTabClick('editor')"
         >Editor</button>
         <button
           :class="['app-nav-tab', { active: currentView === 'gallery' }]"
-          @click="currentView = 'gallery'"
+          @click="handleTabClick('gallery')"
         >Gallery</button>
         <button
           :class="['app-nav-tab', { active: currentView === 'variants' }]"
-          @click="currentView = 'variants'"
+          @click="handleTabClick('variants')"
         >Variants</button>
       </div>
       <div class="app-nav-spacer" />
@@ -435,7 +454,8 @@ function handleDeckTabClick() {
         <span class="mobile-action-icon">&#9776;</span>
         <span>{{ rightPanelLabel }}</span>
       </button>
-      <UserMenu @open-admin="showAdmin = true" />
+      <button v-if="!isLoggedIn" class="sign-in-btn" @click="showAuthDialog = true">Sign In</button>
+      <UserMenu v-else @open-admin="showAdmin = true" />
     </div>
 
     <!-- Deck context bar (visible when not on gallery sub-view) -->
@@ -534,21 +554,21 @@ function handleDeckTabClick() {
     <!-- Mobile bottom tab bar -->
     <nav v-if="isMobile" class="mobile-tab-bar">
       <button :class="['mobile-tab', { active: currentView === 'build' }]"
-        @click="handleDeckTabClick">Deck</button>
+        @click="handleTabClick('build')">Deck</button>
       <button :class="['mobile-tab', { active: currentView === 'browse' }]"
-        @click="currentView = 'browse'">Browse</button>
+        @click="handleTabClick('browse')">Browse</button>
       <button :class="['mobile-tab', { active: currentView === 'cards' }]"
-        @click="currentView = 'cards'">Cards</button>
+        @click="handleTabClick('cards')">Cards</button>
       <button :class="['mobile-tab', { active: currentView === 'public' }]"
-        @click="currentView = 'public'">Public</button>
-      <button :class="['mobile-tab', { active: currentView === 'queue' }]"
-        @click="currentView = 'queue'">Queue<span v-if="activeJobCount > 0" class="nav-badge mobile-nav-badge">{{ activeJobCount }}</span></button>
-      <button :class="['mobile-tab', { active: currentView === 'editor' }]"
-        @click="currentView = 'editor'">Editor</button>
+        @click="handleTabClick('public')">Public</button>
+      <button :class="['mobile-tab', { active: currentView === 'queue', 'requires-auth': !isLoggedIn }]"
+        @click="handleTabClick('queue')">Queue<span v-if="activeJobCount > 0" class="nav-badge mobile-nav-badge">{{ activeJobCount }}</span></button>
+      <button :class="['mobile-tab', { active: currentView === 'editor', 'requires-auth': !isLoggedIn }]"
+        @click="handleTabClick('editor')">Editor</button>
       <button :class="['mobile-tab', { active: currentView === 'gallery' }]"
-        @click="currentView = 'gallery'">Gallery</button>
+        @click="handleTabClick('gallery')">Gallery</button>
       <button :class="['mobile-tab', { active: currentView === 'variants' }]"
-        @click="currentView = 'variants'">Variants</button>
+        @click="handleTabClick('variants')">Variants</button>
     </nav>
 
     <!-- Mobile slide-over panels -->
@@ -597,6 +617,14 @@ function handleDeckTabClick() {
       v-if="showAdmin && isAdmin"
       @close="showAdmin = false"
     />
+    <Teleport to="body">
+      <div v-if="showAuthDialog" class="auth-dialog-backdrop" @click="showAuthDialog = false">
+        <div class="auth-dialog" @click.stop>
+          <button class="auth-dialog-close" @click="showAuthDialog = false">&times;</button>
+          <AuthPage @authenticated="showAuthDialog = false" />
+        </div>
+      </div>
+    </Teleport>
     <ToastContainer />
     <CardLightbox
       v-if="previewCard"

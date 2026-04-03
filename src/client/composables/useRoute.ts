@@ -32,8 +32,8 @@ function parseHash(): { view: AppView } {
   if (hash === "variants") {
     return { view: "variants" };
   }
-  // Default: build (deck is home)
-  return { view: "build" };
+  // Default: browse (accessible without auth)
+  return { view: "browse" };
 }
 
 function parseCardParam(): string | null {

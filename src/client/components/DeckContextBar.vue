@@ -2,6 +2,8 @@
 import { ref, nextTick } from "vue";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
+import { useAuth } from "../composables/useAuth.js";
+import { useAuthDialog } from "../composables/useAuthDialog.js";
 import { useToast } from "../composables/useToast.js";
 import { ApiError } from "../lib/client.js";
 
@@ -21,6 +23,8 @@ const {
 } = useDecklist();
 
 const { createDeck, updateDeck } = useDecks();
+const { isLoggedIn } = useAuth();
+const { openAuthDialog } = useAuthDialog();
 
 const renaming = ref(false);
 const renameValue = ref("");
@@ -85,7 +89,7 @@ const displayName = () => {
 <template>
   <div class="deck-context-bar">
     <div class="dcb-left">
-      <button class="dcb-btn dcb-gallery-btn" @click="emit('go-to-gallery')">Decks</button>
+      <button class="dcb-btn dcb-gallery-btn" :disabled="!isLoggedIn" :title="!isLoggedIn ? 'Sign in to save and manage decks' : undefined" @click="isLoggedIn ? emit('go-to-gallery') : openAuthDialog()">Decks</button>
 
       <!-- Deck name (click to rename) -->
       <span v-if="renaming" class="dcb-name-edit">
@@ -129,8 +133,8 @@ const displayName = () => {
       <!-- Save button -->
       <button
         class="dcb-btn dcb-save-btn"
-        :disabled="saving || items.length === 0 || (currentDeckId != null && !isDirty)"
-        :title="currentDeckId && !isDirty ? 'No unsaved changes' : (items.length === 0 ? 'Add cards first' : '')"
+        :disabled="!isLoggedIn || saving || items.length === 0 || (currentDeckId != null && !isDirty)"
+        :title="!isLoggedIn ? 'Sign in to save decks' : (currentDeckId && !isDirty ? 'No unsaved changes' : (items.length === 0 ? 'Add cards first' : ''))"
         @click="handleSave"
       >
         {{ saving ? 'Saving...' : (currentDeckId && isDirty ? 'Save' : 'Save As...') }}

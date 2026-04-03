@@ -56,9 +56,9 @@ onMounted(loadDecks);
         <h2>{{ viewingDeck.name }}</h2>
         <div class="public-deck-detail-actions">
           <button
-            v-if="isLoggedIn"
             class="btn btn-primary"
-            :disabled="copying"
+            :disabled="copying || !isLoggedIn"
+            :title="!isLoggedIn ? 'Sign in to copy decks' : undefined"
             @click="copyDeck(viewingDeck.id)"
           >{{ copying ? "Copying..." : "Copy to My Decks" }}</button>
           <button class="btn" @click="closeDeck">Close</button>

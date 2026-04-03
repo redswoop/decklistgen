@@ -3,6 +3,7 @@ import { ref, computed } from "vue";
 import { api } from "../lib/client.js";
 import { useDecklist, type DecklistItem } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
+import { useAuth } from "../composables/useAuth.js";
 import type { LimitlessPlayer, ImportResult } from "../../shared/types/decklist.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 
@@ -10,6 +11,7 @@ const emit = defineEmits<{ close: [] }>();
 
 const { importDeck, markSaved, currentDeckName, currentDeckId, items } = useDecklist();
 const { createDeck } = useDecks();
+const { isLoggedIn } = useAuth();
 
 const tab = ref<"paste" | "url">("paste");
 const mode = ref<"new" | "replace" | "merge">("new");
@@ -84,15 +86,18 @@ async function fetchPlayers() {
       const effectiveMode = mode.value === "new" ? "replace" : mode.value;
       importDeck(newItems, effectiveMode, source);
       const name = deckName.value.trim() || "Imported deck";
-      await saveDeck(newItems, source, name);
+      if (isLoggedIn.value) {
+        await saveDeck(newItems, source, name);
+      }
 
       const total = result.cards.reduce((s, c) => s + c.count, 0);
+      const savedMsg = isLoggedIn.value ? ` (saved as "${name}")` : " to working deck";
       if (result.unresolved && result.unresolved.length > 0) {
         const names = result.unresolved.map((u) => `${u.count}x ${u.name}`).join(", ");
         error.value = `Could not resolve: ${names}`;
-        success.value = `Imported ${total} cards (saved as "${name}").`;
+        success.value = `Imported ${total} cards${savedMsg}.`;
       } else {
-        success.value = `Imported ${total} cards (saved as "${name}").`;
+        success.value = `Imported ${total} cards${savedMsg}.`;
       }
       loading.value = false;
       return;
@@ -155,14 +160,17 @@ async function doImport() {
     importDeck(newItems, effectiveMode, source);
 
     const finalName = deckName.value.trim() || autoName;
-    await saveDeck(newItems, source, finalName);
+    if (isLoggedIn.value) {
+      await saveDeck(newItems, source, finalName);
+    }
 
     const total = result.cards.reduce((s, c) => s + c.count, 0);
     if (result.unresolved.length > 0) {
       const names = result.unresolved.map((u) => `${u.count}x ${u.name}`).join(", ");
       error.value = `Could not resolve: ${names}`;
     }
-    success.value = `Imported ${total} cards (saved as "${finalName}").`;
+    const savedMsg = isLoggedIn.value ? ` (saved as "${finalName}")` : " to working deck";
+    success.value = `Imported ${total} cards${savedMsg}.`;
   } catch (e) {
     error.value = (e instanceof Error ? e.message : String(e)) || "Import failed";
   } finally {

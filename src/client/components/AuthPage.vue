@@ -3,9 +3,13 @@ import { ref, onMounted } from "vue";
 import { useAuth } from "../composables/useAuth.js";
 import { api } from "../lib/client.js";
 
+const emit = defineEmits<{
+  (e: "authenticated"): void;
+}>();
+
 const { needsSetup, error, login, register, redeemMagicLink, setup } = useAuth();
 
-const mode = ref<"login" | "register" | "magic" | "invite">(needsSetup.value ? "setup" : "login");
+const mode = ref<"login" | "register" | "magic" | "invite">(needsSetup.value ? "login" : "login");
 const email = ref("");
 const password = ref("");
 const displayName = ref("");
@@ -81,6 +85,7 @@ async function handleSubmit() {
     } else {
       await login(email.value, password.value);
     }
+    emit("authenticated");
   } catch {
     // error already set by useAuth
   } finally {

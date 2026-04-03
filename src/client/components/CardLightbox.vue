@@ -70,7 +70,7 @@ const emit = defineEmits<{
 }>();
 
 const { addCard, removeCard, getDeckCount, findSwappable, replaceCard } = useDecklist();
-const { isAuthorized } = useAuth();
+const { isAuthorized, isLoggedIn } = useAuth();
 // Search set navigation
 const searchIndex = ref(0);
 
@@ -457,7 +457,7 @@ function navigateToDeck(deckId: string) {
               <div class="lb-gen-text">Generating...</div>
             </div>
             <div v-else-if="needsGeneration" class="lb-generate-cta" @click.stop="handleMainImageClick">
-              <span class="lb-generate-cta-text">{{ isAuthorized ? 'Click to generate' : 'Authorization required' }}</span>
+              <span class="lb-generate-cta-text">{{ !isLoggedIn ? 'Sign in to generate' : isAuthorized ? 'Click to generate' : 'Authorization required' }}</span>
             </div>
             <div v-if="!needsGeneration && !generating" class="lb-zoom-hint">Click to zoom</div>
             <button

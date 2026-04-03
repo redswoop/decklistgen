@@ -3,6 +3,7 @@ import { ref, computed } from "vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import { useDecks } from "../composables/useDecks.js";
 import { useDecklist } from "../composables/useDecklist.js";
+import { useAuth } from "../composables/useAuth.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import type { DeckSummary } from "../../shared/types/deck.js";
 
@@ -14,6 +15,7 @@ const emit = defineEmits<{
 
 const { decks, isLoading, fetchDeck, deleteDeck, copyDeck, updateDeck } = useDecks();
 const { loadSavedDeck, isDirty, currentDeckId, clear } = useDecklist();
+const { isLoggedIn } = useAuth();
 
 const search = ref("");
 const menuOpenId = ref<string | null>(null);
@@ -116,9 +118,10 @@ async function confirmDelete() {
 <template>
   <div class="deck-gallery">
     <div class="deck-gallery-header">
-      <h2 class="deck-gallery-title">Your Decks</h2>
+      <h2 class="deck-gallery-title">{{ isLoggedIn ? 'Your Decks' : 'Decks' }}</h2>
       <div class="deck-gallery-actions">
         <input
+          v-if="isLoggedIn"
           v-model="search"
           type="text"
           class="deck-gallery-search"
@@ -129,7 +132,12 @@ async function confirmDelete() {
       </div>
     </div>
 
-    <div v-if="isLoading" class="deck-gallery-loading">Loading decks...</div>
+    <div v-if="!isLoggedIn" class="deck-gallery-anon">
+      <p>Sign in to save and manage your deck collection.</p>
+      <p>Click <strong>New Deck</strong> to start building — your working deck is saved locally.</p>
+    </div>
+
+    <div v-else-if="isLoading" class="deck-gallery-loading">Loading decks...</div>
 
     <div v-else class="deck-gallery-grid">
       <!-- New deck card -->
