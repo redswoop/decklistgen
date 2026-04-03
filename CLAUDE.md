@@ -21,6 +21,8 @@ bun test                 # Run all tests
 bun test --filter <pat>  # Run matching tests
 ```
 
+- Vite config is at `src/client/vite.config.ts` — run `vite build` from `src/client/`, not the project root
+
 ## Testing
 
 **Every new feature or bug fix must include tests.** No exceptions.
@@ -72,6 +74,16 @@ The `/gallery/` endpoint (`src/server/routes/gallery.ts`) is the place to previe
 ## Client Architecture
 
 - All client UI must use Vue 3 components. No server-rendered HTML pages with embedded JS for client-facing features.
+
+## Auth Model
+
+- Anonymous users can browse cards, build local WIP decks, import/export, and beautify. Server-side features (save, generate, print) require sign-in.
+- Auth middleware: `sessionMiddleware` (resolves user on every request), `requireAuth` (401 if no user), `requireAuthorized` (403 if not authorized/admin)
+- Public API routes: `/api/cards`, `/api/sets`, `/api/decklist`, `/api/public/decks`, `/api/pokeproxy/status`, `/api/pokeproxy/svg`, `/api/pokeproxy/image`
+- Protected API routes: `/api/decks` (requireAuth on all), `/api/pokeproxy/generate` (requireAuthorized), `/api/pokeproxy/queue` (requireAuth)
+- Client auth state: `useAuth()` composable (singleton refs). `useAuthDialog()` for triggering sign-in dialog from any component.
+- TanStack Query: gate queries on `enabled: isLoggedIn` to avoid 401s for anonymous users. Queries auto-fire when user signs in.
+- Vite build runs from `src/client/`: `cd src/client && npx vite build`
 
 ## Git
 
