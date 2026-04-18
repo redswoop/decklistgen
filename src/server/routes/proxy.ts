@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import sharp from "sharp";
 import { join } from "node:path";
-import { getCard, loadSet, isSetLoaded } from "../services/card-store.js";
+import { getCard } from "../services/card-store.js";
 import { ping as comfyPing, COMFYUI_URL } from "../services/comfyui.js";
 import { submitJob, listJobs, getJob, cancelJob, clearCompleted } from "../services/gen-queue.js";
 import { getPromptForCard, saveCardPrompt } from "../services/prompt-db.js";
@@ -11,24 +11,17 @@ import { getCardSettings, updateCardSettings, deleteCardSettings } from "../serv
 import { getCustomizedCards, deleteCardArtifacts, invalidateCustomizedCardsCache } from "../services/customized-cards.js";
 import { getDeck } from "../services/deck-store.js";
 import { generatePrintHtml } from "../services/pokeproxy/print-html.js";
+import {
+  cachePath,
+  ensureCardLoaded,
+  ensureSourceImage,
+  generateSvgFromTemplate,
+  loadCardData,
+  type SvgRenderOptions,
+} from "../services/pokeproxy/render-svg.js";
+import { resetIconIds } from "../services/pokeproxy/type-icons.js";
 import { requireAuth, requireAuthorized } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
-import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
-import { cardImageUrl } from "../../shared/utils/card-image-url.js";
-import type { TcgdexCard } from "../../shared/types/card.js";
-import { suggestTemplate } from "../../shared/utils/suggest-template.js";
-import { resetIconIds } from "../services/pokeproxy/type-icons.js";
-import { setCardIdPrefix } from "../services/pokeproxy/svg-frame.js";
-import { renderFromJsonTemplate } from "../services/pokeproxy/render-json-template.js";
-// Lazy-loaded: sharp has compatibility issues with some Bun versions
-let _analyzeImageBrightness: ((buf: Buffer) => Promise<number>) | null = null;
-async function getAnalyzeImageBrightness() {
-  if (!_analyzeImageBrightness) {
-    const mod = await import("../services/pokeproxy/image-brightness.js");
-    _analyzeImageBrightness = mod.analyzeImageBrightness;
-  }
-  return _analyzeImageBrightness;
-}
 import { renderEnergyPreviewSvg } from "../services/pokeproxy/energy-preview.js";
 import { logAction, getClientIp } from "../services/logger.js";
 import { isValidCardId } from "../../shared/validation.js";
@@ -39,10 +32,6 @@ const CACHE_DIR = join(import.meta.dir, "../../../cache");
 const FULLART_DEFAULT_PROMPT =
   "Expand the illustration from the reference image into a large, detailed scene. " +
   "Remove all text, headers, and other non-illustrative elements.";
-
-function cachePath(cardId: string, suffix: string): string {
-  return join(CACHE_DIR, `${cardId}${suffix}`);
-}
 
 function hasFile(cardId: string, suffix: string): boolean {
   return existsSync(cachePath(cardId, suffix));
@@ -70,147 +59,6 @@ function getStatus(cardId: string) {
   };
 }
 
-/** Load card data from cache JSON or card store. */
-function loadCardData(cardId: string): Record<string, unknown> {
-  const jsonPath = cachePath(cardId, ".json");
-  if (existsSync(jsonPath)) {
-    try {
-      return JSON.parse(readFileSync(jsonPath, "utf-8"));
-    } catch {}
-  }
-  const card = getCard(cardId);
-  if (!card) return { id: cardId };
-  return {
-    id: card.id,
-    localId: card.localId,
-    name: card.name,
-    category: card.category,
-    hp: card.hp,
-    types: card.energyTypes,
-    stage: card.stage,
-    retreat: card.retreat,
-    rarity: card.rarity,
-    trainerType: card.trainerType,
-    set: { name: card.setName, id: card.setId },
-  };
-}
-
-async function ensureCardLoaded(cardId: string): Promise<void> {
-  if (getCard(cardId)) return;
-  const setId = cardId.replace(/-[^-]+$/, "");
-  const setCode = REVERSE_SET_MAP[setId];
-  if (setCode && !isSetLoaded(setCode)) {
-    await loadSet(setCode);
-  }
-}
-
-async function ensureSourceImage(cardId: string): Promise<boolean> {
-  const srcPath = cachePath(cardId, ".png");
-  if (existsSync(srcPath)) return true;
-
-  await ensureCardLoaded(cardId);
-  const card = getCard(cardId);
-  if (!card?.imageBase) return false;
-
-  const imageUrl = cardImageUrl(card.imageBase, "high");
-  const resp = await fetch(imageUrl, { headers: { "User-Agent": "DecklistGen/1.0" } });
-  if (!resp.ok) return false;
-
-  await mkdir(CACHE_DIR, { recursive: true });
-  await writeFile(srcPath, Buffer.from(await resp.arrayBuffer()));
-  return true;
-}
-
-interface SvgRenderOptions {
-  synth?: boolean;
-  fullart?: boolean;
-}
-
-/** Synthetic attacks/abilities that exercise all 11 energy glyph types. */
-const SYNTH_ATTACKS = [
-  {
-    name: "Prismatic Burst",
-    cost: ["Grass", "Fire", "Water", "Colorless"],
-    damage: "150",
-    effect: "Discard a {L}{P}{F} Energy from this Pokémon.",
-  },
-  {
-    name: "Shadow Forge",
-    cost: ["Darkness", "Metal", "Dragon"],
-    damage: "90+",
-    effect: "This attack does 20 more damage for each {Y}{N}{C} Energy attached to this Pokémon.",
-  },
-];
-
-const SYNTH_ABILITIES = [
-  {
-    type: "Ability",
-    name: "Elemental Veil",
-    effect: "Attacks that cost {G}{R}{W} Energy do 30 less damage to this Pokémon. If it has {L}{P}{F}{D}{M}{Y}{N}{C} attached, prevent all effects.",
-  },
-];
-
-/** Render SVG using the template engine.
- *  artCardId: optional override — use this card's image instead of cardId's. */
-async function generateSvgFromTemplate(cardId: string, opts?: SvgRenderOptions, artCardId?: string, idPrefix?: string): Promise<string> {
-  // Determine which card provides the image (art override or same card)
-  const imageId = artCardId ?? cardId;
-
-  // Get best available image (optional — SVG can render without artwork)
-  let imageB64 = "";
-  let isProcessed = false;
-
-  for (const suffix of ["_composite.png", "_clean.png", ".png"]) {
-    const p = cachePath(imageId, suffix);
-    if (existsSync(p)) {
-      imageB64 = (await readFile(p)).toString("base64");
-      isProcessed = suffix !== ".png";
-      break;
-    }
-  }
-  if (!imageB64) {
-    if (await ensureSourceImage(imageId)) {
-      imageB64 = (await readFile(cachePath(imageId, ".png"))).toString("base64");
-    }
-  }
-
-  // Load card data (always from the mechanics card, not the art card)
-  await ensureCardLoaded(cardId);
-  const cardData = loadCardData(cardId);
-
-  // Synth mode: keep real art/metadata, replace text with glyph-exercising attacks
-  if (opts?.synth) {
-    cardData.attacks = SYNTH_ATTACKS;
-    cardData.abilities = SYNTH_ABILITIES;
-  }
-
-  // Determine template
-  let templateName = suggestTemplate(cardData as TcgdexCard);
-  // Processed standard cards render as fullart (they've been expanded via ComfyUI)
-  if (templateName === "pokemon-standard" && (isProcessed || opts?.fullart)) {
-    templateName = "pokemon-fullart";
-  }
-
-  // Adaptive text mode: analyze image brightness for fullart/trainer templates
-  if (imageB64 && (templateName === "pokemon-fullart" || templateName === "trainer")) {
-    try {
-      const analyzeImageBrightness = await getAnalyzeImageBrightness();
-      const imageBuffer = Buffer.from(imageB64, "base64");
-      const brightness = await analyzeImageBrightness(imageBuffer);
-      cardData._textMode = brightness > 0.6 ? "dark" : "light";
-    } catch {
-      // Fall back to light mode on error
-    }
-  }
-
-  resetIconIds();
-  // Set card-scoped ID prefix just before synchronous render — after all awaits,
-  // so concurrent requests can't stomp on each other's prefix.
-  setCardIdPrefix(idPrefix ?? `${cardId}-`);
-  const svg = renderFromJsonTemplate(templateName, cardData, imageB64);
-  setCardIdPrefix("");
-  return svg;
-}
 
 const app = new Hono<AppEnv>();
 
