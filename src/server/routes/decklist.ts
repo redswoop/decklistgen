@@ -1,17 +1,13 @@
 import { Hono } from "hono";
-import type { DecklistEntry, DecklistOutput, ImportResult } from "../../shared/types/decklist.js";
-import type { Card } from "../../shared/types/card.js";
-import { SET_MAP } from "../../shared/constants/set-codes.js";
-import { loadSet, findCardBySetAndNumber, findCardByName, getCard } from "../services/card-store.js";
+import type { DecklistEntry, DecklistOutput } from "../../shared/types/decklist.js";
 import {
   fetchTournamentDetails,
   fetchTournamentStandings,
   fetchStandaloneDecklist,
   parseLimitlessUrl,
   parsePtcgoText,
-  type LimitlessDecklist,
-  type LimitlessCard,
 } from "../services/limitless.js";
+import { resolveDecklist } from "../services/decklist-resolve.js";
 import { logAction, getClientIp } from "../services/logger.js";
 
 const app = new Hono();
@@ -105,85 +101,5 @@ app.post("/import/text", async (c) => {
     return c.json({ error: "Failed to parse decklist text" }, 500);
   }
 });
-
-/**
- * Limitless uses "MEE" with arbitrary numbers for basic energies, but TCGdex
- * has no "sve" set — basic energies live in various SV expansion sets.
- * Map MEE numbers to known TCGdex card IDs.
- */
-const BASIC_ENERGY_MAP: Record<string, { tcgdexId: string; setCode: string }> = {
-  "1": { tcgdexId: "sv02-278", setCode: "PAL" },   // Grass
-  "2": { tcgdexId: "sv03-230", setCode: "OBF" },   // Fire
-  "3": { tcgdexId: "sv02-279", setCode: "PAL" },   // Water
-  "4": { tcgdexId: "sv01-257", setCode: "SVI" },   // Lightning
-  "5": { tcgdexId: "sv03.5-207", setCode: "MEW" },  // Psychic
-  "6": { tcgdexId: "sv01-258", setCode: "SVI" },   // Fighting
-  "7": { tcgdexId: "sv06.5-098", setCode: "SFA" },  // Darkness
-  "8": { tcgdexId: "sv06.5-099", setCode: "SFA" },  // Metal
-};
-
-async function resolveDecklist(decklist: LimitlessDecklist): Promise<ImportResult> {
-  // Collect all unique set codes and pre-load them
-  const setCodes = new Set<string>();
-  const allCards: Array<LimitlessCard & { category: string }> = [];
-  for (const card of decklist.pokemon) {
-    setCodes.add(card.set);
-    allCards.push({ ...card, category: "pokemon" });
-  }
-  for (const card of decklist.trainer) {
-    setCodes.add(card.set);
-    allCards.push({ ...card, category: "trainer" });
-  }
-  for (const card of decklist.energy) {
-    setCodes.add(card.set);
-    allCards.push({ ...card, category: "energy" });
-  }
-
-  // Load all required sets
-  for (const code of setCodes) {
-    if (SET_MAP[code]) {
-      try {
-        await loadSet(code);
-      } catch (e) {
-        console.warn(`Failed to load set ${code}: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-  }
-
-  const resolved: Array<{ card: Card; count: number }> = [];
-  const unresolved: ImportResult["unresolved"] = [];
-
-  for (const entry of allCards) {
-    let card = findCardBySetAndNumber(entry.set, entry.number);
-
-    // Fallback: search by name (useful for energy cards from unknown sets)
-    if (!card) {
-      card = findCardByName(entry.name);
-    }
-
-    // Fallback: basic energy from MEE → load the set that has it and look up by tcgdexId
-    if (!card && entry.set === "MEE" && BASIC_ENERGY_MAP[entry.number]) {
-      const mapping = BASIC_ENERGY_MAP[entry.number];
-      try {
-        await loadSet(mapping.setCode);
-      } catch { /* set may already be loaded or unavailable */ }
-      card = getCard(mapping.tcgdexId);
-    }
-
-    if (card) {
-      resolved.push({ card, count: entry.count });
-    } else {
-      unresolved.push({
-        name: entry.name,
-        set: entry.set,
-        number: entry.number,
-        count: entry.count,
-        category: entry.category,
-      });
-    }
-  }
-
-  return { cards: resolved, unresolved };
-}
 
 export default app;

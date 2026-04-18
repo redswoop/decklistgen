@@ -14,11 +14,22 @@ import { templateRouter } from "./routes/templates.js";
 import { authRouter } from "./routes/auth.js";
 import { adminRouter } from "./routes/admin.js";
 import { publicDecksRouter } from "./routes/public-decks.js";
+import mcpRouter from "./routes/mcp.js";
 import { sessionMiddleware } from "./middleware/auth.js";
 import { rateLimit } from "./middleware/rate-limit.js";
 import { logAccess, getClientIp } from "./services/logger.js";
 
 const app = new Hono<AppEnv>();
+
+// MCP endpoint is cross-origin by design — Claude connectors, MCP Inspector,
+// etc. need to hit it from any origin. Keep it ahead of the app CORS so the
+// wildcard wins on /api/mcp.
+app.use("/api/mcp/*", cors({
+  origin: "*",
+  allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization", "Mcp-Session-Id", "Mcp-Protocol-Version", "Last-Event-ID"],
+  exposeHeaders: ["Mcp-Session-Id"],
+}));
 
 app.use("*", cors({
   origin: ["http://localhost:5173", "http://localhost:3001"],
@@ -69,6 +80,7 @@ app.route("/api/cards", cardsRouter);
 app.route("/api/decklist", decklistRouter);
 app.route("/api/decks", decksRouter);
 app.route("/api/pokeproxy", proxyRouter);
+app.route("/api/mcp", mcpRouter);
 app.route("/gallery/editor", editorRouter);
 app.route("/gallery/editor/templates", templateRouter);
 app.route("/gallery", galleryRouter);
