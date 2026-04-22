@@ -3,7 +3,6 @@ import { ref, computed, watch, nextTick } from "vue";
 import CardGrid from "./CardGrid.vue";
 import BeautifyDialog from "./BeautifyDialog.vue";
 import BatchGenerateDialog from "./BatchGenerateDialog.vue";
-import VariantPicker from "./VariantPicker.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import PrintDialog from "./PrintDialog.vue";
 import { useDecks } from "../composables/useDecks.js";
@@ -109,24 +108,6 @@ const headerLabel = computed(() => {
 const showBeautify = ref(false);
 const showBatchGenerate = ref(false);
 const showPrintDialog = ref(false);
-const variantPickerCard = ref<Card | null>(null);
-
-function handlePickVariant(card: Card) {
-  variantPickerCard.value = card;
-}
-
-function handleVariantPickerLightbox(card: Card) {
-  variantPickerCard.value = null;
-  handlePreview(card, deckCards.value);
-}
-
-async function handleVariantPickerUpdated() {
-  if (props.deckId) {
-    await loadDeck(props.deckId, true);
-    // Sync working deck so it picks up variant changes from DB
-    if (deck.value) loadSavedDeck(deck.value);
-  }
-}
 
 async function handleBeautifyUpdated() {
   if (props.deckId) {
@@ -269,7 +250,6 @@ function handlePreview(card: Card, cards: Card[]) {
       :header-label="headerLabel"
       context="deck"
       @preview-card="handlePreview"
-      @pick-variant="handlePickVariant"
       @add-card="handleAddCard"
       @remove-card="handleRemoveCard"
       @regenerate-card="handleRegenerate"
@@ -310,16 +290,6 @@ function handlePreview(card: Card, cards: Card[]) {
       v-if="showBatchGenerate && deck"
       :cards="deck.cards"
       @close="showBatchGenerate = false"
-    />
-
-    <VariantPicker
-      v-if="variantPickerCard && deck"
-      :card="variantPickerCard"
-      :saved-deck-id="deck.id"
-      :saved-deck-cards="deck.cards"
-      @close="variantPickerCard = null"
-      @open-lightbox="handleVariantPickerLightbox"
-      @deck-updated="handleVariantPickerUpdated"
     />
 
     <PrintDialog

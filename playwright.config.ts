@@ -5,7 +5,7 @@ export default defineConfig({
   timeout: 60_000,
   use: {
     baseURL: "http://localhost:5173",
-    headless: false,
+    headless: true,
     actionTimeout: 10_000,
   },
   webServer: undefined, // Assumes dev servers are already running

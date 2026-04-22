@@ -40,6 +40,46 @@ describe("consolidateDeckCards", () => {
     expect(consolidateDeckCards([])).toEqual([]);
   });
 
+  it("merges same card with and without artCard override", () => {
+    const card = makeCard("SCR", "173", "Terapagos ex");
+    const artCard = makeCard("SV06", "50", "Terapagos ex");
+    const cards: DeckCard[] = [
+      { count: 2, card, artCard },
+      { count: 1, card },
+    ];
+    const result = consolidateDeckCards(cards);
+    expect(result).toHaveLength(1);
+    expect(result[0].count).toBe(3);
+    expect(result[0].artCard).toBeDefined(); // first entry's artCard preserved
+  });
+
+  it("merges same card with different artCard overrides", () => {
+    const card = makeCard("SCR", "173", "Terapagos ex");
+    const artA = makeCard("SV06", "50", "Terapagos ex");
+    const artB = makeCard("SV07", "99", "Terapagos ex");
+    const cards: DeckCard[] = [
+      { count: 1, card, artCard: artA },
+      { count: 2, card, artCard: artB },
+    ];
+    const result = consolidateDeckCards(cards);
+    expect(result).toHaveLength(1);
+    expect(result[0].count).toBe(3);
+    // First occurrence wins
+    expect(result[0].artCard?.id).toBe(artA.id);
+  });
+
+  it("does NOT merge different cards even if both have artCards", () => {
+    const cardA = makeCard("SCR", "173", "Terapagos ex");
+    const cardB = makeCard("SCR", "174", "Charizard ex");
+    const art = makeCard("SV06", "50", "Art");
+    const cards: DeckCard[] = [
+      { count: 2, card: cardA, artCard: art },
+      { count: 1, card: cardB, artCard: art },
+    ];
+    const result = consolidateDeckCards(cards);
+    expect(result).toHaveLength(2);
+  });
+
   it("preserves order (first occurrence keeps its position)", () => {
     const cards = [
       makeDC("A", "1", 1, "Alpha"),

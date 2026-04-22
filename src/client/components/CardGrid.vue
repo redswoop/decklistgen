@@ -6,10 +6,10 @@ import { useCards } from "../composables/useCards.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { usePokeproxy, usePokeproxyBatch, type ImageMode } from "../composables/usePokeproxy.js";
 import { useEraLoader } from "../composables/useEraLoader.js";
-import CardTile from "./CardTile.vue";
-import type { TileContext } from "./CardTile.vue";
+import CardThumb from "./CardThumb.vue";
 import { api } from "../lib/client.js";
 import type { Card } from "../../shared/types/card.js";
+import { getRarityRank } from "../../shared/utils/rarity-rank.js";
 
 const props = withDefaults(defineProps<{
   /** External card array — skips API query when provided */
@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<{
   /** Count map (cardId → count) to show on tiles instead of deck counts */
   cardCounts?: Record<string, number>;
   /** Tile context — controls which overlays/actions appear */
-  context?: TileContext;
+  context?: "browse" | "deck" | "working-deck" | "cards";
   /** Header label override (replaces "X cards") */
   headerLabel?: string;
   /** Enable selection checkboxes on tiles */
@@ -42,7 +42,6 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   "preview-card": [card: Card, cards: Card[]];
   "toggle-select": [cardId: string];
-  "pick-variant": [card: Card];
   "add-card": [card: Card];
   "remove-card": [card: Card];
   "regenerate-card": [card: Card];
@@ -57,24 +56,80 @@ const { loadingEra, loadEra, loadAllEras } = useEraLoader();
 const localPage = ref(1);
 const { data, isLoading } = useCards(filters, localPage, 99999);
 
-// Group-by — persist to URL so refreshes preserve the selection
+// Sort & Group — persisted to localStorage
 type GroupBy = "none" | "set" | "energyType" | "rarity" | "category";
-const validGroupBy = new Set<GroupBy>(["none", "set", "energyType", "rarity", "category"]);
+type SortBy = "alpha" | "rarity" | "type" | "set" | "count";
+type SortDir = "asc" | "desc";
 
-function readGroupByFromUrl(): GroupBy {
-  const val = new URLSearchParams(window.location.search).get("group");
-  return val && validGroupBy.has(val as GroupBy) ? (val as GroupBy) : "set";
+const SORT_GROUP_KEY = "decklistgen-sort-group";
+
+interface SortGroupState {
+  groupBy: GroupBy;
+  sortBy: SortBy;
+  sortDir: SortDir;
 }
 
-function writeGroupByToUrl(value: GroupBy) {
-  const url = new URL(window.location.href);
-  if (value === "set") url.searchParams.delete("group");
-  else url.searchParams.set("group", value);
-  history.replaceState(null, "", url.toString());
+const sortGroupDefaults: SortGroupState = { groupBy: "none", sortBy: "alpha", sortDir: "asc" };
+
+function loadSortGroup(): SortGroupState {
+  try {
+    const raw = localStorage.getItem(SORT_GROUP_KEY);
+    if (raw) return { ...sortGroupDefaults, ...JSON.parse(raw) };
+  } catch {}
+  return { ...sortGroupDefaults };
 }
 
-const groupBy = ref<GroupBy>(readGroupByFromUrl());
-watch(groupBy, (val) => writeGroupByToUrl(val));
+function saveSortGroup() {
+  localStorage.setItem(SORT_GROUP_KEY, JSON.stringify({
+    groupBy: groupBy.value,
+    sortBy: sortBy.value,
+    sortDir: sortDir.value,
+  }));
+}
+
+const saved = loadSortGroup();
+const groupBy = ref<GroupBy>(saved.groupBy);
+const sortBy = ref<SortBy>(saved.sortBy);
+const sortDir = ref<SortDir>(saved.sortDir);
+const showSortGroupPopup = ref(false);
+
+watch([groupBy, sortBy, sortDir], saveSortGroup);
+
+const groupByOptions: { value: GroupBy; label: string }[] = [
+  { value: "none", label: "No grouping" },
+  { value: "set", label: "Set" },
+  { value: "energyType", label: "Energy Type" },
+  { value: "rarity", label: "Rarity" },
+  { value: "category", label: "Category" },
+];
+
+const sortByOptions: { value: SortBy; label: string }[] = [
+  { value: "alpha", label: "Alphabetical" },
+  { value: "rarity", label: "Rarity" },
+  { value: "type", label: "Type" },
+  { value: "set", label: "Set" },
+  { value: "count", label: "Count" },
+];
+
+function toggleSortGroupPopup() {
+  showSortGroupPopup.value = !showSortGroupPopup.value;
+}
+
+function closeSortGroupPopup() {
+  showSortGroupPopup.value = false;
+}
+
+function toggleSortDir() {
+  sortDir.value = sortDir.value === "asc" ? "desc" : "asc";
+}
+
+const sortGroupLabel = computed(() => {
+  const group = groupByOptions.find((o) => o.value === groupBy.value)?.label ?? "";
+  const sort = sortByOptions.find((o) => o.value === sortBy.value)?.label ?? "";
+  const dir = sortDir.value === "asc" ? "\u2191" : "\u2193";
+  if (groupBy.value === "none") return `${sort} ${dir}`;
+  return `${group} / ${sort} ${dir}`;
+});
 
 // Container sizing
 const scrollRef = ref<HTMLElement | null>(null);
@@ -134,6 +189,36 @@ const hasAnyFilter = computed(() => {
     || filters.nameSearch || filters.trainerType || filters.isFullArt || filters.hasFoil);
 });
 
+// Sorting
+const CATEGORY_ORDER: Record<string, number> = { Pokemon: 0, Trainer: 1, Energy: 2 };
+
+function sortCards(cards: Card[], by: SortBy, dir: SortDir, counts?: Record<string, number>): Card[] {
+  const sorted = [...cards].sort((a, b) => {
+    switch (by) {
+      case "alpha": return a.name.localeCompare(b.name);
+      case "rarity": return getRarityRank(b.rarity) - getRarityRank(a.rarity);
+      case "type": {
+        const ca = CATEGORY_ORDER[a.category] ?? 9;
+        const cb = CATEGORY_ORDER[b.category] ?? 9;
+        if (ca !== cb) return ca - cb;
+        return a.name.localeCompare(b.name);
+      }
+      case "set": {
+        if (a.setCode !== b.setCode) return a.setCode.localeCompare(b.setCode);
+        return (parseInt(a.localId) || 0) - (parseInt(b.localId) || 0);
+      }
+      case "count": {
+        const ca = counts?.[a.id] ?? 0;
+        const cb = counts?.[b.id] ?? 0;
+        if (cb !== ca) return cb - ca;
+        return a.name.localeCompare(b.name);
+      }
+      default: return 0;
+    }
+  });
+  return dir === "desc" ? sorted.reverse() : sorted;
+}
+
 // Grouping
 type VirtualRow =
   | { type: "header"; label: string; count: number }
@@ -167,7 +252,7 @@ function chunkCards(cards: Card[], perRow: number): VirtualRow[] {
 }
 
 const virtualRows = computed(() => {
-  const cards = allCards.value;
+  const cards = sortCards(allCards.value, sortBy.value, sortDir.value, props.cardCounts);
   const perRow = cardsPerRow.value;
 
   if (groupBy.value === "none") {
@@ -224,14 +309,6 @@ const modeOptions: { value: ImageMode; label: string }[] = [
   { value: "proxy", label: "Proxy" },
 ];
 
-const groupByOptions: { value: GroupBy; label: string }[] = [
-  { value: "none", label: "No grouping" },
-  { value: "set", label: "Set" },
-  { value: "energyType", label: "Energy Type" },
-  { value: "rarity", label: "Rarity" },
-  { value: "category", label: "Category" },
-];
-
 // Deck context API search
 const isDeckContext = computed(() => props.context === "deck");
 const apiSearchQuery = ref("");
@@ -265,7 +342,7 @@ function selectApiResult(card: Card) {
   apiSearchQuery.value = "";
   apiSearchResults.value = [];
   showApiDropdown.value = false;
-  emit("preview-card", card, [card]);
+  handleAdd(card);
 }
 
 function handleApiSearchBlur() {
@@ -325,6 +402,11 @@ function getCount(card: Card): number | undefined {
 function handleTilePreview(card: Card) {
   emit("preview-card", card, orderedCards.value);
 }
+
+// Map context to CardThumb props
+const tileShowAdd = computed(() => props.context !== "cards");
+const tileShowRemove = computed(() => props.context === "working-deck" || props.context === "deck");
+const tileShowRegen = computed(() => props.context !== "cards");
 </script>
 
 <template>
@@ -375,11 +457,41 @@ function handleTilePreview(card: Card) {
             </div>
           </div>
         </div>
-        <select v-model="groupBy" class="group-by-select">
-          <option v-for="opt in groupByOptions" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
+        <div class="sort-group-wrap">
+          <button class="sort-group-btn" @click="toggleSortGroupPopup">
+            {{ sortGroupLabel }}
+          </button>
+          <div v-if="showSortGroupPopup" class="sort-group-popup">
+            <div class="sort-group-backdrop" @click="closeSortGroupPopup" />
+            <div class="sort-group-panel">
+              <div class="sort-group-section">
+                <div class="sort-group-section-title">Sort by</div>
+                <div class="sort-group-options">
+                  <button
+                    v-for="opt in sortByOptions"
+                    :key="opt.value"
+                    :class="['sort-group-option', { active: sortBy === opt.value }]"
+                    @click="sortBy = opt.value"
+                  >{{ opt.label }}</button>
+                </div>
+                <button class="sort-group-dir-btn" @click="toggleSortDir">
+                  {{ sortDir === 'asc' ? 'Ascending \u2191' : 'Descending \u2193' }}
+                </button>
+              </div>
+              <div class="sort-group-section">
+                <div class="sort-group-section-title">Group by</div>
+                <div class="sort-group-options">
+                  <button
+                    v-for="opt in groupByOptions"
+                    :key="opt.value"
+                    :class="['sort-group-option', { active: groupBy === opt.value }]"
+                    @click="groupBy = opt.value"
+                  >{{ opt.label }}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="image-mode-toggle">
           <button
             v-for="opt in modeOptions"
@@ -477,22 +589,24 @@ function handleTilePreview(card: Card) {
             class="card-row"
             :style="{ padding: `0 ${PADDING}px`, gap: `${GAP}px` }"
           >
-            <CardTile
+            <CardThumb
               v-for="card in (virtualRows[vItem.index] as any).cards"
               :key="card.id"
               :card="card"
               :image-mode="imageMode"
-              :context="context"
               :count="getCount(card)"
+              :show-add="tileShowAdd"
+              :show-remove="tileShowRemove"
+              :show-regen="tileShowRegen"
+              :show-name="true"
               :selectable="selectable"
               :selected="selectedIds?.has(card.id)"
               :stale="staleIds?.has(card.id)"
               :style="{ width: `${cardWidth}px`, flexShrink: 0 }"
-              @add="handleAdd"
-              @remove="emit('remove-card', $event)"
-              @regenerate="emit('regenerate-card', $event)"
-              @preview="handleTilePreview"
-              @pick-variant="emit('pick-variant', $event)"
+              @add="handleAdd(card)"
+              @remove="emit('remove-card', card)"
+              @regenerate="emit('regenerate-card', card)"
+              @click="handleTilePreview(card)"
               @toggle-select="emit('toggle-select', $event)"
             />
           </div>

@@ -75,6 +75,16 @@ The `/gallery/` endpoint (`src/server/routes/gallery.ts`) is the place to previe
 
 - All client UI must use Vue 3 components. No server-rendered HTML pages with embedded JS for client-facing features.
 
+### Lightbox Preview Modes
+
+- `handlePreview` (source=`'grid'`) — for browse/search views, arrow nav cycles grid results
+- `handleDeckPreview` (source=`'deck'`) — for deck views, arrow nav cycles deck cards, shows deck name
+- Components in deck context (WorkingDeckView, DeckView, DeckContextPanel) must wire `@preview-card` to `handleDeckPreview`, not `handlePreview`
+
+### CardGrid Slots
+
+- `#toolbar` slot — inject action buttons into the grid header row (used by WorkingDeckView and DeckView)
+
 ## Auth Model
 
 - Anonymous users can browse cards, build local WIP decks, import/export, and beautify. Server-side features (save, generate, print) require sign-in.
@@ -84,6 +94,14 @@ The `/gallery/` endpoint (`src/server/routes/gallery.ts`) is the place to previe
 - Client auth state: `useAuth()` composable (singleton refs). `useAuthDialog()` for triggering sign-in dialog from any component.
 - TanStack Query: gate queries on `enabled: isLoggedIn` to avoid 401s for anonymous users. Queries auto-fire when user signs in.
 - Vite build runs from `src/client/`: `cd src/client && npx vite build`
+
+## TODO
+
+- [ ] Add e2e tests (Playwright) for deck card management flows:
+  - Deck search adds card to deck (not preview) when clicking a search result
+  - Variant picker allocation reflects artCard overrides; applying clears stale artCards
+  - Sort/group controls reorder cards and persist across reload
+  - Card consolidation: same card with/without artCard merges correctly
 
 ## Git
 

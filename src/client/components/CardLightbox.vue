@@ -20,6 +20,7 @@ import { useAuth } from "../composables/useAuth.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import CardZoom from "./lightbox/CardZoom.vue";
 import LightboxDevTools from "./lightbox/LightboxDevTools.vue";
+import CardThumb from "./CardThumb.vue";
 import type { DeckMembership } from "../../shared/types/customized-card.js";
 import type { DeckCard } from "../../shared/types/deck.js";
 import { consolidateDeckCards } from "../../shared/utils/consolidate-deck.js";
@@ -69,37 +70,37 @@ const emit = defineEmits<{
   deckUpdated: [];
 }>();
 
-const { addCard, removeCard, getDeckCount, findSwappable, replaceCard } = useDecklist();
+const { addCard, removeCard, getDeckCount } = useDecklist();
 const { isAuthorized, isLoggedIn } = useAuth();
-// Search set navigation
-const searchIndex = ref(0);
+// Search set navigation. activeCard is the source of truth and stays
+// stable across searchCards mutations (e.g. deck decrements that remove
+// an item). searchIndex is derived from activeCard's id, so the lightbox
+// no longer shifts to a neighboring item when the list shrinks.
+const activeCard = ref<Card>(props.card);
 
 watch(() => props.card.id, () => {
-  const idx = props.searchCards.findIndex((c) => c.id === props.card.id);
-  searchIndex.value = idx >= 0 ? idx : 0;
-}, { immediate: true });
-
-watch(() => props.searchCards.length, (len) => {
-  if (len > 0 && searchIndex.value >= len) {
-    searchIndex.value = len - 1;
-  }
+  activeCard.value = props.card;
 });
 
-const activeCard = computed(() => {
-  if (!props.searchCards.length) return props.card;
-  return props.searchCards[searchIndex.value] ?? props.card;
-});
+const searchIndex = computed(() =>
+  props.searchCards.findIndex((c) => c.id === activeCard.value.id),
+);
 
 function prevCard() {
-  if (searchIndex.value > 0) searchIndex.value--;
+  const idx = searchIndex.value;
+  if (idx > 0) activeCard.value = props.searchCards[idx - 1];
 }
 function nextCard() {
-  if (searchIndex.value < props.searchCards.length - 1) searchIndex.value++;
+  const idx = searchIndex.value;
+  if (idx >= 0 && idx < props.searchCards.length - 1) {
+    activeCard.value = props.searchCards[idx + 1];
+  }
 }
 
-// Variant navigation — deduplicate same-art reprints
+// Variant navigation — always fetch all same-name variants, deduplicate same-art reprints
 const activeCardId = computed(() => activeCard.value.id);
-const { data: rawVariants } = useVariants(activeCardId);
+const alwaysByName = ref(true);
+const { data: rawVariants } = useVariants(activeCardId, alwaysByName);
 const variants = computed(() => rawVariants.value ? deduplicateByArt(rawVariants.value) : undefined);
 
 // Same-art printings of the current card (same illustrator + same art tier, different set)
@@ -126,105 +127,133 @@ const currentCard = computed(() => {
 });
 
 const hasMultipleVariants = computed(() => (variants.value?.length ?? 1) > 1);
-const deckCount = computed(() => {
-  if (props.savedDeckCards) {
-    const card = currentCard.value;
-    return props.savedDeckCards.find(
-      (dc) => dc.card.setCode === card.setCode && dc.card.localId === card.localId
-    )?.count ?? 0;
-  }
-  return getDeckCount(currentCard.value.setCode, currentCard.value.localId);
-});
-
-function getContextDeckCount(setCode: string, localId: string): number {
-  if (props.savedDeckCards) {
-    return props.savedDeckCards.find(
-      (dc) => dc.card.setCode === setCode && dc.card.localId === localId
-    )?.count ?? 0;
-  }
-  return getDeckCount(setCode, localId);
-}
-
-// Swap detection: check saved deck cards if available, otherwise working deck
-const swappableItem = computed(() => {
-  const card = currentCard.value;
-  if (props.savedDeckCards?.length) {
-    const matches = props.savedDeckCards.filter(
-      (dc) => dc.card.name === card.name && dc.card.mechanicsHash === card.mechanicsHash && !(dc.card.setCode === card.setCode && dc.card.localId === card.localId)
-    );
-    if (!matches.length) return null;
-    // Prefer the card the user actually clicked on (activeCard)
-    const active = activeCard.value;
-    const preferred = matches.find(dc => dc.card.setCode === active.setCode && dc.card.localId === active.localId);
-    const match = preferred ?? matches[0];
-    return { setCode: match.card.setCode, localId: match.card.localId, name: match.card.name, count: match.count };
-  }
-  return findSwappable(card);
-});
-
 const { updateDeck } = useDecks();
 
-async function handleAdd() {
-  const card = currentCard.value;
-  if (props.savedDeckId && props.savedDeckCards) {
-    const newCards = [...props.savedDeckCards];
-    const existing = newCards.find(
-      (dc) => dc.card.setCode === card.setCode && dc.card.localId === card.localId
-    );
-    if (existing) {
-      existing.count++;
+const isDeckContext = computed(() => props.source === 'deck');
+
+// Reactive map of variant counts in deck — recomputes when deck items change
+const variantCounts = computed(() => {
+  const counts = new Map<string, number>();
+  if (!variants.value) return counts;
+  for (const v of variants.value) {
+    let count = 0;
+    if (props.savedDeckCards) {
+      // Check artCard match first (different mechanics variant used for art)
+      const artMatch = props.savedDeckCards.find(
+        (dc) => dc.artCard && dc.artCard.setCode === v.setCode && dc.artCard.localId === v.localId
+      );
+      if (artMatch) count = artMatch.count;
+      else {
+        count = props.savedDeckCards.find(
+          (dc) => !dc.artCard && dc.card.setCode === v.setCode && dc.card.localId === v.localId
+        )?.count ?? 0;
+      }
     } else {
-      newCards.push({ count: 1, card });
+      count = getDeckCount(v.setCode, v.localId);
     }
-    await updateDeck({ id: props.savedDeckId, data: { cards: newCards } });
+    counts.set(v.id, count);
+  }
+  return counts;
+});
+
+function getVariantDeckCount(v: Card): number {
+  return variantCounts.value.get(v.id) ?? 0;
+}
+
+// Total count of this card name in the deck
+const totalNameCount = computed(() => {
+  let sum = 0;
+  for (const c of variantCounts.value.values()) sum += c;
+  return sum;
+});
+
+// Build a DeckCard entry for a variant, handling artCard for different mechanics
+function buildDeckCard(variant: Card, count: number): DeckCard {
+  if (variant.mechanicsHash !== activeCard.value.mechanicsHash) {
+    // Different mechanics — use activeCard for rules text, variant for art
+    return { count, card: activeCard.value, artCard: variant };
+  }
+  return { count, card: variant };
+}
+
+// Add one copy of a specific variant
+async function handleVariantAdd(v: Card) {
+  if (props.savedDeckId && props.savedDeckCards) {
+    const newCards = props.savedDeckCards.map(dc => ({ ...dc }));
+    // Find existing entry for this variant (by artCard or base card)
+    const existingIdx = newCards.findIndex((dc) => {
+      if (dc.artCard) return dc.artCard.setCode === v.setCode && dc.artCard.localId === v.localId;
+      return dc.card.setCode === v.setCode && dc.card.localId === v.localId;
+    });
+    if (existingIdx !== -1) {
+      newCards[existingIdx].count++;
+    } else {
+      newCards.push(buildDeckCard(v, 1));
+    }
+    await updateDeck({ id: props.savedDeckId, data: { cards: consolidateDeckCards(newCards) } });
     emit("deckUpdated");
   } else {
-    addCard(card);
+    // Working deck — different mechanics need artCard handling
+    if (v.mechanicsHash !== activeCard.value.mechanicsHash) {
+      // For working deck, we use the useDecklist composable which doesn't support artCard directly.
+      // Add the base card and set artCard via the items ref.
+      const { items } = useDecklist();
+      const existing = items.value.find(
+        (i) => i.artCard && i.artCard.setCode === v.setCode && i.artCard.localId === v.localId
+      );
+      if (existing) {
+        existing.count++;
+      } else {
+        items.value.push({
+          setCode: activeCard.value.setCode,
+          localId: activeCard.value.localId,
+          count: 1,
+          name: activeCard.value.name,
+          imageUrl: cardImageUrl(v.imageBase, "low"),
+          card: activeCard.value,
+          artCard: v,
+        });
+      }
+    } else {
+      addCard(v);
+    }
   }
 }
 
-async function handleRemove() {
-  const card = currentCard.value;
-  if (props.savedDeckId && props.savedDeckCards) {
+// Remove one copy of a specific variant
+async function handleVariantRemove(v: Card) {
+  if (props.savedDeckCards && props.savedDeckId) {
     const newCards: DeckCard[] = [];
+    let removed = false;
     for (const dc of props.savedDeckCards) {
-      if (dc.card.setCode === card.setCode && dc.card.localId === card.localId) {
+      const isMatch = dc.artCard
+        ? (dc.artCard.setCode === v.setCode && dc.artCard.localId === v.localId)
+        : (dc.card.setCode === v.setCode && dc.card.localId === v.localId);
+      if (isMatch && !removed) {
+        removed = true;
         if (dc.count > 1) newCards.push({ ...dc, count: dc.count - 1 });
       } else {
         newCards.push(dc);
       }
     }
-    await updateDeck({ id: props.savedDeckId, data: { cards: newCards } });
-    emit("deckUpdated");
-  } else {
-    removeCard(card.setCode, card.localId);
-  }
-}
-
-async function handleReplace() {
-  if (!swappableItem.value) return;
-  const oldSet = swappableItem.value.setCode;
-  const oldLocal = swappableItem.value.localId;
-  const newCard = currentCard.value;
-
-  if (props.savedDeckId && props.savedDeckCards) {
-    const newCards = props.savedDeckCards.map(dc => ({ ...dc }));
-    // Decrement old card by 1
-    const oldIdx = newCards.findIndex(dc => dc.card.setCode === oldSet && dc.card.localId === oldLocal);
-    if (oldIdx !== -1) {
-      if (newCards[oldIdx].count > 1) newCards[oldIdx].count--;
-      else newCards.splice(oldIdx, 1);
-    }
-    // Increment new card by 1
-    const newIdx = newCards.findIndex(dc => dc.card.setCode === newCard.setCode && dc.card.localId === newCard.localId);
-    if (newIdx !== -1) newCards[newIdx].count++;
-    else newCards.push({ count: 1, card: newCard });
-    // Defensive consolidation
     await updateDeck({ id: props.savedDeckId, data: { cards: consolidateDeckCards(newCards) } });
     emit("deckUpdated");
   } else {
-    replaceCard(oldSet, oldLocal, newCard);
+    // Working deck
+    const { items } = useDecklist();
+    const artMatch = items.value.find(
+      (i) => i.artCard && i.artCard.setCode === v.setCode && i.artCard.localId === v.localId
+    );
+    if (artMatch) {
+      if (artMatch.count > 0) artMatch.count--;
+    } else {
+      removeCard(v.setCode, v.localId);
+    }
   }
+}
+
+function isDifferentMechanics(v: Card): boolean {
+  return v.mechanicsHash !== activeCard.value.mechanicsHash;
 }
 
 // Card detail (attacks, abilities, weakness/resistance)
@@ -373,6 +402,16 @@ function onKeydown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener("keydown", onKeydown));
 onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
+// Variant grid zoom — persisted to localStorage
+const VARIANT_ZOOM_KEY = "decklistgen-variant-zoom";
+const variantZoom = ref(parseInt(localStorage.getItem(VARIANT_ZOOM_KEY) ?? "1", 10));
+const ZOOM_STEPS = [60, 90, 130, 180]; // px widths for variant thumbnails
+
+function setVariantZoom(step: number) {
+  variantZoom.value = step;
+  localStorage.setItem(VARIANT_ZOOM_KEY, String(step));
+}
+
 // Tags
 const tags = computed(() =>
   [
@@ -429,7 +468,7 @@ function navigateToDeck(deckId: string) {
             Also printed in: {{ sameArtPrintings.map(v => `${v.setName} #${v.localId}`).join(', ') }}
           </div>
         </div>
-        <button class="nav-btn" :disabled="searchIndex >= searchCards.length - 1" @click="nextCard">&rsaquo;</button>
+        <button class="nav-btn" :disabled="searchIndex < 0 || searchIndex >= searchCards.length - 1" @click="nextCard">&rsaquo;</button>
         <button class="lightbox-close" @click="emit('close')">&times;</button>
       </div>
 
@@ -500,22 +539,35 @@ function navigateToDeck(deckId: string) {
         <!-- Right: scrolling stack — variants, card stats, actions -->
         <div class="lb-right">
           <div class="lb-info-scroll">
-            <!-- Variant grid -->
+            <!-- Variant grid with controls -->
             <div v-if="hasMultipleVariants" class="lb-variants-section">
-              <div class="lb-variants-grid">
-                <div
+              <div class="lb-variants-header">
+                <span v-if="isDeckContext && totalNameCount > 0" class="lb-variants-status">{{ totalNameCount }} in deck</span>
+                <span v-else class="lb-variants-status">{{ variants?.length ?? 0 }} variants</span>
+                <input
+                  type="range"
+                  class="lb-variant-zoom"
+                  :min="0"
+                  :max="ZOOM_STEPS.length - 1"
+                  :value="variantZoom"
+                  @input="setVariantZoom(+($event.target as HTMLInputElement).value)"
+                />
+              </div>
+              <div class="lb-variants-grid" :style="{ gridTemplateColumns: `repeat(auto-fill, minmax(${ZOOM_STEPS[variantZoom]}px, 1fr))` }">
+                <CardThumb
                   v-for="(v, i) in variants"
                   :key="v.id"
-                  :class="['lb-variant', { active: i === variantIndex }]"
+                  :card="v"
+                  :image-mode="imageMode"
+                  :count="getVariantDeckCount(v) || undefined"
+                  :show-remove="isDeckContext"
+                  :show-add="true"
+                  :active="i === variantIndex"
+                  :art-only="isDifferentMechanics(v)"
                   @click="variantIndex = i"
-                >
-                  <img v-if="v.imageBase" :src="getCardImageUrl(v, imageMode, 'low') ?? cardImageUrl(v.imageBase, 'low')" class="lb-variant-img" />
-                  <div v-else class="lb-variant-placeholder">?</div>
-                  <span v-if="getContextDeckCount(v.setCode, v.localId)" class="lb-variant-badge">
-                    {{ getContextDeckCount(v.setCode, v.localId) }}
-                  </span>
-                  <span class="lb-variant-set">{{ v.setCode }} #{{ v.localId }}</span>
-                </div>
+                  @add="handleVariantAdd(v)"
+                  @remove="handleVariantRemove(v)"
+                />
               </div>
             </div>
 
@@ -612,23 +664,14 @@ function navigateToDeck(deckId: string) {
               </div>
             </div>
 
-            <!-- Deck Controls -->
-            <div class="lb-deck-controls">
-              <button v-if="deckCount === 0" class="lb-add-btn" @click="handleAdd">
-                {{ savedDeckId ? 'Add to Deck' : 'Add to Decklist' }}
-              </button>
-              <div v-else class="lb-deck-row">
-                <button class="deck-ctrl-btn" @click="handleRemove">&minus;</button>
-                <span class="deck-ctrl-count">In Deck (x{{ deckCount }})</span>
-                <button class="deck-ctrl-btn" @click="handleAdd">+</button>
+            <!-- Single-variant controls (when no variant grid shown) -->
+            <div v-if="!hasMultipleVariants" class="lb-deck-controls">
+              <div v-if="isDeckContext" class="lb-single-variant-row">
+                <button class="card-thumb-ctrl card-thumb-minus" :disabled="!getVariantDeckCount(currentCard)" @click="handleVariantRemove(currentCard)">&minus;</button>
+                <span class="lb-single-variant-count">{{ getVariantDeckCount(currentCard) }} in deck</span>
+                <button class="card-thumb-ctrl card-thumb-plus" @click="handleVariantAdd(currentCard)">+</button>
               </div>
-              <button
-                v-if="swappableItem"
-                class="lb-replace-btn"
-                @click="handleReplace"
-              >
-                Swap 1× {{ swappableItem.setCode }} #{{ swappableItem.localId }}
-              </button>
+              <button v-else class="lb-add-btn" @click="handleVariantAdd(currentCard)">Add to Deck</button>
             </div>
 
             <!-- Deck Membership (from Cards view) -->

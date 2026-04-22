@@ -151,6 +151,31 @@ describe("computeMechanicsHash", () => {
     expect(computeMechanicsHash(a)).not.toBe("basic");
   });
 
+  it("TG reprint with different attacks produces different hash (not a variant)", () => {
+    const standard = makeCard({
+      name: "Hoothoot",
+      attacks: [{ name: "Peck", cost: ["Colorless"], damage: "20" }],
+    });
+    const tg = makeCard({
+      name: "Hoothoot",
+      attacks: [{ name: "Find a Friend", cost: ["Colorless"], damage: "" }],
+    });
+    expect(computeMechanicsHash(standard)).not.toBe(computeMechanicsHash(tg));
+  });
+
+  it("same-name reprint with identical attacks in different set produces same hash", () => {
+    const setA = makeCard({
+      name: "Hoothoot",
+      attacks: [{ name: "Peck", cost: ["Colorless"], damage: "20" }],
+    });
+    const setB = makeCard({
+      id: "different-set-001",
+      name: "Hoothoot",
+      attacks: [{ name: "Peck", cost: ["Colorless"], damage: "30" }],
+    });
+    expect(computeMechanicsHash(setA)).toBe(computeMechanicsHash(setB));
+  });
+
   it("attack order does not affect hash (sorted by name)", () => {
     const a = makeCard({
       attacks: [

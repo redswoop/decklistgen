@@ -71,13 +71,46 @@ describe("useDecklist undo/redo", () => {
     expect(deck.items.value.length).toBe(0);
   });
 
-  it("undo after removeCard restores the card", () => {
+  it("removeCard stops at 0 and keeps the entry visible", () => {
     const card = makeCard("1");
     deck.addCard(card);
     deck.removeCard("test", "1");
-    expect(deck.items.value.length).toBe(0);
-    deck.undo();
     expect(deck.items.value.length).toBe(1);
+    expect(deck.items.value[0].count).toBe(0);
+  });
+
+  it("removeCard on a 0-count entry is a no-op", () => {
+    const card = makeCard("1");
+    deck.addCard(card);
+    deck.removeCard("test", "1");
+    deck.removeCard("test", "1");
+    expect(deck.items.value[0].count).toBe(0);
+  });
+
+  it("addCard on a 0-count entry increments back to 1", () => {
+    const card = makeCard("1");
+    deck.addCard(card);
+    deck.removeCard("test", "1");
+    expect(deck.items.value[0].count).toBe(0);
+    deck.addCard(card);
+    expect(deck.items.value.length).toBe(1);
+    expect(deck.items.value[0].count).toBe(1);
+  });
+
+  it("incrementCard on a 0-count entry goes to 1", () => {
+    const card = makeCard("1");
+    deck.addCard(card);
+    deck.removeCard("test", "1");
+    deck.incrementCard("test", "1");
+    expect(deck.items.value[0].count).toBe(1);
+  });
+
+  it("undo after removeCard restores previous count", () => {
+    const card = makeCard("1");
+    deck.addCard(card);
+    deck.removeCard("test", "1");
+    expect(deck.items.value[0].count).toBe(0);
+    deck.undo();
     expect(deck.items.value[0].count).toBe(1);
   });
 
@@ -88,16 +121,6 @@ describe("useDecklist undo/redo", () => {
     expect(deck.items.value[0].count).toBe(2);
     deck.undo();
     expect(deck.items.value[0].count).toBe(1);
-  });
-
-  it("undo after decrementCard restores previous count", () => {
-    const card = makeCard("1");
-    deck.addCard(card);
-    deck.incrementCard("test", "1");
-    deck.decrementCard("test", "1");
-    expect(deck.items.value[0].count).toBe(1);
-    deck.undo();
-    expect(deck.items.value[0].count).toBe(2);
   });
 
   it("undo after clear restores all cards", () => {
@@ -117,15 +140,6 @@ describe("useDecklist undo/redo", () => {
     expect(deck.items.value.length).toBe(2);
     deck.undo();
     expect(deck.items.value.length).toBe(1);
-    expect(deck.items.value[0].localId).toBe("1");
-  });
-
-  it("undo after replaceCard restores old card", () => {
-    deck.addCard(makeCard("1"));
-    const newCard = makeCard("2");
-    deck.replaceCard("test", "1", newCard);
-    expect(deck.items.value[0].localId).toBe("2");
-    deck.undo();
     expect(deck.items.value[0].localId).toBe("1");
   });
 
@@ -229,6 +243,39 @@ describe("useDecklist undo/redo", () => {
     expect(deck.canRedo.value).toBe(false);
     deck.redo(); // should not throw
     expect(deck.items.value.length).toBe(0);
+  });
+
+  it("sweepZeroCount removes only 0-count entries", () => {
+    deck.addCard(makeCard("1"));
+    deck.addCard(makeCard("2"));
+    deck.addCard(makeCard("3"));
+    deck.removeCard("test", "2"); // 2 → count 0
+    expect(deck.items.value.length).toBe(3);
+    expect(deck.hasZeroCount.value).toBe(true);
+    deck.sweepZeroCount();
+    expect(deck.items.value.length).toBe(2);
+    expect(deck.items.value.map((i) => i.localId)).toEqual(["1", "3"]);
+    expect(deck.hasZeroCount.value).toBe(false);
+  });
+
+  it("sweepZeroCount is undoable", () => {
+    deck.addCard(makeCard("1"));
+    deck.addCard(makeCard("2"));
+    deck.removeCard("test", "2");
+    deck.sweepZeroCount();
+    expect(deck.items.value.length).toBe(1);
+    deck.undo();
+    expect(deck.items.value.length).toBe(2);
+    expect(deck.items.value[1].count).toBe(0);
+  });
+
+  it("sweepZeroCount is a no-op when no 0-count entries exist", () => {
+    deck.addCard(makeCard("1"));
+    const before = deck.canUndo.value;
+    deck.sweepZeroCount();
+    expect(deck.items.value.length).toBe(1);
+    // Should not have pushed a new undo frame
+    expect(deck.canUndo.value).toBe(before);
   });
 
   it("canUndo/canRedo reflect state correctly", () => {

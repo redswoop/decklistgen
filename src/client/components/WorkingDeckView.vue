@@ -3,7 +3,6 @@ import { ref, computed } from "vue";
 import CardGrid from "./CardGrid.vue";
 import BeautifyDialog from "./BeautifyDialog.vue";
 import BatchGenerateDialog from "./BatchGenerateDialog.vue";
-import VariantPicker from "./VariantPicker.vue";
 import PrintDialog from "./PrintDialog.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import { useDecklist } from "../composables/useDecklist.js";
@@ -22,7 +21,7 @@ const emit = defineEmits<{
 
 const {
   items, totalCards, countColor, DECK_SIZE,
-  addCard, removeCard, clear,
+  addCard, removeCard, clear, sweepZeroCount, hasZeroCount,
   currentDeckId, currentDeckName, isDirty,
   toDeckCards, loadSavedDeck,
 } = useDecklist();
@@ -56,7 +55,12 @@ const showBeautify = ref(false);
 const showBatchGenerate = ref(false);
 const showPrintDialog = ref(false);
 const showSaveBeforePrint = ref(false);
-const variantPickerCard = ref<Card | null>(null);
+const showSweepConfirm = ref(false);
+
+function handleSweep() {
+  sweepZeroCount();
+  showSweepConfirm.value = false;
+}
 
 // --- Card grid handlers ---
 function handleRemoveCard(card: Card) {
@@ -92,23 +96,6 @@ async function handleSaveAndPrint() {
   showPrintDialog.value = true;
 }
 
-// --- Variant picker ---
-function handlePickVariant(card: Card) {
-  variantPickerCard.value = card;
-}
-
-function handleVariantPickerLightbox(card: Card) {
-  variantPickerCard.value = null;
-  handlePreview(card, deckCards.value);
-}
-
-async function handleVariantPickerUpdated() {
-  if (currentDeckId.value) {
-    const deck = await fetchDeck(currentDeckId.value);
-    loadSavedDeck(deck);
-  }
-}
-
 async function handleBeautifyUpdated() {
   showBeautify.value = false;
   if (currentDeckId.value) {
@@ -127,7 +114,6 @@ async function handleBeautifyUpdated() {
       :header-label="headerLabel"
       context="deck"
       @preview-card="handlePreview"
-      @pick-variant="handlePickVariant"
       @add-card="handleAddCard"
       @remove-card="handleRemoveCard"
       @regenerate-card="handleRegenerate"
@@ -139,6 +125,12 @@ async function handleBeautifyUpdated() {
           <button class="dm-action-btn" :disabled="!currentDeckId" :title="!isLoggedIn ? 'Sign in to save and print decks' : (!currentDeckId ? 'Save the deck first to print' : 'Open printable proxy sheet')" @click="handlePrint">Print</button>
           <button class="dm-action-btn" @click="emit('import')">Import</button>
           <button class="dm-action-btn" @click="emit('export')" :disabled="items.length === 0">Export</button>
+          <button
+            class="dm-action-btn"
+            @click="showSweepConfirm = true"
+            :disabled="!hasZeroCount"
+            :title="hasZeroCount ? 'Remove cards with 0 copies from the deck' : 'No cards with 0 copies to sweep'"
+          >Sweep</button>
           <button class="dm-action-btn dm-action-btn-danger" @click="clear()" :disabled="items.length === 0">Clear</button>
         </div>
       </template>
@@ -159,16 +151,6 @@ async function handleBeautifyUpdated() {
       @close="showBatchGenerate = false"
     />
 
-    <VariantPicker
-      v-if="variantPickerCard && currentDeckId"
-      :card="variantPickerCard"
-      :saved-deck-id="currentDeckId"
-      :saved-deck-cards="toDeckCards()"
-      @close="variantPickerCard = null"
-      @open-lightbox="handleVariantPickerLightbox"
-      @deck-updated="handleVariantPickerUpdated"
-    />
-
     <PrintDialog
       v-if="showPrintDialog && currentDeckId"
       :deck-id="currentDeckId"
@@ -183,6 +165,15 @@ async function handleBeautifyUpdated() {
       :confirm-danger="false"
       @confirm="handleSaveAndPrint"
       @close="showSaveBeforePrint = false"
+    />
+
+    <ConfirmDialog
+      v-if="showSweepConfirm"
+      title="Sweep Zero-Count Cards"
+      message="Remove all cards with 0 copies from the deck? This can be undone."
+      confirm-label="Sweep"
+      @confirm="handleSweep"
+      @close="showSweepConfirm = false"
     />
   </div>
 </template>

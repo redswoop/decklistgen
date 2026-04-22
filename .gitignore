@@ -12,3 +12,4 @@ data/decklistgen.db*
 .env.local
 
 test-results/
+.playwright-mcp/
