@@ -1,6 +1,9 @@
-/** Default font size tokens — shared across JSON card templates. */
+/** Default font size tokens — shared across JSON card templates.
+ *  Every key here must be referenced by at least one template under
+ *  data/templates/ (as `"fontSize": "$token"`). Dead tokens just clutter
+ *  the gallery's Font Sizes UI without affecting any render. */
 export const FONT_SIZES: Record<string, number> = {
-  // Shared across all templates
+  // Shared across templates (pokemon + trainer)
   footer:        14,
   ruleText:      26,
   label:         24,   // Weak/Resist/Retreat labels
@@ -8,27 +11,20 @@ export const FONT_SIZES: Record<string, number> = {
   attackName:    38,
   damage:        46,
   attackEffect:  30,
-  abilityLabel:  32,
   abilityName:   32,
   abilityEffect: 30,
-  abilityPill:   28,
 
-  // Standard pokemon
-  cardName:      42,
-  hp:            42,
-  hpLabel:       22,
-  evolvesFrom:   30,
-
-  // Fullart (user-tweaked values from editor)
-  "cardName.fullart": 48,
-  "hp.fullart":       52,
-  "hpLabel.fullart":  25,
+  // Pokemon HP / name / evolves-from (used by all three pokemon templates)
+  "cardName.fullart":    48,
+  "hp.fullart":          52,
+  "hpLabel.fullart":     25,
   "evolvesFrom.fullart": 37,
-  "attackEffect.fullart": 30,
-  "abilityLabel.fullart": 38,
-  "abilityName.fullart":  38,
+
+  // Used by pokemon-standard / pokemon-fullart / trainer (vstar uses bare variants above)
+  "attackEffect.fullart":  30,
+  "abilityName.fullart":   38,
   "abilityEffect.fullart": 30,
-  "abilityPill.fullart":  30,
+  "abilityPill.fullart":   30,
 
   // Trainer
   "cardName.trainer": 44,
@@ -37,12 +33,9 @@ export const FONT_SIZES: Record<string, number> = {
   trainerEffect:      36,
 
   // VSTAR-specific
-  vstarPowerLabel:    26,
+  vstarPowerLabel:     26,
   "evolvesFrom.vstar": 28,
 
-  // Basic energy
-  energyFooter:       18,
-
-  // Fallback for unknown tokens
+  // Fallback for unknown tokens (not exposed in UI)
   default:            24,
 };

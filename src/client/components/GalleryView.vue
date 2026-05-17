@@ -29,14 +29,19 @@ const { data: cards, isLoading, refetch } = useQuery<GalleryCard[]>({
   staleTime: 60_000,
 });
 
-const cacheBust = ref(Date.now());
+// Two cache-bust counters so SVG regenerations don't also force re-fetches
+// of the unchanged cleaned-art PNG (and vice versa).
+//   svgCacheBust  — bumped when the SVG output changes (font-size / family / regen)
+//   imageCacheBust — bumped when the cleaned/composite PNG on disk changes (after ComfyUI clean)
+const svgCacheBust = ref(Date.now());
+const imageCacheBust = ref(Date.now());
 
 // SVG inline content cache: cardId → html string
 const svgCache = ref<Record<string, string>>({});
 
 async function loadSvg(cardId: string) {
   try {
-    const resp = await fetch(`/api/pokeproxy/svg/${cardId}?t=${cacheBust.value}`);
+    const resp = await fetch(`/api/pokeproxy/svg/${cardId}?t=${svgCacheBust.value}`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     svgCache.value[cardId] = await resp.text();
   } catch (e) {
@@ -65,13 +70,13 @@ function sourceUrl(cardId: string) {
 }
 
 function cleanUrl(cardId: string) {
-  return `/api/pokeproxy/image/${cardId}/composite?t=${cacheBust.value}`;
+  return `/api/pokeproxy/image/${cardId}/composite?t=${imageCacheBust.value}`;
 }
 
 async function loadLightboxSvg(cardId: string) {
   lightboxSvg.value = "";
   try {
-    const resp = await fetch(`/api/pokeproxy/svg/${cardId}?t=${cacheBust.value}`);
+    const resp = await fetch(`/api/pokeproxy/svg/${cardId}?t=${svgCacheBust.value}`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     lightboxSvg.value = await resp.text();
   } catch (e) {
@@ -124,7 +129,9 @@ async function doClean(force: boolean) {
       await pollJob(data.jobId);
     }
     lightboxStatus.value = "Done — refreshing...";
-    cacheBust.value = Date.now();
+    // Clean changes both the cleaned PNG and the SVG (which embeds it).
+    imageCacheBust.value = Date.now();
+    svgCacheBust.value = Date.now();
     card.hasClean = true;
     card.hasComposite = true;
     // Reload SVGs
@@ -146,7 +153,8 @@ async function doRegen() {
   lightboxStatus.value = "Regenerating SVG...";
   try {
     await api.pokeproxyRegenerateSvg(cardId);
-    cacheBust.value = Date.now();
+    // Regen only changes the SVG; the cleaned PNG on disk is untouched.
+    svgCacheBust.value = Date.now();
     loadLightboxSvg(cardId);
     loadSvg(cardId);
     lightboxStatus.value = "SVG updated";
@@ -183,6 +191,13 @@ const fontSizeOverrides = ref<Record<string, number>>({});
 const fontSizeEdited = ref<Record<string, string>>({});
 const fontSizeLoading = ref(false);
 const fontSizeStatus = ref("");
+const fontSizePreviewSvg = ref<string>("");
+const fontSizePreviewCardId = "sv01-006"; // Spidops: title, ability, attack, energy tokens
+
+// Tokens not currently used by any template — render UI-side filter
+// (kept here rather than in the constants file so the resolver fallback
+// `default` still works while not showing up as an editable row).
+const FONT_SIZE_HIDDEN_KEYS = new Set(["default"]);
 
 async function loadFontSizes() {
   fontSizeLoading.value = true;
@@ -197,11 +212,38 @@ async function loadFontSizes() {
     }
     fontSizeEdited.value = edited;
     fontSizeStatus.value = "";
+    await refreshFontSizePreview();
   } catch (e) {
     fontSizeStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
   } finally {
     fontSizeLoading.value = false;
   }
+}
+
+async function refreshFontSizePreview() {
+  try {
+    const resp = await fetch(`/api/pokeproxy/svg/${fontSizePreviewCardId}?t=${Date.now()}`, { credentials: "include" });
+    if (!resp.ok) throw new Error(`preview ${resp.status}`);
+    fontSizePreviewSvg.value = await resp.text();
+  } catch (e) {
+    fontSizePreviewSvg.value = `<span style="color:#666;font-size:12px">Preview failed: ${e instanceof Error ? e.message : String(e)}</span>`;
+  }
+}
+
+const visibleFontSizeKeys = computed(() =>
+  Object.keys(fontSizeDefaults.value).filter(k => !FONT_SIZE_HIDDEN_KEYS.has(k))
+);
+
+/** Bust the SVG cache and re-fetch so font-size / font-family changes show up
+ *  without a full page reload. Does NOT touch imageCacheBust — the cleaned-art
+ *  PNGs on disk are unchanged, so we don't force the browser to re-download them. */
+function refreshAllRenderedSvgs() {
+  svgCacheBust.value = Date.now();
+  svgCache.value = {};
+  if (cards.value) {
+    for (const card of cards.value) loadSvg(card.cardId);
+  }
+  if (activeCard.value) loadLightboxSvg(activeCard.value.cardId);
 }
 
 watch(activeTab, (tab) => {
@@ -269,8 +311,7 @@ async function saveFontFamily() {
     const data = await api.saveFontFamily(fontFamilyCurrent.value);
     fontFamilyCurrent.value = data.current;
     fontFamilyStatus.value = "Saved";
-    // Bust the SVG cache so other open views re-fetch with the new fonts.
-    svgCache.value = {};
+    refreshAllRenderedSvgs();
     await refreshFontFamilyPreview();
   } catch (e) {
     fontFamilyStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
@@ -283,7 +324,7 @@ async function resetFontFamily() {
     const data = await api.resetFontFamily();
     fontFamilyCurrent.value = data.current;
     fontFamilyStatus.value = "Reset to defaults";
-    svgCache.value = {};
+    refreshAllRenderedSvgs();
     await refreshFontFamilyPreview();
   } catch (e) {
     fontFamilyStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
@@ -330,6 +371,8 @@ async function saveFontSizeOverrides() {
     await api.saveFontSizes(overrides);
     fontSizeOverrides.value = overrides;
     fontSizeStatus.value = "Saved";
+    refreshAllRenderedSvgs();
+    await refreshFontSizePreview();
   } catch (e) {
     fontSizeStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
   }
@@ -346,6 +389,8 @@ async function resetFontSizeOverrides() {
     }
     fontSizeEdited.value = edited;
     fontSizeStatus.value = "Reset to defaults";
+    refreshAllRenderedSvgs();
+    await refreshFontSizePreview();
   } catch (e) {
     fontSizeStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
   }
@@ -394,35 +439,44 @@ body { margin: 0; padding: 0.25in; }
     <div v-if="activeTab === 'font-sizes'" class="fs-panel">
       <div v-if="fontSizeLoading" class="gallery-loading">Loading font sizes...</div>
       <template v-else>
-        <div class="fs-actions">
-          <button class="btn btn-save-fs" :disabled="!hasUnsavedFontSizes" @click="saveFontSizeOverrides" title="Save overrides to server">Save</button>
-          <button class="btn btn-reset-fs" @click="resetFontSizeOverrides" title="Reset all to defaults">Reset</button>
-          <span v-if="fontSizeStatus" class="fs-status">{{ fontSizeStatus }}</span>
+        <div class="fs-layout">
+          <div class="fs-controls">
+            <div class="fs-actions">
+              <button class="btn btn-save-fs" :disabled="!hasUnsavedFontSizes" @click="saveFontSizeOverrides" title="Save overrides to server">Save</button>
+              <button class="btn btn-reset-fs" @click="resetFontSizeOverrides" title="Reset all to defaults">Reset</button>
+              <span v-if="fontSizeStatus" class="fs-status">{{ fontSizeStatus }}</span>
+            </div>
+            <table class="fs-table">
+              <thead>
+                <tr>
+                  <th>Token</th>
+                  <th>Default</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="key in visibleFontSizeKeys" :key="key" :class="{ 'fs-overridden': fontSizeIsOverridden(key), 'fs-edited': fontSizeIsEdited(key) }">
+                  <td class="fs-token">{{ key }}</td>
+                  <td class="fs-default">{{ fontSizeDefaults[key] }}</td>
+                  <td class="fs-value">
+                    <input
+                      type="number"
+                      :value="fontSizeEdited[key]"
+                      min="1"
+                      max="200"
+                      @input="(e: Event) => fontSizeEdited[key] = (e.target as HTMLInputElement).value"
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="fs-preview">
+            <div class="ff-preview-label">Preview ({{ fontSizePreviewCardId }})</div>
+            <div class="ff-preview-card" v-html="fontSizePreviewSvg || '<span style=\'color:#666;font-size:12px\'>Loading…</span>'" />
+            <div class="fs-preview-hint">Updates after Save / Reset</div>
+          </div>
         </div>
-        <table class="fs-table">
-          <thead>
-            <tr>
-              <th>Token</th>
-              <th>Default</th>
-              <th>Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="key in Object.keys(fontSizeDefaults)" :key="key" :class="{ 'fs-overridden': fontSizeIsOverridden(key), 'fs-edited': fontSizeIsEdited(key) }">
-              <td class="fs-token">{{ key }}</td>
-              <td class="fs-default">{{ fontSizeDefaults[key] }}</td>
-              <td class="fs-value">
-                <input
-                  type="number"
-                  :value="fontSizeEdited[key]"
-                  min="1"
-                  max="200"
-                  @input="(e: Event) => fontSizeEdited[key] = (e.target as HTMLInputElement).value"
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
       </template>
     </div>
 
@@ -898,7 +952,35 @@ body { margin: 0; padding: 0.25in; }
 
 /* Font Sizes Panel */
 .fs-panel {
-  max-width: 600px;
+  max-width: 1000px;
+}
+
+.fs-layout {
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) auto;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.fs-controls { min-width: 0; }
+
+.fs-preview {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fs-preview .ff-preview-card {
+  width: 260px;
+  min-height: 364px;
+}
+
+.fs-preview-hint {
+  font-size: 11px;
+  color: #666;
+  text-align: center;
 }
 
 .fs-actions {
