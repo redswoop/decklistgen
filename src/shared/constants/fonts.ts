@@ -128,8 +128,34 @@ export const FONTS: Record<string, FontDef> = {
 
 export const DEFAULT_FONT_ID = "inter";
 
+/** Roles that an SVG text element can be tagged with. The renderer routes
+ *  each role to its own font selection so e.g. HP values can render in
+ *  Futura Heavy while card names render in Gill Sans Condensed Bold. */
+export const FONT_ROLES = ["title", "body", "hp", "infobar", "pokedex", "trainerHeader"] as const;
+export type FontRole = typeof FONT_ROLES[number];
+
+/** Human-readable label for each role, used in the picker UI. */
+export const FONT_ROLE_LABELS: Record<FontRole, string> = {
+  title: "Title (card / attack / ability name)",
+  body: "Body (effect text, rules)",
+  hp: "HP & damage values",
+  infobar: "Info bar (weakness, resistance, retreat, card number)",
+  pokedex: "Pokédex entries",
+  trainerHeader: "Trainer header word",
+};
+
 /** Resolve a font id to a FontDef, falling back to the default if unknown. */
 export function resolveFont(id: string | undefined): FontDef {
   if (id && FONTS[id]) return FONTS[id];
   return FONTS[DEFAULT_FONT_ID];
+}
+
+/** Which weight to use for a given role.
+ *  - title / hp / trainerHeader → titleWeight (heavy display)
+ *  - body → caller's font-weight prop (template chooses bold vs normal)
+ *  - infobar / pokedex → bodyRegularWeight (read-grade) */
+export function weightForRole(def: FontDef, role: FontRole, fontWeight: string): number | string {
+  if (role === "title" || role === "hp" || role === "trainerHeader") return def.titleWeight;
+  if (role === "infobar" || role === "pokedex") return def.bodyRegularWeight;
+  return fontWeight;
 }

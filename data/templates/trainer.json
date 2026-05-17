@@ -189,7 +189,7 @@
           "props": {
             "text": "Paldea Evolved • 254",
             "fontSize": "$footer",
-            "fontFamily": "body",
+            "fontFamily": "infobar",
             "fontWeight": "normal",
             "fill": "#ffffff",
             "opacity": 0.5,

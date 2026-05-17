@@ -1,7 +1,7 @@
 {
   "id": "pokemon-vstar",
   "name": "Pokemon (VSTAR)",
-  "description": "VSTAR Pokemon \u2014 fullart with VSTAR logo, data-driven attacks then VSTAR Power with gold accent",
+  "description": "VSTAR Pokemon — fullart with VSTAR logo, data-driven attacks then VSTAR Power with gold accent",
   "elements": [
     {
       "type": "image",
@@ -30,7 +30,7 @@
           "props": {
             "text": "HP",
             "fontSize": "$hpLabel.fullart",
-            "fontFamily": "title",
+            "fontFamily": "hp",
             "fontWeight": "bold",
             "fill": "#ffffff",
             "filter": "none",
@@ -45,7 +45,7 @@
           "props": {
             "text": "280",
             "fontSize": "$hp.fullart",
-            "fontFamily": "title",
+            "fontFamily": "hp",
             "fontWeight": "bold",
             "fill": "#ffffff",
             "stroke": "#000000",
@@ -132,7 +132,7 @@
           "props": {
             "text": "Evolves from X",
             "fontSize": "$evolvesFrom.vstar",
-            "fontFamily": "body",
+            "fontFamily": "infobar",
             "fontWeight": "bold",
             "fill": "#ffffff",
             "opacity": 0.7,
@@ -231,7 +231,7 @@
                     "props": {
                       "text": "0",
                       "fontSize": "$damage",
-                      "fontFamily": "title",
+                      "fontFamily": "hp",
                       "fontWeight": "bold",
                       "fill": "#cc0000",
                       "filter": "shadow",
@@ -375,7 +375,7 @@
               "props": {
                 "text": "Weak",
                 "fontSize": "$label",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#888888",
                 "wrap": 0,
@@ -401,9 +401,9 @@
             {
               "type": "text",
               "props": {
-                "text": "\u00d72",
+                "text": "×2",
                 "fontSize": "$multiplier",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#ffffff",
                 "filter": "shadow",
@@ -421,7 +421,7 @@
               "props": {
                 "text": "Resist",
                 "fontSize": "$label",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#888888",
                 "wrap": 0,
@@ -449,7 +449,7 @@
               "props": {
                 "text": "-30",
                 "fontSize": "$multiplier",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#ffffff",
                 "filter": "shadow",
@@ -466,7 +466,7 @@
               "props": {
                 "text": "Retreat",
                 "fontSize": "$label",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#888888",
                 "wrap": 0,
@@ -517,9 +517,9 @@
         {
           "type": "text",
           "props": {
-            "text": "Set \u2022 001",
+            "text": "Set • 001",
             "fontSize": "$footer",
-            "fontFamily": "body",
+            "fontFamily": "infobar",
             "fontWeight": "normal",
             "fill": "#ffffff",
             "opacity": 0.5,

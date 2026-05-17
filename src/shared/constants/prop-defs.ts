@@ -150,7 +150,7 @@ export const SUB_PROP_DEFS: Record<string, PropDef[]> = {
   text: [
     { key: "text", label: "Text", type: "text", group: "content" },
     { key: "fontSize", label: "Font Size", type: "number", min: 8, max: 120, step: 1 },
-    { key: "fontFamily", label: "Font", type: "select", options: ["title", "body"] },
+    { key: "fontFamily", label: "Font", type: "select", options: ["title", "body", "hp", "infobar", "pokedex", "trainerHeader"] },
     { key: "fontWeight", label: "Weight", type: "select", options: ["normal", "bold"] },
     { key: "fill", label: "Fill", type: "color" },
     { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.05 },

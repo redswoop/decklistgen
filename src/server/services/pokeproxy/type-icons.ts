@@ -5,7 +5,7 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { resolveFont, type FontDef } from "../../../shared/constants/fonts.js";
+import { resolveFont, FONT_ROLES, type FontDef } from "../../../shared/constants/fonts.js";
 import { getFontSelection } from "./font-family-store.js";
 
 // EssentiarumTCG is always embedded — it provides the energy-type glyphs
@@ -44,24 +44,28 @@ function faceBlocksFor(def: FontDef): string {
 
 const styleCache = new Map<string, string>();
 
-function buildFontStyle(titleId: string, bodyId: string): string {
-  const titleDef = resolveFont(titleId);
-  const bodyDef = resolveFont(bodyId);
-  // Always embed title font; embed body font too if it's a different family.
-  // (If both roles use the same font, faceBlocksFor returns the full weight
-  // set once and we avoid duplicate @font-face entries.)
-  const blocks = [ESSENTIARUM_FACE, faceBlocksFor(titleDef)];
-  if (bodyDef.id !== titleDef.id) blocks.push(faceBlocksFor(bodyDef));
-  return `<style>${blocks.join("")}</style>`;
+function buildFontStyle(sel: Record<string, string>): string {
+  // Collect the unique set of FontDef ids actually selected across every role,
+  // so e.g. "Inter for HP and Inter for title" emits one Inter @font-face block
+  // rather than six.
+  const seen = new Set<string>();
+  const defs: FontDef[] = [];
+  for (const role of FONT_ROLES) {
+    const def = resolveFont(sel[role]);
+    if (seen.has(def.id)) continue;
+    seen.add(def.id);
+    defs.push(def);
+  }
+  return `<style>${ESSENTIARUM_FACE}${defs.map(faceBlocksFor).join("")}</style>`;
 }
 
 /** Return the @font-face <style> block to include in SVG <defs>. */
 export function getFontStyle(): string {
   const sel = getFontSelection();
-  const key = `${sel.title}|${sel.body}`;
+  const key = FONT_ROLES.map((r) => sel[r]).join("|");
   let s = styleCache.get(key);
   if (s) return s;
-  s = buildFontStyle(sel.title, sel.body);
+  s = buildFontStyle(sel);
   styleCache.set(key, s);
   return s;
 }

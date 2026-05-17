@@ -33,7 +33,7 @@
           "props": {
             "text": "HP",
             "fontSize": "$hpLabel.fullart",
-            "fontFamily": "title",
+            "fontFamily": "hp",
             "fontWeight": "bold",
             "fill": "#ffffff",
             "opacity": 1,
@@ -53,7 +53,7 @@
           "props": {
             "text": 210,
             "fontSize": "$hp.fullart",
-            "fontFamily": "title",
+            "fontFamily": "hp",
             "fontWeight": "bold",
             "fill": "#ffffff",
             "opacity": 1,
@@ -148,7 +148,7 @@
           "props": {
             "text": "",
             "fontSize": "$evolvesFrom.fullart",
-            "fontFamily": "body",
+            "fontFamily": "infobar",
             "fontWeight": "bold",
             "fill": "#ffffff",
             "opacity": 0.8,
@@ -369,7 +369,7 @@
                     "props": {
                       "text": "0",
                       "fontSize": "$damage",
-                      "fontFamily": "title",
+                      "fontFamily": "hp",
                       "fontWeight": "bold",
                       "fill": "#4fdedb",
                       "filter": "shadow",
@@ -426,7 +426,7 @@
               "props": {
                 "text": "Weak",
                 "fontSize": "$label",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#888888",
                 "filter": "none",
@@ -458,7 +458,7 @@
               "props": {
                 "text": "×2",
                 "fontSize": "$multiplier",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#ffffff",
                 "filter": "shadow",
@@ -479,7 +479,7 @@
               "props": {
                 "text": "Resist",
                 "fontSize": "$label",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#888888",
                 "filter": "none",
@@ -511,7 +511,7 @@
               "props": {
                 "text": "-30",
                 "fontSize": "$multiplier",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#ffffff",
                 "filter": "shadow",
@@ -531,7 +531,7 @@
               "props": {
                 "text": "Retreat",
                 "fontSize": "$label",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#888888",
                 "filter": "none",
@@ -590,7 +590,7 @@
           "props": {
             "text": "Obsidian Flames • 214",
             "fontSize": "$footer",
-            "fontFamily": "body",
+            "fontFamily": "infobar",
             "fontWeight": "normal",
             "fill": "#ffffff",
             "opacity": 0.5,

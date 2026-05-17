@@ -45,8 +45,11 @@ describe("@font-face selection changes with font choice", () => {
     expect(style).toContain('format("opentype")');
   });
 
-  test("selecting Gill Sans for both roles embeds it once (not duplicated)", () => {
-    saveFontSelection({ title: "gill-sans", body: "gill-sans" });
+  test("selecting Gill Sans for every role embeds it once (not duplicated)", () => {
+    saveFontSelection({
+      title: "gill-sans", body: "gill-sans", hp: "gill-sans",
+      infobar: "gill-sans", pokedex: "gill-sans", trainerHeader: "gill-sans",
+    });
     clearFontStyleCache();
     const style = getFontStyle();
     expect(style).toContain('font-family: "Gill Sans"');
@@ -54,6 +57,21 @@ describe("@font-face selection changes with font choice", () => {
     // 3 Gill Sans weights bundled: 400/700/900
     const matches = style.match(/font-family: "Gill Sans"/g) ?? [];
     expect(matches.length).toBe(3);
+  });
+
+  test("selecting different fonts per role embeds each unique family once", () => {
+    saveFontSelection({
+      title: "gill-sans", body: "gill-sans", hp: "futura-heavy",
+      infobar: "frutiger", pokedex: "sanvito", trainerHeader: "bauhaus",
+    });
+    clearFontStyleCache();
+    const style = getFontStyle();
+    expect(style).toContain('font-family: "Gill Sans"');
+    expect(style).toContain('font-family: "Futura Heavy"');
+    expect(style).toContain('font-family: "Frutiger"');
+    expect(style).toContain('font-family: "Sanvito Pro"');
+    expect(style).toContain('font-family: "Bauhaus"');
+    expect(style).not.toContain('font-family: "Inter"');
   });
 
   test("getFontStyle() is cached by selection", () => {

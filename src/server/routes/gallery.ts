@@ -531,8 +531,8 @@ function galleryHtml(): string {
   .fonts-section h2 { margin: 0 0 8px 0; font-size: 20px; color: #f39c12; }
   .fonts-help { color: #aaa; font-size: 13px; margin: 0 0 20px 0; line-height: 1.5; }
   .fonts-grid { display: flex; flex-direction: column; gap: 14px; margin-bottom: 18px; }
-  .fonts-row { display: grid; grid-template-columns: 70px 1fr auto; align-items: center; gap: 14px; }
-  .fonts-row label { font-size: 14px; font-weight: 700; color: #ccc; }
+  .fonts-row { display: grid; grid-template-columns: 280px 220px 1fr; align-items: center; gap: 12px; }
+  .fonts-row label { font-size: 13px; font-weight: 600; color: #ccc; }
   .fonts-row select {
     background: #0f3460; color: #e0e0e0; border: 1px solid #444;
     border-radius: 4px; padding: 8px 10px; font-size: 14px; outline: none;
@@ -731,19 +731,8 @@ function galleryHtml(): string {
   <div id="view-fonts" style="display:none">
     <div class="fonts-section">
       <h2>Card Fonts</h2>
-      <p class="fonts-help">Pick which font is used for card titles (heavy display weight) and body text (rules / attack effects). The chosen font is embedded in every rendered SVG so layout matches in any browser.</p>
-      <div class="fonts-grid">
-        <div class="fonts-row">
-          <label for="font-title-select">Title</label>
-          <select id="font-title-select"></select>
-          <span class="fonts-license" id="font-title-license"></span>
-        </div>
-        <div class="fonts-row">
-          <label for="font-body-select">Body</label>
-          <select id="font-body-select"></select>
-          <span class="fonts-license" id="font-body-license"></span>
-        </div>
-      </div>
+      <p class="fonts-help">Pick the font for each text role. Each chosen font is embedded in every rendered SVG so layout matches in any browser.</p>
+      <div class="fonts-grid" id="fonts-grid"></div>
       <div class="fonts-actions">
         <button class="btn-save-palette" onclick="saveFontFamily()">Save Fonts</button>
         <button class="btn-reset-palette" onclick="resetFontFamily()">Reset to Defaults</button>
@@ -1325,27 +1314,54 @@ document.addEventListener('keydown', function(e) {
 
 // ── Font family picker ──
 let fontsInitialized = false;
-let fontsState = { current: { title: 'inter', body: 'inter' }, available: [] };
+let fontsState = { current: {}, available: [] };
 let fontsPreviewTimer = null;
 
 const FONTS_PREVIEW_CARD = 'sv01-006'; // Spidops — has title, ability, attack with energy tokens
+const FONT_ROLE_DEFS = [
+  { id: 'title',         label: 'Title (card / attack / ability name)',         titleOnly: true },
+  { id: 'body',          label: 'Body (effect text, rules)',                    titleOnly: false },
+  { id: 'hp',            label: 'HP & damage values',                           titleOnly: true },
+  { id: 'infobar',       label: 'Info bar (weakness, retreat, card number)',    titleOnly: false },
+  { id: 'pokedex',       label: 'Pokédex entries',                              titleOnly: false },
+  { id: 'trainerHeader', label: 'Trainer header word',                          titleOnly: true },
+];
 
-function buildFontDropdown(selectId, value, includeTitleOnly) {
-  const sel = document.getElementById(selectId);
-  sel.innerHTML = '';
-  fontsState.available.forEach(function(f) {
-    if (!includeTitleOnly && f.titleOnly) return;
-    const opt = document.createElement('option');
-    opt.value = f.id;
-    opt.textContent = f.displayName;
-    if (f.id === value) opt.selected = true;
-    sel.appendChild(opt);
+function buildFontRows() {
+  const grid = document.getElementById('fonts-grid');
+  grid.innerHTML = '';
+  FONT_ROLE_DEFS.forEach(function(role) {
+    const row = document.createElement('div');
+    row.className = 'fonts-row';
+    row.innerHTML =
+      '<label for="font-' + role.id + '-select">' + role.label + '</label>' +
+      '<select id="font-' + role.id + '-select"></select>' +
+      '<span class="fonts-license" id="font-' + role.id + '-license"></span>';
+    grid.appendChild(row);
+    const sel = row.querySelector('select');
+    sel.addEventListener('change', function() { updateFontLicense(role.id); });
+    populateFontDropdown(role.id, role.titleOnly);
   });
 }
 
-function updateFontLicense(selectId, licenseId) {
-  const sel = document.getElementById(selectId);
-  const lic = document.getElementById(licenseId);
+function populateFontDropdown(roleId, roleTitleOnly) {
+  const sel = document.getElementById('font-' + roleId + '-select');
+  sel.innerHTML = '';
+  const current = fontsState.current[roleId];
+  fontsState.available.forEach(function(f) {
+    if (!roleTitleOnly && f.titleOnly) return;
+    const opt = document.createElement('option');
+    opt.value = f.id;
+    opt.textContent = f.displayName;
+    if (f.id === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  updateFontLicense(roleId);
+}
+
+function updateFontLicense(roleId) {
+  const sel = document.getElementById('font-' + roleId + '-select');
+  const lic = document.getElementById('font-' + roleId + '-license');
   const f = fontsState.available.find(function(x) { return x.id === sel.value; });
   lic.textContent = f ? f.license : '';
 }
@@ -1371,28 +1387,25 @@ async function refreshFontPreview() {
 async function initFonts() {
   const resp = await fetch('/gallery/font-family');
   fontsState = await resp.json();
-  buildFontDropdown('font-title-select', fontsState.current.title, true);
-  buildFontDropdown('font-body-select', fontsState.current.body, false);
-  updateFontLicense('font-title-select', 'font-title-license');
-  updateFontLicense('font-body-select', 'font-body-license');
-  document.getElementById('font-title-select').addEventListener('change', function() {
-    updateFontLicense('font-title-select', 'font-title-license');
-  });
-  document.getElementById('font-body-select').addEventListener('change', function() {
-    updateFontLicense('font-body-select', 'font-body-license');
-  });
+  buildFontRows();
   refreshFontPreview();
 }
 
+function collectSelection() {
+  const sel = {};
+  FONT_ROLE_DEFS.forEach(function(role) {
+    sel[role.id] = document.getElementById('font-' + role.id + '-select').value;
+  });
+  return sel;
+}
+
 async function saveFontFamily() {
-  const title = document.getElementById('font-title-select').value;
-  const body = document.getElementById('font-body-select').value;
   const status = document.getElementById('fonts-status');
   status.textContent = 'Saving…';
   const resp = await fetch('/gallery/font-family', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: title, body: body }),
+    body: JSON.stringify(collectSelection()),
   });
   if (resp.ok) {
     status.textContent = 'Saved.';
@@ -1410,10 +1423,7 @@ async function resetFontFamily() {
   if (resp.ok) {
     const data = await resp.json();
     fontsState.current = data.current;
-    buildFontDropdown('font-title-select', fontsState.current.title, true);
-    buildFontDropdown('font-body-select', fontsState.current.body, false);
-    updateFontLicense('font-title-select', 'font-title-license');
-    updateFontLicense('font-body-select', 'font-body-license');
+    FONT_ROLE_DEFS.forEach(function(role) { populateFontDropdown(role.id, role.titleOnly); });
     status.textContent = 'Reset.';
     schedulePreviewRefresh();
   } else {

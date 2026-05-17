@@ -9,7 +9,7 @@
 import opentype from "opentype.js";
 import { join } from "node:path";
 import { POKEMON_RULES, TRAINER_RULES } from "./constants.js";
-import { resolveFont, type FontDef } from "../../../shared/constants/fonts.js";
+import { resolveFont, type FontDef, type FontRole } from "../../../shared/constants/fonts.js";
 import { getFontSelection } from "./font-family-store.js";
 
 const FONTS_DIR = join(import.meta.dir, "./fonts");
@@ -25,15 +25,22 @@ function loadFont(def: FontDef, weight: number): opentype.Font {
   return f;
 }
 
-function fontForRole(role: "title" | "body"): opentype.Font {
+/** Weight to use when measuring text for a given role. Heavy roles get
+ *  titleWeight; reading roles get bodyBoldWeight. (Body normal-weight is
+ *  rare and not measurement-critical — we measure bold for safety.) */
+function measurementWeightFor(def: FontDef, role: FontRole): number {
+  if (role === "title" || role === "hp" || role === "trainerHeader") return def.titleWeight;
+  return def.bodyBoldWeight;
+}
+
+function fontForRole(role: FontRole): opentype.Font {
   const sel = getFontSelection();
   const def = resolveFont(sel[role]);
-  const weight = role === "title" ? def.titleWeight : def.bodyBoldWeight;
-  return loadFont(def, weight);
+  return loadFont(def, measurementWeightFor(def, role));
 }
 
 /** Measure text width in pixels at a given font size. */
-export function measureWidth(role: "title" | "body", text: string, sizePx: number): number {
+export function measureWidth(role: FontRole, text: string, sizePx: number): number {
   const f = fontForRole(role);
   // opentype.js measures in font units; convert to pixels
   const scale = sizePx / f.unitsPerEm;
@@ -46,7 +53,7 @@ export function measureWidth(role: "title" | "body", text: string, sizePx: numbe
 }
 
 /** Word-wrap text using actual glyph measurements. Returns list of lines. */
-export function ftWrap(font: "title" | "body", text: string, sizePx: number, maxWidth: number): string[] {
+export function ftWrap(font: FontRole, text: string, sizePx: number, maxWidth: number): string[] {
   if (!text) return [];
   const words = text.split(/\s+/);
   const lines: string[] = [];

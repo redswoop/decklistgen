@@ -1,7 +1,7 @@
 {
   "id": "pokemon-standard",
   "name": "Pokemon (Standard)",
-  "description": "Standard Pokemon card \u2014 dark text, data-driven attacks/abilities/costs via repeaters",
+  "description": "Standard Pokemon card — dark text, data-driven attacks/abilities/costs via repeaters",
   "elements": [
     {
       "type": "box",
@@ -17,7 +17,7 @@
           "props": {
             "text": "HP",
             "fontSize": "$hpLabel",
-            "fontFamily": "title",
+            "fontFamily": "hp",
             "fontWeight": "bold",
             "fill": "#ffffff",
             "filter": "shadow",
@@ -32,7 +32,7 @@
           "props": {
             "text": "120",
             "fontSize": "$hp",
-            "fontFamily": "title",
+            "fontFamily": "hp",
             "fontWeight": "bold",
             "fill": "#ffffff",
             "filter": "title-shadow",
@@ -115,7 +115,7 @@
           "props": {
             "text": "Evolves from Charmeleon",
             "fontSize": "$evolvesFrom",
-            "fontFamily": "body",
+            "fontFamily": "infobar",
             "fontWeight": "bold",
             "fill": "#444444",
             "filter": "shadow",
@@ -293,7 +293,7 @@
                     "props": {
                       "text": "0",
                       "fontSize": "$damage",
-                      "fontFamily": "title",
+                      "fontFamily": "hp",
                       "fontWeight": "bold",
                       "fill": "#cc0000",
                       "filter": "shadow",
@@ -341,7 +341,7 @@
               "props": {
                 "text": "Weak",
                 "fontSize": "$label",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#888888",
                 "wrap": 0,
@@ -367,9 +367,9 @@
             {
               "type": "text",
               "props": {
-                "text": "\u00d72",
+                "text": "×2",
                 "fontSize": "$multiplier",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#222222",
                 "filter": "shadow",
@@ -387,7 +387,7 @@
               "props": {
                 "text": "Resist",
                 "fontSize": "$label",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#888888",
                 "wrap": 0,
@@ -415,7 +415,7 @@
               "props": {
                 "text": "-30",
                 "fontSize": "$multiplier",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#222222",
                 "filter": "shadow",
@@ -432,7 +432,7 @@
               "props": {
                 "text": "Retreat",
                 "fontSize": "$label",
-                "fontFamily": "body",
+                "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#888888",
                 "wrap": 0,
@@ -482,9 +482,9 @@
         {
           "type": "text",
           "props": {
-            "text": "Set \u2022 001",
+            "text": "Set • 001",
             "fontSize": "$footer",
-            "fontFamily": "body",
+            "fontFamily": "infobar",
             "fontWeight": "normal",
             "fill": "#777777",
             "wrap": 0,

@@ -215,8 +215,16 @@ watch(activeTab, (tab) => {
 
 // --- Font family ---
 interface FontFamilyOption { id: string; displayName: string; license: string; titleOnly: boolean; weights: number[] }
+const FONT_ROLE_DEFS: { id: string; label: string; titleOnly: boolean }[] = [
+  { id: "title",         label: "Title (card / attack / ability name)",         titleOnly: true },
+  { id: "body",          label: "Body (effect text, rules)",                    titleOnly: false },
+  { id: "hp",            label: "HP & damage values",                           titleOnly: true },
+  { id: "infobar",       label: "Info bar (weakness, retreat, card number)",    titleOnly: false },
+  { id: "pokedex",       label: "Pokédex entries",                              titleOnly: false },
+  { id: "trainerHeader", label: "Trainer header word",                          titleOnly: true },
+];
 const fontFamilyAvailable = ref<FontFamilyOption[]>([]);
-const fontFamilyCurrent = ref<{ title: string; body: string }>({ title: "inter", body: "inter" });
+const fontFamilyCurrent = ref<Record<string, string>>({});
 const fontFamilyLoading = ref(false);
 const fontFamilyStatus = ref("");
 const fontFamilyPreviewSvg = ref<string>("");
@@ -274,9 +282,13 @@ async function resetFontFamily() {
   }
 }
 
-const fontFamilyBodyOptions = computed(() =>
-  fontFamilyAvailable.value.filter(f => !f.titleOnly)
-);
+function fontOptionsForRole(roleTitleOnly: boolean): FontFamilyOption[] {
+  // If the role itself is title-only (heavy display), allow every font;
+  // otherwise hide titleOnly fonts (display-only ones like Bauhaus).
+  return roleTitleOnly
+    ? fontFamilyAvailable.value
+    : fontFamilyAvailable.value.filter(f => !f.titleOnly);
+}
 
 function fontFamilyLicense(id: string): string {
   return fontFamilyAvailable.value.find(f => f.id === id)?.license ?? "";
@@ -410,20 +422,13 @@ body { margin: 0; padding: 0.25in; }
     <div v-if="activeTab === 'font-family'" class="ff-panel">
       <div v-if="fontFamilyLoading" class="gallery-loading">Loading fonts...</div>
       <template v-else>
-        <p class="ff-help">Pick which font fills the title (heavy display weight) and body (rules/effect) roles. The chosen font is embedded in every rendered SVG so layout matches in any browser.</p>
-        <div class="ff-row">
-          <label for="ff-title">Title</label>
-          <select id="ff-title" v-model="fontFamilyCurrent.title">
-            <option v-for="f in fontFamilyAvailable" :key="f.id" :value="f.id">{{ f.displayName }}</option>
+        <p class="ff-help">Pick which font fills each text role on the card. The chosen font is embedded in every rendered SVG so layout matches in any browser.</p>
+        <div v-for="role in FONT_ROLE_DEFS" :key="role.id" class="ff-row">
+          <label :for="`ff-${role.id}`">{{ role.label }}</label>
+          <select :id="`ff-${role.id}`" v-model="fontFamilyCurrent[role.id]">
+            <option v-for="f in fontOptionsForRole(role.titleOnly)" :key="f.id" :value="f.id">{{ f.displayName }}</option>
           </select>
-          <span class="ff-license">{{ fontFamilyLicense(fontFamilyCurrent.title) }}</span>
-        </div>
-        <div class="ff-row">
-          <label for="ff-body">Body</label>
-          <select id="ff-body" v-model="fontFamilyCurrent.body">
-            <option v-for="f in fontFamilyBodyOptions" :key="f.id" :value="f.id">{{ f.displayName }}</option>
-          </select>
-          <span class="ff-license">{{ fontFamilyLicense(fontFamilyCurrent.body) }}</span>
+          <span class="ff-license">{{ fontFamilyLicense(fontFamilyCurrent[role.id]) }}</span>
         </div>
         <div class="ff-actions">
           <button class="btn btn-save-fs" @click="saveFontFamily">Save</button>
@@ -898,12 +903,12 @@ body { margin: 0; padding: 0.25in; }
 .ff-help { color: #aaa; font-size: 13px; margin: 0 0 18px 0; line-height: 1.5; }
 .ff-row {
   display: grid;
-  grid-template-columns: 70px 240px 1fr;
+  grid-template-columns: 260px 240px 1fr;
   align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
-.ff-row label { font-size: 13px; font-weight: 700; color: #ccc; }
+.ff-row label { font-size: 13px; font-weight: 600; color: #ccc; }
 .ff-row select {
   background: #0f3460; color: #e0e0e0; border: 1px solid #444;
   border-radius: 4px; padding: 7px 9px; font-size: 13px; outline: none;

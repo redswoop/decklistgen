@@ -8,19 +8,16 @@
 
 import { readFileSync, writeFileSync, watchFile, statSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import { FONTS, DEFAULT_FONT_ID, resolveFont } from "../../../shared/constants/fonts.js";
+import { FONTS, DEFAULT_FONT_ID, FONT_ROLES, resolveFont, type FontRole } from "../../../shared/constants/fonts.js";
 
 const STORE_PATH = join(import.meta.dir, "../../../../data/font-family.json");
 
-export interface FontSelection {
-  title: string;
-  body: string;
-}
+export type FontSelection = Record<FontRole, string>;
 
-const DEFAULT_SELECTION: FontSelection = {
-  title: DEFAULT_FONT_ID,
-  body: DEFAULT_FONT_ID,
-};
+const DEFAULT_SELECTION: FontSelection = FONT_ROLES.reduce((acc, role) => {
+  acc[role] = DEFAULT_FONT_ID;
+  return acc;
+}, {} as FontSelection);
 
 let overrides: Partial<FontSelection> = {};
 let lastMtime = 0;
@@ -34,8 +31,9 @@ function load() {
     const raw = readFileSync(STORE_PATH, "utf-8");
     const parsed = JSON.parse(raw) as Partial<FontSelection>;
     overrides = {};
-    if (typeof parsed.title === "string") overrides.title = parsed.title;
-    if (typeof parsed.body === "string") overrides.body = parsed.body;
+    for (const role of FONT_ROLES) {
+      if (typeof parsed[role] === "string") overrides[role] = parsed[role];
+    }
   } catch {
     overrides = {};
   }
@@ -80,10 +78,11 @@ function validateId(id: string | undefined, fallback: string): string {
 /** Get the effective font selection, with unknown ids snapped to the default. */
 export function getFontSelection(): FontSelection {
   reloadIfChanged();
-  return {
-    title: validateId(overrides.title, DEFAULT_SELECTION.title),
-    body: validateId(overrides.body, DEFAULT_SELECTION.body),
-  };
+  const out = {} as FontSelection;
+  for (const role of FONT_ROLES) {
+    out[role] = validateId(overrides[role], DEFAULT_SELECTION[role]);
+  }
+  return out;
 }
 
 /** Get raw overrides only (for API responses — no validation applied). */
@@ -97,18 +96,19 @@ export function getFontSelectionDefaults(): FontSelection {
   return { ...DEFAULT_SELECTION };
 }
 
-/** Save selection overrides. Unknown keys are ignored. */
+/** Save selection overrides. Only known roles are persisted; unknown keys ignored. */
 export function saveFontSelection(sel: Partial<FontSelection>): void {
   const next: Partial<FontSelection> = {};
-  if (typeof sel.title === "string") next.title = sel.title;
-  if (typeof sel.body === "string") next.body = sel.body;
+  for (const role of FONT_ROLES) {
+    if (typeof sel[role] === "string") next[role] = sel[role];
+  }
   overrides = next;
   writeFileSync(STORE_PATH, JSON.stringify(overrides, null, 2) + "\n");
   lastMtime = statSync(STORE_PATH).mtimeMs;
 }
 
 /** CSS font-family stack for a role, resolved from the current selection. */
-export function fontStack(role: "title" | "body"): string {
+export function fontStack(role: FontRole): string {
   const sel = getFontSelection();
   const def = resolveFont(sel[role]);
   return `'${def.displayName}', ${def.cssStack}`;

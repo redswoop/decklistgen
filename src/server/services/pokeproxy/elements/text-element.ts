@@ -8,12 +8,21 @@ import { measureWidth, ftWrap } from "../text.js";
 import { ENERGY_COLORS_DARK, ENERGY_COLORS_LIGHT } from "../constants.js";
 import type { EnergyPalette } from "../constants.js";
 import { fontStack, getFontSelection } from "../font-family-store.js";
-import { resolveFont } from "../../../../shared/constants/fonts.js";
+import { resolveFont, FONT_ROLES, weightForRole, type FontRole } from "../../../../shared/constants/fonts.js";
 import { escapeXml } from "../svg-helpers.js";
 import { SUB_PROP_DEFS } from "@shared/constants/prop-defs.js";
 
-function titleFontWeight(): string {
-  return String(resolveFont(getFontSelection().title).titleWeight);
+/** Normalize the template's fontFamily string into a FontRole. Unknown
+ *  values fall back to "title" (preserves prior behavior for older templates). */
+function asRole(v: unknown): FontRole {
+  const s = String(v);
+  return (FONT_ROLES as readonly string[]).includes(s) ? (s as FontRole) : "title";
+}
+
+/** Resolve the SVG font-weight to emit for a given role + template-spec'd weight. */
+function weightFor(role: FontRole, specWeight: string): string {
+  const def = resolveFont(getFontSelection()[role]);
+  return String(weightForRole(def, role, specWeight));
 }
 
 export function expandEnergyTokens(text: string, fontSize: number, palette: EnergyPalette): string {
@@ -74,22 +83,22 @@ export class TextElement implements LayoutNode {
   measure(allocatedWidth?: number): { width: number; height: number } {
     const text = String(this.props.text);
     const fontSize = Number(this.props.fontSize);
-    const fontFamily = String(this.props.fontFamily) as "title" | "body";
+    const role = asRole(this.props.fontFamily);
 
     if (Number(this.props.wrap)) {
       const lineH = Math.floor(fontSize * 1.25);
       if (allocatedWidth != null && allocatedWidth > 0) {
         this._lastAllocatedWidth = allocatedWidth;
-        const lines = ftWrap(fontFamily, text, fontSize, allocatedWidth);
+        const lines = ftWrap(role, text, fontSize, allocatedWidth);
         return { width: allocatedWidth, height: Math.max(1, lines.length) * lineH };
       }
       // Single-line fallback
-      const width = measureWidth(fontFamily, text, fontSize);
+      const width = measureWidth(role, text, fontSize);
       this._lastAllocatedWidth = width;
       return { width, height: lineH };
     }
 
-    const width = measureWidth(fontFamily, text, fontSize);
+    const width = measureWidth(role, text, fontSize);
     return { width, height: fontSize };
   }
 
@@ -102,12 +111,11 @@ export class TextElement implements LayoutNode {
 
   private _renderSingle(x: number, y: number): string {
     const { text, fontSize, fontFamily, fontWeight, fill, opacity, stroke, strokeWidth, filter, textAnchor } = this.props;
-    const isTitle = String(fontFamily) !== "body";
-    const font = fontStack(isTitle ? "title" : "body");
-    // Title text is measured in the chosen font's titleWeight (900 for Inter,
-    // 900 for Gill Sans Heavy). Force the SVG weight to match so the browser
-    // picks the same glyphs as server-side measurement.
-    const weight = isTitle ? titleFontWeight() : String(fontWeight);
+    const role = asRole(fontFamily);
+    const font = fontStack(role);
+    // Force the SVG font-weight to match what opentype.js measured, so the
+    // browser picks the same glyphs as server-side layout.
+    const weight = weightFor(role, String(fontWeight));
     let attrs = `x="${x}" y="${y}" font-family="${font}" ` +
       `font-size="${Number(fontSize)}" font-weight="${weight}" ` +
       `fill="${String(fill)}" opacity="${Number(opacity)}"`;
@@ -127,18 +135,17 @@ export class TextElement implements LayoutNode {
   private _renderWrapped(x: number, y: number): string {
     const text = String(this.props.text);
     const fontSize = Number(this.props.fontSize);
-    const fontFamily = String(this.props.fontFamily) as "title" | "body";
+    const role = asRole(this.props.fontFamily);
     const fontWeight = String(this.props.fontWeight);
     const fill = String(this.props.fill);
     const opacity = Number(this.props.opacity);
     const filter = String(this.props.filter);
-    const isTitle = fontFamily !== "body";
-    const font = fontStack(isTitle ? "title" : "body");
-    const weight = isTitle ? titleFontWeight() : fontWeight;
+    const font = fontStack(role);
+    const weight = weightFor(role, fontWeight);
     const lineH = Math.floor(fontSize * 1.25);
 
     const wrapWidth = this._lastAllocatedWidth || 400;
-    const lines = ftWrap(fontFamily, text, fontSize, wrapWidth);
+    const lines = ftWrap(role, text, fontSize, wrapWidth);
 
     let attrs = `font-family="${font}" font-size="${fontSize}" font-weight="${weight}" fill="${fill}" opacity="${opacity}"`;
     const stroke = String(this.props.stroke);
