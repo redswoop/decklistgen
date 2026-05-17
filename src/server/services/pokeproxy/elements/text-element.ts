@@ -28,15 +28,18 @@ function weightFor(role: FontRole, specWeight: string): string {
 export function expandEnergyTokens(text: string, fontSize: number, palette: EnergyPalette): string {
   return text.replace(/\{([A-Z])\}/g, (_, letter: string) => {
     const color = palette[letter] ?? "#888";
-    const glyphSize = Math.floor(fontSize * 1.1);
-    // Shift glyph up to vertically center with surrounding text.
-    // The icon font has different metrics, so we nudge by ~15% of fontSize.
-    const dy = -Math.round(fontSize * 0.15);
-    const baseline = `dy="${dy}" dominant-baseline="auto"`;
-    if (letter === "N") {
-      return `<tspan fill="${color}" font-size="${glyphSize}" ${baseline}>&#x25CF;</tspan>`;
-    }
-    return `<tspan font-family="EssentiarumTCG" fill="${color}" font-size="${glyphSize}" ${baseline}>${letter}</tspan>`;
+    // Icon-font glyphs are full circular badges, so a slightly-smaller-than-text
+    // size matches the visual height of surrounding capital letters.
+    const glyphSize = Math.round(fontSize * 0.9);
+    const dy = -Math.round(fontSize * 0.08);
+    // SVG `dy` is cumulative — without a reset, text following the icon on the
+    // same line inherits the shift. Pair the glyph with a zero-width tspan that
+    // reverses the offset so subsequent characters resume at the original baseline.
+    const reset = -dy;
+    const glyph = letter === "N"
+      ? `<tspan fill="${color}" font-size="${glyphSize}" dy="${dy}" dominant-baseline="auto">&#x25CF;</tspan>`
+      : `<tspan font-family="EssentiarumTCG" fill="${color}" font-size="${glyphSize}" dy="${dy}" dominant-baseline="auto">${letter}</tspan>`;
+    return `${glyph}<tspan dy="${reset}">&#8203;</tspan>`;
   });
 }
 

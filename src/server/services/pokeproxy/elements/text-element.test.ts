@@ -156,10 +156,12 @@ describe("expandEnergyTokens", () => {
     const result = expandEnergyTokens("Costs {P}", 20, ENERGY_COLORS_DARK);
     expect(result).toContain('font-family="EssentiarumTCG"');
     expect(result).toContain(`fill="${ENERGY_COLORS_DARK.P}"`);
-    expect(result).toContain('font-size="22"'); // floor(20 * 1.1)
+    expect(result).toContain('font-size="18"'); // round(20 * 0.9)
     expect(result).toContain(">P</tspan>");
-    expect(result).toContain('dy="-3"'); // baseline alignment offset
+    expect(result).toContain('dy="-2"'); // round(20 * 0.08)
     expect(result).toContain('dominant-baseline="auto"');
+    // Paired reset tspan reverses the dy so following text doesn't drift.
+    expect(result).toContain('<tspan dy="2">&#8203;</tspan>');
     expect(result).toStartWith("Costs ");
   });
 
@@ -168,7 +170,8 @@ describe("expandEnergyTokens", () => {
     expect(result).toContain("&#x25CF;");
     expect(result).not.toContain('font-family="EssentiarumTCG"');
     expect(result).toContain(`fill="${ENERGY_COLORS_DARK.N}"`);
-    expect(result).toContain('dy="-3"');
+    expect(result).toContain('dy="-2"');
+    expect(result).toContain('<tspan dy="2">&#8203;</tspan>');
   });
 
   test("text with no tokens is returned unchanged", () => {
@@ -180,8 +183,9 @@ describe("expandEnergyTokens", () => {
     const result = expandEnergyTokens("{R}{R}{C}", 20, ENERGY_COLORS_DARK);
     expect(result).not.toContain("{R}");
     expect(result).not.toContain("{C}");
+    // Each token emits a glyph tspan plus a paired baseline-reset tspan.
     const tspanCount = (result.match(/<tspan/g) || []).length;
-    expect(tspanCount).toBe(3);
+    expect(tspanCount).toBe(6);
   });
 
   test("light palette uses light colors", () => {
