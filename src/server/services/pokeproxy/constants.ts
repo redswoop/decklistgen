@@ -86,9 +86,10 @@ export const ENERGY_COLORS_LIGHT: EnergyPalette = {
   Colorless: "#b8b8b8", C: "#b8b8b8",
 };
 
-/** Font stacks */
-export const FONT_TITLE = "'Arial Black', 'Helvetica Neue', Impact, Arial, sans-serif";
-export const FONT_BODY = "'Helvetica Neue', 'Arial Black', Arial, Helvetica, sans-serif";
+/** Font stacks — 'Inter' is embedded by getFontStyle() so glyph metrics
+ *  match the server-side measurement in text.ts on every platform. */
+export const FONT_TITLE = "'Inter', 'Arial Black', 'Helvetica Neue', Impact, Arial, sans-serif";
+export const FONT_BODY = "'Inter', 'Helvetica Neue', Arial, Helvetica, sans-serif";
 export const MARGIN = 30;
 
 /** Rule text for special Pokemon mechanics */

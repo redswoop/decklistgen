@@ -1,42 +1,24 @@
 /**
  * Text measurement using opentype.js — replaces Python's FreeType usage.
  *
- * Loads system fonts (Arial Black, Helvetica Neue) for accurate
- * text width measurement, word wrapping, and layout calculations.
+ * Loads Inter Black (title) and Inter Bold (body) — bundled in ./fonts/ —
+ * so layout metrics match the @font-face the SVG embeds, on every platform.
  */
 
 import opentype from "opentype.js";
-import { existsSync } from "node:fs";
-import { platform } from "node:os";
 import { join } from "node:path";
 import { POKEMON_RULES, TRAINER_RULES } from "./constants.js";
 
-function findFont(candidates: string[]): string {
-  for (const p of candidates) {
-    if (existsSync(p)) return p;
-  }
-  throw new Error(`No font found, tried: ${candidates.join(", ")}`);
-}
+const TITLE_FONT_PATH = join(import.meta.dir, "./fonts/Inter-Black.ttf");
+const BODY_FONT_PATH = join(import.meta.dir, "./fonts/Inter-Bold.ttf");
 
 let titleFont: opentype.Font;
 let bodyFont: opentype.Font;
 
 function ensureFonts() {
   if (titleFont && bodyFont) return;
-
-  if (platform() === "darwin") {
-    titleFont = opentype.loadSync("/System/Library/Fonts/Supplemental/Arial Black.ttf");
-    // HelveticaNeue.ttc is a TTC (collection) which opentype.js can't read — use Arial Bold instead
-    bodyFont = opentype.loadSync("/System/Library/Fonts/Supplemental/Arial Bold.ttf");
-  } else {
-    const linuxBold = findFont([
-      "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-      "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
-      "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    ]);
-    titleFont = opentype.loadSync(linuxBold);
-    bodyFont = opentype.loadSync(linuxBold);
-  }
+  titleFont = opentype.loadSync(TITLE_FONT_PATH);
+  bodyFont = opentype.loadSync(BODY_FONT_PATH);
 }
 
 /** Measure text width in pixels at a given font size. */

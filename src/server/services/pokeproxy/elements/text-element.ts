@@ -96,9 +96,13 @@ export class TextElement implements LayoutNode {
 
   private _renderSingle(x: number, y: number): string {
     const { text, fontSize, fontFamily, fontWeight, fill, opacity, stroke, strokeWidth, filter, textAnchor } = this.props;
-    const font = String(fontFamily) === "body" ? FONT_BODY : FONT_TITLE;
+    const isTitle = String(fontFamily) !== "body";
+    const font = isTitle ? FONT_TITLE : FONT_BODY;
+    // Title text is measured server-side in Inter Black (900); force the SVG
+    // weight to match so the browser picks the same glyphs.
+    const weight = isTitle ? "900" : String(fontWeight);
     let attrs = `x="${x}" y="${y}" font-family="${font}" ` +
-      `font-size="${Number(fontSize)}" font-weight="${String(fontWeight)}" ` +
+      `font-size="${Number(fontSize)}" font-weight="${weight}" ` +
       `fill="${String(fill)}" opacity="${Number(opacity)}"`;
     if (stroke && Number(strokeWidth) > 0) {
       attrs += ` stroke="${String(stroke)}" stroke-width="${Number(strokeWidth)}" stroke-linejoin="round" style="paint-order:stroke fill"`;
@@ -121,13 +125,15 @@ export class TextElement implements LayoutNode {
     const fill = String(this.props.fill);
     const opacity = Number(this.props.opacity);
     const filter = String(this.props.filter);
-    const font = fontFamily === "body" ? FONT_BODY : FONT_TITLE;
+    const isTitle = fontFamily !== "body";
+    const font = isTitle ? FONT_TITLE : FONT_BODY;
+    const weight = isTitle ? "900" : fontWeight;
     const lineH = Math.floor(fontSize * 1.25);
 
     const wrapWidth = this._lastAllocatedWidth || 400;
     const lines = ftWrap(fontFamily, text, fontSize, wrapWidth);
 
-    let attrs = `font-family="${font}" font-size="${fontSize}" font-weight="${fontWeight}" fill="${fill}" opacity="${opacity}"`;
+    let attrs = `font-family="${font}" font-size="${fontSize}" font-weight="${weight}" fill="${fill}" opacity="${opacity}"`;
     const stroke = String(this.props.stroke);
     const strokeWidth = Number(this.props.strokeWidth);
     if (stroke && strokeWidth > 0) {

@@ -6,15 +6,28 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-// Load font as base64 for SVG embedding
-const FONT_PATH = join(import.meta.dir, "./fonts/EssentiarumTCG.otf");
-const FONT_B64 = readFileSync(FONT_PATH).toString("base64");
+// Load fonts as base64 for SVG embedding. Inter Black/Bold are bundled
+// so layout metrics (measured server-side in text.ts) match what the
+// viewer's browser actually renders, regardless of platform or installed fonts.
+const ESSENTIARUM_B64 = readFileSync(join(import.meta.dir, "./fonts/EssentiarumTCG.otf")).toString("base64");
+const INTER_BLACK_B64 = readFileSync(join(import.meta.dir, "./fonts/Inter-Black.ttf")).toString("base64");
+const INTER_BOLD_B64 = readFileSync(join(import.meta.dir, "./fonts/Inter-Bold.ttf")).toString("base64");
 
 const FONT_STYLE =
   '<style>' +
   '@font-face {' +
   '  font-family: "EssentiarumTCG";' +
-  `  src: url("data:font/otf;base64,${FONT_B64}") format("opentype");` +
+  `  src: url("data:font/otf;base64,${ESSENTIARUM_B64}") format("opentype");` +
+  '}' +
+  '@font-face {' +
+  '  font-family: "Inter";' +
+  '  font-weight: 900;' +
+  `  src: url("data:font/ttf;base64,${INTER_BLACK_B64}") format("truetype");` +
+  '}' +
+  '@font-face {' +
+  '  font-family: "Inter";' +
+  '  font-weight: 700;' +
+  `  src: url("data:font/ttf;base64,${INTER_BOLD_B64}") format("truetype");` +
   '}' +
   '</style>';
 
