@@ -8,9 +8,17 @@ import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
 import type { TcgdexCard } from "../../shared/types/card.js";
 import { getRawPalettes, savePalettes, resetPalettes } from "../services/pokeproxy/energy-palette-store.js";
 import { getFontSizeOverrides, saveFontSizes, resetFontSizes } from "../services/pokeproxy/font-size-store.js";
+import {
+  getFontSelection,
+  getFontSelectionOverrides,
+  getFontSelectionDefaults,
+  saveFontSelection,
+  resetFontSelection,
+} from "../services/pokeproxy/font-family-store.js";
+import { FONTS } from "../../shared/constants/fonts.js";
 import { FONT_SIZES } from "../../shared/constants/font-sizes.js";
 import { ENERGY_COLORS_DARK, ENERGY_COLORS_LIGHT } from "../services/pokeproxy/constants.js";
-import { getFontStyle } from "../services/pokeproxy/type-icons.js";
+import { getFontStyle, clearFontStyleCache } from "../services/pokeproxy/type-icons.js";
 import { clearTemplateCache } from "../services/pokeproxy/render-json-template.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
@@ -190,6 +198,39 @@ app.delete("/font-sizes", (c) => {
   resetFontSizes();
   clearTemplateCache();
   return c.json({ status: "reset" });
+});
+
+/** Get current font selection + defaults + the list of available fonts */
+app.get("/font-family", (c) => {
+  return c.json({
+    current: getFontSelection(),
+    overrides: getFontSelectionOverrides(),
+    defaults: getFontSelectionDefaults(),
+    available: Object.values(FONTS).map((f) => ({
+      id: f.id,
+      displayName: f.displayName,
+      license: f.license,
+      titleOnly: f.titleOnly ?? false,
+      weights: f.weights.map((w) => w.weight),
+    })),
+  });
+});
+
+/** Save font selection overrides */
+app.put("/font-family", async (c) => {
+  const body = await c.req.json<{ title?: string; body?: string }>();
+  saveFontSelection(body);
+  clearFontStyleCache();
+  clearTemplateCache();
+  return c.json({ status: "saved", current: getFontSelection() });
+});
+
+/** Reset font selection to defaults */
+app.delete("/font-family", (c) => {
+  resetFontSelection();
+  clearFontStyleCache();
+  clearTemplateCache();
+  return c.json({ status: "reset", current: getFontSelection() });
 });
 
 /** Serve gallery HTML page */
@@ -478,6 +519,37 @@ function galleryHtml(): string {
     border-color: #f39c12;
     color: #000;
   }
+  .mode-tab + .mode-tab { border-left: none; }
+  .fonts-section {
+    max-width: 720px;
+    margin: 0 auto;
+    background: #16213e;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 24px;
+  }
+  .fonts-section h2 { margin: 0 0 8px 0; font-size: 20px; color: #f39c12; }
+  .fonts-help { color: #aaa; font-size: 13px; margin: 0 0 20px 0; line-height: 1.5; }
+  .fonts-grid { display: flex; flex-direction: column; gap: 14px; margin-bottom: 18px; }
+  .fonts-row { display: grid; grid-template-columns: 70px 1fr auto; align-items: center; gap: 14px; }
+  .fonts-row label { font-size: 14px; font-weight: 700; color: #ccc; }
+  .fonts-row select {
+    background: #0f3460; color: #e0e0e0; border: 1px solid #444;
+    border-radius: 4px; padding: 8px 10px; font-size: 14px; outline: none;
+  }
+  .fonts-row select:focus { border-color: #f39c12; }
+  .fonts-license { font-size: 11px; color: #888; }
+  .fonts-actions { display: flex; gap: 10px; align-items: center; margin-bottom: 24px; }
+  .fonts-preview {
+    border-top: 1px solid #333; padding-top: 18px;
+  }
+  .fonts-preview-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+  .fonts-preview-card {
+    width: 250px; min-height: 350px; background: #0a0a0a; border-radius: 6px; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .fonts-preview-card svg { width: 100%; height: 100%; display: block; }
+  .fonts-preview-loading { color: #555; font-size: 13px; }
   .mode-tab:not(.active):hover {
     border-color: #666;
     color: #ccc;
@@ -630,6 +702,7 @@ function galleryHtml(): string {
   <div class="mode-tabs">
     <button class="mode-tab" data-mode="cards" onclick="setMode('cards')">Cards</button>
     <button class="mode-tab" data-mode="glyphs" onclick="setMode('glyphs')">Glyphs</button>
+    <button class="mode-tab" data-mode="fonts" onclick="setMode('fonts')">Fonts</button>
   </div>
   <div id="view-glyphs" style="display:none">
   <div class="energy-picker-section">
@@ -654,6 +727,35 @@ function galleryHtml(): string {
       <span class="palette-status" id="palette-status"></span>
     </div>
   </div>
+  </div>
+  <div id="view-fonts" style="display:none">
+    <div class="fonts-section">
+      <h2>Card Fonts</h2>
+      <p class="fonts-help">Pick which font is used for card titles (heavy display weight) and body text (rules / attack effects). The chosen font is embedded in every rendered SVG so layout matches in any browser.</p>
+      <div class="fonts-grid">
+        <div class="fonts-row">
+          <label for="font-title-select">Title</label>
+          <select id="font-title-select"></select>
+          <span class="fonts-license" id="font-title-license"></span>
+        </div>
+        <div class="fonts-row">
+          <label for="font-body-select">Body</label>
+          <select id="font-body-select"></select>
+          <span class="fonts-license" id="font-body-license"></span>
+        </div>
+      </div>
+      <div class="fonts-actions">
+        <button class="btn-save-palette" onclick="saveFontFamily()">Save Fonts</button>
+        <button class="btn-reset-palette" onclick="resetFontFamily()">Reset to Defaults</button>
+        <span class="palette-status" id="fonts-status"></span>
+      </div>
+      <div class="fonts-preview">
+        <div class="fonts-preview-label">Preview</div>
+        <div class="fonts-preview-card" id="fonts-preview-card">
+          <div class="fonts-preview-loading">Loading preview…</div>
+        </div>
+      </div>
+    </div>
   </div>
   <div id="view-cards" style="display:none">
   <div class="gallery" id="gallery"></div>
@@ -1221,6 +1323,105 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeLightbox();
 });
 
+// ── Font family picker ──
+let fontsInitialized = false;
+let fontsState = { current: { title: 'inter', body: 'inter' }, available: [] };
+let fontsPreviewTimer = null;
+
+const FONTS_PREVIEW_CARD = 'sv01-006'; // Spidops — has title, ability, attack with energy tokens
+
+function buildFontDropdown(selectId, value, includeTitleOnly) {
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = '';
+  fontsState.available.forEach(function(f) {
+    if (!includeTitleOnly && f.titleOnly) return;
+    const opt = document.createElement('option');
+    opt.value = f.id;
+    opt.textContent = f.displayName;
+    if (f.id === value) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function updateFontLicense(selectId, licenseId) {
+  const sel = document.getElementById(selectId);
+  const lic = document.getElementById(licenseId);
+  const f = fontsState.available.find(function(x) { return x.id === sel.value; });
+  lic.textContent = f ? f.license : '';
+}
+
+function schedulePreviewRefresh() {
+  clearTimeout(fontsPreviewTimer);
+  fontsPreviewTimer = setTimeout(refreshFontPreview, 250);
+}
+
+async function refreshFontPreview() {
+  const box = document.getElementById('fonts-preview-card');
+  box.innerHTML = '<div class="fonts-preview-loading">Loading preview…</div>';
+  try {
+    const resp = await fetch('/api/pokeproxy/svg/' + FONTS_PREVIEW_CARD + '?t=' + Date.now());
+    if (!resp.ok) throw new Error('preview ' + resp.status);
+    const svg = await resp.text();
+    box.innerHTML = svg;
+  } catch (e) {
+    box.innerHTML = '<div class="fonts-preview-loading">Preview failed: ' + e.message + '</div>';
+  }
+}
+
+async function initFonts() {
+  const resp = await fetch('/gallery/font-family');
+  fontsState = await resp.json();
+  buildFontDropdown('font-title-select', fontsState.current.title, true);
+  buildFontDropdown('font-body-select', fontsState.current.body, false);
+  updateFontLicense('font-title-select', 'font-title-license');
+  updateFontLicense('font-body-select', 'font-body-license');
+  document.getElementById('font-title-select').addEventListener('change', function() {
+    updateFontLicense('font-title-select', 'font-title-license');
+  });
+  document.getElementById('font-body-select').addEventListener('change', function() {
+    updateFontLicense('font-body-select', 'font-body-license');
+  });
+  refreshFontPreview();
+}
+
+async function saveFontFamily() {
+  const title = document.getElementById('font-title-select').value;
+  const body = document.getElementById('font-body-select').value;
+  const status = document.getElementById('fonts-status');
+  status.textContent = 'Saving…';
+  const resp = await fetch('/gallery/font-family', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: title, body: body }),
+  });
+  if (resp.ok) {
+    status.textContent = 'Saved.';
+    schedulePreviewRefresh();
+  } else {
+    status.textContent = 'Save failed (' + resp.status + ').';
+  }
+  setTimeout(function() { status.textContent = ''; }, 2500);
+}
+
+async function resetFontFamily() {
+  const status = document.getElementById('fonts-status');
+  status.textContent = 'Resetting…';
+  const resp = await fetch('/gallery/font-family', { method: 'DELETE' });
+  if (resp.ok) {
+    const data = await resp.json();
+    fontsState.current = data.current;
+    buildFontDropdown('font-title-select', fontsState.current.title, true);
+    buildFontDropdown('font-body-select', fontsState.current.body, false);
+    updateFontLicense('font-title-select', 'font-title-license');
+    updateFontLicense('font-body-select', 'font-body-license');
+    status.textContent = 'Reset.';
+    schedulePreviewRefresh();
+  } else {
+    status.textContent = 'Reset failed (' + resp.status + ').';
+  }
+  setTimeout(function() { status.textContent = ''; }, 2500);
+}
+
 // ── Mode switching with lazy init ──
 let cardsInitialized = false;
 let glyphsInitialized = false;
@@ -1228,12 +1429,14 @@ let glyphsInitialized = false;
 function setMode(mode) {
   const cardsView = document.getElementById('view-cards');
   const glyphsView = document.getElementById('view-glyphs');
+  const fontsView = document.getElementById('view-fonts');
   const subtitle = document.querySelector('.subtitle');
   document.querySelectorAll('.mode-tab').forEach(function(tab) {
     tab.classList.toggle('active', tab.dataset.mode === mode);
   });
   cardsView.style.display = mode === 'cards' ? '' : 'none';
   glyphsView.style.display = mode === 'glyphs' ? '' : 'none';
+  fontsView.style.display = mode === 'fonts' ? '' : 'none';
   // Only update hash if it doesn't already match this mode (preserve card ID in hash)
   if (!location.hash.startsWith('#' + mode)) history.replaceState(null, '', '#' + mode);
 
@@ -1249,11 +1452,18 @@ function setMode(mode) {
       glyphsInitialized = true;
       initPalettes();
     }
+  } else if (mode === 'fonts') {
+    subtitle.textContent = 'Card font selection';
+    if (!fontsInitialized) {
+      fontsInitialized = true;
+      initFonts();
+    }
   }
 }
 
 function getModeFromHash() {
   if (location.hash.startsWith('#glyphs')) return 'glyphs';
+  if (location.hash.startsWith('#fonts')) return 'fonts';
   return 'cards';
 }
 

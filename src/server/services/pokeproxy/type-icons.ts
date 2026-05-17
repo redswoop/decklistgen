@@ -5,35 +5,70 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { resolveFont, type FontDef } from "../../../shared/constants/fonts.js";
+import { getFontSelection } from "./font-family-store.js";
 
-// Load fonts as base64 for SVG embedding. Inter Black/Bold are bundled
-// so layout metrics (measured server-side in text.ts) match what the
-// viewer's browser actually renders, regardless of platform or installed fonts.
-const ESSENTIARUM_B64 = readFileSync(join(import.meta.dir, "./fonts/EssentiarumTCG.otf")).toString("base64");
-const INTER_BLACK_B64 = readFileSync(join(import.meta.dir, "./fonts/Inter-Black.ttf")).toString("base64");
-const INTER_BOLD_B64 = readFileSync(join(import.meta.dir, "./fonts/Inter-Bold.ttf")).toString("base64");
-
-const FONT_STYLE =
-  '<style>' +
+// EssentiarumTCG is always embedded — it provides the energy-type glyphs
+// (G/R/W/L/P/F/D/M/Y/N/C) and never changes per user selection.
+const FONTS_DIR = join(import.meta.dir, "./fonts");
+const ESSENTIARUM_B64 = readFileSync(join(FONTS_DIR, "EssentiarumTCG.otf")).toString("base64");
+const ESSENTIARUM_FACE =
   '@font-face {' +
   '  font-family: "EssentiarumTCG";' +
   `  src: url("data:font/otf;base64,${ESSENTIARUM_B64}") format("opentype");` +
-  '}' +
-  '@font-face {' +
-  '  font-family: "Inter";' +
-  '  font-weight: 900;' +
-  `  src: url("data:font/ttf;base64,${INTER_BLACK_B64}") format("truetype");` +
-  '}' +
-  '@font-face {' +
-  '  font-family: "Inter";' +
-  '  font-weight: 700;' +
-  `  src: url("data:font/ttf;base64,${INTER_BOLD_B64}") format("truetype");` +
-  '}' +
-  '</style>';
+  '}';
+
+const fontFileB64Cache = new Map<string, string>();
+function fontFileB64(file: string): string {
+  let b64 = fontFileB64Cache.get(file);
+  if (b64) return b64;
+  b64 = readFileSync(join(FONTS_DIR, file)).toString("base64");
+  fontFileB64Cache.set(file, b64);
+  return b64;
+}
+
+function faceBlocksFor(def: FontDef): string {
+  return def.weights
+    .map((w) => {
+      const mime = w.format === "truetype" ? "font/ttf" : "font/otf";
+      return (
+        '@font-face {' +
+        `  font-family: "${def.displayName}";` +
+        `  font-weight: ${w.weight};` +
+        `  src: url("data:${mime};base64,${fontFileB64(w.file)}") format("${w.format}");` +
+        '}'
+      );
+    })
+    .join("");
+}
+
+const styleCache = new Map<string, string>();
+
+function buildFontStyle(titleId: string, bodyId: string): string {
+  const titleDef = resolveFont(titleId);
+  const bodyDef = resolveFont(bodyId);
+  // Always embed title font; embed body font too if it's a different family.
+  // (If both roles use the same font, faceBlocksFor returns the full weight
+  // set once and we avoid duplicate @font-face entries.)
+  const blocks = [ESSENTIARUM_FACE, faceBlocksFor(titleDef)];
+  if (bodyDef.id !== titleDef.id) blocks.push(faceBlocksFor(bodyDef));
+  return `<style>${blocks.join("")}</style>`;
+}
 
 /** Return the @font-face <style> block to include in SVG <defs>. */
 export function getFontStyle(): string {
-  return FONT_STYLE;
+  const sel = getFontSelection();
+  const key = `${sel.title}|${sel.body}`;
+  let s = styleCache.get(key);
+  if (s) return s;
+  s = buildFontStyle(sel.title, sel.body);
+  styleCache.set(key, s);
+  return s;
+}
+
+/** Test helper — clears the @font-face style cache. */
+export function clearFontStyleCache(): void {
+  styleCache.clear();
 }
 
 /** TCG type -> (font character, circle background color) */

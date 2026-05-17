@@ -1,30 +1,40 @@
 /**
  * Text measurement using opentype.js — replaces Python's FreeType usage.
  *
- * Loads Inter Black (title) and Inter Bold (body) — bundled in ./fonts/ —
- * so layout metrics match the @font-face the SVG embeds, on every platform.
+ * Loads the user-selected font from the registry (src/shared/constants/fonts.ts).
+ * The same font file is also embedded into the SVG @font-face by type-icons.ts —
+ * if those two diverge, server layout drifts from browser rendering.
  */
 
 import opentype from "opentype.js";
 import { join } from "node:path";
 import { POKEMON_RULES, TRAINER_RULES } from "./constants.js";
+import { resolveFont, type FontDef } from "../../../shared/constants/fonts.js";
+import { getFontSelection } from "./font-family-store.js";
 
-const TITLE_FONT_PATH = join(import.meta.dir, "./fonts/Inter-Black.ttf");
-const BODY_FONT_PATH = join(import.meta.dir, "./fonts/Inter-Bold.ttf");
+const FONTS_DIR = join(import.meta.dir, "./fonts");
+const fontCache = new Map<string, opentype.Font>();
 
-let titleFont: opentype.Font;
-let bodyFont: opentype.Font;
+function loadFont(def: FontDef, weight: number): opentype.Font {
+  const key = `${def.id}:${weight}`;
+  let f = fontCache.get(key);
+  if (f) return f;
+  const wf = def.weights.find((w) => w.weight === weight) ?? def.weights[def.weights.length - 1];
+  f = opentype.loadSync(join(FONTS_DIR, wf.file));
+  fontCache.set(key, f);
+  return f;
+}
 
-function ensureFonts() {
-  if (titleFont && bodyFont) return;
-  titleFont = opentype.loadSync(TITLE_FONT_PATH);
-  bodyFont = opentype.loadSync(BODY_FONT_PATH);
+function fontForRole(role: "title" | "body"): opentype.Font {
+  const sel = getFontSelection();
+  const def = resolveFont(sel[role]);
+  const weight = role === "title" ? def.titleWeight : def.bodyBoldWeight;
+  return loadFont(def, weight);
 }
 
 /** Measure text width in pixels at a given font size. */
-export function measureWidth(font: "title" | "body", text: string, sizePx: number): number {
-  ensureFonts();
-  const f = font === "title" ? titleFont : bodyFont;
+export function measureWidth(role: "title" | "body", text: string, sizePx: number): number {
+  const f = fontForRole(role);
   // opentype.js measures in font units; convert to pixels
   const scale = sizePx / f.unitsPerEm;
   let width = 0;

@@ -5,10 +5,16 @@
 
 import type { PropDef, LayoutNode, NodeState } from "./types.js";
 import { measureWidth, ftWrap } from "../text.js";
-import { FONT_TITLE, FONT_BODY, ENERGY_COLORS_DARK, ENERGY_COLORS_LIGHT } from "../constants.js";
+import { ENERGY_COLORS_DARK, ENERGY_COLORS_LIGHT } from "../constants.js";
 import type { EnergyPalette } from "../constants.js";
+import { fontStack, getFontSelection } from "../font-family-store.js";
+import { resolveFont } from "../../../../shared/constants/fonts.js";
 import { escapeXml } from "../svg-helpers.js";
 import { SUB_PROP_DEFS } from "@shared/constants/prop-defs.js";
+
+function titleFontWeight(): string {
+  return String(resolveFont(getFontSelection().title).titleWeight);
+}
 
 export function expandEnergyTokens(text: string, fontSize: number, palette: EnergyPalette): string {
   return text.replace(/\{([A-Z])\}/g, (_, letter: string) => {
@@ -97,10 +103,11 @@ export class TextElement implements LayoutNode {
   private _renderSingle(x: number, y: number): string {
     const { text, fontSize, fontFamily, fontWeight, fill, opacity, stroke, strokeWidth, filter, textAnchor } = this.props;
     const isTitle = String(fontFamily) !== "body";
-    const font = isTitle ? FONT_TITLE : FONT_BODY;
-    // Title text is measured server-side in Inter Black (900); force the SVG
-    // weight to match so the browser picks the same glyphs.
-    const weight = isTitle ? "900" : String(fontWeight);
+    const font = fontStack(isTitle ? "title" : "body");
+    // Title text is measured in the chosen font's titleWeight (900 for Inter,
+    // 900 for Gill Sans Heavy). Force the SVG weight to match so the browser
+    // picks the same glyphs as server-side measurement.
+    const weight = isTitle ? titleFontWeight() : String(fontWeight);
     let attrs = `x="${x}" y="${y}" font-family="${font}" ` +
       `font-size="${Number(fontSize)}" font-weight="${weight}" ` +
       `fill="${String(fill)}" opacity="${Number(opacity)}"`;
@@ -126,8 +133,8 @@ export class TextElement implements LayoutNode {
     const opacity = Number(this.props.opacity);
     const filter = String(this.props.filter);
     const isTitle = fontFamily !== "body";
-    const font = isTitle ? FONT_TITLE : FONT_BODY;
-    const weight = isTitle ? "900" : fontWeight;
+    const font = fontStack(isTitle ? "title" : "body");
+    const weight = isTitle ? titleFontWeight() : fontWeight;
     const lineH = Math.floor(fontSize * 1.25);
 
     const wrapWidth = this._lastAllocatedWidth || 400;

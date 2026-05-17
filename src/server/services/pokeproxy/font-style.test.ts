@@ -1,37 +1,81 @@
-import { describe, test, expect } from "bun:test";
-import { getFontStyle } from "./type-icons.js";
+import { describe, test, expect, beforeEach } from "bun:test";
+import { getFontStyle, clearFontStyleCache } from "./type-icons.js";
 import { measureWidth } from "./text.js";
 import { TextElement } from "./elements/text-element.js";
-import { FONT_TITLE, FONT_BODY } from "./constants.js";
+import { fontStack, resetFontSelection, saveFontSelection } from "./font-family-store.js";
 
-describe("bundled font @font-face block", () => {
-  const style = getFontStyle();
+beforeEach(() => {
+  resetFontSelection();
+  clearFontStyleCache();
+});
 
+describe("default selection embeds Inter only", () => {
   test("embeds EssentiarumTCG as opentype", () => {
+    const style = getFontStyle();
     expect(style).toContain('font-family: "EssentiarumTCG"');
     expect(style).toContain('format("opentype")');
   });
 
   test("embeds Inter Black (weight 900)", () => {
+    const style = getFontStyle();
     expect(style).toContain('font-family: "Inter"');
     expect(style).toContain("font-weight: 900");
-    // base64 data URL marker for the Inter Black payload
     expect(style).toMatch(/font-weight: 900;\s*src: url\("data:font\/ttf;base64,[A-Za-z0-9+/=]{1000,}/);
   });
 
   test("embeds Inter Bold (weight 700)", () => {
+    const style = getFontStyle();
     expect(style).toContain("font-weight: 700");
     expect(style).toMatch(/font-weight: 700;\s*src: url\("data:font\/ttf;base64,[A-Za-z0-9+/=]{1000,}/);
   });
+
+  test("does NOT embed Gill Sans when not selected", () => {
+    const style = getFontStyle();
+    expect(style).not.toContain('font-family: "Gill Sans"');
+  });
 });
 
-describe("FONT_TITLE / FONT_BODY stacks", () => {
-  test("title stack prefers Inter", () => {
-    expect(FONT_TITLE.startsWith("'Inter'")).toBe(true);
+describe("@font-face selection changes with font choice", () => {
+  test("selecting Gill Sans for title embeds it alongside Inter for body", () => {
+    saveFontSelection({ title: "gill-sans", body: "inter" });
+    clearFontStyleCache();
+    const style = getFontStyle();
+    expect(style).toContain('font-family: "Gill Sans"');
+    expect(style).toContain('font-family: "Inter"');
+    expect(style).toContain('format("opentype")');
   });
 
-  test("body stack prefers Inter", () => {
-    expect(FONT_BODY.startsWith("'Inter'")).toBe(true);
+  test("selecting Gill Sans for both roles embeds it once (not duplicated)", () => {
+    saveFontSelection({ title: "gill-sans", body: "gill-sans" });
+    clearFontStyleCache();
+    const style = getFontStyle();
+    expect(style).toContain('font-family: "Gill Sans"');
+    expect(style).not.toContain('font-family: "Inter"');
+    // 3 Gill Sans weights bundled: 400/700/900
+    const matches = style.match(/font-family: "Gill Sans"/g) ?? [];
+    expect(matches.length).toBe(3);
+  });
+
+  test("getFontStyle() is cached by selection", () => {
+    const a1 = getFontStyle();
+    const a2 = getFontStyle();
+    expect(a1).toBe(a2);
+    saveFontSelection({ title: "gill-sans", body: "gill-sans" });
+    const b1 = getFontStyle();
+    expect(b1).not.toBe(a1);
+  });
+});
+
+describe("fontStack() reflects current selection", () => {
+  test("default selection returns Inter stack", () => {
+    expect(fontStack("title")).toContain("'Inter'");
+    expect(fontStack("body")).toContain("'Inter'");
+  });
+
+  test("Gill Sans selection returns Gill Sans stack", () => {
+    saveFontSelection({ title: "gill-sans", body: "gill-sans" });
+    expect(fontStack("title")).toContain("'Gill Sans'");
+    expect(fontStack("body")).toContain("'Gill Sans'");
   });
 });
 
