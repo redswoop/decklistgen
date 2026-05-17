@@ -136,9 +136,11 @@ export class BoxElement implements LayoutNode {
     const uid = this.id ?? Math.random().toString(36).slice(2, 8);
     const gradId = `${p}grad-${uid}`;
     const rx = Number(this.props.rx ?? 0);
-    const stops = gradDef.stops.map(s =>
-      `<stop offset="${s.offset}" stop-color="${fill}" stop-opacity="${s.opacity}"/>`,
-    ).join("");
+    const stops = gradDef.stops.map(s => {
+      const col = s.color ?? fill;
+      const op = s.opacity ?? 1;
+      return `<stop offset="${s.offset}" stop-color="${col}" stop-opacity="${op}"/>`;
+    }).join("");
     const parts: string[] = [];
     parts.push(`<g transform="translate(${absX},${absY})">`);
     parts.push(`<defs><linearGradient id="${gradId}" x1="${gradDef.x1}" y1="${gradDef.y1}" x2="${gradDef.x2}" y2="${gradDef.y2}">${stops}</linearGradient></defs>`);

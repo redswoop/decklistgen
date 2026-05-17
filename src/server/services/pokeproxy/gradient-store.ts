@@ -6,7 +6,13 @@
 import { readFileSync, watchFile, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
-export type GradientStop = { offset: string; opacity: number };
+export type GradientStop = {
+  offset: string;
+  /** Optional explicit stop color. If omitted, the box's `fill` prop is used. */
+  color?: string;
+  /** Optional stop-opacity (0–1). Defaults to 1 when omitted. */
+  opacity?: number;
+};
 
 export type GradientDef = {
   x1: number;

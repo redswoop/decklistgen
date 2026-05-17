@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import sharp from "sharp";
-import { analyzeImageBrightness } from "./image-brightness.js";
+import { analyzeImageBrightness, sampleRegionBrightness, hpClusterRegion } from "./image-brightness.js";
 
 describe("analyzeImageBrightness", () => {
   test("pure white image returns ~1.0", async () => {
@@ -49,6 +49,68 @@ describe("analyzeImageBrightness", () => {
 
     const brightness = await analyzeImageBrightness(buf);
     expect(brightness).toBeLessThan(0.1);
+  });
+
+  test("sampleRegionBrightness: bright region returns ~1.0", async () => {
+    const buf = await sharp({
+      create: { width: 200, height: 200, channels: 3, background: { r: 255, g: 255, b: 255 } },
+    }).png().toBuffer();
+    const b = await sampleRegionBrightness(buf, { left: 50, top: 50, width: 50, height: 50 });
+    expect(b).toBeGreaterThan(0.95);
+  });
+
+  test("sampleRegionBrightness: dark region returns ~0.0", async () => {
+    const buf = await sharp({
+      create: { width: 200, height: 200, channels: 3, background: { r: 0, g: 0, b: 0 } },
+    }).png().toBuffer();
+    const b = await sampleRegionBrightness(buf, { left: 0, top: 0, width: 100, height: 100 });
+    expect(b).toBeLessThan(0.05);
+  });
+
+  test("sampleRegionBrightness: bright half vs dark half samples independently", async () => {
+    // Left 100 cols white, right 100 cols black
+    const width = 200, height = 200, channels = 3;
+    const raw = Buffer.alloc(width * height * channels);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const off = (y * width + x) * channels;
+        const v = x < 100 ? 255 : 0;
+        raw[off] = raw[off + 1] = raw[off + 2] = v;
+      }
+    }
+    const buf = await sharp(raw, { raw: { width, height, channels } }).png().toBuffer();
+    const left = await sampleRegionBrightness(buf, { left: 0, top: 0, width: 100, height: 200 });
+    const right = await sampleRegionBrightness(buf, { left: 100, top: 0, width: 100, height: 200 });
+    expect(left).toBeGreaterThan(0.95);
+    expect(right).toBeLessThan(0.05);
+  });
+
+  test("sampleRegionBrightness: out-of-bounds region is clamped, not thrown", async () => {
+    const buf = await sharp({
+      create: { width: 100, height: 100, channels: 3, background: { r: 128, g: 128, b: 128 } },
+    }).png().toBuffer();
+    // Region extends past the image
+    const b = await sampleRegionBrightness(buf, { left: 50, top: 50, width: 200, height: 200 });
+    expect(b).toBeGreaterThan(0.4);
+    expect(b).toBeLessThan(0.6);
+  });
+
+  test("hpClusterRegion: returns the top-right corner rectangle within bounds", () => {
+    const r = hpClusterRegion(750, 1050);
+    expect(r.left).toBe(420);
+    expect(r.top).toBe(20);
+    expect(r.width).toBe(310);
+    expect(r.height).toBe(80);
+    // rectangle stays within image
+    expect(r.left + r.width).toBeLessThanOrEqual(750);
+    expect(r.top + r.height).toBeLessThanOrEqual(1050);
+  });
+
+  test("hpClusterRegion: scales to a smaller source image", () => {
+    const r = hpClusterRegion(600, 825);
+    // Same relative position, scaled down
+    expect(r.left).toBeCloseTo(420 * 600 / 750, 0);
+    expect(r.top).toBeCloseTo(20 * 825 / 1050, 0);
   });
 
   test("samples only bottom 40% of image", async () => {

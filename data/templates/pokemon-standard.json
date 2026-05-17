@@ -1,7 +1,7 @@
 {
   "id": "pokemon-standard",
   "name": "Pokemon (Standard)",
-  "description": "Standard Pokemon card — dark text, data-driven attacks/abilities/costs via repeaters",
+  "description": "Standard Pokemon card — full-art parity for basics and non-special evolutions",
   "elements": [
     {
       "type": "box",
@@ -16,32 +16,46 @@
           "type": "text",
           "props": {
             "text": "HP",
-            "fontSize": "$hpLabel",
+            "fontSize": "$hpLabel.fullart",
             "fontFamily": "hp",
             "fontWeight": "bold",
             "fill": "#ffffff",
-            "filter": "shadow",
+            "opacity": 1,
+            "stroke": "#000000",
+            "strokeWidth": 2.5,
+            "filter": "none",
+            "textAnchor": "start",
             "wrap": 0,
             "marginRight": 4,
             "marginBottom": 4,
             "vAlign": "bottom"
+          },
+          "bind": {
+            "fill": "_hpTextFill",
+            "stroke": "_hpTextStroke"
           }
         },
         {
           "type": "text",
           "props": {
             "text": "120",
-            "fontSize": "$hp",
+            "fontSize": "$hp.fullart",
             "fontFamily": "hp",
             "fontWeight": "bold",
             "fill": "#ffffff",
+            "opacity": 1,
+            "stroke": "#000000",
+            "strokeWidth": 2.5,
             "filter": "title-shadow",
+            "textAnchor": "start",
             "wrap": 0,
             "marginRight": 6,
             "vAlign": "bottom"
           },
           "bind": {
-            "text": "hp"
+            "text": "hp",
+            "fill": "_hpTextFill",
+            "stroke": "_hpTextStroke"
           }
         },
         {
@@ -71,30 +85,23 @@
           "type": "text",
           "props": {
             "text": "Charizard",
-            "fontSize": "$cardName",
+            "fontSize": "$cardName.fullart",
             "fontFamily": "title",
             "fontWeight": "bold",
             "fill": "#ffffff",
+            "opacity": 1,
+            "stroke": "#000000",
+            "strokeWidth": 2.5,
             "filter": "title-shadow",
+            "textAnchor": "start",
             "wrap": 0,
+            "marginBottom": 6,
             "vAlign": "bottom"
           },
           "bind": {
-            "text": "_baseName"
-          }
-        },
-        {
-          "type": "image",
-          "props": {
-            "src": "logo",
-            "suffix": "ex",
-            "height": 48,
-            "filter": "title-shadow",
-            "marginLeft": 4,
-            "vAlign": "bottom"
-          },
-          "bind": {
-            "suffix": "_nameSuffix"
+            "text": "_baseName",
+            "fill": "_textFill",
+            "stroke": "_textStroke"
           }
         }
       ]
@@ -112,17 +119,23 @@
         {
           "type": "text",
           "props": {
-            "text": "Evolves from Charmeleon",
-            "fontSize": "$evolvesFrom",
+            "text": "",
+            "fontSize": "$evolvesFrom.fullart",
             "fontFamily": "infobar",
             "fontWeight": "bold",
-            "fill": "#444444",
-            "filter": "shadow",
+            "fill": "#ffffff",
+            "opacity": 0.7,
+            "filter": "title-shadow",
+            "textAnchor": "start",
             "wrap": 0,
-            "vAlign": "middle"
+            "vAlign": "middle",
+            "stroke": "#000000",
+            "strokeWidth": 2.5
           },
           "bind": {
-            "text": "_evolvesFrom"
+            "text": "_evolvesFrom",
+            "fill": "_textFill",
+            "stroke": "_textStroke"
           }
         }
       ]
@@ -136,13 +149,20 @@
         "width": 710,
         "direction": "column",
         "vAnchor": "bottom",
-        "paddingTop": 4,
-        "paddingRight": 8,
+        "paddingTop": 15,
+        "paddingRight": 15,
         "paddingBottom": 37,
-        "paddingLeft": 8,
+        "paddingLeft": 15,
         "fill": "#000000",
-        "fillOpacity": 0.05,
-        "rx": 5
+        "fillOpacity": 0.15,
+        "rx": 25,
+        "filter": "glass-blur",
+        "blurRadius": 5,
+        "marginTop": 0
+      },
+      "bind": {
+        "fill": "_contentFill",
+        "fillOpacity": "_contentOpacity"
       },
       "children": [
         {
@@ -168,38 +188,61 @@
                 },
                 "children": [
                   {
-                    "type": "text",
+                    "type": "box",
                     "props": {
-                      "text": "Ability:",
-                      "fontSize": "$abilityLabel",
-                      "fontFamily": "title",
-                      "fontWeight": "bold",
-                      "fill": "#cc3333",
-                      "filter": "shadow",
-                      "wrap": 0,
-                      "grow": 0,
-                      "marginRight": 6,
+                      "direction": "row",
+                      "paddingTop": 3,
+                      "paddingBottom": 3,
+                      "paddingLeft": 14,
+                      "paddingRight": 14,
+                      "rx": 14,
+                      "fill": "#d4a017",
+                      "fillGradient": "ability-pill-gold-red",
+                      "filter": "title-shadow",
+                      "marginRight": 8,
                       "vAlign": "middle"
                     },
-                    "bind": {
-                      "text": "type"
-                    }
+                    "children": [
+                      {
+                        "type": "text",
+                        "props": {
+                          "text": "Ability",
+                          "fontSize": "$abilityPill.fullart",
+                          "fontFamily": "title",
+                          "fontWeight": "bold",
+                          "fontStyle": "italic",
+                          "fill": "#ffffff",
+                          "stroke": "#000000",
+                          "strokeWidth": 1.5,
+                          "filter": "shadow",
+                          "vAlign": "middle",
+                          "wrap": 0
+                        }
+                      }
+                    ]
                   },
                   {
                     "type": "text",
                     "props": {
-                      "text": "Name",
-                      "fontSize": "$abilityName",
+                      "text": "Ability Name",
+                      "fontSize": "$abilityName.fullart",
                       "fontFamily": "title",
                       "fontWeight": "bold",
-                      "fill": "#222222",
+                      "fill": "#ffffff",
+                      "stroke": "#000000",
+                      "strokeWidth": 2.5,
                       "filter": "shadow",
+                      "textAnchor": "start",
                       "wrap": 0,
                       "grow": 1,
+                      "hAlign": "start",
                       "vAlign": "middle"
                     },
                     "bind": {
-                      "text": "name"
+                      "text": "name",
+                      "fill": "_textFill",
+                      "stroke": "_textStroke",
+                      "strokeWidth": "_textStrokeWidth"
                     }
                   }
                 ]
@@ -207,18 +250,25 @@
               {
                 "type": "text",
                 "props": {
-                  "text": "Effect.",
-                  "fontSize": "$abilityEffect",
+                  "text": "Ability effect text.",
+                  "fontSize": "$abilityEffect.fullart",
                   "fontFamily": "body",
                   "fontWeight": "bold",
-                  "fill": "#222222",
+                  "fill": "#ffffff",
+                  "stroke": "#000000",
+                  "strokeWidth": 2.5,
                   "opacity": 1,
                   "filter": "shadow",
                   "wrap": 1,
+                  "palette": "light",
                   "marginTop": 4
                 },
                 "bind": {
-                  "text": "effect"
+                  "text": "effect",
+                  "fill": "_textFill",
+                  "stroke": "_textStroke",
+                  "strokeWidth": "_textStrokeWidth",
+                  "palette": "_palette"
                 },
                 "showIf": "effect"
               }
@@ -244,7 +294,12 @@
               {
                 "type": "box",
                 "props": {
-                  "direction": "row"
+                  "direction": "row",
+                  "marginBottom": 5,
+                  "fillGradient": "ribbon"
+                },
+                "bind": {
+                  "fill": "_ribbonColor"
                 },
                 "children": [
                   {
@@ -262,6 +317,7 @@
                         "energyType": "Colorless",
                         "radius": 19,
                         "grow": 0,
+                        "hAlign": "start",
                         "marginRight": 4,
                         "vAlign": "middle"
                       },
@@ -273,18 +329,26 @@
                   {
                     "type": "text",
                     "props": {
-                      "text": "Attack",
+                      "text": "Attack Name",
                       "fontSize": "$attackName",
                       "fontFamily": "title",
                       "fontWeight": "bold",
-                      "fill": "#222222",
+                      "fill": "#ffffff",
+                      "stroke": "#000000",
+                      "strokeWidth": 2.5,
                       "filter": "shadow",
+                      "textAnchor": "start",
                       "wrap": 0,
                       "grow": 1,
-                      "vAlign": "middle"
+                      "hAlign": "start",
+                      "vAlign": "middle",
+                      "marginBottom": 5
                     },
                     "bind": {
-                      "text": "name"
+                      "text": "name",
+                      "fill": "_textFill",
+                      "stroke": "_textStroke",
+                      "strokeWidth": "_textStrokeWidth"
                     }
                   },
                   {
@@ -294,15 +358,20 @@
                       "fontSize": "$damage",
                       "fontFamily": "hp",
                       "fontWeight": "bold",
-                      "fill": "#cc0000",
+                      "fill": "#ffffff",
+                      "stroke": "#000000",
+                      "strokeWidth": 2,
                       "filter": "shadow",
+                      "textAnchor": "start",
                       "wrap": 0,
                       "grow": 0,
                       "hAlign": "end",
                       "vAlign": "middle"
                     },
                     "bind": {
-                      "text": "damage"
+                      "text": "damage",
+                      "fill": "_textFill",
+                      "stroke": "_textStroke"
                     },
                     "showIf": "damage"
                   }
@@ -311,17 +380,25 @@
               {
                 "type": "text",
                 "props": {
-                  "text": "Effect.",
-                  "fontSize": "$attackEffect",
+                  "text": "Effect text.",
+                  "fontSize": "$attackEffect.fullart",
                   "fontFamily": "body",
                   "fontWeight": "bold",
-                  "fill": "#222222",
+                  "fill": "#ffffff",
+                  "stroke": "#000000",
+                  "strokeWidth": 2.5,
+                  "opacity": 1,
                   "filter": "shadow",
                   "wrap": 1,
+                  "palette": "light",
                   "marginTop": 4
                 },
                 "bind": {
-                  "text": "effect"
+                  "text": "effect",
+                  "fill": "_textFill",
+                  "stroke": "_textStroke",
+                  "strokeWidth": "_textStrokeWidth",
+                  "palette": "_palette"
                 },
                 "showIf": "effect"
               }
@@ -342,20 +419,31 @@
                 "fontSize": "$label",
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
-                "fill": "#888888",
+                "fill": "#ffffff",
+                "opacity": 0.7,
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
+                "filter": "shadow",
+                "textAnchor": "start",
                 "wrap": 0,
                 "grow": 0,
+                "hAlign": "start",
                 "marginRight": 4,
                 "vAlign": "middle"
+              },
+              "bind": {
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {
               "type": "image",
               "props": {
                 "src": "energy",
-                "energyType": "Water",
+                "energyType": "Grass",
                 "radius": 12,
                 "grow": 0,
+                "hAlign": "start",
                 "marginRight": 4,
                 "vAlign": "middle"
               },
@@ -370,15 +458,21 @@
                 "fontSize": "$multiplier",
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
-                "fill": "#222222",
+                "fill": "#ffffff",
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
                 "filter": "shadow",
+                "textAnchor": "start",
                 "wrap": 0,
                 "grow": 0,
+                "hAlign": "start",
                 "marginRight": 16,
                 "vAlign": "middle"
               },
               "bind": {
-                "text": "weaknesses[0].value"
+                "text": "weaknesses[0].value",
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {
@@ -388,20 +482,31 @@
                 "fontSize": "$label",
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
-                "fill": "#888888",
+                "fill": "#ffffff",
+                "opacity": 0.7,
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
+                "filter": "shadow",
+                "textAnchor": "start",
                 "wrap": 0,
                 "grow": 0,
+                "hAlign": "start",
                 "marginRight": 4,
                 "vAlign": "middle"
+              },
+              "bind": {
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {
               "type": "image",
               "props": {
                 "src": "energy",
-                "energyType": "Fighting",
+                "energyType": "Grass",
                 "radius": 12,
                 "grow": 0,
+                "hAlign": "start",
                 "marginRight": 4,
                 "vAlign": "middle"
               },
@@ -416,14 +521,20 @@
                 "fontSize": "$multiplier",
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
-                "fill": "#222222",
+                "fill": "#ffffff",
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
                 "filter": "shadow",
+                "textAnchor": "start",
                 "wrap": 0,
                 "grow": 1,
+                "hAlign": "start",
                 "vAlign": "middle"
               },
               "bind": {
-                "text": "resistances[0].value"
+                "text": "resistances[0].value",
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {
@@ -433,11 +544,21 @@
                 "fontSize": "$label",
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
-                "fill": "#888888",
+                "fill": "#ffffff",
+                "opacity": 0.7,
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
+                "filter": "shadow",
+                "textAnchor": "start",
                 "wrap": 0,
                 "grow": 0,
+                "hAlign": "start",
                 "marginRight": 4,
                 "vAlign": "middle"
+              },
+              "bind": {
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {
@@ -455,6 +576,7 @@
                   "energyType": "Colorless",
                   "radius": 12,
                   "grow": 0,
+                  "hAlign": "start",
                   "marginRight": 4,
                   "vAlign": "middle"
                 }
@@ -469,12 +591,15 @@
             "fontSize": "$ruleText",
             "fontFamily": "body",
             "fontWeight": "normal",
-            "fill": "#999999",
+            "fill": "#ffffff",
+            "opacity": 0.5,
+            "filter": "none",
             "wrap": 1,
             "marginTop": 6
           },
           "bind": {
-            "text": "_ruleText"
+            "text": "_ruleText",
+            "fill": "_subtleFill"
           },
           "showIf": "_ruleText"
         },
@@ -485,12 +610,15 @@
             "fontSize": "$footer",
             "fontFamily": "infobar",
             "fontWeight": "normal",
-            "fill": "#777777",
+            "fill": "#ffffff",
+            "opacity": 0.5,
+            "filter": "none",
             "wrap": 0,
             "marginTop": 4
           },
           "bind": {
-            "text": "_footer"
+            "text": "_footer",
+            "fill": "_subtleFill"
           }
         }
       ]

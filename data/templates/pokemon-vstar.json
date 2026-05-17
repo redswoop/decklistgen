@@ -33,11 +33,17 @@
             "fontFamily": "hp",
             "fontWeight": "bold",
             "fill": "#ffffff",
+            "stroke": "#000000",
+            "strokeWidth": 2.5,
             "filter": "none",
             "wrap": 0,
             "marginRight": 4,
             "marginBottom": 4,
             "vAlign": "bottom"
+          },
+          "bind": {
+            "fill": "_hpTextFill",
+            "stroke": "_hpTextStroke"
           }
         },
         {
@@ -48,13 +54,17 @@
             "fontFamily": "hp",
             "fontWeight": "bold",
             "fill": "#ffffff",
+            "stroke": "#000000",
+            "strokeWidth": 2.5,
             "filter": "title-shadow",
             "wrap": 0,
             "marginRight": 6,
             "vAlign": "bottom"
           },
           "bind": {
-            "text": "hp"
+            "text": "hp",
+            "fill": "_hpTextFill",
+            "stroke": "_hpTextStroke"
           }
         },
         {
@@ -67,6 +77,44 @@
           },
           "bind": {
             "energyType": "types[0]"
+          }
+        }
+      ]
+    },
+    {
+      "type": "box",
+      "id": "name-plate",
+      "props": {
+        "anchorX": 30,
+        "anchorY": 30,
+        "direction": "row",
+        "paddingTop": 8,
+        "paddingBottom": 8,
+        "paddingLeft": 18,
+        "paddingRight": 18,
+        "rx": 14,
+        "fill": "#1a1a1a",
+        "fillGradient": "metallic-name-plate-vstar",
+        "filter": "shadow"
+      },
+      "bind": {
+        "fillGradient": "_namePlateGradient"
+      },
+      "showIf": "_namePlateGradient",
+      "children": [
+        {
+          "type": "text",
+          "props": {
+            "text": "Rotom",
+            "fontSize": "$cardName.fullart",
+            "fontFamily": "title",
+            "fontWeight": "bold",
+            "fill": "#000000",
+            "opacity": 0,
+            "wrap": 0
+          },
+          "bind": {
+            "text": "_baseName"
           }
         }
       ]
@@ -96,7 +144,9 @@
             "vAlign": "bottom"
           },
           "bind": {
-            "text": "_baseName"
+            "text": "_baseName",
+            "fill": "_textFill",
+            "stroke": "_textStroke"
           }
         },
         {
@@ -226,13 +276,18 @@
                       "fontFamily": "title",
                       "fontWeight": "bold",
                       "fill": "#ffffff",
+                      "stroke": "#000000",
+                      "strokeWidth": 2.5,
                       "filter": "shadow",
                       "wrap": 0,
                       "grow": 1,
                       "vAlign": "middle"
                     },
                     "bind": {
-                      "text": "name"
+                      "text": "name",
+                      "fill": "_textFill",
+                      "stroke": "_textStroke",
+                      "strokeWidth": "_textStrokeWidth"
                     }
                   },
                   {
@@ -242,7 +297,9 @@
                       "fontSize": "$damage",
                       "fontFamily": "hp",
                       "fontWeight": "bold",
-                      "fill": "#cc0000",
+                      "fill": "#ffffff",
+                      "stroke": "#000000",
+                      "strokeWidth": 2,
                       "filter": "shadow",
                       "wrap": 0,
                       "grow": 0,
@@ -250,7 +307,9 @@
                       "vAlign": "middle"
                     },
                     "bind": {
-                      "text": "damage"
+                      "text": "damage",
+                      "fill": "_textFill",
+                      "stroke": "_textStroke"
                     },
                     "showIf": "damage"
                   }
@@ -264,13 +323,19 @@
                   "fontFamily": "body",
                   "fontWeight": "bold",
                   "fill": "#ffffff",
+                  "stroke": "#000000",
+                  "strokeWidth": 2.5,
                   "filter": "shadow",
                   "wrap": 1,
                   "palette": "light",
                   "marginTop": 4
                 },
                 "bind": {
-                  "text": "effect"
+                  "text": "effect",
+                  "fill": "_textFill",
+                  "stroke": "_textStroke",
+                  "strokeWidth": "_textStrokeWidth",
+                  "palette": "_palette"
                 },
                 "showIf": "effect"
               }
@@ -314,22 +379,38 @@
                 },
                 "children": [
                   {
-                    "type": "text",
+                    "type": "box",
                     "props": {
-                      "text": "Ability:",
-                      "fontSize": "$abilityLabel",
-                      "fontFamily": "title",
-                      "fontWeight": "bold",
-                      "fill": "#DAA520",
-                      "filter": "shadow",
-                      "wrap": 0,
-                      "grow": 0,
-                      "marginRight": 6,
+                      "direction": "row",
+                      "paddingTop": 3,
+                      "paddingBottom": 3,
+                      "paddingLeft": 14,
+                      "paddingRight": 14,
+                      "rx": 14,
+                      "fill": "#d4a017",
+                      "fillGradient": "ability-pill-gold",
+                      "filter": "title-shadow",
+                      "marginRight": 8,
                       "vAlign": "middle"
                     },
-                    "bind": {
-                      "text": "type"
-                    }
+                    "children": [
+                      {
+                        "type": "text",
+                        "props": {
+                          "text": "Ability",
+                          "fontSize": "$abilityPill.fullart",
+                          "fontFamily": "title",
+                          "fontWeight": "bold",
+                          "fontStyle": "italic",
+                          "fill": "#ffffff",
+                          "stroke": "#000000",
+                          "strokeWidth": 1.5,
+                          "filter": "shadow",
+                          "vAlign": "middle",
+                          "wrap": 0
+                        }
+                      }
+                    ]
                   },
                   {
                     "type": "text",
@@ -339,13 +420,18 @@
                       "fontFamily": "title",
                       "fontWeight": "bold",
                       "fill": "#ffffff",
+                      "stroke": "#000000",
+                      "strokeWidth": 2.5,
                       "filter": "shadow",
                       "wrap": 0,
                       "grow": 1,
                       "vAlign": "middle"
                     },
                     "bind": {
-                      "text": "name"
+                      "text": "name",
+                      "fill": "_textFill",
+                      "stroke": "_textStroke",
+                      "strokeWidth": "_textStrokeWidth"
                     }
                   }
                 ]
@@ -358,6 +444,8 @@
                   "fontFamily": "body",
                   "fontWeight": "bold",
                   "fill": "#ffffff",
+                  "stroke": "#000000",
+                  "strokeWidth": 2.5,
                   "opacity": 1,
                   "filter": "shadow",
                   "wrap": 1,
@@ -365,7 +453,11 @@
                   "marginTop": 4
                 },
                 "bind": {
-                  "text": "effect"
+                  "text": "effect",
+                  "fill": "_textFill",
+                  "stroke": "_textStroke",
+                  "strokeWidth": "_textStrokeWidth",
+                  "palette": "_palette"
                 },
                 "showIf": "effect"
               }
@@ -386,11 +478,19 @@
                 "fontSize": "$label",
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
-                "fill": "#888888",
+                "fill": "#ffffff",
+                "opacity": 0.7,
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
+                "filter": "shadow",
                 "wrap": 0,
                 "grow": 0,
                 "marginRight": 4,
                 "vAlign": "middle"
+              },
+              "bind": {
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {
@@ -415,6 +515,8 @@
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#ffffff",
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
                 "filter": "shadow",
                 "wrap": 0,
                 "grow": 0,
@@ -422,7 +524,9 @@
                 "vAlign": "middle"
               },
               "bind": {
-                "text": "weaknesses[0].value"
+                "text": "weaknesses[0].value",
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {
@@ -432,11 +536,19 @@
                 "fontSize": "$label",
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
-                "fill": "#888888",
+                "fill": "#ffffff",
+                "opacity": 0.7,
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
+                "filter": "shadow",
                 "wrap": 0,
                 "grow": 0,
                 "marginRight": 4,
                 "vAlign": "middle"
+              },
+              "bind": {
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {
@@ -461,13 +573,17 @@
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#ffffff",
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
                 "filter": "shadow",
                 "wrap": 0,
                 "grow": 1,
                 "vAlign": "middle"
               },
               "bind": {
-                "text": "resistances[0].value"
+                "text": "resistances[0].value",
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {
@@ -477,11 +593,19 @@
                 "fontSize": "$label",
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
-                "fill": "#888888",
+                "fill": "#ffffff",
+                "opacity": 0.7,
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
+                "filter": "shadow",
                 "wrap": 0,
                 "grow": 0,
                 "marginRight": 4,
                 "vAlign": "middle"
+              },
+              "bind": {
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {

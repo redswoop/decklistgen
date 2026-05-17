@@ -12,6 +12,7 @@
         "direction": "row",
         "skewX": -10,
         "fill": "#1a1a1a",
+        "fillGradient": "metallic-trainer-default",
         "fillOpacity": 1,
         "rx": 18,
         "paddingLeft": 32,
@@ -19,6 +20,9 @@
         "paddingTop": 8,
         "paddingBottom": 8,
         "filter": "title-shadow"
+      },
+      "bind": {
+        "fillGradient": "_trainerGradient"
       },
       "children": [
         {
@@ -28,26 +32,34 @@
             "fontSize": "$trainerType",
             "fontFamily": "trainerHeader",
             "fontWeight": "bold",
+            "fontStyle": "italic",
             "fill": "#ffffff",
             "opacity": 1,
+            "stroke": "#000000",
+            "strokeWidth": 2.5,
+            "filter": "title-shadow",
             "wrap": 0,
             "grow": 1,
             "hAlign": "start",
             "vAlign": "middle"
           },
           "bind": {
-            "text": "trainerType"
+            "text": "trainerType",
+            "fill": "_trainerTypeColorLight"
           }
         },
         {
           "type": "text",
           "props": {
-            "text": "Trainer",
+            "text": "TRAINER",
             "fontSize": 24,
             "fontFamily": "trainerHeader",
             "fontWeight": "bold",
             "fill": "#ffffff",
-            "opacity": 0.7,
+            "opacity": 0.85,
+            "stroke": "#000000",
+            "strokeWidth": 2,
+            "filter": "title-shadow",
             "wrap": 0,
             "hAlign": "end",
             "vAlign": "middle"

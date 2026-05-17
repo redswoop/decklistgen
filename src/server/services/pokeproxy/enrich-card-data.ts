@@ -6,7 +6,11 @@
 
 import { splitNameSuffix, splitNameSubtitle } from "./svg-helpers.js";
 import { getPokemonSuffix } from "./text.js";
-import { POKEMON_RULES, TRAINER_RULES, TYPE_MATCHUPS, TYPE_COLORS } from "./constants.js";
+import {
+  POKEMON_RULES, TRAINER_RULES, TYPE_MATCHUPS, TYPE_COLORS,
+  TRAINER_TYPE_COLORS, TRAINER_TYPE_COLORS_LIGHT,
+  TRAINER_GRADIENT_BY_TYPE, NAME_PLATE_GRADIENT_BY_SUFFIX,
+} from "./constants.js";
 
 /** Enrich raw card data with computed fields for template rendering. Mutates and returns `data`. */
 export function enrichCardData(data: Record<string, unknown>): Record<string, unknown> {
@@ -77,6 +81,28 @@ export function enrichCardData(data: Record<string, unknown>): Record<string, un
     data._palette = "light";
     data._contentFill = "#000000";
     data._contentOpacity = 0.15;
+  }
+
+  // HP per-element text mode — falls back to the global text mode when the
+  // renderer didn't sample a regional brightness for this card.
+  const hpMode = (data._hpTextMode as string) ?? textMode;
+  if (hpMode === "dark") {
+    data._hpTextFill = "#222222";
+    data._hpTextStroke = "#ffffff";
+  } else {
+    data._hpTextFill = "#ffffff";
+    data._hpTextStroke = "#000000";
+  }
+
+  // Name-plate gradient for ex/V/VMAX/VSTAR (basics get no plate)
+  data._namePlateGradient = NAME_PLATE_GRADIENT_BY_SUFFIX[suffix] ?? "";
+
+  // Trainer header gradient + type-label color (Trainer / Special Energy only)
+  if (category === "Trainer" || category === "Energy") {
+    const tt = (data.trainerType as string) ?? "";
+    data._trainerGradient = TRAINER_GRADIENT_BY_TYPE[tt] ?? "metallic-trainer-default";
+    data._trainerTypeColor = TRAINER_TYPE_COLORS[tt] ?? "#ffffff";
+    data._trainerTypeColorLight = TRAINER_TYPE_COLORS_LIGHT[tt] ?? "#ffffff";
   }
 
   // Ribbon color from primary energy type

@@ -58,6 +58,25 @@ describe("TextElement single-line", () => {
     expect(svg).toContain('filter="url(#title-shadow)"');
   });
 
+  test("render with fontStyle italic emits font-style attribute", () => {
+    const item = new TextElement({ text: "Ability", fontSize: 24, fontStyle: "italic" });
+    const svg = item.render(0, 0);
+    expect(svg).toContain('font-style="italic"');
+  });
+
+  test("render with default fontStyle (normal) omits font-style attribute", () => {
+    const item = new TextElement({ text: "Name", fontSize: 24 });
+    const svg = item.render(0, 0);
+    expect(svg).not.toContain("font-style=");
+  });
+
+  test("wrapped render with fontStyle italic emits font-style attribute", () => {
+    const item = new TextElement({ text: "Italicized wrapped text", fontSize: 20, fontFamily: "body", wrap: 1, fontStyle: "italic" });
+    item.measure(500);
+    const svg = item.render(0, 0);
+    expect(svg).toContain('font-style="italic"');
+  });
+
   test("render with filter=none omits filter attribute", () => {
     const item = new TextElement({ text: "Name", fontSize: 24, filter: "none" });
     const svg = item.render(0, 0);

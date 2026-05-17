@@ -55,6 +55,7 @@ export class TextElement implements LayoutNode {
       fontSize: 24,
       fontFamily: "title",
       fontWeight: "bold",
+      fontStyle: "normal",
       fill: "#000",
       opacity: 1,
       stroke: "",
@@ -113,7 +114,7 @@ export class TextElement implements LayoutNode {
   }
 
   private _renderSingle(x: number, y: number): string {
-    const { text, fontSize, fontFamily, fontWeight, fill, opacity, stroke, strokeWidth, filter, textAnchor } = this.props;
+    const { text, fontSize, fontFamily, fontWeight, fontStyle, fill, opacity, stroke, strokeWidth, filter, textAnchor } = this.props;
     const role = asRole(fontFamily);
     const font = fontStack(role);
     // Force the SVG font-weight to match what opentype.js measured, so the
@@ -122,6 +123,8 @@ export class TextElement implements LayoutNode {
     let attrs = `x="${x}" y="${y}" font-family="${font}" ` +
       `font-size="${Number(fontSize)}" font-weight="${weight}" ` +
       `fill="${String(fill)}" opacity="${Number(opacity)}"`;
+    const style = String(fontStyle ?? "normal");
+    if (style !== "normal") attrs += ` font-style="${style}"`;
     if (stroke && Number(strokeWidth) > 0) {
       attrs += ` stroke="${String(stroke)}" stroke-width="${Number(strokeWidth)}" stroke-linejoin="round" style="paint-order:stroke fill"`;
     }
@@ -140,6 +143,7 @@ export class TextElement implements LayoutNode {
     const fontSize = Number(this.props.fontSize);
     const role = asRole(this.props.fontFamily);
     const fontWeight = String(this.props.fontWeight);
+    const fontStyle = String(this.props.fontStyle ?? "normal");
     const fill = String(this.props.fill);
     const opacity = Number(this.props.opacity);
     const filter = String(this.props.filter);
@@ -151,6 +155,7 @@ export class TextElement implements LayoutNode {
     const lines = ftWrap(role, text, fontSize, wrapWidth);
 
     let attrs = `font-family="${font}" font-size="${fontSize}" font-weight="${weight}" fill="${fill}" opacity="${opacity}"`;
+    if (fontStyle !== "normal") attrs += ` font-style="${fontStyle}"`;
     const stroke = String(this.props.stroke);
     const strokeWidth = Number(this.props.strokeWidth);
     if (stroke && strokeWidth > 0) {

@@ -11,6 +11,7 @@ export const FONT_SIZES: Record<string, number> = {
   abilityLabel:  32,
   abilityName:   32,
   abilityEffect: 30,
+  abilityPill:   28,
 
   // Standard pokemon
   cardName:      42,
@@ -27,6 +28,7 @@ export const FONT_SIZES: Record<string, number> = {
   "abilityLabel.fullart": 38,
   "abilityName.fullart":  38,
   "abilityEffect.fullart": 30,
+  "abilityPill.fullart":  30,
 
   // Trainer
   "cardName.trainer": 44,

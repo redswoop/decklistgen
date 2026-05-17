@@ -541,6 +541,50 @@ describe("BoxElement fillGradient", () => {
     expect(svg).not.toContain("<rect");
   });
 
+  test("multi-color gradient stops emit their explicit colors", () => {
+    // ability-pill-gold-red has explicit per-stop colors; box `fill` is the fallback
+    const box = new BoxElement(
+      { direction: "row", fill: "#d4a017", fillGradient: "ability-pill-gold-red" },
+      [new TextElement({ text: "Ability", fontSize: 20 })],
+      undefined,
+      "pill",
+    );
+    const svg = box.render(0, 0);
+    expect(svg).toContain('stop-color="#f6d96b"');
+    expect(svg).toContain('stop-color="#d4a017"');
+    expect(svg).toContain('stop-color="#b8341a"');
+    expect(svg).toContain('stop-color="#7a1a0f"');
+  });
+
+  test("single-color (ribbon) gradient stops fall back to box fill", () => {
+    const box = new BoxElement(
+      { direction: "row", fill: "#D4301A", fillGradient: "ribbon" },
+      [new TextElement({ text: "Attack", fontSize: 20 })],
+      undefined,
+      "ribbon-row",
+    );
+    const svg = box.render(0, 0);
+    // Every stop should use the box's fill (ribbon has no explicit `color` per stop)
+    const stopMatches = svg.match(/stop-color="[^"]*"/g) || [];
+    expect(stopMatches.length).toBeGreaterThan(0);
+    for (const m of stopMatches) {
+      expect(m).toBe('stop-color="#D4301A"');
+    }
+  });
+
+  test("missing opacity on a stop defaults to 1", () => {
+    // Confirms the renderer doesn't emit "stop-opacity=undefined"
+    const box = new BoxElement(
+      { direction: "row", fill: "#d4a017", fillGradient: "ability-pill-gold-red" },
+      [new TextElement({ text: "X", fontSize: 20 })],
+      undefined,
+      "pill",
+    );
+    const svg = box.render(0, 0);
+    expect(svg).not.toContain("stop-opacity=\"undefined\"");
+    expect(svg).toContain('stop-opacity="1"');
+  });
+
   test("column box with fillGradient renders gradient layer before content", () => {
     const box = new BoxElement(
       {
@@ -710,17 +754,20 @@ describe("deep nesting", () => {
 describe("default elements", () => {
   test("createDefaultElements returns image + boxes from template", () => {
     const elements = createDefaultElements();
-    expect(elements.length).toBe(5);
+    expect(elements.length).toBe(6);
     expect(elements[0].type).toBe("image");
     expect(elements[0].id).toBe("big-logo");
     expect(elements[1].type).toBe("box");
     expect(elements[1].id).toBe("hp-cluster");
+    // name-plate renders BEFORE name-cluster so it appears z-below
     expect(elements[2].type).toBe("box");
-    expect(elements[2].id).toBe("name-cluster");
+    expect(elements[2].id).toBe("name-plate");
     expect(elements[3].type).toBe("box");
-    expect(elements[3].id).toBe("evolves-from");
+    expect(elements[3].id).toBe("name-cluster");
     expect(elements[4].type).toBe("box");
-    expect(elements[4].id).toBe("content-block");
+    expect(elements[4].id).toBe("evolves-from");
+    expect(elements[5].type).toBe("box");
+    expect(elements[5].id).toBe("content-block");
   });
 
   test("HP cluster renders all 3 children", () => {

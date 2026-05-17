@@ -37,6 +37,8 @@
             "fontWeight": "bold",
             "fill": "#ffffff",
             "opacity": 1,
+            "stroke": "#000000",
+            "strokeWidth": 2.5,
             "filter": "none",
             "textAnchor": "start",
             "wrap": 0,
@@ -45,7 +47,8 @@
             "vAlign": "bottom"
           },
           "bind": {
-            "fill": "_textFill"
+            "fill": "_hpTextFill",
+            "stroke": "_hpTextStroke"
           }
         },
         {
@@ -57,6 +60,8 @@
             "fontWeight": "bold",
             "fill": "#ffffff",
             "opacity": 1,
+            "stroke": "#000000",
+            "strokeWidth": 2.5,
             "filter": "title-shadow",
             "textAnchor": "start",
             "wrap": 0,
@@ -65,7 +70,8 @@
           },
           "bind": {
             "text": "hp",
-            "fill": "_textFill"
+            "fill": "_hpTextFill",
+            "stroke": "_hpTextStroke"
           }
         },
         {
@@ -78,6 +84,44 @@
           },
           "bind": {
             "energyType": "types[0]"
+          }
+        }
+      ]
+    },
+    {
+      "type": "box",
+      "id": "name-plate",
+      "props": {
+        "anchorX": 30,
+        "anchorY": 30,
+        "direction": "row",
+        "paddingTop": 8,
+        "paddingBottom": 8,
+        "paddingLeft": 18,
+        "paddingRight": 18,
+        "rx": 14,
+        "fill": "#1a1a1a",
+        "fillGradient": "metallic-name-plate-ex",
+        "filter": "shadow"
+      },
+      "bind": {
+        "fillGradient": "_namePlateGradient"
+      },
+      "showIf": "_namePlateGradient",
+      "children": [
+        {
+          "type": "text",
+          "props": {
+            "text": "Absol",
+            "fontSize": "$cardName.fullart",
+            "fontFamily": "title",
+            "fontWeight": "bold",
+            "fill": "#000000",
+            "opacity": 0,
+            "wrap": 0
+          },
+          "bind": {
+            "text": "_baseName"
           }
         }
       ]
@@ -212,24 +256,38 @@
                 },
                 "children": [
                   {
-                    "type": "text",
+                    "type": "box",
                     "props": {
-                      "text": "Ability:",
-                      "fontSize": "$abilityLabel.fullart",
-                      "fontFamily": "title",
-                      "fontWeight": "bold",
-                      "fill": "#ff4444",
-                      "filter": "shadow",
-                      "textAnchor": "start",
-                      "wrap": 0,
-                      "grow": 0,
-                      "hAlign": "start",
-                      "marginRight": 6,
+                      "direction": "row",
+                      "paddingTop": 3,
+                      "paddingBottom": 3,
+                      "paddingLeft": 14,
+                      "paddingRight": 14,
+                      "rx": 14,
+                      "fill": "#d4a017",
+                      "fillGradient": "ability-pill-gold-red",
+                      "filter": "title-shadow",
+                      "marginRight": 8,
                       "vAlign": "middle"
                     },
-                    "bind": {
-                      "text": "type"
-                    }
+                    "children": [
+                      {
+                        "type": "text",
+                        "props": {
+                          "text": "Ability",
+                          "fontSize": "$abilityPill.fullart",
+                          "fontFamily": "title",
+                          "fontWeight": "bold",
+                          "fontStyle": "italic",
+                          "fill": "#ffffff",
+                          "stroke": "#000000",
+                          "strokeWidth": 1.5,
+                          "filter": "shadow",
+                          "vAlign": "middle",
+                          "wrap": 0
+                        }
+                      }
+                    ]
                   },
                   {
                     "type": "text",
@@ -368,7 +426,9 @@
                       "fontSize": "$damage",
                       "fontFamily": "hp",
                       "fontWeight": "bold",
-                      "fill": "#4fdedb",
+                      "fill": "#ffffff",
+                      "stroke": "#000000",
+                      "strokeWidth": 2,
                       "filter": "shadow",
                       "textAnchor": "start",
                       "wrap": 0,
@@ -377,7 +437,9 @@
                       "vAlign": "middle"
                     },
                     "bind": {
-                      "text": "damage"
+                      "text": "damage",
+                      "fill": "_textFill",
+                      "stroke": "_textStroke"
                     },
                     "showIf": "damage"
                   }
@@ -425,14 +487,21 @@
                 "fontSize": "$label",
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
-                "fill": "#888888",
-                "filter": "none",
+                "fill": "#ffffff",
+                "opacity": 0.7,
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
+                "filter": "shadow",
                 "textAnchor": "start",
                 "wrap": 0,
                 "grow": 0,
                 "hAlign": "start",
                 "marginRight": 4,
                 "vAlign": "middle"
+              },
+              "bind": {
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {
@@ -458,6 +527,8 @@
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#ffffff",
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
                 "filter": "shadow",
                 "textAnchor": "start",
                 "wrap": 0,
@@ -468,7 +539,8 @@
               },
               "bind": {
                 "text": "weaknesses[0].value",
-                "fill": "_textFill"
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {
@@ -478,14 +550,21 @@
                 "fontSize": "$label",
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
-                "fill": "#888888",
-                "filter": "none",
+                "fill": "#ffffff",
+                "opacity": 0.7,
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
+                "filter": "shadow",
                 "textAnchor": "start",
                 "wrap": 0,
                 "grow": 0,
                 "hAlign": "start",
                 "marginRight": 4,
                 "vAlign": "middle"
+              },
+              "bind": {
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {
@@ -511,6 +590,8 @@
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
                 "fill": "#ffffff",
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
                 "filter": "shadow",
                 "textAnchor": "start",
                 "wrap": 0,
@@ -520,7 +601,8 @@
               },
               "bind": {
                 "text": "resistances[0].value",
-                "fill": "_textFill"
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {
@@ -530,14 +612,21 @@
                 "fontSize": "$label",
                 "fontFamily": "infobar",
                 "fontWeight": "bold",
-                "fill": "#888888",
-                "filter": "none",
+                "fill": "#ffffff",
+                "opacity": 0.7,
+                "stroke": "#000000",
+                "strokeWidth": 2.5,
+                "filter": "shadow",
                 "textAnchor": "start",
                 "wrap": 0,
                 "grow": 0,
                 "hAlign": "start",
                 "marginRight": 4,
                 "vAlign": "middle"
+              },
+              "bind": {
+                "fill": "_textFill",
+                "stroke": "_textStroke"
               }
             },
             {

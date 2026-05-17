@@ -145,12 +145,33 @@ export async function generateSvgFromTemplate(
     templateName = "pokemon-fullart";
   }
 
-  if (imageB64 && (templateName === "pokemon-fullart" || templateName === "trainer")) {
+  const isPokemonTpl =
+    templateName === "pokemon-fullart" ||
+    templateName === "pokemon-vstar" ||
+    templateName === "pokemon-standard";
+
+  if (imageB64 && (isPokemonTpl || templateName === "trainer")) {
     try {
       const analyzeImageBrightness = await getAnalyzeImageBrightness();
       const imageBuffer = Buffer.from(imageB64, "base64");
       const brightness = await analyzeImageBrightness(imageBuffer);
       cardData._textMode = brightness > 0.6 ? "dark" : "light";
+    } catch {}
+  }
+
+  // Per-element HP brightness: HP digits sit in the top-right corner, far
+  // from the bottom-40% region sampled above. Sample that corner directly
+  // so HP color flips independently when the local region disagrees with
+  // the card's overall tone.
+  if (imageB64 && isPokemonTpl) {
+    try {
+      const { sampleRegionBrightness, hpClusterRegion } = await import("./image-brightness.js");
+      const sharpMod = (await import("sharp")).default;
+      const imageBuffer = Buffer.from(imageB64, "base64");
+      const meta = await sharpMod(imageBuffer).metadata();
+      const region = hpClusterRegion(meta.width ?? 600, meta.height ?? 825);
+      const hpBrightness = await sampleRegionBrightness(imageBuffer, region);
+      cardData._hpTextMode = hpBrightness > 0.6 ? "dark" : "light";
     } catch {}
   }
 

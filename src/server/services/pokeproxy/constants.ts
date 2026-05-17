@@ -101,3 +101,40 @@ export const TRAINER_RULES: Record<string, string> = {
   Stadium: "Stays in play until replaced.",
   Tool: "Attach to a Pokemon. Limit 1 per Pokemon.",
 };
+
+/** Trainer type label colors (per real Pokemon TCG conventions).
+ *  Saturated mid-tones — match the metallic banner middle stop. */
+export const TRAINER_TYPE_COLORS: Record<string, string> = {
+  Item:      "#2980C0",
+  Supporter: "#D44820",
+  Stadium:   "#3B9B2F",
+  Tool:      "#7C3AA8",
+  "Special Energy": "#7A7A7A",
+};
+
+/** Lighter shades of the type colors — used for the type label TEXT itself,
+ *  so it pops off the metallic banner (which uses the saturated mid-tone). */
+export const TRAINER_TYPE_COLORS_LIGHT: Record<string, string> = {
+  Item:      "#A8D4FF",
+  Supporter: "#FFC8A8",
+  Stadium:   "#B8E6A0",
+  Tool:      "#D8B0F0",
+  "Special Energy": "#D8D8D8",
+};
+
+/** Trainer header banner gradient by trainer type. */
+export const TRAINER_GRADIENT_BY_TYPE: Record<string, string> = {
+  Item:      "metallic-trainer-item",
+  Supporter: "metallic-trainer-supporter",
+  Stadium:   "metallic-trainer-stadium",
+  Tool:      "metallic-trainer-tool",
+  "Special Energy": "metallic-trainer-special-energy",
+};
+
+/** Name-plate gradient by Pokemon suffix (ex/V/VMAX/VSTAR). Basics get no plate. */
+export const NAME_PLATE_GRADIENT_BY_SUFFIX: Record<string, string> = {
+  ex:    "metallic-name-plate-ex",
+  V:     "metallic-name-plate-v",
+  VMAX:  "metallic-name-plate-vmax",
+  VSTAR: "metallic-name-plate-vstar",
+};

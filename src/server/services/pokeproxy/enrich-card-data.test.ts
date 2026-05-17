@@ -109,4 +109,79 @@ describe("enrichCardData", () => {
     const data = enrichCardData({ name: "Rare Candy", category: "Trainer" });
     expect(data._ribbonColor).toBe("");
   });
+
+  test("_hpTextFill defaults to global text mode when _hpTextMode absent", () => {
+    const dark = enrichCardData({ name: "Iono", _textMode: "dark" });
+    expect(dark._hpTextFill).toBe("#222222");
+    expect(dark._hpTextStroke).toBe("#ffffff");
+
+    const light = enrichCardData({ name: "Charizard", _textMode: "light" });
+    expect(light._hpTextFill).toBe("#ffffff");
+    expect(light._hpTextStroke).toBe("#000000");
+  });
+
+  test("_hpTextFill overrides global mode when _hpTextMode set differently", () => {
+    // Card overall is dark text (bright bg), but HP corner is dark — flip HP to light text
+    const data = enrichCardData({ name: "X", _textMode: "dark", _hpTextMode: "light" });
+    expect(data._hpTextFill).toBe("#ffffff");
+    expect(data._hpTextStroke).toBe("#000000");
+    // Confirm the global decision was preserved for non-HP elements
+    expect(data._textFill).toBe("#222222");
+  });
+
+  test("_namePlateGradient set for Pokemon ex", () => {
+    const data = enrichCardData({ name: "Charizard ex", category: "Pokemon" });
+    expect(data._namePlateGradient).toBe("metallic-name-plate-ex");
+  });
+
+  test("_namePlateGradient set for VSTAR via stage field", () => {
+    const data = enrichCardData({ name: "Rotom VSTAR", category: "Pokemon", stage: "VSTAR" });
+    expect(data._namePlateGradient).toBe("metallic-name-plate-vstar");
+  });
+
+  test("_namePlateGradient set for VMAX via stage field", () => {
+    const data = enrichCardData({ name: "Pikachu VMAX", category: "Pokemon", stage: "VMAX" });
+    expect(data._namePlateGradient).toBe("metallic-name-plate-vmax");
+  });
+
+  test("_namePlateGradient empty for basic Pokemon", () => {
+    const data = enrichCardData({ name: "Sprigatito", category: "Pokemon" });
+    expect(data._namePlateGradient).toBe("");
+  });
+
+  test("_trainerGradient set per trainer type", () => {
+    expect(enrichCardData({ name: "Potion", category: "Trainer", trainerType: "Item" })._trainerGradient).toBe("metallic-trainer-item");
+    expect(enrichCardData({ name: "Iono", category: "Trainer", trainerType: "Supporter" })._trainerGradient).toBe("metallic-trainer-supporter");
+    expect(enrichCardData({ name: "Path", category: "Trainer", trainerType: "Stadium" })._trainerGradient).toBe("metallic-trainer-stadium");
+    expect(enrichCardData({ name: "Scarf", category: "Trainer", trainerType: "Tool" })._trainerGradient).toBe("metallic-trainer-tool");
+  });
+
+  test("_trainerGradient falls back to default for unknown trainer type", () => {
+    const data = enrichCardData({ name: "?", category: "Trainer", trainerType: "Mystery" });
+    expect(data._trainerGradient).toBe("metallic-trainer-default");
+  });
+
+  test("_trainerGradient uses Special Energy gradient when category=Energy and has effect", () => {
+    // enrichCardData synthesizes trainerType=Special Energy in this case
+    const data = enrichCardData({ name: "Capture Energy", category: "Energy", effect: "Search for a Basic Pokemon..." });
+    expect(data.trainerType).toBe("Special Energy");
+    expect(data._trainerGradient).toBe("metallic-trainer-special-energy");
+  });
+
+  test("_trainerTypeColor matches the official type color", () => {
+    expect(enrichCardData({ name: "Path", category: "Trainer", trainerType: "Stadium" })._trainerTypeColor).toBe("#3B9B2F");
+    expect(enrichCardData({ name: "Iono", category: "Trainer", trainerType: "Supporter" })._trainerTypeColor).toBe("#D44820");
+  });
+
+  test("_trainerTypeColorLight is a brighter shade for label legibility", () => {
+    expect(enrichCardData({ name: "Path", category: "Trainer", trainerType: "Stadium" })._trainerTypeColorLight).toBe("#B8E6A0");
+    expect(enrichCardData({ name: "Iono", category: "Trainer", trainerType: "Supporter" })._trainerTypeColorLight).toBe("#FFC8A8");
+    expect(enrichCardData({ name: "Potion", category: "Trainer", trainerType: "Item" })._trainerTypeColorLight).toBe("#A8D4FF");
+    expect(enrichCardData({ name: "Scarf", category: "Trainer", trainerType: "Tool" })._trainerTypeColorLight).toBe("#D8B0F0");
+  });
+
+  test("_trainerGradient not set for Pokemon", () => {
+    const data = enrichCardData({ name: "Pikachu", category: "Pokemon" });
+    expect(data._trainerGradient).toBeUndefined();
+  });
 });
