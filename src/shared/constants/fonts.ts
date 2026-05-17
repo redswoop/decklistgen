@@ -150,6 +150,57 @@ export function resolveFont(id: string | undefined): FontDef {
   return FONTS[DEFAULT_FONT_ID];
 }
 
+/** Named preset that applies one font per role. Use from the picker UI as
+ *  a one-click "set everything at once" affordance. */
+export interface FontPreset {
+  id: string;
+  displayName: string;
+  description: string;
+  selection: Record<FontRole, string>;
+}
+
+export const FONT_PRESETS: FontPreset[] = [
+  {
+    id: "authentic-tcg",
+    displayName: "Authentic TCG",
+    description: "Match canonical Pokémon TCG font usage per role.",
+    selection: {
+      title: "gill-sans",
+      body: "gill-sans",
+      hp: "futura-heavy",
+      infobar: "frutiger",
+      pokedex: "sanvito",
+      trainerHeader: "bauhaus",
+    },
+  },
+  {
+    id: "all-inter",
+    displayName: "All Inter",
+    description: "Use Inter for every role (the original default).",
+    selection: {
+      title: "inter",
+      body: "inter",
+      hp: "inter",
+      infobar: "inter",
+      pokedex: "inter",
+      trainerHeader: "inter",
+    },
+  },
+  {
+    id: "all-gill-sans",
+    displayName: "All Gill Sans",
+    description: "Use Gill Sans for every role (single-font Pokémon look).",
+    selection: {
+      title: "gill-sans",
+      body: "gill-sans",
+      hp: "gill-sans",
+      infobar: "gill-sans",
+      pokedex: "gill-sans",
+      trainerHeader: "gill-sans",
+    },
+  },
+];
+
 /** Which weight to use for a given role.
  *  - title / hp / trainerHeader → titleWeight (heavy display)
  *  - body → caller's font-weight prop (template chooses bold vs normal)

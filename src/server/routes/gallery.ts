@@ -15,7 +15,7 @@ import {
   saveFontSelection,
   resetFontSelection,
 } from "../services/pokeproxy/font-family-store.js";
-import { FONTS } from "../../shared/constants/fonts.js";
+import { FONTS, FONT_PRESETS } from "../../shared/constants/fonts.js";
 import { FONT_SIZES } from "../../shared/constants/font-sizes.js";
 import { ENERGY_COLORS_DARK, ENERGY_COLORS_LIGHT } from "../services/pokeproxy/constants.js";
 import { getFontStyle, clearFontStyleCache } from "../services/pokeproxy/type-icons.js";
@@ -213,6 +213,7 @@ app.get("/font-family", (c) => {
       titleOnly: f.titleOnly ?? false,
       weights: f.weights.map((w) => w.weight),
     })),
+    presets: FONT_PRESETS,
   });
 });
 
@@ -533,6 +534,17 @@ function galleryHtml(): string {
   .fonts-grid { display: flex; flex-direction: column; gap: 14px; margin-bottom: 18px; }
   .fonts-row { display: grid; grid-template-columns: 280px 220px 1fr; align-items: center; gap: 12px; }
   .fonts-row label { font-size: 13px; font-weight: 600; color: #ccc; }
+  .fonts-presets {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 0 0 14px 0; margin-bottom: 14px;
+    border-bottom: 1px solid #333;
+  }
+  .fonts-preset {
+    background: #0f3460; color: #e0e0e0; border: 1px solid #444;
+    border-radius: 4px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+  }
+  .fonts-preset:hover { background: #1a4a8a; border-color: #f39c12; }
+  .fonts-presets-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-right: 4px; }
   .fonts-row select {
     background: #0f3460; color: #e0e0e0; border: 1px solid #444;
     border-radius: 4px; padding: 8px 10px; font-size: 14px; outline: none;
@@ -732,6 +744,7 @@ function galleryHtml(): string {
     <div class="fonts-section">
       <h2>Card Fonts</h2>
       <p class="fonts-help">Pick the font for each text role. Each chosen font is embedded in every rendered SVG so layout matches in any browser.</p>
+      <div class="fonts-presets" id="fonts-presets"></div>
       <div class="fonts-grid" id="fonts-grid"></div>
       <div class="fonts-actions">
         <button class="btn-save-palette" onclick="saveFontFamily()">Save Fonts</button>
@@ -1384,9 +1397,34 @@ async function refreshFontPreview() {
   }
 }
 
+function buildPresetButtons() {
+  const wrap = document.getElementById('fonts-presets');
+  wrap.innerHTML = '';
+  const presets = fontsState.presets || [];
+  if (!presets.length) return;
+  const label = document.createElement('span');
+  label.className = 'fonts-presets-label';
+  label.textContent = 'Presets:';
+  wrap.appendChild(label);
+  presets.forEach(function(p) {
+    const btn = document.createElement('button');
+    btn.className = 'fonts-preset';
+    btn.textContent = p.displayName;
+    btn.title = p.description || '';
+    btn.addEventListener('click', function() {
+      fontsState.current = Object.assign({}, p.selection);
+      FONT_ROLE_DEFS.forEach(function(role) { populateFontDropdown(role.id, role.titleOnly); });
+      const status = document.getElementById('fonts-status');
+      status.textContent = 'Loaded "' + p.displayName + '" — click Save to apply.';
+    });
+    wrap.appendChild(btn);
+  });
+}
+
 async function initFonts() {
   const resp = await fetch('/gallery/font-family');
   fontsState = await resp.json();
+  buildPresetButtons();
   buildFontRows();
   refreshFontPreview();
 }

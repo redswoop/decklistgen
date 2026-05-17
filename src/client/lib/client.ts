@@ -332,24 +332,25 @@ export const api = {
   getFontFamily: async () => {
     const resp = await fetch("/gallery/font-family", { credentials: "include" });
     return handleResponse<{
-      current: { title: string; body: string };
-      overrides: Partial<{ title: string; body: string }>;
-      defaults: { title: string; body: string };
+      current: Record<string, string>;
+      overrides: Record<string, string>;
+      defaults: Record<string, string>;
       available: Array<{ id: string; displayName: string; license: string; titleOnly: boolean; weights: number[] }>;
+      presets: Array<{ id: string; displayName: string; description: string; selection: Record<string, string> }>;
     }>(resp);
   },
-  saveFontFamily: async (selection: Partial<{ title: string; body: string }>) => {
+  saveFontFamily: async (selection: Record<string, string>) => {
     const resp = await fetch("/gallery/font-family", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(selection),
       credentials: "include",
     });
-    return handleResponse<{ status: string; current: { title: string; body: string } }>(resp);
+    return handleResponse<{ status: string; current: Record<string, string> }>(resp);
   },
   resetFontFamily: async () => {
     const resp = await fetch("/gallery/font-family", { method: "DELETE", credentials: "include" });
-    return handleResponse<{ status: string; current: { title: string; body: string } }>(resp);
+    return handleResponse<{ status: string; current: Record<string, string> }>(resp);
   },
 
   // Queue endpoints

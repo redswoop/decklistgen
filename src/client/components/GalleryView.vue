@@ -223,7 +223,9 @@ const FONT_ROLE_DEFS: { id: string; label: string; titleOnly: boolean }[] = [
   { id: "pokedex",       label: "Pokédex entries",                              titleOnly: false },
   { id: "trainerHeader", label: "Trainer header word",                          titleOnly: true },
 ];
+interface FontFamilyPreset { id: string; displayName: string; description: string; selection: Record<string, string> }
 const fontFamilyAvailable = ref<FontFamilyOption[]>([]);
+const fontFamilyPresets = ref<FontFamilyPreset[]>([]);
 const fontFamilyCurrent = ref<Record<string, string>>({});
 const fontFamilyLoading = ref(false);
 const fontFamilyStatus = ref("");
@@ -235,6 +237,7 @@ async function loadFontFamily() {
   try {
     const data = await api.getFontFamily();
     fontFamilyAvailable.value = data.available;
+    fontFamilyPresets.value = data.presets ?? [];
     fontFamilyCurrent.value = { ...data.current };
     fontFamilyStatus.value = "";
     await refreshFontFamilyPreview();
@@ -243,6 +246,11 @@ async function loadFontFamily() {
   } finally {
     fontFamilyLoading.value = false;
   }
+}
+
+function applyFontPreset(preset: FontFamilyPreset) {
+  fontFamilyCurrent.value = { ...preset.selection };
+  fontFamilyStatus.value = `Loaded "${preset.displayName}" — click Save to apply.`;
 }
 
 async function refreshFontFamilyPreview() {
@@ -423,6 +431,16 @@ body { margin: 0; padding: 0.25in; }
       <div v-if="fontFamilyLoading" class="gallery-loading">Loading fonts...</div>
       <template v-else>
         <p class="ff-help">Pick which font fills each text role on the card. The chosen font is embedded in every rendered SVG so layout matches in any browser.</p>
+        <div v-if="fontFamilyPresets.length" class="ff-presets">
+          <span class="ff-presets-label">Presets:</span>
+          <button
+            v-for="preset in fontFamilyPresets"
+            :key="preset.id"
+            class="btn ff-preset"
+            :title="preset.description"
+            @click="applyFontPreset(preset)"
+          >{{ preset.displayName }}</button>
+        </div>
         <div v-for="role in FONT_ROLE_DEFS" :key="role.id" class="ff-row">
           <label :for="`ff-${role.id}`">{{ role.label }}</label>
           <select :id="`ff-${role.id}`" v-model="fontFamilyCurrent[role.id]">
@@ -901,6 +919,17 @@ body { margin: 0; padding: 0.25in; }
 /* Font Family Panel */
 .ff-panel { max-width: 720px; }
 .ff-help { color: #aaa; font-size: 13px; margin: 0 0 18px 0; line-height: 1.5; }
+.ff-presets {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 12px 0 16px 0; margin-bottom: 12px;
+  border-bottom: 1px solid #333;
+}
+.ff-presets-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-right: 4px; }
+.btn.ff-preset {
+  background: #0f3460; color: #e0e0e0; border: 1px solid #444;
+  border-radius: 4px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+}
+.btn.ff-preset:hover { background: #1a4a8a; border-color: #f39c12; }
 .ff-row {
   display: grid;
   grid-template-columns: 260px 240px 1fr;
