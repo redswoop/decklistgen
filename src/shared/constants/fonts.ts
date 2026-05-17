@@ -59,16 +59,70 @@ export const FONTS: Record<string, FontDef> = {
   "gill-sans": {
     id: "gill-sans",
     displayName: "Gill Sans",
+    // Per pokemonaaah.net/news/2026/04/know-your-pokemon-tcg-fonts/, the
+    // authentic TCG title font is Gill Sans Condensed Bold (not Heavy).
+    // We declare it as weight 900 in @font-face so the existing title-weight
+    // rendering (font-weight="900") picks it up unmodified.
     license: "Monotype EULA (bundled per user direction)",
     weights: [
       { weight: 400, file: "Gill Sans.otf", format: "opentype" },
       { weight: 700, file: "Gill Sans Bold.otf", format: "opentype" },
-      { weight: 900, file: "Gill Sans Heavy.otf", format: "opentype" },
+      { weight: 900, file: "GillSans Condensed Bold.otf", format: "opentype" },
     ],
     titleWeight: 900,
     bodyBoldWeight: 700,
     bodyRegularWeight: 400,
     cssStack: `'Gill Sans MT', Calibri, ${SANS_FALLBACK}`,
+  },
+  "futura-heavy": {
+    id: "futura-heavy",
+    displayName: "Futura Heavy",
+    // The font Pokémon TCG uses for HP and attack damage values. Currently
+    // exposed as a global title-font choice (alternative aesthetic) until
+    // per-element role routing is added.
+    license: "Commercial — bundled per user direction",
+    weights: [{ weight: 900, file: "Futura Heavy.otf", format: "opentype" }],
+    titleWeight: 900,
+    bodyBoldWeight: 900,
+    bodyRegularWeight: 900,
+    cssStack: `Futura, Impact, ${SANS_FALLBACK}`,
+    titleOnly: true,
+  },
+  frutiger: {
+    id: "frutiger",
+    displayName: "Frutiger",
+    // Used for info-bar text (Stage, Evolves from) and card number on
+    // Diamond & Pearl onward.
+    license: "Commercial — bundled per user direction",
+    weights: [{ weight: 400, file: "Frutiger 400.ttf", format: "truetype" }],
+    titleWeight: 400,
+    bodyBoldWeight: 400,
+    bodyRegularWeight: 400,
+    cssStack: `Frutiger, ${SANS_FALLBACK}`,
+  },
+  sanvito: {
+    id: "sanvito",
+    displayName: "Sanvito Pro",
+    // Used for Pokédex entries on DPP through Steam Siege.
+    license: "Commercial — bundled per user direction",
+    weights: [{ weight: 400, file: "sanvitopro-regular.otf", format: "opentype" }],
+    titleWeight: 400,
+    bodyBoldWeight: 400,
+    bodyRegularWeight: 400,
+    cssStack: `'Sanvito Pro', Palatino, Georgia, serif`,
+  },
+  bauhaus: {
+    id: "bauhaus",
+    displayName: "Bauhaus",
+    // The font used for the "TRAINER" header word on classic trainer cards.
+    // Display-only.
+    license: "Commercial — bundled per user direction",
+    weights: [{ weight: 400, file: "Bauhaus 5.ttf", format: "truetype" }],
+    titleWeight: 400,
+    bodyBoldWeight: 400,
+    bodyRegularWeight: 400,
+    cssStack: `Bauhaus, 'Bauhaus 93', Impact, ${SANS_FALLBACK}`,
+    titleOnly: true,
   },
 };
 
