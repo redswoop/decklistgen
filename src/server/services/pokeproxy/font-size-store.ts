@@ -7,7 +7,10 @@ import { readFileSync, writeFileSync, watchFile, statSync, existsSync, unlinkSyn
 import { join } from "node:path";
 import { FONT_SIZES } from "../../../shared/constants/font-sizes.js";
 
-const STORE_PATH = join(import.meta.dir, "../../../../data/font-sizes.json");
+// Overridable via env var so tests use a temp file rather than the user's real
+// override store. See bunfig.toml's [test] preload.
+const STORE_PATH = process.env.FONT_SIZE_STORE_PATH
+  ?? join(import.meta.dir, "../../../../data/font-sizes.json");
 
 let overrides: Record<string, number> = {};
 let lastMtime = 0;

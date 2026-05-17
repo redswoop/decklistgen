@@ -10,7 +10,11 @@ import { readFileSync, writeFileSync, watchFile, statSync, existsSync, unlinkSyn
 import { join } from "node:path";
 import { FONTS, DEFAULT_FONT_ID, FONT_ROLES, resolveFont, type FontRole } from "../../../shared/constants/fonts.js";
 
-const STORE_PATH = join(import.meta.dir, "../../../../data/font-family.json");
+// Path is overridable via env var so tests can redirect to a temp file without
+// nuking the user's real selection. Tests set FONT_FAMILY_STORE_PATH via the
+// bunfig.toml preload.
+const STORE_PATH = process.env.FONT_FAMILY_STORE_PATH
+  ?? join(import.meta.dir, "../../../../data/font-family.json");
 
 export type FontSelection = Record<FontRole, string>;
 
