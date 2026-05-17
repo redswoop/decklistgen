@@ -71,6 +71,19 @@ data/              # Persistent data files (prompts.json etc.)
 
 The `/gallery/` endpoint (`src/server/routes/gallery.ts`) is the place to preview and evaluate all visual samples — rendered cards, energy glyphs, etc. When adding new visual elements or previews, add them to the gallery page, not the main client app.
 
+## Template Conventions
+
+JSON card templates in `data/templates/` should follow these conventions:
+
+- **Opacity tiers (3 levels only)**:
+  - `1.0` — primary content (names, HP, ability/attack effect text, attack damage)
+  - `0.7` — secondary (subtitles, evolves-from, decorative watermarks)
+  - `0.5` — tertiary (rule text, footer, faded labels)
+- **Left-edge anchorX**: name-cluster at `45`, evolves-from at `47` (matches fullart/vstar/trainer)
+- **HP energy radius**: `21` across all templates
+- **Content-block padding**: `paddingTop: 15`, `padding L/R: 15`, `paddingBottom: 37`, `rx: 25`, `filter: "glass-blur"` for cards with glassy content panels.
+- **Suffix logo** (the `ex` / `V` / `VSTAR` mark next to the name) lives as a sibling image inside the `name-cluster` box, bound to `_nameSuffix`.
+
 ## Client Architecture
 
 - All client UI must use Vue 3 components. No server-rendered HTML pages with embedded JS for client-facing features.

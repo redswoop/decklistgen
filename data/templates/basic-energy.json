@@ -25,7 +25,6 @@
             "filter": "title-shadow",
             "textAnchor": "start",
             "wrap": 0,
-            "marginBottom": 6,
             "vAlign": "bottom"
           },
           "bind": {
@@ -68,7 +67,6 @@
             "filter": "title-shadow",
             "textAnchor": "start",
             "wrap": 0,
-            "marginBottom": 6,
             "vAlign": "bottom",
             "hAlign": "start"
           },
@@ -83,14 +81,14 @@
       "id": "footer-block",
       "props": {
         "anchorX": 20,
-        "anchorY": 20,
+        "anchorY": 0,
         "width": 710,
         "direction": "column",
         "vAnchor": "bottom",
-        "paddingTop": 20,
-        "paddingRight": 25,
-        "paddingBottom": 30,
-        "paddingLeft": 25,
+        "paddingTop": 15,
+        "paddingRight": 15,
+        "paddingBottom": 37,
+        "paddingLeft": 15,
         "fill": "#000000",
         "fillOpacity": 0.15,
         "rx": 25,

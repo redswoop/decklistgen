@@ -358,7 +358,7 @@
                   "fontFamily": "body",
                   "fontWeight": "bold",
                   "fill": "#ffffff",
-                  "opacity": 0.9,
+                  "opacity": 1,
                   "filter": "shadow",
                   "wrap": 1,
                   "palette": "light",
@@ -514,7 +514,7 @@
             "fontFamily": "body",
             "fontWeight": "normal",
             "fill": "#ffffff",
-            "opacity": 0.6,
+            "opacity": 0.5,
             "wrap": 1,
             "marginTop": 6
           },

@@ -40,6 +40,7 @@ export class BoxElement implements LayoutNode {
       stroke: "",
       strokeWidth: 0,
       rx: 0,
+      skewX: 0,
       filter: "none",
       ...props,
     };
@@ -207,7 +208,7 @@ export class BoxElement implements LayoutNode {
 
     const contentParts: string[] = [];
     const bg = this._bgElement(bgW, bgH, absX, absY);
-    if (bg) contentParts.push(bg);
+    if (bg) contentParts.push(this._wrapSkew(bg, bgH));
 
     for (let i = 0; i < this.children.length; i++) {
       const pos = positions[i];
@@ -219,6 +220,19 @@ export class BoxElement implements LayoutNode {
     if (gradLayer) parts.push(gradLayer);
     parts.push(`<g${idAttr} transform="translate(${absX},${absY})">\n${contentParts.join("\n")}\n</g>`);
     return parts.join("\n");
+  }
+
+  /**
+   * Wrap a background rect in a skewX transform centered on the box's vertical midpoint.
+   * The skew is applied around y=h/2 so top and bottom shift in opposite directions —
+   * the rect becomes a symmetric parallelogram (the "italicized rectangle" look).
+   * Children are rendered separately and are not skewed.
+   */
+  private _wrapSkew(bg: string, h: number): string {
+    const skewX = Number(this.props.skewX ?? 0);
+    if (!skewX) return bg;
+    const half = h / 2;
+    return `<g transform="translate(0,${half}) skewX(${skewX}) translate(0,${-half})">${bg}</g>`;
   }
 
   // ── Column layout ──
@@ -319,7 +333,7 @@ export class BoxElement implements LayoutNode {
     const bgW = totalWidth;
     const bgH = padT + cursorY + padB;
     const bg = this._bgElement(bgW, bgH, absX, absY);
-    if (bg) parts.unshift(bg);
+    if (bg) parts.unshift(this._wrapSkew(bg, bgH));
 
     // Gradient layer — separate <g> rendered before content to avoid shared compositing
     const gradLayer = this._gradientLayer(bgW, bgH, absX, absY);

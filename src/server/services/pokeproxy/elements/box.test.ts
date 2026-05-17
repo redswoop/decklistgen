@@ -134,6 +134,33 @@ describe("BoxElement row mode", () => {
     expect(svg).toContain(">Name</text>");
     expect(svg).toContain(">60</text>");
   });
+
+  test("skewX wraps background rect in centered skew transform, children unskewed", () => {
+    const box = new BoxElement(
+      { direction: "row", width: 200, paddingTop: 8, paddingBottom: 8, paddingLeft: 16, paddingRight: 16, fill: "#1a1a1a", rx: 12, skewX: -10 },
+      [new TextElement({ text: "Item", fontSize: 24, fontFamily: "title", fontWeight: "bold", fill: "#fff", grow: 1, hAlign: "start" })],
+      undefined,
+      "banner",
+    );
+    const svg = box.render(0, 0);
+    // Background rect is wrapped in a skewX transform centered on the rect's vertical midpoint.
+    expect(svg).toMatch(/<g transform="translate\(0,20\) skewX\(-10\) translate\(0,-20\)"><rect[^>]*\/><\/g>/);
+    expect(svg).toContain('fill="#1a1a1a"');
+    expect(svg).toContain('rx="12"');
+    // Child text is rendered outside the skew wrapper so it stays upright.
+    const skewEnd = svg.indexOf("</g>");
+    const textStart = svg.indexOf("<text");
+    expect(textStart).toBeGreaterThan(skewEnd);
+  });
+
+  test("skewX:0 (default) emits bare rect with no skew wrapper", () => {
+    const box = new BoxElement(
+      { direction: "row", width: 200, fill: "#333", rx: 5 },
+      [new TextElement({ text: "X", fontSize: 16 })],
+    );
+    const svg = box.render(0, 0);
+    expect(svg).not.toContain("skewX");
+  });
 });
 
 describe("BoxElement column mode", () => {

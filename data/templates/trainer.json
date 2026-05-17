@@ -4,11 +4,63 @@
   "elements": [
     {
       "type": "box",
+      "id": "header-banner",
+      "props": {
+        "anchorX": 20,
+        "anchorY": 12,
+        "width": 710,
+        "direction": "row",
+        "skewX": -10,
+        "fill": "#1a1a1a",
+        "fillOpacity": 1,
+        "rx": 18,
+        "paddingLeft": 32,
+        "paddingRight": 32,
+        "paddingTop": 8,
+        "paddingBottom": 8,
+        "filter": "title-shadow"
+      },
+      "children": [
+        {
+          "type": "text",
+          "props": {
+            "text": "Supporter",
+            "fontSize": "$trainerType",
+            "fontFamily": "trainerHeader",
+            "fontWeight": "bold",
+            "fill": "#ffffff",
+            "opacity": 1,
+            "wrap": 0,
+            "grow": 1,
+            "hAlign": "start",
+            "vAlign": "middle"
+          },
+          "bind": {
+            "text": "trainerType"
+          }
+        },
+        {
+          "type": "text",
+          "props": {
+            "text": "Trainer",
+            "fontSize": 24,
+            "fontFamily": "trainerHeader",
+            "fontWeight": "bold",
+            "fill": "#ffffff",
+            "opacity": 0.7,
+            "wrap": 0,
+            "hAlign": "end",
+            "vAlign": "middle"
+          }
+        }
+      ]
+    },
+    {
+      "type": "box",
       "id": "name-cluster",
       "props": {
         "anchorX": 45,
-        "anchorY": 76,
-        "direction": "row"
+        "anchorY": 86
       },
       "children": [
         {
@@ -25,14 +77,6 @@
             "filter": "title-shadow",
             "textAnchor": "start",
             "wrap": 0,
-            "marginTop": 0,
-            "marginRight": 0,
-            "marginBottom": 6,
-            "marginLeft": 0,
-            "paddingTop": 0,
-            "paddingRight": 0,
-            "paddingBottom": 0,
-            "paddingLeft": 0,
             "vAlign": "bottom"
           },
           "bind": {
@@ -48,7 +92,7 @@
       "id": "subtitle",
       "props": {
         "anchorX": 47,
-        "anchorY": 128,
+        "anchorY": 138,
         "direction": "row"
       },
       "showIf": "_subtitle",
@@ -61,7 +105,7 @@
             "fontFamily": "body",
             "fontWeight": "bold",
             "fill": "#ffffff",
-            "opacity": 0.6,
+            "opacity": 0.7,
             "filter": "shadow",
             "wrap": 0,
             "vAlign": "middle"
@@ -75,66 +119,17 @@
     },
     {
       "type": "box",
-      "id": "trainer-type",
-      "props": {
-        "anchorX": 30,
-        "anchorY": 20,
-        "direction": "row",
-        "hAnchor": "right",
-        "fill": "#ababab",
-        "rx": 16,
-        "paddingLeft": 16,
-        "paddingRight": 16,
-        "paddingBottom": 4,
-        "paddingTop": 4,
-        "strokeWidth": 3,
-        "stroke": "#050505"
-      },
-      "children": [
-        {
-          "type": "text",
-          "props": {
-            "text": "Supporter",
-            "fontSize": "$trainerType",
-            "fontFamily": "title",
-            "fontWeight": "bold",
-            "fill": "#f04628",
-            "opacity": 1,
-            "stroke": "#ffffff",
-            "strokeWidth": 4,
-            "filter": "title-shadow",
-            "textAnchor": "start",
-            "wrap": 0,
-            "marginTop": 0,
-            "marginRight": 0,
-            "marginBottom": 6,
-            "marginLeft": 0,
-            "paddingTop": 0,
-            "paddingRight": 0,
-            "paddingBottom": 0,
-            "paddingLeft": 0,
-            "vAlign": "bottom",
-            "hAlign": "start"
-          },
-          "bind": {
-            "text": "trainerType"
-          }
-        }
-      ]
-    },
-    {
-      "type": "box",
       "id": "content-block",
       "props": {
         "anchorX": 20,
-        "anchorY": 20,
+        "anchorY": 0,
         "width": 710,
         "direction": "column",
         "vAnchor": "bottom",
-        "paddingTop": 25,
-        "paddingRight": 25,
+        "paddingTop": 15,
+        "paddingRight": 15,
         "paddingBottom": 37,
-        "paddingLeft": 25,
+        "paddingLeft": 15,
         "fill": "#000000",
         "fillOpacity": 0.15,
         "rx": 25,
@@ -174,7 +169,7 @@
             "fontFamily": "body",
             "fontWeight": "normal",
             "fill": "#ffffff",
-            "opacity": 0.6,
+            "opacity": 0.5,
             "filter": "none",
             "wrap": 1,
             "marginTop": 10
