@@ -174,8 +174,8 @@ async function savePrompt() {
 
 const cardCount = computed(() => cards.value?.length ?? 0);
 
-// --- Font sizes tab ---
-type GalleryTab = "cards" | "font-sizes";
+// --- Font sizes + Font family tabs ---
+type GalleryTab = "cards" | "font-sizes" | "font-family";
 const activeTab = ref<GalleryTab>("cards");
 
 const fontSizeDefaults = ref<Record<string, number>>({});
@@ -208,7 +208,79 @@ watch(activeTab, (tab) => {
   if (tab === "font-sizes" && Object.keys(fontSizeDefaults.value).length === 0) {
     loadFontSizes();
   }
+  if (tab === "font-family" && fontFamilyAvailable.value.length === 0) {
+    loadFontFamily();
+  }
 });
+
+// --- Font family ---
+interface FontFamilyOption { id: string; displayName: string; license: string; titleOnly: boolean; weights: number[] }
+const fontFamilyAvailable = ref<FontFamilyOption[]>([]);
+const fontFamilyCurrent = ref<{ title: string; body: string }>({ title: "inter", body: "inter" });
+const fontFamilyLoading = ref(false);
+const fontFamilyStatus = ref("");
+const fontFamilyPreviewSvg = ref<string>("");
+const fontFamilyPreviewCardId = "sv01-006"; // Spidops: title, ability, attack, energy tokens
+
+async function loadFontFamily() {
+  fontFamilyLoading.value = true;
+  try {
+    const data = await api.getFontFamily();
+    fontFamilyAvailable.value = data.available;
+    fontFamilyCurrent.value = { ...data.current };
+    fontFamilyStatus.value = "";
+    await refreshFontFamilyPreview();
+  } catch (e) {
+    fontFamilyStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
+  } finally {
+    fontFamilyLoading.value = false;
+  }
+}
+
+async function refreshFontFamilyPreview() {
+  try {
+    const resp = await fetch(`/api/pokeproxy/svg/${fontFamilyPreviewCardId}?t=${Date.now()}`, { credentials: "include" });
+    if (!resp.ok) throw new Error(`preview ${resp.status}`);
+    fontFamilyPreviewSvg.value = await resp.text();
+  } catch (e) {
+    fontFamilyPreviewSvg.value = `<span style="color:#666;font-size:12px">Preview failed: ${e instanceof Error ? e.message : String(e)}</span>`;
+  }
+}
+
+async function saveFontFamily() {
+  fontFamilyStatus.value = "Saving...";
+  try {
+    const data = await api.saveFontFamily(fontFamilyCurrent.value);
+    fontFamilyCurrent.value = data.current;
+    fontFamilyStatus.value = "Saved";
+    // Bust the SVG cache so other open views re-fetch with the new fonts.
+    svgCache.value = {};
+    await refreshFontFamilyPreview();
+  } catch (e) {
+    fontFamilyStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
+
+async function resetFontFamily() {
+  fontFamilyStatus.value = "Resetting...";
+  try {
+    const data = await api.resetFontFamily();
+    fontFamilyCurrent.value = data.current;
+    fontFamilyStatus.value = "Reset to defaults";
+    svgCache.value = {};
+    await refreshFontFamilyPreview();
+  } catch (e) {
+    fontFamilyStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
+
+const fontFamilyBodyOptions = computed(() =>
+  fontFamilyAvailable.value.filter(f => !f.titleOnly)
+);
+
+function fontFamilyLicense(id: string): string {
+  return fontFamilyAvailable.value.find(f => f.id === id)?.license ?? "";
+}
 
 function fontSizeIsOverridden(key: string): boolean {
   if (!(key in fontSizeOverrides.value)) return false;
@@ -292,6 +364,7 @@ body { margin: 0; padding: 0.25in; }
       <div class="gallery-tabs">
         <button :class="['tab', activeTab === 'cards' && 'tab-active']" @click="activeTab = 'cards'">Cards</button>
         <button :class="['tab', activeTab === 'font-sizes' && 'tab-active']" @click="activeTab = 'font-sizes'">Font Sizes</button>
+        <button :class="['tab', activeTab === 'font-family' && 'tab-active']" @click="activeTab = 'font-family'">Font Family</button>
       </div>
       <span v-if="activeTab === 'cards'" class="gallery-count">{{ cardCount }} test cards</span>
       <button v-if="activeTab === 'cards'" class="btn btn-print" @click="openPrint" :disabled="Object.keys(svgCache).length === 0" title="Open print sheet in new tab">Print</button>
@@ -330,6 +403,37 @@ body { margin: 0; padding: 0.25in; }
             </tr>
           </tbody>
         </table>
+      </template>
+    </div>
+
+    <!-- Font Family Tab -->
+    <div v-if="activeTab === 'font-family'" class="ff-panel">
+      <div v-if="fontFamilyLoading" class="gallery-loading">Loading fonts...</div>
+      <template v-else>
+        <p class="ff-help">Pick which font fills the title (heavy display weight) and body (rules/effect) roles. The chosen font is embedded in every rendered SVG so layout matches in any browser.</p>
+        <div class="ff-row">
+          <label for="ff-title">Title</label>
+          <select id="ff-title" v-model="fontFamilyCurrent.title">
+            <option v-for="f in fontFamilyAvailable" :key="f.id" :value="f.id">{{ f.displayName }}</option>
+          </select>
+          <span class="ff-license">{{ fontFamilyLicense(fontFamilyCurrent.title) }}</span>
+        </div>
+        <div class="ff-row">
+          <label for="ff-body">Body</label>
+          <select id="ff-body" v-model="fontFamilyCurrent.body">
+            <option v-for="f in fontFamilyBodyOptions" :key="f.id" :value="f.id">{{ f.displayName }}</option>
+          </select>
+          <span class="ff-license">{{ fontFamilyLicense(fontFamilyCurrent.body) }}</span>
+        </div>
+        <div class="ff-actions">
+          <button class="btn btn-save-fs" @click="saveFontFamily">Save</button>
+          <button class="btn btn-reset-fs" @click="resetFontFamily">Reset</button>
+          <span v-if="fontFamilyStatus" class="fs-status">{{ fontFamilyStatus }}</span>
+        </div>
+        <div class="ff-preview">
+          <div class="ff-preview-label">Preview ({{ fontFamilyPreviewCardId }})</div>
+          <div class="ff-preview-card" v-html="fontFamilyPreviewSvg"></div>
+        </div>
       </template>
     </div>
 
@@ -788,6 +892,33 @@ body { margin: 0; padding: 0.25in; }
 
 .btn-save-fs { background: #276749; color: #9ae6b4; }
 .btn-reset-fs { background: #9b2c2c; color: #fed7d7; }
+
+/* Font Family Panel */
+.ff-panel { max-width: 720px; }
+.ff-help { color: #aaa; font-size: 13px; margin: 0 0 18px 0; line-height: 1.5; }
+.ff-row {
+  display: grid;
+  grid-template-columns: 70px 240px 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.ff-row label { font-size: 13px; font-weight: 700; color: #ccc; }
+.ff-row select {
+  background: #0f3460; color: #e0e0e0; border: 1px solid #444;
+  border-radius: 4px; padding: 7px 9px; font-size: 13px; outline: none;
+}
+.ff-row select:focus { border-color: #f39c12; }
+.ff-license { font-size: 11px; color: #888; }
+.ff-actions { display: flex; gap: 8px; align-items: center; margin: 16px 0 20px 0; }
+.ff-preview { border-top: 1px solid #333; padding-top: 16px; }
+.ff-preview-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.ff-preview-card {
+  width: 250px; min-height: 350px; background: #0a0a0a;
+  border-radius: 6px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.ff-preview-card :deep(svg) { width: 100%; height: 100%; display: block; }
 
 .fs-table {
   width: 100%;

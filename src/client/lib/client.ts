@@ -328,6 +328,30 @@ export const api = {
     return handleResponse<{ status: string }>(resp);
   },
 
+  // Font family selection (mounted at /gallery, not /api/gallery)
+  getFontFamily: async () => {
+    const resp = await fetch("/gallery/font-family", { credentials: "include" });
+    return handleResponse<{
+      current: { title: string; body: string };
+      overrides: Partial<{ title: string; body: string }>;
+      defaults: { title: string; body: string };
+      available: Array<{ id: string; displayName: string; license: string; titleOnly: boolean; weights: number[] }>;
+    }>(resp);
+  },
+  saveFontFamily: async (selection: Partial<{ title: string; body: string }>) => {
+    const resp = await fetch("/gallery/font-family", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(selection),
+      credentials: "include",
+    });
+    return handleResponse<{ status: string; current: { title: string; body: string } }>(resp);
+  },
+  resetFontFamily: async () => {
+    const resp = await fetch("/gallery/font-family", { method: "DELETE", credentials: "include" });
+    return handleResponse<{ status: string; current: { title: string; body: string } }>(resp);
+  },
+
   // Queue endpoints
   queueList: () =>
     get<{ jobs: QueueJob[] }>("/pokeproxy/queue"),
