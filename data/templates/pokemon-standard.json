@@ -49,7 +49,7 @@
           "props": {
             "src": "energy",
             "energyType": "Fire",
-            "radius": 24,
+            "radius": 21,
             "vAlign": "middle"
           },
           "bind": {

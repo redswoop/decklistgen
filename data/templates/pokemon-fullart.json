@@ -57,8 +57,6 @@
             "fontWeight": "bold",
             "fill": "#ffffff",
             "opacity": 1,
-            "stroke": "#000000",
-            "strokeWidth": 0,
             "filter": "title-shadow",
             "textAnchor": "start",
             "wrap": 0,
@@ -67,8 +65,7 @@
           },
           "bind": {
             "text": "hp",
-            "fill": "_textFill",
-            "stroke": "_textStroke"
+            "fill": "_textFill"
           }
         },
         {
@@ -76,7 +73,7 @@
           "props": {
             "src": "energy",
             "energyType": "Darkness",
-            "radius": 25,
+            "radius": 21,
             "vAlign": "middle"
           },
           "bind": {
