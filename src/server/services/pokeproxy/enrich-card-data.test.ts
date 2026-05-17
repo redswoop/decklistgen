@@ -129,26 +129,6 @@ describe("enrichCardData", () => {
     expect(data._textFill).toBe("#222222");
   });
 
-  test("_namePlateGradient set for Pokemon ex", () => {
-    const data = enrichCardData({ name: "Charizard ex", category: "Pokemon" });
-    expect(data._namePlateGradient).toBe("metallic-name-plate-ex");
-  });
-
-  test("_namePlateGradient set for VSTAR via stage field", () => {
-    const data = enrichCardData({ name: "Rotom VSTAR", category: "Pokemon", stage: "VSTAR" });
-    expect(data._namePlateGradient).toBe("metallic-name-plate-vstar");
-  });
-
-  test("_namePlateGradient set for VMAX via stage field", () => {
-    const data = enrichCardData({ name: "Pikachu VMAX", category: "Pokemon", stage: "VMAX" });
-    expect(data._namePlateGradient).toBe("metallic-name-plate-vmax");
-  });
-
-  test("_namePlateGradient empty for basic Pokemon", () => {
-    const data = enrichCardData({ name: "Sprigatito", category: "Pokemon" });
-    expect(data._namePlateGradient).toBe("");
-  });
-
   test("_trainerGradient set per trainer type", () => {
     expect(enrichCardData({ name: "Potion", category: "Trainer", trainerType: "Item" })._trainerGradient).toBe("metallic-trainer-item");
     expect(enrichCardData({ name: "Iono", category: "Trainer", trainerType: "Supporter" })._trainerGradient).toBe("metallic-trainer-supporter");

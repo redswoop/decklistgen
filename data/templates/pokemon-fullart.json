@@ -90,44 +90,6 @@
     },
     {
       "type": "box",
-      "id": "name-plate",
-      "props": {
-        "anchorX": 30,
-        "anchorY": 30,
-        "direction": "row",
-        "paddingTop": 8,
-        "paddingBottom": 8,
-        "paddingLeft": 18,
-        "paddingRight": 18,
-        "rx": 14,
-        "fill": "#1a1a1a",
-        "fillGradient": "metallic-name-plate-ex",
-        "filter": "shadow"
-      },
-      "bind": {
-        "fillGradient": "_namePlateGradient"
-      },
-      "showIf": "_namePlateGradient",
-      "children": [
-        {
-          "type": "text",
-          "props": {
-            "text": "Absol",
-            "fontSize": "$cardName.fullart",
-            "fontFamily": "title",
-            "fontWeight": "bold",
-            "fill": "#000000",
-            "opacity": 0,
-            "wrap": 0
-          },
-          "bind": {
-            "text": "_baseName"
-          }
-        }
-      ]
-    },
-    {
-      "type": "box",
       "id": "name-cluster",
       "props": {
         "anchorX": 45,

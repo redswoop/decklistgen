@@ -37,10 +37,4 @@ describe("gradient-store", () => {
     expect(grad!.stops[1].color).toBe("#d44820");
   });
 
-  test("loads all metallic name-plate variants", () => {
-    expect(getGradient("metallic-name-plate-ex")).toBeDefined();
-    expect(getGradient("metallic-name-plate-v")).toBeDefined();
-    expect(getGradient("metallic-name-plate-vmax")).toBeDefined();
-    expect(getGradient("metallic-name-plate-vstar")).toBeDefined();
-  });
 });

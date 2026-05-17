@@ -131,10 +131,3 @@ export const TRAINER_GRADIENT_BY_TYPE: Record<string, string> = {
   "Special Energy": "metallic-trainer-special-energy",
 };
 
-/** Name-plate gradient by Pokemon suffix (ex/V/VMAX/VSTAR). Basics get no plate. */
-export const NAME_PLATE_GRADIENT_BY_SUFFIX: Record<string, string> = {
-  ex:    "metallic-name-plate-ex",
-  V:     "metallic-name-plate-v",
-  VMAX:  "metallic-name-plate-vmax",
-  VSTAR: "metallic-name-plate-vstar",
-};

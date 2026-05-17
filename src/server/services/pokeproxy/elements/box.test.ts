@@ -754,20 +754,17 @@ describe("deep nesting", () => {
 describe("default elements", () => {
   test("createDefaultElements returns image + boxes from template", () => {
     const elements = createDefaultElements();
-    expect(elements.length).toBe(6);
+    expect(elements.length).toBe(5);
     expect(elements[0].type).toBe("image");
     expect(elements[0].id).toBe("big-logo");
     expect(elements[1].type).toBe("box");
     expect(elements[1].id).toBe("hp-cluster");
-    // name-plate renders BEFORE name-cluster so it appears z-below
     expect(elements[2].type).toBe("box");
-    expect(elements[2].id).toBe("name-plate");
+    expect(elements[2].id).toBe("name-cluster");
     expect(elements[3].type).toBe("box");
-    expect(elements[3].id).toBe("name-cluster");
+    expect(elements[3].id).toBe("evolves-from");
     expect(elements[4].type).toBe("box");
-    expect(elements[4].id).toBe("evolves-from");
-    expect(elements[5].type).toBe("box");
-    expect(elements[5].id).toBe("content-block");
+    expect(elements[4].id).toBe("content-block");
   });
 
   test("HP cluster renders all 3 children", () => {

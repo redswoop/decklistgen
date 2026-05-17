@@ -28,43 +28,6 @@
     ]
   },
 
-  "metallic-name-plate-ex": {
-    "x1": 0, "y1": 0, "x2": 0, "y2": 1,
-    "stops": [
-      { "offset": "0%",   "color": "#1a1a1a", "opacity": 0.65 },
-      { "offset": "45%",  "color": "#2a2a2a", "opacity": 0.55 },
-      { "offset": "55%",  "color": "#404040", "opacity": 0.55 },
-      { "offset": "100%", "color": "#0a0a0a", "opacity": 0.7 }
-    ]
-  },
-
-  "metallic-name-plate-v": {
-    "x1": 0, "y1": 0, "x2": 0, "y2": 1,
-    "stops": [
-      { "offset": "0%",   "color": "#2b1d3a", "opacity": 0.7 },
-      { "offset": "50%",  "color": "#4a3060", "opacity": 0.55 },
-      { "offset": "100%", "color": "#180d24", "opacity": 0.75 }
-    ]
-  },
-
-  "metallic-name-plate-vmax": {
-    "x1": 0, "y1": 0, "x2": 0, "y2": 1,
-    "stops": [
-      { "offset": "0%",   "color": "#3a1010", "opacity": 0.7 },
-      { "offset": "50%",  "color": "#601820", "opacity": 0.55 },
-      { "offset": "100%", "color": "#1a0606", "opacity": 0.75 }
-    ]
-  },
-
-  "metallic-name-plate-vstar": {
-    "x1": 0, "y1": 0, "x2": 0, "y2": 1,
-    "stops": [
-      { "offset": "0%",   "color": "#5a4010", "opacity": 0.7 },
-      { "offset": "50%",  "color": "#8a6018", "opacity": 0.55 },
-      { "offset": "100%", "color": "#241a04", "opacity": 0.75 }
-    ]
-  },
-
   "metallic-trainer-item": {
     "x1": 0, "y1": 0, "x2": 1, "y2": 1,
     "stops": [

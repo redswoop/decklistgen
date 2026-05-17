@@ -9,7 +9,7 @@ import { getPokemonSuffix } from "./text.js";
 import {
   POKEMON_RULES, TRAINER_RULES, TYPE_MATCHUPS, TYPE_COLORS,
   TRAINER_TYPE_COLORS, TRAINER_TYPE_COLORS_LIGHT,
-  TRAINER_GRADIENT_BY_TYPE, NAME_PLATE_GRADIENT_BY_SUFFIX,
+  TRAINER_GRADIENT_BY_TYPE,
 } from "./constants.js";
 
 /** Enrich raw card data with computed fields for template rendering. Mutates and returns `data`. */
@@ -93,9 +93,6 @@ export function enrichCardData(data: Record<string, unknown>): Record<string, un
     data._hpTextFill = "#ffffff";
     data._hpTextStroke = "#000000";
   }
-
-  // Name-plate gradient for ex/V/VMAX/VSTAR (basics get no plate)
-  data._namePlateGradient = NAME_PLATE_GRADIENT_BY_SUFFIX[suffix] ?? "";
 
   // Trainer header gradient + type-label color (Trainer / Special Energy only)
   if (category === "Trainer" || category === "Energy") {
