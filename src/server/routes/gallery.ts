@@ -119,6 +119,7 @@ app.get("/cards", async (c) => {
       hp: (card?.hp as number) ?? null,
       rarity: (card?.rarity as string) ?? null,
       energyTypes: (card?.types as string[]) ?? [],
+      effect: (card?.effect as string) ?? null,
       isFullArt: card ? isFullArt(card as TcgdexCard) : false,
       hasClean,
       hasComposite,

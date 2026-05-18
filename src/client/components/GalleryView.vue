@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { api } from "../lib/client.js";
+import GallerySvgThumb from "./GallerySvgThumb.vue";
+import type { TemplateName } from "../../shared/utils/suggest-template.js";
+import { generateCleanImage, getGenerationVersion, isGenerating } from "../composables/usePokeproxy.js";
+import { useToast } from "../composables/useToast.js";
+import { getSvg, peekSvg } from "../composables/useGallerySvgCache.js";
 
 interface GalleryCard {
   label: string;
@@ -12,6 +17,9 @@ interface GalleryCard {
   hp: number | null;
   rarity: string | null;
   energyTypes: string[];
+  /** Raw card effect text — required by suggestTemplate to distinguish
+   *  basic vs special energies. */
+  effect: string | null;
   isFullArt: boolean;
   hasClean: boolean;
   hasComposite: boolean;
@@ -22,6 +30,8 @@ interface GalleryCard {
   promptText: string | null;
   promptSkip: boolean;
 }
+
+const toast = useToast();
 
 const { data: cards, isLoading, refetch } = useQuery<GalleryCard[]>({
   queryKey: ["gallery-cards"],
@@ -36,24 +46,13 @@ const { data: cards, isLoading, refetch } = useQuery<GalleryCard[]>({
 const svgCacheBust = ref(Date.now());
 const imageCacheBust = ref(Date.now());
 
-// SVG inline content cache: cardId → html string
-const svgCache = ref<Record<string, string>>({});
-
-async function loadSvg(cardId: string) {
-  try {
-    const resp = await fetch(`/api/pokeproxy/svg/${cardId}?t=${svgCacheBust.value}`);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    svgCache.value[cardId] = await resp.text();
-  } catch (e) {
-    svgCache.value[cardId] = `<span style="color:#666;font-size:12px">Failed: ${e instanceof Error ? e.message : String(e)}</span>`;
-  }
-}
-
-// Load SVGs when card list arrives (immediate: handles cached data on remount)
+// Warm the SVG cache for every gallery card so the Print button is usable as
+// soon as the user opens the gallery. The thumbnails themselves are rendered
+// by GallerySvgThumb, which has its own watch on (cardId, cacheBust).
 watch(cards, (list) => {
   if (!list) return;
   for (const card of list) {
-    if (!svgCache.value[card.cardId]) loadSvg(card.cardId);
+    void getSvg(card.cardId, svgCacheBust.value);
   }
 }, { immediate: true });
 
@@ -75,13 +74,7 @@ function cleanUrl(cardId: string) {
 
 async function loadLightboxSvg(cardId: string) {
   lightboxSvg.value = "";
-  try {
-    const resp = await fetch(`/api/pokeproxy/svg/${cardId}?t=${svgCacheBust.value}`);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    lightboxSvg.value = await resp.text();
-  } catch (e) {
-    lightboxSvg.value = `<span style="color:#888">Failed: ${e instanceof Error ? e.message : String(e)}</span>`;
-  }
+  lightboxSvg.value = await getSvg(cardId, svgCacheBust.value);
 }
 
 function openLightbox(card: GalleryCard) {
@@ -101,6 +94,20 @@ function closeLightbox() {
 function metaLine(card: GalleryCard): string {
   return [card.category, card.stage, card.hp ? `HP ${card.hp}` : null,
     card.energyTypes?.join(", ") || null, card.rarity].filter(Boolean).join(" | ");
+}
+
+type ThumbBadge = { text: string; variant: "standard" | "fullart" | "clean" | "expanded" };
+function badgesFor(card: GalleryCard): ThumbBadge[] {
+  const out: ThumbBadge[] = [];
+  if (card.hasClean) {
+    out.push(card.isFullArt
+      ? { text: "CLEANED", variant: "clean" }
+      : { text: "EXPANDED", variant: "expanded" });
+  }
+  out.push(card.isFullArt
+    ? { text: "FULLART", variant: "fullart" }
+    : { text: "STANDARD", variant: "standard" });
+  return out;
 }
 
 async function pollJob(jobId: string): Promise<void> {
@@ -136,7 +143,6 @@ async function doClean(force: boolean) {
     card.hasComposite = true;
     // Reload SVGs
     loadLightboxSvg(card.cardId);
-    loadSvg(card.cardId);
     await refetch();
     lightboxStatus.value = "Done";
   } catch (e) {
@@ -156,7 +162,6 @@ async function doRegen() {
     // Regen only changes the SVG; the cleaned PNG on disk is untouched.
     svgCacheBust.value = Date.now();
     loadLightboxSvg(cardId);
-    loadSvg(cardId);
     lightboxStatus.value = "SVG updated";
   } catch (e) {
     lightboxStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
@@ -191,8 +196,6 @@ const fontSizeOverrides = ref<Record<string, number>>({});
 const fontSizeEdited = ref<Record<string, string>>({});
 const fontSizeLoading = ref(false);
 const fontSizeStatus = ref("");
-const fontSizePreviewSvg = ref<string>("");
-const fontSizePreviewCardId = "sv01-006"; // Spidops: title, ability, attack, energy tokens
 
 // Tokens not currently used by any template — render UI-side filter
 // (kept here rather than in the constants file so the resolver fallback
@@ -212,7 +215,6 @@ async function loadFontSizes() {
     }
     fontSizeEdited.value = edited;
     fontSizeStatus.value = "";
-    await refreshFontSizePreview();
   } catch (e) {
     fontSizeStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
   } finally {
@@ -220,28 +222,73 @@ async function loadFontSizes() {
   }
 }
 
-async function refreshFontSizePreview() {
-  try {
-    const resp = await fetch(`/api/pokeproxy/svg/${fontSizePreviewCardId}?t=${Date.now()}`, { credentials: "include" });
-    if (!resp.ok) throw new Error(`preview ${resp.status}`);
-    fontSizePreviewSvg.value = await resp.text();
-  } catch (e) {
-    fontSizePreviewSvg.value = `<span style="color:#666;font-size:12px">Preview failed: ${e instanceof Error ? e.message : String(e)}</span>`;
+// Template picker / preview-grid state for the Font Sizes tab.
+// "all" means "show one representative card per template";
+// a TemplateName means "show every TEST_CARDS card that resolves to this template".
+type TemplateFilter = "all" | TemplateName;
+const templateFilter = ref<TemplateFilter>("all");
+
+const TEMPLATE_NAMES: TemplateName[] = [
+  "basic-energy",
+  "pokemon-vstar",
+  "pokemon-fullart",
+  "trainer",
+  "pokemon-standard",
+];
+
+/** Mirror of suggestTemplate() that uses the gallery card's pre-computed
+ *  `isFullArt` instead of re-running the detection from raw fields. The
+ *  /gallery/cards payload doesn't ship `rarity` + `name` in a shape
+ *  isFullArt() can read, so calling suggestTemplate() directly would route
+ *  every fullart card into pokemon-standard. */
+function templateForGalleryCard(c: GalleryCard): TemplateName {
+  if (c.category === "Energy" && !c.effect) return "basic-energy";
+  if (c.category === "Energy" && c.effect) return "trainer";
+  if (c.category === "Trainer") return "trainer";
+  if (c.stage === "VSTAR") return "pokemon-vstar";
+  if (c.isFullArt) return "pokemon-fullart";
+  return "pokemon-standard";
+}
+
+const cardsByTemplate = computed<Record<TemplateName, GalleryCard[]>>(() => {
+  const out: Record<TemplateName, GalleryCard[]> = {
+    "basic-energy": [],
+    "pokemon-vstar": [],
+    "pokemon-fullart": [],
+    "trainer": [],
+    "pokemon-standard": [],
+  };
+  for (const c of cards.value ?? []) {
+    out[templateForGalleryCard(c)].push(c);
   }
+  return out;
+});
+
+const previewGridCards = computed<GalleryCard[]>(() => {
+  if (templateFilter.value === "all") {
+    return TEMPLATE_NAMES
+      .map((t) => cardsByTemplate.value[t][0])
+      .filter((c): c is GalleryCard => !!c);
+  }
+  return cardsByTemplate.value[templateFilter.value] ?? [];
+});
+
+function templateCount(t: TemplateName): number {
+  return cardsByTemplate.value[t]?.length ?? 0;
 }
 
 const visibleFontSizeKeys = computed(() =>
   Object.keys(fontSizeDefaults.value).filter(k => !FONT_SIZE_HIDDEN_KEYS.has(k))
 );
 
-/** Bust the SVG cache and re-fetch so font-size / font-family changes show up
- *  without a full page reload. Does NOT touch imageCacheBust — the cleaned-art
- *  PNGs on disk are unchanged, so we don't force the browser to re-download them. */
+/** Bump the SVG cache-bust so all `<GallerySvgThumb>` instances re-fetch.
+ *  Does NOT touch imageCacheBust — the cleaned-art PNGs on disk are unchanged,
+ *  so we don't force the browser to re-download them. */
 function refreshAllRenderedSvgs() {
   svgCacheBust.value = Date.now();
-  svgCache.value = {};
+  // Warm the cache so the Print button stays ready after a font-size save.
   if (cards.value) {
-    for (const card of cards.value) loadSvg(card.cardId);
+    for (const card of cards.value) void getSvg(card.cardId, svgCacheBust.value);
   }
   if (activeCard.value) loadLightboxSvg(activeCard.value.cardId);
 }
@@ -372,7 +419,6 @@ async function saveFontSizeOverrides() {
     fontSizeOverrides.value = overrides;
     fontSizeStatus.value = "Saved";
     refreshAllRenderedSvgs();
-    await refreshFontSizePreview();
   } catch (e) {
     fontSizeStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
   }
@@ -390,7 +436,6 @@ async function resetFontSizeOverrides() {
     fontSizeEdited.value = edited;
     fontSizeStatus.value = "Reset to defaults";
     refreshAllRenderedSvgs();
-    await refreshFontSizePreview();
   } catch (e) {
     fontSizeStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
   }
@@ -400,8 +445,83 @@ function editInEditor(cardId: string) {
   window.location.hash = `#/editor/${cardId}`;
 }
 
-function openPrint() {
-  const svgs = Object.values(svgCache.value).filter(s => s.startsWith("<svg"));
+// --- Bulk-generate ---
+const bulkBusy = ref(false);
+const showForceConfirm = ref(false);
+
+function missingCount(): number {
+  return (cards.value ?? []).filter((c) => !c.hasClean && !c.hasComposite).length;
+}
+
+async function generateMissing() {
+  if (bulkBusy.value || !cards.value) return;
+  bulkBusy.value = true;
+  try {
+    const targets = cards.value.filter((c) => !c.hasClean && !c.hasComposite);
+    if (targets.length === 0) {
+      toast.info("Nothing to do — every card already has artwork");
+      return;
+    }
+    let queued = 0;
+    for (const c of targets) {
+      try {
+        await generateCleanImage(c.cardId, false);
+        queued++;
+      } catch { /* per-card errors surfaced via toast inside generateCleanImage */ }
+    }
+    toast.info(`${queued} card${queued !== 1 ? "s" : ""} queued for generation`);
+  } finally {
+    bulkBusy.value = false;
+  }
+}
+
+async function forceRegenerateAll() {
+  if (bulkBusy.value || !cards.value) return;
+  showForceConfirm.value = false;
+  bulkBusy.value = true;
+  try {
+    let queued = 0;
+    for (const c of cards.value) {
+      try {
+        await generateCleanImage(c.cardId, true);
+        queued++;
+      } catch { /* ignored — toast already shown */ }
+    }
+    toast.info(`${queued} card${queued !== 1 ? "s" : ""} queued for force-regeneration`);
+  } finally {
+    bulkBusy.value = false;
+  }
+}
+
+// Watch the global generation-version map for any gallery card. When a
+// ComfyUI job completes, useQueue → onGenerationCompleted bumps the per-card
+// counter; we sum across our cards and refresh tiles when the sum increases.
+const galleryGenerationTick = computed(() => {
+  if (!cards.value) return 0;
+  let sum = 0;
+  for (const c of cards.value) sum += getGenerationVersion(c.cardId);
+  return sum;
+});
+
+watch(galleryGenerationTick, (next, prev) => {
+  if (next > prev) {
+    svgCacheBust.value = Date.now();
+    imageCacheBust.value = Date.now();
+    refetch();
+  }
+});
+
+async function openPrint() {
+  if (!cards.value || cards.value.length === 0) return;
+  const settled = await Promise.all(
+    cards.value.map(async (c) => {
+      // Resolve from cache when present (no extra fetch) — fall through to
+      // getSvg for any straggler cards whose initial warm hasn't returned.
+      const p = peekSvg(c.cardId, svgCacheBust.value) ?? getSvg(c.cardId, svgCacheBust.value);
+      return await p;
+    }),
+  );
+  const svgs = settled.filter((s) => s.startsWith("<svg"));
   if (svgs.length === 0) return;
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Gallery Print</title>
@@ -431,8 +551,27 @@ body { margin: 0; padding: 0.25in; }
         <button :class="['tab', activeTab === 'font-sizes' && 'tab-active']" @click="activeTab = 'font-sizes'">Font Sizes</button>
         <button :class="['tab', activeTab === 'font-family' && 'tab-active']" @click="activeTab = 'font-family'">Font Family</button>
       </div>
-      <span v-if="activeTab === 'cards'" class="gallery-count">{{ cardCount }} test cards</span>
-      <button v-if="activeTab === 'cards'" class="btn btn-print" @click="openPrint" :disabled="Object.keys(svgCache).length === 0" title="Open print sheet in new tab">Print</button>
+      <span class="gallery-count">{{ cardCount }} test cards</span>
+      <div class="gallery-bulk">
+        <button
+          class="btn btn-gen-missing"
+          :disabled="activeTab !== 'cards' || bulkBusy || missingCount() === 0"
+          :title="activeTab !== 'cards' ? 'Switch to the Cards tab to bulk-generate' : missingCount() === 0 ? 'Every test card already has cleaned artwork' : `Queue ComfyUI clean for ${missingCount()} card(s) lacking artwork`"
+          @click="generateMissing"
+        >Generate Missing ({{ missingCount() }})</button>
+        <button
+          class="btn btn-force-all"
+          :disabled="activeTab !== 'cards' || bulkBusy || cardCount === 0"
+          :title="activeTab !== 'cards' ? 'Switch to the Cards tab to bulk-generate' : 'Force-clean every gallery card — slow & GPU-heavy'"
+          @click="showForceConfirm = true"
+        >Force Regenerate All</button>
+        <button
+          class="btn btn-print"
+          :disabled="activeTab !== 'cards' || cardCount === 0"
+          :title="activeTab !== 'cards' ? 'Switch to the Cards tab to print' : 'Open print sheet in new tab'"
+          @click="openPrint"
+        >Print</button>
+      </div>
     </div>
 
     <!-- Font Sizes Tab -->
@@ -472,9 +611,40 @@ body { margin: 0; padding: 0.25in; }
             </table>
           </div>
           <div class="fs-preview">
-            <div class="ff-preview-label">Preview ({{ fontSizePreviewCardId }})</div>
-            <div class="ff-preview-card" v-html="fontSizePreviewSvg || '<span style=\'color:#666;font-size:12px\'>Loading…</span>'" />
-            <div class="fs-preview-hint">Updates after Save / Reset</div>
+            <div class="fs-preview-head">
+              <div class="ff-preview-label">Preview</div>
+              <div class="fs-preview-hint">{{ templateFilter === "all"
+                ? "One card per template — pick a chip below to focus on a single template."
+                : `Every TEST_CARDS entry in ${templateFilter} (${previewGridCards.length})` }}</div>
+            </div>
+            <div class="fs-templates">
+              <button
+                :class="['fs-chip', templateFilter === 'all' && 'fs-chip-active']"
+                @click="templateFilter = 'all'"
+              >All Templates</button>
+              <button
+                v-for="t in TEMPLATE_NAMES"
+                :key="t"
+                :class="['fs-chip', templateFilter === t && 'fs-chip-active']"
+                :disabled="templateCount(t) === 0"
+                :title="templateCount(t) === 0 ? `No TEST_CARDS resolve to ${t}` : `${templateCount(t)} card(s) in ${t}`"
+                @click="templateFilter = t"
+              >{{ t }} <span class="fs-chip-count">{{ templateCount(t) }}</span></button>
+            </div>
+            <div class="fs-preview-grid">
+              <GallerySvgThumb
+                v-for="c in previewGridCards"
+                :key="c.cardId"
+                :card-id="c.cardId"
+                :cache-bust="svgCacheBust"
+                :width="180"
+                :label="c.label"
+                :name="c.name"
+              />
+              <div v-if="previewGridCards.length === 0" class="fs-preview-empty">
+                No TEST_CARDS cards resolve to this template yet.
+              </div>
+            </div>
           </div>
         </div>
       </template>
@@ -518,26 +688,19 @@ body { margin: 0; padding: 0.25in; }
     <div v-if="activeTab === 'cards' && isLoading" class="gallery-loading">Loading cards...</div>
 
     <div v-else-if="activeTab === 'cards'" class="gallery-grid">
-      <div
+      <GallerySvgThumb
         v-for="card in cards"
         :key="card.cardId"
-        class="gallery-card"
+        :card-id="card.cardId"
+        :cache-bust="svgCacheBust"
+        :width="230"
+        :label="card.label"
+        :name="card.name"
+        :meta-line="metaLine(card)"
+        :badges="badgesFor(card)"
+        :loading="isGenerating(card.cardId)"
         @click="openLightbox(card)"
-      >
-        <div class="card-label">{{ card.label }}</div>
-        <div class="card-name">{{ card.name }}</div>
-        <div class="card-id">{{ card.cardId }}</div>
-        <div class="card-badges">
-          <span v-if="card.hasClean" :class="['badge', card.isFullArt ? 'badge-clean' : 'badge-expanded']">
-            {{ card.isFullArt ? 'CLEANED' : 'EXPANDED' }}
-          </span>
-          <span :class="['badge', card.isFullArt ? 'badge-fullart' : 'badge-standard']">
-            {{ card.isFullArt ? 'FULLART' : 'STANDARD' }}
-          </span>
-        </div>
-        <div class="card-meta">{{ metaLine(card) }}</div>
-        <div class="card-thumb" v-html="svgCache[card.cardId] || '<span class=placeholder>Loading SVG...</span>'" />
-      </div>
+      />
     </div>
 
     <!-- Lightbox -->
@@ -610,6 +773,23 @@ body { margin: 0; padding: 0.25in; }
         </div>
       </div>
     </Teleport>
+
+    <!-- Force-regenerate-all confirmation -->
+    <Teleport to="body">
+      <div v-if="showForceConfirm" class="confirm-overlay" @click.self="showForceConfirm = false">
+        <div class="confirm-box">
+          <div class="confirm-title">Force regenerate every gallery card?</div>
+          <div class="confirm-body">
+            This re-runs ComfyUI on all {{ cardCount }} test cards — slow and GPU-heavy.
+            The existing cleaned artwork will be replaced with a fresh seed.
+          </div>
+          <div class="confirm-actions">
+            <button class="btn btn-cancel" @click="showForceConfirm = false">Cancel</button>
+            <button class="btn btn-force-confirm" @click="forceRegenerateAll">Regenerate all</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -653,88 +833,14 @@ body { margin: 0; padding: 0.25in; }
   justify-content: flex-start;
 }
 
-.gallery-card {
-  background: #16213e;
-  border-radius: 10px;
-  padding: 12px;
-  width: 260px;
+.gallery-bulk {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
+  gap: 8px;
+  margin-left: auto;
 }
 
-.gallery-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-}
-
-.card-label {
-  font-weight: 700;
-  font-size: 13px;
-  color: #f39c12;
-  margin-bottom: 2px;
-}
-
-.card-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.card-id {
-  font-size: 11px;
-  color: #666;
-  margin-bottom: 4px;
-}
-
-.card-badges {
-  display: flex;
-  gap: 5px;
-  margin-bottom: 4px;
-}
-
-.badge {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-
-.badge-standard { background: #2d3748; color: #a0aec0; }
-.badge-fullart { background: #553c9a; color: #d6bcfa; }
-.badge-clean { background: #276749; color: #9ae6b4; }
-.badge-expanded { background: #2b6cb0; color: #bee3f8; }
-
-.card-meta {
-  font-size: 11px;
-  color: #888;
-  text-align: center;
-  margin-bottom: 6px;
-  line-height: 1.4;
-}
-
-.card-thumb {
-  width: 230px;
-  height: 322px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.card-thumb :deep(svg) {
-  width: 100%;
-  height: 100%;
-}
-
-.card-thumb :deep(.placeholder) {
-  color: #555;
-  font-size: 13px;
-}
+.btn-gen-missing { background: #276749; color: #9ae6b4; }
+.btn-force-all   { background: #9b2c2c; color: #fed7d7; }
 
 /* Lightbox */
 .lb-overlay {
@@ -952,36 +1058,148 @@ body { margin: 0; padding: 0.25in; }
 
 /* Font Sizes Panel */
 .fs-panel {
-  max-width: 1000px;
+  max-width: 1600px;
 }
 
 .fs-layout {
   display: grid;
-  grid-template-columns: minmax(420px, 1fr) auto;
+  /* Token table is fixed-narrow; preview takes the rest of the row. */
+  grid-template-columns: 420px minmax(0, 1fr);
   gap: 32px;
   align-items: flex-start;
 }
 
-.fs-controls { min-width: 0; }
-
-.fs-preview {
+.fs-controls {
+  min-width: 0;
   position: sticky;
   top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 
-.fs-preview .ff-preview-card {
-  width: 260px;
-  min-height: 364px;
+.fs-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.fs-preview-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .fs-preview-hint {
   font-size: 11px;
-  color: #666;
-  text-align: center;
+  color: #888;
+  text-align: right;
+  line-height: 1.5;
 }
+
+.fs-templates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 0 12px 0;
+  border-bottom: 1px solid #2a2a40;
+}
+
+.fs-chip {
+  background: #1a1a2e;
+  color: #aaa;
+  border: 1px solid #333;
+  border-radius: 14px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fs-chip:hover:not(:disabled) {
+  color: #fff;
+  border-color: #555;
+}
+
+.fs-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fs-chip-active {
+  background: #2d2a14;
+  color: #f39c12;
+  border-color: #f39c12;
+}
+
+.fs-chip-count {
+  font-size: 10px;
+  color: #666;
+  font-family: monospace;
+}
+
+.fs-chip-active .fs-chip-count {
+  color: #f39c12;
+}
+
+.fs-preview-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-content: flex-start;
+}
+
+.fs-preview-empty {
+  color: #555;
+  font-size: 13px;
+  padding: 30px 0;
+}
+
+/* Force-confirm modal */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 9500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.confirm-box {
+  background: #16213e;
+  border-radius: 10px;
+  padding: 20px 24px;
+  max-width: 460px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+.confirm-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.confirm-body {
+  font-size: 13px;
+  color: #bbb;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-cancel { background: #2d3748; color: #a0aec0; }
+.btn-force-confirm { background: #9b2c2c; color: #fed7d7; }
 
 .fs-actions {
   display: flex;

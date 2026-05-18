@@ -297,6 +297,7 @@ export const api = {
       hp: number | null;
       rarity: string | null;
       energyTypes: string[];
+      effect: string | null;
       isFullArt: boolean;
       hasClean: boolean;
       hasComposite: boolean;
