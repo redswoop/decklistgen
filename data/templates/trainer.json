@@ -156,6 +156,246 @@
       },
       "children": [
         {
+          "type": "repeater",
+          "props": {
+            "direction": "column"
+          },
+          "bind": {
+            "items": "abilities"
+          },
+          "showIf": "abilities",
+          "itemTemplate": {
+            "type": "box",
+            "props": {
+              "direction": "column",
+              "marginBottom": 6
+            },
+            "children": [
+              {
+                "type": "box",
+                "props": {
+                  "direction": "row"
+                },
+                "children": [
+                  {
+                    "type": "box",
+                    "props": {
+                      "direction": "row",
+                      "paddingTop": 3,
+                      "paddingBottom": 3,
+                      "paddingLeft": 14,
+                      "paddingRight": 14,
+                      "rx": 14,
+                      "fill": "#d4a017",
+                      "fillGradient": "ability-pill-gold-red",
+                      "filter": "title-shadow",
+                      "marginRight": 8,
+                      "vAlign": "middle"
+                    },
+                    "children": [
+                      {
+                        "type": "text",
+                        "props": {
+                          "text": "Ability",
+                          "fontSize": "$abilityPill.fullart",
+                          "fontFamily": "title",
+                          "fontWeight": "bold",
+                          "fontStyle": "italic",
+                          "fill": "#ffffff",
+                          "stroke": "#000000",
+                          "strokeWidth": 1.5,
+                          "filter": "shadow",
+                          "vAlign": "middle",
+                          "wrap": 0
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "text",
+                    "props": {
+                      "text": "Ability Name",
+                      "fontSize": "$abilityName.fullart",
+                      "fontFamily": "title",
+                      "fontWeight": "bold",
+                      "fill": "#ffffff",
+                      "stroke": "#000000",
+                      "strokeWidth": 2.5,
+                      "filter": "shadow",
+                      "textAnchor": "start",
+                      "wrap": 0,
+                      "grow": 1,
+                      "hAlign": "start",
+                      "vAlign": "middle"
+                    },
+                    "bind": {
+                      "text": "name",
+                      "fill": "_textFill",
+                      "stroke": "_textStroke",
+                      "strokeWidth": "_textStrokeWidth"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "props": {
+                  "text": "Ability effect text.",
+                  "fontSize": "$abilityEffect.fullart",
+                  "fontFamily": "body",
+                  "fontWeight": "bold",
+                  "fill": "#ffffff",
+                  "stroke": "#000000",
+                  "strokeWidth": 2.5,
+                  "opacity": 1,
+                  "filter": "shadow",
+                  "wrap": 1,
+                  "palette": "light",
+                  "marginTop": 4
+                },
+                "bind": {
+                  "text": "effect",
+                  "fill": "_textFill",
+                  "stroke": "_textStroke",
+                  "strokeWidth": "_textStrokeWidth",
+                  "palette": "_palette"
+                },
+                "showIf": "effect"
+              }
+            ]
+          }
+        },
+        {
+          "type": "repeater",
+          "props": {
+            "direction": "column"
+          },
+          "bind": {
+            "items": "attacks"
+          },
+          "showIf": "attacks",
+          "itemTemplate": {
+            "type": "box",
+            "props": {
+              "direction": "column",
+              "marginTop": 4
+            },
+            "children": [
+              {
+                "type": "box",
+                "props": {
+                  "direction": "row",
+                  "marginBottom": 5,
+                  "fillGradient": "ribbon"
+                },
+                "bind": {
+                  "fill": "_ribbonColor"
+                },
+                "children": [
+                  {
+                    "type": "repeater",
+                    "props": {
+                      "direction": "row"
+                    },
+                    "bind": {
+                      "items": "cost"
+                    },
+                    "itemTemplate": {
+                      "type": "image",
+                      "props": {
+                        "src": "energy",
+                        "energyType": "Colorless",
+                        "radius": 19,
+                        "grow": 0,
+                        "hAlign": "start",
+                        "marginRight": 4,
+                        "vAlign": "middle"
+                      },
+                      "bind": {
+                        "energyType": "$item"
+                      }
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "props": {
+                      "text": "Attack Name",
+                      "fontSize": "$attackName",
+                      "fontFamily": "title",
+                      "fontWeight": "bold",
+                      "fill": "#ffffff",
+                      "stroke": "#000000",
+                      "strokeWidth": 2.5,
+                      "filter": "shadow",
+                      "textAnchor": "start",
+                      "wrap": 0,
+                      "grow": 1,
+                      "hAlign": "start",
+                      "vAlign": "middle",
+                      "marginBottom": 5
+                    },
+                    "bind": {
+                      "text": "name",
+                      "fill": "_textFill",
+                      "stroke": "_textStroke",
+                      "strokeWidth": "_textStrokeWidth"
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "props": {
+                      "text": "0",
+                      "fontSize": "$damage",
+                      "fontFamily": "hp",
+                      "fontWeight": "bold",
+                      "fill": "#ffffff",
+                      "stroke": "#000000",
+                      "strokeWidth": 2,
+                      "filter": "shadow",
+                      "textAnchor": "start",
+                      "wrap": 0,
+                      "grow": 0,
+                      "hAlign": "end",
+                      "vAlign": "middle"
+                    },
+                    "bind": {
+                      "text": "damage",
+                      "fill": "_textFill",
+                      "stroke": "_textStroke"
+                    },
+                    "showIf": "damage"
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "props": {
+                  "text": "Effect text.",
+                  "fontSize": "$attackEffect.fullart",
+                  "fontFamily": "body",
+                  "fontWeight": "bold",
+                  "fill": "#ffffff",
+                  "stroke": "#000000",
+                  "strokeWidth": 2.5,
+                  "opacity": 1,
+                  "filter": "shadow",
+                  "wrap": 1,
+                  "palette": "light",
+                  "marginTop": 4
+                },
+                "bind": {
+                  "text": "effect",
+                  "fill": "_textFill",
+                  "stroke": "_textStroke",
+                  "strokeWidth": "_textStrokeWidth",
+                  "palette": "_palette"
+                },
+                "showIf": "effect"
+              }
+            ]
+          }
+        },
+        {
           "type": "text",
           "props": {
             "text": "Each player shuffles their hand and puts it on the bottom of their deck. If either player put any cards on the bottom of their deck in this way, each player draws a card for each of their remaining Prize cards.",
@@ -163,15 +403,41 @@
             "fontFamily": "body",
             "fontWeight": "bold",
             "fill": "#ffffff",
+            "stroke": "#000000",
+            "strokeWidth": 2.5,
             "opacity": 1,
             "filter": "shadow",
             "wrap": 1,
+            "palette": "light",
             "marginTop": 0
           },
           "bind": {
-            "text": "effect",
-            "fill": "_textFill"
-          }
+            "text": "_effectFull",
+            "fill": "_textFill",
+            "stroke": "_textStroke",
+            "strokeWidth": "_textStrokeWidth",
+            "palette": "_palette"
+          },
+          "showIf": "_effectFull"
+        },
+        {
+          "type": "text",
+          "props": {
+            "text": "Use this attack from attached Pokémon. Discard after use.",
+            "fontSize": "$ruleText",
+            "fontFamily": "body",
+            "fontWeight": "normal",
+            "fill": "#ffffff",
+            "opacity": 0.5,
+            "filter": "none",
+            "wrap": 1,
+            "marginTop": 8
+          },
+          "bind": {
+            "text": "_effectCompact",
+            "fill": "_subtleFill"
+          },
+          "showIf": "_effectCompact"
         },
         {
           "type": "text",
