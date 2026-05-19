@@ -1,6 +1,12 @@
 import { describe, test, expect } from "bun:test";
 import sharp from "sharp";
-import { analyzeImageBrightness, sampleRegionBrightness, hpClusterRegion } from "./image-brightness.js";
+import {
+  analyzeImageBrightness,
+  analyzeImageBrightnessHistogram,
+  histogramTextMode,
+  sampleRegionBrightness,
+  hpClusterRegion,
+} from "./image-brightness.js";
 
 describe("analyzeImageBrightness", () => {
   test("pure white image returns ~1.0", async () => {
@@ -111,6 +117,58 @@ describe("analyzeImageBrightness", () => {
     // Same relative position, scaled down
     expect(r.left).toBeCloseTo(420 * 600 / 750, 0);
     expect(r.top).toBeCloseTo(20 * 825 / 1050, 0);
+  });
+
+  test("analyzeImageBrightnessHistogram: pure white image is ~100% bright", async () => {
+    const buf = await sharp({
+      create: { width: 750, height: 1050, channels: 3, background: { r: 255, g: 255, b: 255 } },
+    }).png().toBuffer();
+    const h = await analyzeImageBrightnessHistogram(buf);
+    expect(h.brightRatio).toBeGreaterThan(0.99);
+    expect(h.darkRatio).toBeLessThan(0.01);
+    expect(histogramTextMode(h)).toBe("dark");
+  });
+
+  test("analyzeImageBrightnessHistogram: pure black image is ~100% dark", async () => {
+    const buf = await sharp({
+      create: { width: 750, height: 1050, channels: 3, background: { r: 0, g: 0, b: 0 } },
+    }).png().toBuffer();
+    const h = await analyzeImageBrightnessHistogram(buf);
+    expect(h.darkRatio).toBeGreaterThan(0.99);
+    expect(h.brightRatio).toBeLessThan(0.01);
+    expect(histogramTextMode(h)).toBe("light");
+  });
+
+  test("analyzeImageBrightnessHistogram: bright logo on dark background still says light text", async () => {
+    // Reconstruct the failure mode the histogram is supposed to fix: a card
+    // whose bottom region is mostly dark but has a small bright logo. The
+    // average can be dragged near the threshold; the histogram should
+    // confidently still pick "light text on dark bg".
+    const width = 750, height = 1050, channels = 3;
+    const raw = Buffer.alloc(width * height * channels);
+    // Whole image dark grey
+    for (let i = 0; i < raw.length; i++) raw[i] = 30;
+    // Paint a 100×60 bright-white "logo" in the bottom region
+    for (let y = 800; y < 860; y++) {
+      for (let x = 300; x < 400; x++) {
+        const off = (y * width + x) * channels;
+        raw[off] = raw[off + 1] = raw[off + 2] = 255;
+      }
+    }
+    const buf = await sharp(raw, { raw: { width, height, channels } }).png().toBuffer();
+    const h = await analyzeImageBrightnessHistogram(buf);
+    expect(h.darkRatio).toBeGreaterThan(0.85);
+    expect(histogramTextMode(h)).toBe("light");
+  });
+
+  test("histogramTextMode tie-breaks on mean luminance", () => {
+    // Equal dark/bright counts, mean slightly above 0.5 → dark text (light bg).
+    expect(histogramTextMode({
+      darkRatio: 0.4, brightRatio: 0.4, midRatio: 0.2, meanLuminance: 0.51,
+    })).toBe("dark");
+    expect(histogramTextMode({
+      darkRatio: 0.4, brightRatio: 0.4, midRatio: 0.2, meanLuminance: 0.49,
+    })).toBe("light");
   });
 
   test("samples only bottom 40% of image", async () => {

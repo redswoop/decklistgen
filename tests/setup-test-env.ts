@@ -13,3 +13,4 @@ const dir = mkdtempSync(join(tmpdir(), "decklistgen-test-"));
 
 process.env.FONT_FAMILY_STORE_PATH ??= join(dir, "font-family.json");
 process.env.FONT_SIZE_STORE_PATH ??= join(dir, "font-sizes.json");
+process.env.TEXT_MODE_OVERRIDE_STORE_PATH ??= join(dir, "text-mode-overrides.json");

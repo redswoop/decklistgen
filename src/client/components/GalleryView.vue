@@ -16,6 +16,9 @@ import { useDisplayCalibration } from "../composables/useDisplayCalibration.js";
 import { generateCleanImage, getGenerationVersion } from "../composables/usePokeproxy.js";
 import { useToast } from "../composables/useToast.js";
 import { getSvg, peekSvg } from "../composables/useGallerySvgCache.js";
+import { useGallerySvgRev } from "../composables/useGallerySvgRev.js";
+import { useGallerySlotOverrides } from "../composables/useGallerySlotOverrides.js";
+import SlotOverridePicker from "./gallery/SlotOverridePicker.vue";
 
 type PreviewMode = "editing" | "physical";
 type TemplateFilter = "all" | TemplateName;
@@ -37,12 +40,39 @@ async function refetch() {
   await cardSource.refetch();
 }
 
-// Two cache-bust counters so SVG regenerations don't also force re-fetches
-// of the unchanged cleaned-art PNG (and vice versa).
-//   svgCacheBust  — bumped when the SVG output changes (font-size / family / regen)
-//   imageCacheBust — bumped when the cleaned/composite PNG on disk changes (after ComfyUI clean)
-const svgCacheBust = ref(Date.now());
+// Cache-bust tracking.
+//   svgRev          — per-card revisions. bumpGlobal() invalidates everything
+//                     (font-family / font-size changes); bumpCard(id) only
+//                     invalidates that thumb (text-mode override, regen).
+//   imageCacheBust  — bumped when the cleaned/composite PNG on disk changes
+//                     (after ComfyUI clean). PNG and SVG are separate so an
+//                     SVG-only change doesn't refetch every cached image.
+const svgRev = useGallerySvgRev();
 const imageCacheBust = ref(Date.now());
+
+// Slot-override picker state. `pickerSlot` is the reference card whose slot
+// the user is editing; null means the modal is closed.
+const slotOverrides = useGallerySlotOverrides();
+const pickerSlot = ref<GalleryCardWithSource | null>(null);
+
+function openSwapPicker(card: GalleryCardWithSource) {
+  if (card.source !== "reference" || !card.slotKey) return;
+  pickerSlot.value = card;
+}
+
+function applySwap(replacementCardId: string) {
+  const slot = pickerSlot.value;
+  if (!slot?.slotKey) return;
+  slotOverrides.setOverride(slot.slotKey, replacementCardId);
+  pickerSlot.value = null;
+}
+
+function clearSwap() {
+  const slot = pickerSlot.value;
+  if (!slot?.slotKey) return;
+  slotOverrides.clearOverride(slot.slotKey);
+  pickerSlot.value = null;
+}
 
 // Warm the SVG cache for every gallery card so the Print button is usable as
 // soon as the user opens the gallery. The thumbnails themselves are rendered
@@ -50,7 +80,7 @@ const imageCacheBust = ref(Date.now());
 watch(cards, (list) => {
   if (!list) return;
   for (const card of list) {
-    void getSvg(card.cardId, svgCacheBust.value);
+    void getSvg(card.cardId, svgRev.revFor(card.cardId));
   }
 }, { immediate: true });
 
@@ -140,9 +170,10 @@ async function doClean(force: boolean) {
       await pollJob(data.jobId);
     }
     lightboxStatus.value = "Done — refreshing...";
-    // Clean changes both the cleaned PNG and the SVG (which embeds it).
+    // Clean changes both the cleaned PNG and the SVG (which embeds it),
+    // but only for this one card — no need to invalidate the whole grid.
     imageCacheBust.value = Date.now();
-    svgCacheBust.value = Date.now();
+    svgRev.bumpCard(card.cardId);
     await refetch();
     lightboxStatus.value = "Done";
   } catch (e) {
@@ -160,7 +191,8 @@ async function doRegen() {
   try {
     await api.pokeproxyRegenerateSvg(cardId);
     // Regen only changes the SVG; the cleaned PNG on disk is untouched.
-    svgCacheBust.value = Date.now();
+    // One-card change → bump just that thumb.
+    svgRev.bumpCard(cardId);
     lightboxStatus.value = "SVG updated";
   } catch (e) {
     lightboxStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
@@ -244,11 +276,12 @@ const filteredCards = computed(() => {
   return list;
 });
 
-/** Bump the SVG cache-bust so all `<GallerySvgThumb>` instances re-fetch. */
+/** Bump the global SVG cache-bust so every `<GallerySvgThumb>` re-fetches.
+ *  Used after font-family / font-size saves that affect every rendered card. */
 function refreshAllRenderedSvgs() {
-  svgCacheBust.value = Date.now();
+  svgRev.bumpGlobal();
   if (cards.value) {
-    for (const card of cards.value) void getSvg(card.cardId, svgCacheBust.value);
+    for (const card of cards.value) void getSvg(card.cardId, svgRev.revFor(card.cardId));
   }
 }
 
@@ -316,7 +349,11 @@ const galleryGenerationTick = computed(() => {
 
 watch(galleryGenerationTick, (next, prev) => {
   if (next > prev) {
-    svgCacheBust.value = Date.now();
+    // ComfyUI generation finishing affects whichever card just generated; we
+    // can't pinpoint it from the tick sum, so refresh broadly. (If this turns
+    // out to be a noisy path, expose the changed cardId from useQueue and bump
+    // just that one.)
+    svgRev.bumpGlobal();
     imageCacheBust.value = Date.now();
     refetch();
   }
@@ -328,7 +365,8 @@ async function openPrint() {
     cards.value.map(async (c) => {
       // Resolve from cache when present (no extra fetch) — fall through to
       // getSvg for any straggler cards whose initial warm hasn't returned.
-      const p = peekSvg(c.cardId, svgCacheBust.value) ?? getSvg(c.cardId, svgCacheBust.value);
+      const rev = svgRev.revFor(c.cardId);
+      const p = peekSvg(c.cardId, rev) ?? getSvg(c.cardId, rev);
       return await p;
     }),
   );
@@ -384,15 +422,16 @@ body { margin: 0; padding: 0.25in; }
         :selected-card-id="selectedCardId"
         :preview-mode="previewMode"
         :thumb-width="previewThumbWidth"
-        :svg-cache-bust="svgCacheBust"
+        :svg-rev-for="svgRev.revFor"
         @select="selectCard"
         @open-editor="editInEditor"
+        @swap="openSwapPicker"
       />
       <GalleryInspector
         :active-card="activeCard"
         :cards="cards"
         :thumb-width="previewThumbWidth"
-        :svg-cache-bust="svgCacheBust"
+        :svg-rev-for="svgRev.revFor"
         :image-cache-bust="imageCacheBust"
         :busy="lightboxBusy"
         :status="lightboxStatus"
@@ -403,12 +442,24 @@ body { margin: 0; padding: 0.25in; }
         @regen="doRegen"
         @save-prompt="savePrompt"
         @select="selectCardById"
+        @text-mode-changed="(cardId: string) => svgRev.bumpCard(cardId)"
       />
     </div>
 
     <DisplayCalibrationDialog
       :open="showCalibrationDialog"
       @close="showCalibrationDialog = false"
+    />
+
+    <SlotOverridePicker
+      v-if="pickerSlot"
+      :slot-label="pickerSlot.label"
+      :slot-key="pickerSlot.slotKey!"
+      :current-card-id="pickerSlot.cardId"
+      :has-override="pickerSlot.slotKey !== pickerSlot.cardId"
+      @close="pickerSlot = null"
+      @pick="applySwap"
+      @clear="clearSwap"
     />
 
     <!-- Force-regenerate-all confirmation -->

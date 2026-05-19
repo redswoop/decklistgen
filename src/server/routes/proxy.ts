@@ -226,6 +226,31 @@ app.get("/inspect/:cardId", async (c) => {
   }
 });
 
+/** Get the current text-mode override for a card.
+ *  Empty body `{}` means no override is set (auto-detection applies). */
+app.get("/text-mode-override/:cardId", async (c) => {
+  const cardId = c.req.param("cardId");
+  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
+  const { getTextModeOverride } = await import("../services/pokeproxy/text-mode-store.js");
+  return c.json({ cardId, ...getTextModeOverride(cardId) });
+});
+
+/** Save (merge) a text-mode override. Body: `{ textMode?: "dark"|"light"|null,
+ *  hpTextMode?: "dark"|"light"|null }`. Pass `null` to clear that field back to
+ *  auto-detection. */
+app.put("/text-mode-override/:cardId", requireAuthorized, async (c) => {
+  const cardId = c.req.param("cardId");
+  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
+  const body = await c.req.json<{
+    textMode?: "dark" | "light" | null;
+    hpTextMode?: "dark" | "light" | null;
+  }>();
+  const { saveTextModeOverride } = await import("../services/pokeproxy/text-mode-store.js");
+  const saved = saveTextModeOverride(cardId, body);
+  logAction("card.textModeOverride", getClientIp(c), { cardId, ...body });
+  return c.json({ cardId, ...saved });
+});
+
 /** Get the resolved prompt for a card */
 app.get("/prompt/:cardId", async (c) => {
   const cardId = c.req.param("cardId");

@@ -10,13 +10,27 @@ const props = defineProps<{
   selectedCardId: string | null;
   previewMode: PreviewMode;
   thumbWidth: number;
-  svgCacheBust: number;
+  /** Per-card cache-bust resolver. The grid evaluates this inside the v-for
+   *  binding so a per-card bump only updates the affected thumb's prop, not
+   *  the whole grid. (See useGallerySvgRev.) */
+  svgRevFor: (cardId: string) => number;
 }>();
 
 const emit = defineEmits<{
   select: [card: GalleryCardWithSource];
   "open-editor": [cardId: string];
+  swap: [card: GalleryCardWithSource];
 }>();
+
+/** A reference slot is "swappable" when it has a slotKey set — i.e. it came
+ *  from TEST_CARDS (or an override of one). Deck cards aren't swappable. */
+function isSwappable(card: GalleryCardWithSource): boolean {
+  return card.source === "reference" && !!card.slotKey;
+}
+
+function hasOverride(card: GalleryCardWithSource): boolean {
+  return !!card.slotKey && card.slotKey !== card.cardId;
+}
 
 type ThumbBadge = { text: string; variant: "standard" | "fullart" | "clean" | "expanded" | "missing" | "reference" };
 
@@ -50,7 +64,7 @@ function badgesFor(card: GalleryCardWithSource): ThumbBadge[] {
       v-for="card in cards"
       :key="card.cardId"
       :card-id="card.cardId"
-      :cache-bust="svgCacheBust"
+      :cache-bust="svgRevFor(card.cardId)"
       :width="thumbWidth"
       :label="card.label"
       :name="card.name"
@@ -60,8 +74,11 @@ function badgesFor(card: GalleryCardWithSource): ThumbBadge[] {
       :selected="selectedCardId === card.cardId"
       :physical="previewMode === 'physical'"
       :chrome="previewMode === 'physical' ? 'compact' : 'full'"
+      :swappable="isSwappable(card)"
+      :has-override="hasOverride(card)"
       @click="emit('select', card)"
       @dblclick="emit('open-editor', card.cardId)"
+      @swap="emit('swap', card)"
     />
   </div>
 </template>

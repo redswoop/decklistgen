@@ -30,6 +30,13 @@ const props = withDefaults(defineProps<{
   chrome?: "full" | "compact";
   /** Highlight the thumb as the currently-inspected card. */
   selected?: boolean;
+  /** Show a hover "swap" icon. Used for reference slots only — the parent
+   *  decides whether this thumb is eligible. */
+  swappable?: boolean;
+  /** True when the slot currently has an override active — controls the
+   *  swap-icon styling so users can see at a glance which slots they've
+   *  customised. */
+  hasOverride?: boolean;
 }>(), {
   width: 230,
   label: "",
@@ -40,9 +47,11 @@ const props = withDefaults(defineProps<{
   physical: false,
   chrome: "full",
   selected: false,
+  swappable: false,
+  hasOverride: false,
 });
 
-defineEmits<{ click: []; dblclick: [] }>();
+defineEmits<{ click: []; dblclick: []; swap: [] }>();
 
 const svgHtml = ref<string>("");
 
@@ -99,6 +108,13 @@ watch(
       <div v-if="loading" class="svg-thumb-overlay">
         <div class="svg-thumb-spinner" />
       </div>
+      <button
+        v-if="swappable"
+        type="button"
+        :class="['svg-thumb-swap', hasOverride && 'svg-thumb-swap-active']"
+        :title="hasOverride ? 'Swap (override active)' : 'Swap card in this slot'"
+        @click.stop="$emit('swap')"
+      >⇄</button>
     </div>
   </div>
 </template>
@@ -237,5 +253,38 @@ watch(
 
 @keyframes svg-thumb-spin {
   to { transform: rotate(360deg); }
+}
+
+.svg-thumb-swap {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: rgba(15, 20, 30, 0.82);
+  border: 1px solid rgba(243, 156, 18, 0.6);
+  color: #f39c12;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, transform 0.12s, background 0.12s;
+}
+.svg-thumb:hover .svg-thumb-swap { opacity: 1; }
+.svg-thumb-swap:hover {
+  background: #f39c12;
+  color: #1a1a2e;
+  transform: scale(1.08);
+}
+/* Active override → keep visible so users can spot customised slots without
+ * hovering over every card. */
+.svg-thumb-swap-active {
+  opacity: 1;
+  background: #553c14;
+  border-color: #f39c12;
 }
 </style>

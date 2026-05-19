@@ -143,11 +143,14 @@ export async function generateSvgFromTemplate(
 
   // Brightness analysis (text + per-element HP region). Shared with the
   // /api/pokeproxy/inspect/:cardId endpoint via analyzeBrightnessFromBuffer.
+  // User overrides win over auto-detection — see text-mode-store.ts.
   if (imageB64 && (isPokemonTpl || templateName === "trainer")) {
     try {
       const { analyzeBrightnessFromBuffer } = await import("./analyze-card.js");
+      const { getTextModeOverride } = await import("./text-mode-store.js");
       const buf = Buffer.from(imageB64, "base64");
-      const report = await analyzeBrightnessFromBuffer(buf, isPokemonTpl);
+      const override = getTextModeOverride(cardId);
+      const report = await analyzeBrightnessFromBuffer(buf, isPokemonTpl, override);
       cardData._textMode = report.textMode;
       if (report.hpTextMode) cardData._hpTextMode = report.hpTextMode;
     } catch {}

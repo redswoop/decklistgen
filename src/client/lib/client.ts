@@ -245,11 +245,33 @@ export const api = {
       textBrightness: number;
       hpTextMode: "dark" | "light" | null;
       hpBrightness: number | null;
+      textModeOverridden?: boolean;
+      hpTextModeOverridden?: boolean;
+      textModeAverage?: "dark" | "light";
+      textModeHistogram?: "dark" | "light";
+      histogram?: {
+        darkRatio: number;
+        brightRatio: number;
+        midRatio: number;
+        meanLuminance: number;
+      };
       hasSource: boolean;
       hasClean: boolean;
       hasComposite: boolean;
       hasSvg: boolean;
     }>(`/pokeproxy/inspect/${cardId}`),
+  pokeproxyGetTextModeOverride: (cardId: string) =>
+    get<{ cardId: string; textMode?: "dark" | "light"; hpTextMode?: "dark" | "light" }>(
+      `/pokeproxy/text-mode-override/${cardId}`,
+    ),
+  pokeproxySaveTextModeOverride: (
+    cardId: string,
+    patch: { textMode?: "dark" | "light" | null; hpTextMode?: "dark" | "light" | null },
+  ) =>
+    put<{ cardId: string; textMode?: "dark" | "light"; hpTextMode?: "dark" | "light" }>(
+      `/pokeproxy/text-mode-override/${cardId}`,
+      patch,
+    ),
   pokeproxyGetPrompt: (cardId: string) =>
     get<{
       cardId: string;

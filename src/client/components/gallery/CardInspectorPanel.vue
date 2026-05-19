@@ -38,11 +38,23 @@ interface InspectReport {
   textBrightness: number;
   hpTextMode: "dark" | "light" | null;
   hpBrightness: number | null;
+  textModeOverridden?: boolean;
+  hpTextModeOverridden?: boolean;
+  textModeAverage?: "dark" | "light";
+  textModeHistogram?: "dark" | "light";
+  histogram?: {
+    darkRatio: number;
+    brightRatio: number;
+    midRatio: number;
+    meanLuminance: number;
+  };
   hasSource: boolean;
   hasClean: boolean;
   hasComposite: boolean;
   hasSvg: boolean;
 }
+
+type ModeChoice = "auto" | "dark" | "light";
 
 const props = defineProps<{
   card: GalleryCard;
@@ -62,6 +74,9 @@ const emit = defineEmits<{
   clean: [force: boolean];
   regen: [];
   savePrompt: [text: string];
+  /** Fired when a text-mode override changes. Parent should bump
+   *  `svgCacheBust` so the rendered card picks up the new mode. */
+  textModeChanged: [];
 }>();
 
 type Tab = "svg" | "source" | "clean";
@@ -71,8 +86,17 @@ const svgHtml = ref("");
 const inspect = ref<InspectReport | null>(null);
 const inspectLoading = ref(false);
 const inspectError = ref("");
+const textModeSaving = ref(false);
+const textModeError = ref("");
 
 const promptText = ref(props.card.promptText ?? "");
+
+const textModeChoice = computed<ModeChoice>(() =>
+  inspect.value?.textModeOverridden ? inspect.value.textMode : "auto",
+);
+const hpModeChoice = computed<ModeChoice>(() =>
+  inspect.value?.hpTextModeOverridden ? (inspect.value.hpTextMode ?? "auto") : "auto",
+);
 
 watch(
   () => [props.card.cardId, props.svgCacheBust] as const,
@@ -133,6 +157,26 @@ const metaLine = computed(() =>
 function brightnessPct(v: number | null): string {
   if (v === null) return "—";
   return `${Math.round(v * 100)}%`;
+}
+
+async function setMode(field: "textMode" | "hpTextMode", choice: ModeChoice) {
+  if (!inspect.value) return;
+  // Don't fight a save by re-saving the current value.
+  const currentChoice = field === "textMode" ? textModeChoice.value : hpModeChoice.value;
+  if (currentChoice === choice) return;
+
+  textModeSaving.value = true;
+  textModeError.value = "";
+  try {
+    const value = choice === "auto" ? null : choice;
+    await api.pokeproxySaveTextModeOverride(props.card.cardId, { [field]: value });
+    // Force a re-render: bumping svgCacheBust is the parent's job, so emit.
+    emit("textModeChanged");
+  } catch (e) {
+    textModeError.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    textModeSaving.value = false;
+  }
 }
 </script>
 
@@ -201,24 +245,93 @@ function brightnessPct(v: number | null): string {
         <dd>
           <span :class="['inspector-mode', `inspector-mode-${inspect.textMode}`]">{{ inspect.textMode }}</span>
           <span class="inspector-mono inspector-faint"> · {{ brightnessPct(inspect.textBrightness) }}</span>
+          <span v-if="inspect.textModeOverridden" class="inspector-warn" title="User override is in effect — auto-detection bypassed.">
+            · forced
+          </span>
+          <div class="inspector-mode-toggle" role="radiogroup" aria-label="Text mode override">
+            <button
+              v-for="opt in (['auto', 'dark', 'light'] as ModeChoice[])"
+              :key="opt"
+              type="button"
+              :class="['inspector-mode-btn', textModeChoice === opt && 'inspector-mode-btn-active']"
+              :disabled="textModeSaving"
+              :aria-pressed="textModeChoice === opt"
+              :title="opt === 'auto' ? 'Use brightness auto-detection' : `Force ${opt} text`"
+              @click="setMode('textMode', opt)"
+            >{{ opt }}</button>
+          </div>
         </dd>
         <template v-if="inspect.hpTextMode">
           <dt>HP text</dt>
           <dd>
             <span :class="['inspector-mode', `inspector-mode-${inspect.hpTextMode}`]">{{ inspect.hpTextMode }}</span>
             <span class="inspector-mono inspector-faint"> · {{ brightnessPct(inspect.hpBrightness) }}</span>
+            <span v-if="inspect.hpTextModeOverridden" class="inspector-warn" title="User override is in effect for HP digits.">
+              · forced
+            </span>
             <span
-              v-if="inspect.hpTextMode !== inspect.textMode"
+              v-else-if="inspect.hpTextMode !== inspect.textMode"
               class="inspector-warn"
               title="Per-element HP brightness overrides the full-image mode for the HP digits only."
             > · diverges from text</span>
+            <div class="inspector-mode-toggle" role="radiogroup" aria-label="HP text mode override">
+              <button
+                v-for="opt in (['auto', 'dark', 'light'] as ModeChoice[])"
+                :key="opt"
+                type="button"
+                :class="['inspector-mode-btn', hpModeChoice === opt && 'inspector-mode-btn-active']"
+                :disabled="textModeSaving"
+                :aria-pressed="hpModeChoice === opt"
+                :title="opt === 'auto' ? 'Use HP brightness auto-detection' : `Force ${opt} HP text`"
+                @click="setMode('hpTextMode', opt)"
+              >{{ opt }}</button>
+            </div>
           </dd>
+        </template>
+        <template v-if="textModeError">
+          <dt>Override</dt><dd class="inspector-error">{{ textModeError }}</dd>
         </template>
         <dt>Cached</dt>
         <dd>
           <span :class="['inspector-dot', inspect.hasSource && 'inspector-dot-on']" title="Source PNG"/>src
           <span :class="['inspector-dot', inspect.hasClean && 'inspector-dot-on']" title="Cleaned PNG"/>clean
           <span :class="['inspector-dot', inspect.hasComposite && 'inspector-dot-on']" title="Composite PNG"/>comp
+        </dd>
+      </dl>
+    </div>
+
+    <div v-if="inspect?.histogram" class="inspector-section">
+      <div class="inspector-section-title">Brightness diagnostic</div>
+      <dl class="inspector-kv">
+        <dt title="Mean BT.709 luminance of the bottom 40%, vs 0.6 threshold.">
+          Average
+        </dt>
+        <dd>
+          <span :class="['inspector-mode', `inspector-mode-${inspect.textModeAverage}`]">
+            {{ inspect.textModeAverage }}
+          </span>
+          <span class="inspector-mono inspector-faint">
+            · {{ brightnessPct(inspect.textBrightness) }}
+          </span>
+        </dd>
+        <dt title="Counts pixels in dark/bright/mid buckets; the bigger cluster wins. More robust to small logos over an otherwise-uniform background.">
+          Histogram
+        </dt>
+        <dd>
+          <span :class="['inspector-mode', `inspector-mode-${inspect.textModeHistogram}`]">
+            {{ inspect.textModeHistogram }}
+          </span>
+          <span class="inspector-mono inspector-faint">
+            · D{{ brightnessPct(inspect.histogram.darkRatio) }} /
+            B{{ brightnessPct(inspect.histogram.brightRatio) }} /
+            M{{ brightnessPct(inspect.histogram.midRatio) }}
+          </span>
+        </dd>
+        <dt v-if="inspect.textModeAverage !== inspect.textModeHistogram">
+          Detectors
+        </dt>
+        <dd v-if="inspect.textModeAverage !== inspect.textModeHistogram" class="inspector-warn">
+          disagree — histogram chosen (more robust to mixed backgrounds)
         </dd>
       </dl>
     </div>
@@ -416,6 +529,31 @@ function brightnessPct(v: number | null): string {
 .inspector-mode-dark  { background: #1a1a2e; color: #cbd5e0; border: 1px solid #4a5568; }
 .inspector-mode-light { background: #faf089; color: #1a1a2e; }
 .inspector-warn { color: #f6e05e; font-size: 11px; }
+
+.inspector-mode-toggle {
+  display: inline-flex;
+  margin-top: 4px;
+  gap: 0;
+  background: #0d1117;
+  border: 1px solid #2d3748;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.inspector-mode-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.inspector-mode-btn + .inspector-mode-btn { border-left: 1px solid #2d3748; }
+.inspector-mode-btn:hover:not(:disabled) { color: #e0e0e0; }
+.inspector-mode-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.inspector-mode-btn-active { background: #2d2a14; color: #f39c12; }
 
 .inspector-dot {
   display: inline-block;

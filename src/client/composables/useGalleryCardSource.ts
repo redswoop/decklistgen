@@ -13,6 +13,7 @@ import { ref, computed, watch } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { api } from "../lib/client.js";
 import { useDecklist } from "./useDecklist.js";
+import { useGallerySlotOverrides } from "./useGallerySlotOverrides.js";
 
 export interface GalleryCard {
   label: string;
@@ -38,6 +39,12 @@ export interface GalleryCard {
 export type CardSource = "deck" | "reference";
 export interface GalleryCardWithSource extends GalleryCard {
   source: CardSource;
+  /** For `source: "reference"` cards: the id of the original TEST_CARDS slot
+   *  this card occupies. When a slot has an override, the card data is the
+   *  override's data but `slotKey` still points at the original — used by the
+   *  swap UI to know which override to clear. Equal to `cardId` when no
+   *  override is active. */
+  slotKey?: string;
 }
 
 export type TemplateName =
@@ -66,6 +73,7 @@ export function templateForGalleryCard(c: GalleryCard): TemplateName {
 
 export function useGalleryCardSource() {
   const { items: deckItems } = useDecklist();
+  const slotOverrides = useGallerySlotOverrides();
 
   // Reference set: TEST_CARDS as the server defines them. Cached forever
   // (these are static IDs). Loaded once on first call.
@@ -73,6 +81,50 @@ export function useGalleryCardSource() {
     queryKey: ["gallery-reference-cards"],
     queryFn: () => api.galleryCards(),
     staleTime: 1000 * 60 * 60,
+  });
+
+  // Fetch any swapped-in cards the user has assigned to reference slots. These
+  // come from the same `/gallery/cards?ids=…` endpoint as deck cards. The
+  // override map keys are the *original* reference card IDs; the values are
+  // the replacement card IDs we actually need to fetch.
+  const overrideCardIds = computed(() => {
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    for (const replacementId of Object.values(slotOverrides.overrides.value)) {
+      if (replacementId && !seen.has(replacementId)) {
+        seen.add(replacementId);
+        ids.push(replacementId);
+      }
+    }
+    return ids;
+  });
+
+  const overrideCardsQuery = useQuery<GalleryCard[]>({
+    queryKey: computed(() => ["gallery-override-cards", overrideCardIds.value.join(",")]) as never,
+    queryFn: () => api.galleryCards(overrideCardIds.value),
+    enabled: computed(() => overrideCardIds.value.length > 0) as never,
+    staleTime: 30_000,
+  });
+
+  const overrideCardsById = computed<Record<string, GalleryCard>>(() => {
+    const out: Record<string, GalleryCard> = {};
+    for (const c of overrideCardsQuery.data.value ?? []) out[c.cardId] = c;
+    return out;
+  });
+
+  // Reference cards after user overrides have been applied. Each entry keeps
+  // its original label (so the slot semantically stays "PokemonBasic") but
+  // its card data is the override's data.
+  const effectiveReferenceCards = computed<GalleryCard[]>(() => {
+    return (referenceCards.data.value ?? []).map((orig) => {
+      const ovId = slotOverrides.getOverride(orig.cardId);
+      if (!ovId) return orig;
+      const ovCard = overrideCardsById.value[ovId];
+      // Replacement not yet loaded — fall back to the original so the slot
+      // doesn't blank out while the second query is in flight.
+      if (!ovCard) return orig;
+      return { ...ovCard, label: orig.label };
+    });
   });
 
   // Unique deck card IDs, in insertion order.
@@ -103,7 +155,11 @@ export function useGalleryCardSource() {
     (deckCardsQuery.data.value ?? []).map((c) => ({ ...c, source: "deck" as const })),
   );
 
-  /** Reference cards keyed by template, deck cards stripped out. */
+  /** Reference cards keyed by template, deck cards stripped out.
+   *
+   *  Note: deck-dedupe uses the *override* cardId (what's actually being
+   *  rendered), not the slotKey. If the user swaps a reference slot to a card
+   *  that's already in the deck, the deck wins and the reference disappears. */
   const referenceByTemplate = computed<Record<TemplateName, GalleryCardWithSource[]>>(() => {
     const out: Record<TemplateName, GalleryCardWithSource[]> = {
       "basic-energy": [],
@@ -113,9 +169,17 @@ export function useGalleryCardSource() {
       "pokemon-standard": [],
     };
     const deckIdSet = new Set(deckCardIds.value);
-    for (const c of referenceCards.data.value ?? []) {
+    const origs = referenceCards.data.value ?? [];
+    const effective = effectiveReferenceCards.value;
+    // Walk both in lockstep so each effective card knows its slotKey.
+    for (let i = 0; i < effective.length; i++) {
+      const c = effective[i];
       if (deckIdSet.has(c.cardId)) continue;
-      out[templateForGalleryCard(c)].push({ ...c, source: "reference" });
+      out[templateForGalleryCard(c)].push({
+        ...c,
+        source: "reference",
+        slotKey: origs[i]?.cardId ?? c.cardId,
+      });
     }
     return out;
   });
@@ -160,7 +224,7 @@ export function useGalleryCardSource() {
   return {
     previewCards,
     deckCards,
-    referenceCards: computed(() => referenceCards.data.value ?? []),
+    referenceCards: effectiveReferenceCards,
     allCardIds,
     isLoading: computed(
       () => referenceCards.isLoading.value || deckCardsQuery.isLoading.value,
@@ -168,6 +232,7 @@ export function useGalleryCardSource() {
     refetch: async () => {
       await referenceCards.refetch();
       await deckCardsQuery.refetch();
+      await overrideCardsQuery.refetch();
     },
     TEMPLATE_ORDER,
   };
