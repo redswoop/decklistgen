@@ -96,15 +96,6 @@ const SYNTH_ABILITIES = [
   },
 ];
 
-let _analyzeImageBrightness: ((buf: Buffer) => Promise<number>) | null = null;
-async function getAnalyzeImageBrightness() {
-  if (!_analyzeImageBrightness) {
-    const mod = await import("./image-brightness.js");
-    _analyzeImageBrightness = mod.analyzeImageBrightness;
-  }
-  return _analyzeImageBrightness;
-}
-
 /** Render SVG using the template engine.
  *  artCardId: optional override — use this card's image instead of cardId's. */
 export async function generateSvgFromTemplate(
@@ -150,28 +141,15 @@ export async function generateSvgFromTemplate(
     templateName === "pokemon-vstar" ||
     templateName === "pokemon-standard";
 
+  // Brightness analysis (text + per-element HP region). Shared with the
+  // /api/pokeproxy/inspect/:cardId endpoint via analyzeBrightnessFromBuffer.
   if (imageB64 && (isPokemonTpl || templateName === "trainer")) {
     try {
-      const analyzeImageBrightness = await getAnalyzeImageBrightness();
-      const imageBuffer = Buffer.from(imageB64, "base64");
-      const brightness = await analyzeImageBrightness(imageBuffer);
-      cardData._textMode = brightness > 0.6 ? "dark" : "light";
-    } catch {}
-  }
-
-  // Per-element HP brightness: HP digits sit in the top-right corner, far
-  // from the bottom-40% region sampled above. Sample that corner directly
-  // so HP color flips independently when the local region disagrees with
-  // the card's overall tone.
-  if (imageB64 && isPokemonTpl) {
-    try {
-      const { sampleRegionBrightness, hpClusterRegion } = await import("./image-brightness.js");
-      const sharpMod = (await import("sharp")).default;
-      const imageBuffer = Buffer.from(imageB64, "base64");
-      const meta = await sharpMod(imageBuffer).metadata();
-      const region = hpClusterRegion(meta.width ?? 600, meta.height ?? 825);
-      const hpBrightness = await sampleRegionBrightness(imageBuffer, region);
-      cardData._hpTextMode = hpBrightness > 0.6 ? "dark" : "light";
+      const { analyzeBrightnessFromBuffer } = await import("./analyze-card.js");
+      const buf = Buffer.from(imageB64, "base64");
+      const report = await analyzeBrightnessFromBuffer(buf, isPokemonTpl);
+      cardData._textMode = report.textMode;
+      if (report.hpTextMode) cardData._hpTextMode = report.hpTextMode;
     } catch {}
   }
 

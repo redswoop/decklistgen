@@ -66,11 +66,60 @@ const TEST_CARDS = [
 
 const app = new Hono();
 
-/** Return test card list with metadata */
-app.get("/cards", async (c) => {
-  // Auto-load any sets needed by gallery test cards
+/** Build a single GalleryCard row from a cardId + optional label. */
+function buildGalleryCard(cardId: string, label = "") {
+  const cached = loadCachedCard(cardId);
+  const storeCard = getCard(cardId);
+  const card = cached ?? (storeCard ? {
+    id: storeCard.id,
+    localId: storeCard.localId,
+    name: storeCard.name,
+    category: storeCard.category,
+    hp: storeCard.hp,
+    types: storeCard.energyTypes,
+    stage: storeCard.stage,
+    retreat: storeCard.retreat,
+    rarity: storeCard.rarity,
+    trainerType: storeCard.trainerType,
+    set: { name: storeCard.setName, id: storeCard.setId },
+  } : null);
+  const hasClean = existsSync(join(CACHE_DIR, `${cardId}_clean.png`));
+  const hasComposite = existsSync(join(CACHE_DIR, `${cardId}_composite.png`));
+  const hasSvg = existsSync(join(CACHE_DIR, `${cardId}.svg`));
+  const hasSource = existsSync(join(CACHE_DIR, `${cardId}.png`));
+  let cleanMeta: Record<string, unknown> | null = null;
+  const metaPath = join(CACHE_DIR, `${cardId}_clean_meta.json`);
+  if (existsSync(metaPath)) {
+    try { cleanMeta = JSON.parse(readFileSync(metaPath, "utf-8")); } catch {}
+  }
+  const promptResult = card ? getPromptForCard(card) : null;
+
+  return {
+    label,
+    cardId,
+    name: (card?.name as string) ?? cardId,
+    category: (card?.category as string) ?? "?",
+    stage: (card?.stage as string) ?? null,
+    hp: (card?.hp as number) ?? null,
+    rarity: (card?.rarity as string) ?? null,
+    energyTypes: (card?.types as string[]) ?? [],
+    effect: (card?.effect as string) ?? null,
+    isFullArt: card ? isFullArt(card as TcgdexCard) : false,
+    hasClean,
+    hasComposite,
+    hasSvg,
+    hasSource,
+    cleanMeta,
+    promptRule: promptResult?.ruleName ?? null,
+    promptText: promptResult?.prompt ?? null,
+    promptSkip: promptResult?.skip ?? false,
+  };
+}
+
+/** Auto-load any sets needed for a list of card IDs. */
+async function ensureSetsLoaded(cardIds: string[]): Promise<void> {
   const setsNeeded = new Set<string>();
-  for (const { cardId } of TEST_CARDS) {
+  for (const cardId of cardIds) {
     const setId = cardId.replace(/-[^-]+$/, "");
     const setCode = REVERSE_SET_MAP[setId];
     if (setCode && !isSetLoaded(setCode)) setsNeeded.add(setCode);
@@ -78,60 +127,20 @@ app.get("/cards", async (c) => {
   for (const code of setsNeeded) {
     try { await loadSet(code); } catch {}
   }
+}
 
-  const cards = TEST_CARDS.map(({ label, cardId }) => {
-    const cached = loadCachedCard(cardId);
-    const storeCard = getCard(cardId);
-    const card = cached ?? (storeCard ? {
-      id: storeCard.id,
-      localId: storeCard.localId,
-      name: storeCard.name,
-      category: storeCard.category,
-      hp: storeCard.hp,
-      types: storeCard.energyTypes,
-      stage: storeCard.stage,
-      retreat: storeCard.retreat,
-      rarity: storeCard.rarity,
-      trainerType: storeCard.trainerType,
-      set: { name: storeCard.setName, id: storeCard.setId },
-    } : null);
-    const hasClean = existsSync(join(CACHE_DIR, `${cardId}_clean.png`));
-    const hasComposite = existsSync(join(CACHE_DIR, `${cardId}_composite.png`));
-    const hasSvg = existsSync(join(CACHE_DIR, `${cardId}.svg`));
-    const hasSource = existsSync(join(CACHE_DIR, `${cardId}.png`));
-    // Load clean metadata if it exists
-    let cleanMeta: Record<string, unknown> | null = null;
-    const metaPath = join(CACHE_DIR, `${cardId}_clean_meta.json`);
-    if (existsSync(metaPath)) {
-      try {
-        cleanMeta = JSON.parse(readFileSync(metaPath, "utf-8"));
-      } catch {}
-    }
-    // Get the prompt that would be used if cleaned now
-    const promptResult = card ? getPromptForCard(card) : null;
-
-    return {
-      label,
-      cardId,
-      name: (card?.name as string) ?? cardId,
-      category: (card?.category as string) ?? "?",
-      stage: (card?.stage as string) ?? null,
-      hp: (card?.hp as number) ?? null,
-      rarity: (card?.rarity as string) ?? null,
-      energyTypes: (card?.types as string[]) ?? [],
-      effect: (card?.effect as string) ?? null,
-      isFullArt: card ? isFullArt(card as TcgdexCard) : false,
-      hasClean,
-      hasComposite,
-      hasSvg,
-      hasSource,
-      cleanMeta,
-      promptRule: promptResult?.ruleName ?? null,
-      promptText: promptResult?.prompt ?? null,
-      promptSkip: promptResult?.skip ?? false,
-    };
-  });
-  return c.json(cards);
+/** Return gallery card data. With no query, returns the TEST_CARDS reference
+ *  set with their labels. With `?ids=a,b,c`, returns those specific cards
+ *  (labels are blank — the client provides its own labels for deck cards). */
+app.get("/cards", async (c) => {
+  const idsParam = c.req.query("ids");
+  if (idsParam) {
+    const ids = idsParam.split(",").map((s) => s.trim()).filter(Boolean);
+    await ensureSetsLoaded(ids);
+    return c.json(ids.map((id) => buildGalleryCard(id)));
+  }
+  await ensureSetsLoaded(TEST_CARDS.map((t) => t.cardId));
+  return c.json(TEST_CARDS.map(({ label, cardId }) => buildGalleryCard(cardId, label)));
 });
 
 /** Save a card-specific prompt to the database */

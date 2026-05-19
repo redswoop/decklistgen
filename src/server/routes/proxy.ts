@@ -210,6 +210,22 @@ app.post("/svg/:cardId/regenerate", (c) => {
   return c.json({ cardId, status: "regenerated" });
 });
 
+/** Inspect a card — returns rendering metadata (template, brightness analysis,
+ *  cached-artifact flags). Used by the Gallery inspector to surface why the
+ *  renderer picked dark vs. light text. */
+app.get("/inspect/:cardId", async (c) => {
+  const cardId = c.req.param("cardId");
+  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
+  try {
+    const { inspectCard } = await import("../services/pokeproxy/analyze-card.js");
+    const report = await inspectCard(cardId);
+    return c.json(report);
+  } catch (e) {
+    console.error("Card inspect failed:", e);
+    return c.json({ error: "Inspect failed" }, 500);
+  }
+});
+
 /** Get the resolved prompt for a card */
 app.get("/prompt/:cardId", async (c) => {
   const cardId = c.req.param("cardId");

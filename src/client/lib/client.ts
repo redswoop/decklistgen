@@ -237,6 +237,19 @@ export const api = {
     post<{ jobId: string; cardId: string; status: string }>(`/pokeproxy/generate/${cardId}${force ? "?force=true" : ""}`, {}),
   pokeproxyRegenerateSvg: (cardId: string) =>
     post<{ cardId: string; status: string }>(`/pokeproxy/svg/${cardId}/regenerate`, {}),
+  pokeproxyInspect: (cardId: string) =>
+    get<{
+      cardId: string;
+      template: string;
+      textMode: "dark" | "light";
+      textBrightness: number;
+      hpTextMode: "dark" | "light" | null;
+      hpBrightness: number | null;
+      hasSource: boolean;
+      hasClean: boolean;
+      hasComposite: boolean;
+      hasSvg: boolean;
+    }>(`/pokeproxy/inspect/${cardId}`),
   pokeproxyGetPrompt: (cardId: string) =>
     get<{
       cardId: string;
@@ -286,8 +299,11 @@ export const api = {
     post<{ ok: boolean; deleted: number }>("/pokeproxy/customized/batch/delete", { cardIds }),
 
   // Gallery (mounted at /gallery, not /api/gallery)
-  galleryCards: async () => {
-    const resp = await fetch("/gallery/cards", { credentials: "include" });
+  galleryCards: async (ids?: string[]) => {
+    const url = ids?.length
+      ? `/gallery/cards?ids=${encodeURIComponent(ids.join(","))}`
+      : "/gallery/cards";
+    const resp = await fetch(url, { credentials: "include" });
     return handleResponse<Array<{
       label: string;
       cardId: string;

@@ -105,9 +105,40 @@ describe("enrichCardData", () => {
     expect(data._ribbonColor).toBe("#5B2DA0");
   });
 
-  test("_ribbonColor is empty when no types", () => {
+  test("_ribbonColor is empty when no types and no recognised trainerType", () => {
     const data = enrichCardData({ name: "Rare Candy", category: "Trainer" });
     expect(data._ribbonColor).toBe("");
+  });
+
+  test("_ribbonColor falls back to trainer-type color for Tool trainers", () => {
+    const data = enrichCardData({ name: "Technical Machine: Evolution", category: "Trainer", trainerType: "Tool" });
+    expect(data._ribbonColor).toBe("#7C3AA8");
+  });
+
+  test("_effectFull holds the effect for ordinary trainers; _effectCompact stays empty", () => {
+    const effect = "Each player shuffles their hand and puts it on the bottom of their deck.";
+    const data = enrichCardData({ name: "Iono", category: "Trainer", trainerType: "Supporter", effect });
+    expect(data._effectFull).toBe(effect);
+    expect(data._effectCompact).toBe("");
+  });
+
+  test("Technical Machine preamble switches to compact slot; _effectFull cleared", () => {
+    const tmPreamble = "The Pokémon this card is attached to can use the attack on this card. (You still need the necessary Energy to use this attack.) If this card is attached to 1 of your Pokémon, discard it at the end of your turn.";
+    const data = enrichCardData({
+      name: "Technical Machine: Evolution",
+      category: "Trainer",
+      trainerType: "Tool",
+      effect: tmPreamble,
+      attacks: [{ cost: ["Colorless"], name: "Evolution", effect: "…" }],
+    });
+    expect(data._effectCompact).toBe("Use this attack from attached Pokémon. Discard after use.");
+    expect(data._effectFull).toBe("");
+  });
+
+  test("both effect fields empty when no effect set", () => {
+    const data = enrichCardData({ name: "Charizard" });
+    expect(data._effectCompact).toBe("");
+    expect(data._effectFull).toBe("");
   });
 
   test("_hpTextFill defaults to global text mode when _hpTextMode absent", () => {

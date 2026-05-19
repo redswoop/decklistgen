@@ -41,6 +41,19 @@ export function enrichCardData(data: Record<string, unknown>): Record<string, un
     ruleText = TRAINER_RULES[data.trainerType as string];
   data._ruleText = ruleText;
 
+  // Effect-text routing: trainers with the Technical Machine boilerplate
+  // preamble get a short telegraphic line rendered as small "rule-text" style
+  // below the attack. Everyone else renders the full effect in the prominent
+  // trainer-effect slot. The two template elements are mutually exclusive.
+  const effect = (data.effect as string) ?? "";
+  if (effect.includes("The Pokémon this card is attached to can use the attack on this card")) {
+    data._effectCompact = "Use this attack from attached Pokémon. Discard after use.";
+    data._effectFull = "";
+  } else {
+    data._effectCompact = "";
+    data._effectFull = effect;
+  }
+
   // Stage — normalize "Stage1" → "Stage 1" for display
   const rawStage = (data.stage as string) ?? "Basic";
   data._stageName = rawStage.replace(/^(Stage)(\d)$/i, "$1 $2");
@@ -102,9 +115,15 @@ export function enrichCardData(data: Record<string, unknown>): Record<string, un
     data._trainerTypeColorLight = TRAINER_TYPE_COLORS_LIGHT[tt] ?? "#ffffff";
   }
 
-  // Ribbon color from primary energy type
+  // Ribbon color from primary energy type. Trainers/special-energy don't have
+  // `types`, but can have attacks (Technical Machines) — fall back to the
+  // trainer-type color so the attack ribbon picks up the Tool / Item palette.
   const primaryType = ((data.types as string[]) ?? [])[0] ?? "";
-  data._ribbonColor = TYPE_COLORS[primaryType] ?? "";
+  let ribbonColor = TYPE_COLORS[primaryType] ?? "";
+  if (!ribbonColor && (category === "Trainer" || category === "Energy")) {
+    ribbonColor = TRAINER_TYPE_COLORS[(data.trainerType as string) ?? ""] ?? "";
+  }
+  data._ribbonColor = ribbonColor;
 
   // Energy label for basic energy badge (e.g. "Fire Energy")
   if (category === "Energy" && !data.effect) {
