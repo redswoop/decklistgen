@@ -7,6 +7,8 @@ cache/
 *.swp
 data/logs/
 data/decklistgen.db*
+data/text-mode-overrides.json
+package-lock.json
 *.bak
 .env
 .env.local
