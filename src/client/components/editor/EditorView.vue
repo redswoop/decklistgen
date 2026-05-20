@@ -21,7 +21,7 @@ const sidebarOpen = ref(false);
 
 onMounted(async () => {
   if (elements.value.length === 0) {
-    const tmpl = await api.loadTemplate("pokemon-fullart");
+    const tmpl = await api.loadSlotTemplate("default", "pokemon-fullart");
     if (tmpl) {
       elements.value = tmpl.elements;
       currentTemplateId.value = tmpl.id;

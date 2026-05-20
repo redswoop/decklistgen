@@ -6,9 +6,11 @@ import { REVERSE_SET_MAP } from "../../../shared/constants/set-codes.js";
 import { cardImageUrl } from "../../../shared/utils/card-image-url.js";
 import type { TcgdexCard } from "../../../shared/types/card.js";
 import { suggestTemplate } from "../../../shared/utils/suggest-template.js";
+import { resolveTemplate, DEFAULT_SET_ID } from "../../../shared/utils/resolve-template.js";
+import { getAllSets } from "../template-set-store.js";
 import { resetIconIds } from "./type-icons.js";
 import { setCardIdPrefix } from "./svg-frame.js";
-import { renderFromJsonTemplate } from "./render-json-template.js";
+import { renderResolvedTemplate } from "./render-json-template.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../../cache");
 
@@ -158,7 +160,12 @@ export async function generateSvgFromTemplate(
 
   resetIconIds();
   setCardIdPrefix(idPrefix ?? `${cardId}-`);
-  const svg = renderFromJsonTemplate(templateName, cardData, imageB64);
+  const resolved = resolveTemplate(
+    cardData as TcgdexCard,
+    { globalSetId: DEFAULT_SET_ID, slotOverride: templateName },
+    getAllSets(),
+  );
+  const svg = renderResolvedTemplate(resolved.template.elements, cardData, imageB64);
   setCardIdPrefix("");
   return svg;
 }

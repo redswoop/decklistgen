@@ -1,10 +1,12 @@
 /**
- * JSON template renderer — loads a template from data/templates/,
- * enriches card data, applies bindings, and renders SVG elements.
+ * JSON template renderer — given a resolved template's element tree,
+ * enriches card data, applies bindings, and renders SVG.
+ *
+ * Template loading lives in template-set-store.ts. Callers resolve a
+ * template via resolveTemplate(card, ctx, store.getAllSets()) and then
+ * pass `resolved.template.elements` here.
  */
 
-import { readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
 import type { NodeState } from "../../../shared/types/editor.js";
 import { applyBindingsToTree } from "../../../shared/resolve-bindings.js";
 import { resolveFontSizes } from "../../../shared/resolve-font-sizes.js";
@@ -12,60 +14,34 @@ import { createNode, renderElements } from "./elements/index.js";
 import { enrichCardData } from "./enrich-card-data.js";
 import { getEffectiveFontSizes } from "./font-size-store.js";
 import { buildCardSvg } from "./svg-frame.js";
+import { clearTemplateSetCache } from "../template-set-store.js";
 
-const TEMPLATES_DIR = join(import.meta.dir, "../../../../data/templates");
-
-/** In-memory cache: template name → { mtime, parsed JSON }. mtime lets us
- *  detect external edits (the dev server doesn't restart on .json changes). */
-const templateCache = new Map<string, { mtimeMs: number; tmpl: { elements: NodeState[] } }>();
-
-/** Clear the in-memory template cache so next render re-reads from disk. */
+/** Compatibility shim — old route called this; new code uses
+ *  clearTemplateSetCache from template-set-store directly. */
 export function clearTemplateCache(): void {
-  templateCache.clear();
-}
-
-function loadTemplate(name: string): { elements: NodeState[] } {
-  const filePath = join(TEMPLATES_DIR, `${name}.json`);
-  const mtimeMs = statSync(filePath).mtimeMs;
-  const cached = templateCache.get(name);
-  if (cached && cached.mtimeMs === mtimeMs) return cached.tmpl;
-
-  const raw = readFileSync(filePath, "utf-8");
-  const tmpl = JSON.parse(raw) as { elements: NodeState[] };
-  templateCache.set(name, { mtimeMs, tmpl });
-  return tmpl;
+  clearTemplateSetCache();
 }
 
 /**
- * Render a card SVG using a JSON template.
+ * Render a card SVG from an already-resolved template's element tree.
  *
  * Pipeline:
- * 1. Load template from data/templates/{templateName}.json
- * 2. enrichCardData(cardData) — add computed fields
- * 3. applyBindingsToTree(template.elements, data) — expand repeaters, resolve bindings, filter showIf
- * 4. createNode() for each expanded element
- * 5. renderElements(nodes) — generate SVG elements
- * 6. buildCardSvg(imageB64, elementsHtml) — wrap in full SVG
+ * 1. enrichCardData(cardData) — add computed fields
+ * 2. applyBindingsToTree(elements, data) — expand repeaters, resolve bindings, filter showIf
+ * 3. resolveFontSizes(expanded, fontSizes) — $token → number
+ * 4. createNode() per element
+ * 5. renderElements(nodes) — generate SVG strings
+ * 6. buildCardSvg(imageB64, elementsHtml) — wrap in the full SVG frame
  */
-export function renderFromJsonTemplate(
-  templateName: string,
+export function renderResolvedTemplate(
+  elements: NodeState[],
   cardData: Record<string, unknown>,
   imageB64: string,
 ): string {
-  const template = loadTemplate(templateName);
-
-  // Enrich card data with computed fields
   enrichCardData(cardData);
-
-  // Apply bindings, expand repeaters, filter showIf
-  const expanded = applyBindingsToTree(template.elements, cardData);
-
-  // Resolve $token font sizes to numbers
+  const expanded = applyBindingsToTree(elements, cardData);
   resolveFontSizes(expanded, getEffectiveFontSizes());
-
-  // Instantiate LayoutNode tree and render SVG elements
   const nodes = expanded.map(s => createNode(s));
   const elementsHtml = renderElements(nodes);
-
   return buildCardSvg(imageB64, elementsHtml);
 }

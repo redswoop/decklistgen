@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useEditorApi } from "../../composables/useEditorApi.js";
-import type { TemplateSummary, CardEntry } from "../../composables/useEditorApi.js";
+import type { TemplateSetSummary, CardEntry } from "../../composables/useEditorApi.js";
 import { useEditorRenderer } from "../../composables/useEditorRenderer.js";
 import { useEditorViewport } from "../../composables/useEditorViewport.js";
 import { useEditorState } from "../../composables/useEditorState.js";
@@ -11,14 +11,27 @@ const props = defineProps<{ sidebarOpen: boolean }>();
 const api = useEditorApi();
 const { loadCard } = useEditorRenderer();
 const { zoomPercent, setZoom } = useEditorViewport();
-const { elements, currentTemplateId, currentTemplateName, templateDirty, applyBindings, cardData, currentCardId, setStatus } = useEditorState();
+const {
+  elements,
+  currentTemplateId,
+  currentTemplateName,
+  currentSetId,
+  templateDirty,
+  applyBindings,
+  cardData,
+  currentCardId,
+  setStatus,
+} = useEditorState();
 const { rerender } = useEditorRenderer();
 
 const allCards = ref<CardEntry[]>([]);
 const selectedCard = ref("");
-const templates = ref<TemplateSummary[]>([]);
+const sets = ref<TemplateSetSummary[]>([]);
 const selectedTemplate = ref("");
 const sortBy = ref<"id" | "name">("name");
+
+const currentSet = computed(() => sets.value.find(s => s.id === currentSetId.value));
+const slotIds = computed(() => currentSet.value?.slotIds ?? []);
 
 /** Cards filtered by the selected template, then sorted */
 const filteredCards = computed(() => {
@@ -28,7 +41,6 @@ const filteredCards = computed(() => {
   if (sortBy.value === "name") {
     cards = [...cards].sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id));
   }
-  // "id" is the server default order, no re-sort needed
   return cards;
 });
 
@@ -38,12 +50,12 @@ const emit = defineEmits<{
 }>();
 
 onMounted(async () => {
-  const [cardList, templateList] = await Promise.all([
+  const [cardList, setList] = await Promise.all([
     api.fetchCards(),
-    api.listTemplates(),
+    api.listSets(),
   ]);
   allCards.value = cardList;
-  templates.value = templateList;
+  sets.value = setList;
 
   // Restore card from URL hash (e.g., #/editor/sv4-123)
   const match = location.hash.match(/^#\/editor\/(.+)$/);
@@ -51,7 +63,7 @@ onMounted(async () => {
     const card = allCards.value.find(c => c.id === match[1]);
     if (card) {
       selectedCard.value = card.id;
-      // Auto-select template if one isn't loaded yet
+      // Auto-select template slot if one isn't loaded yet
       if (card.suggestedTemplate && !currentTemplateId.value) {
         selectedTemplate.value = card.suggestedTemplate;
         await onTemplatePicked();
@@ -98,9 +110,17 @@ const hasNext = computed(() => {
   return idx >= 0 && idx < cards.length - 1;
 });
 
+async function onSetPicked() {
+  // Clear the loaded template — its slot may not exist in the new set.
+  selectedTemplate.value = "";
+  currentTemplateId.value = null;
+  currentTemplateName.value = "";
+  templateDirty.value = false;
+}
+
 async function onTemplatePicked() {
   if (!selectedTemplate.value) return;
-  const tmpl = await api.loadTemplate(selectedTemplate.value);
+  const tmpl = await api.loadSlotTemplate(currentSetId.value, selectedTemplate.value);
   if (!tmpl) {
     setStatus("Failed to load template");
     return;
@@ -110,7 +130,6 @@ async function onTemplatePicked() {
   currentTemplateName.value = tmpl.name;
   templateDirty.value = false;
 
-  // Re-apply bindings if we have card data loaded
   if (cardData.value) {
     applyBindings();
   }
@@ -140,10 +159,15 @@ function onZoomInput(e: Event) {
 
       <div class="sep" />
 
-      <label>Tmpl:</label>
+      <label>Set:</label>
+      <select v-model="currentSetId" @change="onSetPicked" :title="currentSet?.origin === 'builtin' ? 'Built-in set (ships with the app)' : 'User set (in data volume)'">
+        <option v-for="s in sets" :key="s.id" :value="s.id">{{ s.name }}{{ s.origin === 'user' ? ' (user)' : '' }}{{ s.hasShadow ? ' ⚠' : '' }}</option>
+      </select>
+
+      <label>Slot:</label>
       <select v-model="selectedTemplate" @change="onTemplatePicked">
-        <option value="">-- pick a template --</option>
-        <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+        <option value="">-- pick a slot --</option>
+        <option v-for="slot in slotIds" :key="slot" :value="slot">{{ slot }}</option>
       </select>
       <span v-if="currentTemplateName" class="template-name">
         {{ currentTemplateName }}

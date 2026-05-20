@@ -82,9 +82,9 @@ export function createElement(state: NodeState): LayoutNode {
 }
 
 export function createDefaultElements(): LayoutNode[] {
-  // Load from the pokemon-fullart template file
-  // elements/ → pokeproxy/ → services/ → server/ → src/ → project root
-  const templatePath = join(import.meta.dir, "../../../../../data/templates/pokemon-fullart.json");
+  // Load from the pokemon-fullart slot of the builtin default set.
+  // elements/ → pokeproxy/ → services/ → server/ → templates/builtin/default/
+  const templatePath = join(import.meta.dir, "../../../templates/builtin/default/pokemon-fullart.json");
   try {
     const raw = require("node:fs").readFileSync(templatePath, "utf-8");
     const tmpl = JSON.parse(raw);

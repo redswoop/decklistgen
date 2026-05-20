@@ -825,7 +825,7 @@ describe("repeater round-trip", () => {
     const { readFileSync } = require("fs");
     const { join } = require("path");
 
-    const tmplPath = join(__dirname, "../../../../../data/templates/pokemon-fullart.json");
+    const tmplPath = join(__dirname, "../../../templates/builtin/default/pokemon-fullart.json");
     const tmpl = JSON.parse(readFileSync(tmplPath, "utf-8"));
 
     const cardData = {
@@ -880,7 +880,7 @@ describe("filtered repeater preserves _templateIndex", () => {
     const { readFileSync } = require("fs");
     const { join } = require("path");
 
-    const tmplPath = join(__dirname, "../../../../../data/templates/pokemon-fullart.json");
+    const tmplPath = join(__dirname, "../../../templates/builtin/default/pokemon-fullart.json");
     const tmpl = JSON.parse(readFileSync(tmplPath, "utf-8"));
 
     // Card with NO abilities — abilities repeater should be filtered
@@ -924,7 +924,7 @@ describe("filtered repeater preserves _templateIndex", () => {
     const { readFileSync } = require("fs");
     const { join } = require("path");
 
-    const tmplPath = join(__dirname, "../../../../../data/templates/pokemon-fullart.json");
+    const tmplPath = join(__dirname, "../../../templates/builtin/default/pokemon-fullart.json");
     const tmpl = JSON.parse(readFileSync(tmplPath, "utf-8"));
 
     // Card with NO abilities and NO rule text
@@ -987,7 +987,7 @@ describe("SVG click → template path integration", () => {
   }
 
   function loadTemplate() {
-    const tmplPath = join(__dirname, "../../../../../data/templates/pokemon-fullart.json");
+    const tmplPath = join(__dirname, "../../../templates/builtin/default/pokemon-fullart.json");
     return JSON.parse(readFileSync(tmplPath, "utf-8"));
   }
 

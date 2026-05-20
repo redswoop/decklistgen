@@ -1,12 +1,22 @@
-import type { CardTemplate } from "../../shared/types/template.js";
+import type { CardTemplate, BuiltinEditMode } from "../../shared/types/template.js";
 
 const BASE = "/gallery/editor";
-const TMPL = `${BASE}/templates`;
+const SETS = `${BASE}/sets`;
 
-export interface TemplateSummary {
+export interface TemplateSetSummary {
   id: string;
   name: string;
   description?: string;
+  extends?: string;
+  origin: "builtin" | "user";
+  hasShadow?: boolean;
+  slotIds: string[];
+  cardIds: string[];
+}
+
+export interface TemplateSetPolicy {
+  builtinEditMode: BuiltinEditMode;
+  globalSetId: string;
 }
 
 export interface CardEntry {
@@ -14,6 +24,12 @@ export interface CardEntry {
   category?: string;
   name?: string;
   suggestedTemplate?: string;
+}
+
+export interface SaveResult {
+  ok: boolean;
+  status: number;
+  error?: string;
 }
 
 export function useEditorApi() {
@@ -43,35 +59,79 @@ export function useEditorApi() {
     return `${BASE}/raw-image?cardId=${encodeURIComponent(cardId)}`;
   }
 
-  // ── Template API ──
+  // ── Template-set API ──
 
-  async function listTemplates(): Promise<TemplateSummary[]> {
-    const resp = await fetch(TMPL);
+  async function listSets(): Promise<TemplateSetSummary[]> {
+    const resp = await fetch(SETS);
     if (!resp.ok) return [];
     return resp.json();
   }
 
-  async function loadTemplate(id: string): Promise<CardTemplate | null> {
-    const resp = await fetch(`${TMPL}/${encodeURIComponent(id)}`);
+  async function getPolicy(): Promise<TemplateSetPolicy | null> {
+    const resp = await fetch(`${SETS}/policy`);
     if (!resp.ok) return null;
     return resp.json();
   }
 
-  async function saveTemplate(template: CardTemplate): Promise<boolean> {
-    const resp = await fetch(`${TMPL}/${encodeURIComponent(template.id)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(template),
-    });
-    return resp.ok;
+  async function getSet(setId: string): Promise<TemplateSetSummary | null> {
+    const resp = await fetch(`${SETS}/${encodeURIComponent(setId)}`);
+    if (!resp.ok) return null;
+    return resp.json();
   }
 
-  async function deleteTemplate(id: string): Promise<boolean> {
-    const resp = await fetch(`${TMPL}/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
-    return resp.ok;
+  async function loadSlotTemplate(setId: string, slotId: string): Promise<CardTemplate | null> {
+    const resp = await fetch(
+      `${SETS}/${encodeURIComponent(setId)}/templates/${encodeURIComponent(slotId)}`,
+    );
+    if (!resp.ok) return null;
+    return resp.json();
   }
 
-  return { fetchCards, fetchCardData, renderSvg, rawImageUrl, listTemplates, loadTemplate, saveTemplate, deleteTemplate };
+  async function saveSlotTemplate(
+    setId: string,
+    slotId: string,
+    template: { name: string; description?: string; elements: unknown[] },
+    opts: { confirmShadow?: boolean } = {},
+  ): Promise<SaveResult> {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (opts.confirmShadow) headers["X-Confirm-Shadow-Edit"] = "i-understand";
+    const resp = await fetch(
+      `${SETS}/${encodeURIComponent(setId)}/templates/${encodeURIComponent(slotId)}`,
+      { method: "POST", headers, body: JSON.stringify(template), credentials: "include" },
+    );
+    if (resp.ok) return { ok: true, status: resp.status };
+    let error: string | undefined;
+    try { const body = await resp.json(); error = body?.error; } catch {}
+    return { ok: false, status: resp.status, error };
+  }
+
+  async function deleteSlotTemplate(
+    setId: string,
+    slotId: string,
+    opts: { confirmShadow?: boolean } = {},
+  ): Promise<SaveResult> {
+    const headers: Record<string, string> = {};
+    if (opts.confirmShadow) headers["X-Confirm-Shadow-Edit"] = "i-understand";
+    const resp = await fetch(
+      `${SETS}/${encodeURIComponent(setId)}/templates/${encodeURIComponent(slotId)}`,
+      { method: "DELETE", headers, credentials: "include" },
+    );
+    if (resp.ok) return { ok: true, status: resp.status };
+    let error: string | undefined;
+    try { const body = await resp.json(); error = body?.error; } catch {}
+    return { ok: false, status: resp.status, error };
+  }
+
+  return {
+    fetchCards,
+    fetchCardData,
+    renderSvg,
+    rawImageUrl,
+    listSets,
+    getPolicy,
+    getSet,
+    loadSlotTemplate,
+    saveSlotTemplate,
+    deleteSlotTemplate,
+  };
 }

@@ -12,6 +12,7 @@ const status = ref("Ready");
 const serverPos = ref<Record<string, { xKey: string; yKey: string; x: number; y: number }>>({});
 const currentTemplateId = ref<string | null>(null);
 const currentTemplateName = ref<string>("");
+const currentSetId = ref<string>("default");
 const templateDirty = ref(false);
 
 // ── Backward compat computed refs ──
@@ -210,6 +211,7 @@ export function useEditorState() {
     serverPos,
     currentTemplateId,
     currentTemplateName,
+    currentSetId,
     templateDirty,
     selectedNode,
     selectItem,
