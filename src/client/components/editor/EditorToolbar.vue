@@ -30,6 +30,10 @@ const sets = ref<TemplateSetSummary[]>([]);
 const selectedTemplate = ref("");
 const sortBy = ref<"id" | "name">("name");
 
+const showForkPanel = ref(false);
+const forkId = ref("");
+const forkName = ref("");
+
 const currentSet = computed(() => sets.value.find(s => s.id === currentSetId.value));
 const slotIds = computed(() => currentSet.value?.slotIds ?? []);
 
@@ -118,6 +122,119 @@ async function onSetPicked() {
   templateDirty.value = false;
 }
 
+function onForkOpen() {
+  forkId.value = "";
+  forkName.value = currentSet.value ? `${currentSet.value.name} (copy)` : "";
+  showForkPanel.value = true;
+}
+
+function onForkNameInput() {
+  // Auto-slug id when the user hasn't typed one yet
+  if (!forkId.value || forkId.value === slugify(forkName.value)) {
+    forkId.value = slugify(forkName.value);
+  }
+}
+
+function slugify(s: string): string {
+  return s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+async function onForkSubmit() {
+  const id = slugify(forkId.value);
+  const name = forkName.value.trim();
+  if (!id || !name) { setStatus("ID and name required"); return; }
+  const result = await api.forkSet(currentSetId.value, { id, name });
+  if (!result.ok) {
+    setStatus(`Fork failed: ${result.error ?? `HTTP ${result.status}`}`);
+    return;
+  }
+  sets.value = await api.listSets();
+  currentSetId.value = id;
+  selectedTemplate.value = "";
+  currentTemplateId.value = null;
+  currentTemplateName.value = "";
+  templateDirty.value = false;
+  showForkPanel.value = false;
+  setStatus(`Forked to: ${name}`);
+}
+
+function onForkCancel() {
+  showForkPanel.value = false;
+}
+
+function onExportSet() {
+  if (!currentSet.value) return;
+  window.location.href = api.exportSetUrl(currentSetId.value);
+}
+
+const importFileInput = ref<HTMLInputElement | null>(null);
+
+function onImportClick() {
+  importFileInput.value?.click();
+}
+
+async function onImportFile(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  let bundle: unknown;
+  try {
+    bundle = JSON.parse(await file.text());
+  } catch {
+    setStatus("Import failed: not valid JSON");
+    return;
+  }
+  let result = await api.importSet(bundle);
+  // If the bundle's id collides with an existing set, prompt for an override
+  if (!result.ok && result.status === 409) {
+    const override = window.prompt(
+      `A set with this id already exists. Enter a new id for the imported set (leave blank to cancel):`,
+    );
+    if (!override) {
+      input.value = "";
+      return;
+    }
+    result = await api.importSet(bundle, override);
+  }
+  input.value = ""; // allow re-importing same file
+  if (!result.ok) {
+    setStatus(`Import failed: ${result.error ?? `HTTP ${result.status}`}`);
+    return;
+  }
+  sets.value = await api.listSets();
+  if (result.id) currentSetId.value = result.id;
+  selectedTemplate.value = "";
+  currentTemplateId.value = null;
+  currentTemplateName.value = "";
+  templateDirty.value = false;
+  setStatus(`Imported: ${result.id}`);
+}
+
+async function onDeleteSet() {
+  if (!currentSet.value || currentSet.value.origin !== "user") return;
+  const ok = window.confirm(
+    `Delete user set "${currentSet.value.name}"? This is permanent and cannot be undone.`,
+  );
+  if (!ok) return;
+  const result = await api.deleteSet(currentSetId.value);
+  if (!result.ok) {
+    setStatus(`Delete failed: ${result.error ?? `HTTP ${result.status}`}`);
+    return;
+  }
+  sets.value = await api.listSets();
+  currentSetId.value = "default";
+  selectedTemplate.value = "";
+  currentTemplateId.value = null;
+  currentTemplateName.value = "";
+  templateDirty.value = false;
+  setStatus("Deleted");
+}
+
+function onForkKeydown(e: KeyboardEvent) {
+  if (e.key === "Enter") onForkSubmit();
+  else if (e.key === "Escape") onForkCancel();
+}
+
 async function onTemplatePicked() {
   if (!selectedTemplate.value) return;
   const tmpl = await api.loadSlotTemplate(currentSetId.value, selectedTemplate.value);
@@ -163,6 +280,27 @@ function onZoomInput(e: Event) {
       <select v-model="currentSetId" @change="onSetPicked" :title="currentSet?.origin === 'builtin' ? 'Built-in set (ships with the app)' : 'User set (in data volume)'">
         <option v-for="s in sets" :key="s.id" :value="s.id">{{ s.name }}{{ s.origin === 'user' ? ' (user)' : '' }}{{ s.hasShadow ? ' ⚠' : '' }}</option>
       </select>
+      <button class="set-action-btn" @click="onForkOpen" :disabled="!currentSet" title="Fork this set into a new user set">Fork</button>
+      <button
+        class="set-action-btn"
+        @click="onExportSet"
+        :disabled="!currentSet"
+        title="Download this set as a JSON bundle"
+      >Export</button>
+      <button class="set-action-btn" @click="onImportClick" title="Import a set bundle">Import</button>
+      <input
+        ref="importFileInput"
+        type="file"
+        accept="application/json,.json"
+        style="display: none"
+        @change="onImportFile"
+      />
+      <button
+        class="set-action-btn danger"
+        @click="onDeleteSet"
+        :disabled="!currentSet || currentSet.origin !== 'user'"
+        :title="currentSet?.origin === 'user' ? 'Delete this user set' : 'Built-in sets cannot be deleted'"
+      >Delete</button>
 
       <label>Slot:</label>
       <select v-model="selectedTemplate" @change="onTemplatePicked">
@@ -173,6 +311,15 @@ function onZoomInput(e: Event) {
         {{ currentTemplateName }}
         <span v-if="templateDirty" class="dirty-dot" title="Unsaved changes">*</span>
       </span>
+
+      <div v-if="showForkPanel" class="fork-panel">
+        <label>Name:</label>
+        <input type="text" v-model="forkName" @input="onForkNameInput" @keydown="onForkKeydown" placeholder="My Fork" autofocus />
+        <label>ID:</label>
+        <input type="text" v-model="forkId" @keydown="onForkKeydown" placeholder="my-fork" />
+        <button class="fork-save-btn" @click="onForkSubmit">Fork</button>
+        <button class="fork-cancel-btn" @click="onForkCancel">Cancel</button>
+      </div>
     </div>
 
     <div class="spacer" />
@@ -211,6 +358,16 @@ function onZoomInput(e: Event) {
 .dirty-dot { color: #e88; font-weight: bold; }
 .sidebar-toggle { display: none; background: #0f3460; color: #e0e0e0; border: 1px solid #444; border-radius: 3px; padding: 4px 10px; font-size: 16px; cursor: pointer; line-height: 1; flex-shrink: 0; }
 .sidebar-toggle:hover { background: #1a5276; }
+.set-action-btn { background: #0f3460; color: #e0e0e0; border: 1px solid #444; border-radius: 3px; padding: 3px 10px; font-size: 11px; cursor: pointer; flex-shrink: 0; }
+.set-action-btn:hover:not(:disabled) { background: #1a5276; }
+.set-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.set-action-btn.danger { color: #e88; border-color: #744; }
+.set-action-btn.danger:hover:not(:disabled) { background: #3a1a1a; }
+.fork-panel { display: flex; align-items: center; gap: 6px; background: #0a1e3d; padding: 6px 10px; border-radius: 4px; border: 1px solid #4a9eff; flex-wrap: wrap; }
+.fork-panel label { font-size: 11px; color: #888; }
+.fork-panel input { width: 120px; background: #0f3460; color: #e0e0e0; border: 1px solid #444; border-radius: 3px; padding: 3px 6px; font-size: 12px; min-width: 0; }
+.fork-save-btn { background: #1a5276; color: #e0e0e0; border: 1px solid #4a9eff; border-radius: 3px; padding: 3px 10px; font-size: 11px; cursor: pointer; }
+.fork-cancel-btn { background: #3a1a1a; color: #e88; border: 1px solid #744; border-radius: 3px; padding: 3px 10px; font-size: 11px; cursor: pointer; }
 
 @media (max-width: 768px) {
   .toolbar { padding: 6px 8px; gap: 6px; }

@@ -4,6 +4,7 @@ import EditorToolbar from "./EditorToolbar.vue";
 import EditorCanvas from "./EditorCanvas.vue";
 import EditorSidebar from "./EditorSidebar.vue";
 import EditorBottomBar from "./EditorBottomBar.vue";
+import ShadowBanner from "./ShadowBanner.vue";
 import { useEditorState } from "../../composables/useEditorState.js";
 import { useEditorRenderer } from "../../composables/useEditorRenderer.js";
 import { useEditorViewport } from "../../composables/useEditorViewport.js";
@@ -52,6 +53,7 @@ function handleFit() {
 
 <template>
   <div class="editor-view">
+    <ShadowBanner />
     <EditorToolbar @fit="handleFit" @toggle-sidebar="sidebarOpen = !sidebarOpen" :sidebar-open="sidebarOpen" />
     <div class="main">
       <EditorCanvas ref="canvas" />

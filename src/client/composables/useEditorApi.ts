@@ -105,6 +105,99 @@ export function useEditorApi() {
     return { ok: false, status: resp.status, error };
   }
 
+  async function deleteSet(setId: string): Promise<SaveResult> {
+    const resp = await fetch(`${SETS}/${encodeURIComponent(setId)}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (resp.ok) return { ok: true, status: resp.status };
+    let error: string | undefined;
+    try { const b = await resp.json(); error = b?.error; } catch {}
+    return { ok: false, status: resp.status, error };
+  }
+
+  async function updateSetMetadata(
+    setId: string,
+    body: { name?: string; description?: string; extends?: string },
+  ): Promise<SaveResult> {
+    const resp = await fetch(`${SETS}/${encodeURIComponent(setId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      credentials: "include",
+    });
+    if (resp.ok) return { ok: true, status: resp.status };
+    let error: string | undefined;
+    try { const b = await resp.json(); error = b?.error; } catch {}
+    return { ok: false, status: resp.status, error };
+  }
+
+  async function listShadows(): Promise<Array<{
+    setId: string;
+    createdAt?: string;
+    lastEditedAt?: string;
+    editor?: string;
+    syncStatus?: string;
+    slotIds: string[];
+    cardIds: string[];
+  }>> {
+    const resp = await fetch(`${SETS}/builtin-shadows`, { credentials: "include" });
+    if (!resp.ok) return [];
+    return resp.json();
+  }
+
+  function exportShadowsUrl(): string {
+    return `${SETS}/builtin-shadows/export`;
+  }
+
+  async function clearShadow(setId: string): Promise<SaveResult> {
+    const resp = await fetch(`${SETS}/builtin-shadows/${encodeURIComponent(setId)}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (resp.ok) return { ok: true, status: resp.status };
+    let error: string | undefined;
+    try { const b = await resp.json(); error = b?.error; } catch {}
+    return { ok: false, status: resp.status, error };
+  }
+
+  function exportSetUrl(setId: string): string {
+    return `${SETS}/${encodeURIComponent(setId)}/export`;
+  }
+
+  async function importSet(bundle: unknown, idOverride?: string): Promise<SaveResult & { id?: string }> {
+    const payload = idOverride ? { ...(bundle as object), id: idOverride } : bundle;
+    const resp = await fetch(`${SETS}/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      credentials: "include",
+    });
+    if (resp.ok) {
+      const b = await resp.json().catch(() => ({}));
+      return { ok: true, status: resp.status, id: b?.id };
+    }
+    let error: string | undefined;
+    try { const b = await resp.json(); error = b?.error; } catch {}
+    return { ok: false, status: resp.status, error };
+  }
+
+  async function forkSet(
+    sourceSetId: string,
+    body: { id: string; name: string; description?: string },
+  ): Promise<SaveResult> {
+    const resp = await fetch(`${SETS}/${encodeURIComponent(sourceSetId)}/fork`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      credentials: "include",
+    });
+    if (resp.ok) return { ok: true, status: resp.status };
+    let error: string | undefined;
+    try { const b = await resp.json(); error = b?.error; } catch {}
+    return { ok: false, status: resp.status, error };
+  }
+
   async function deleteSlotTemplate(
     setId: string,
     slotId: string,
@@ -130,6 +223,14 @@ export function useEditorApi() {
     listSets,
     getPolicy,
     getSet,
+    forkSet,
+    deleteSet,
+    updateSetMetadata,
+    exportSetUrl,
+    importSet,
+    listShadows,
+    exportShadowsUrl,
+    clearShadow,
     loadSlotTemplate,
     saveSlotTemplate,
     deleteSlotTemplate,

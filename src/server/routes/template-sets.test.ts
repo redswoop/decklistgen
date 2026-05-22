@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { Hono } from "hono";
@@ -250,6 +250,286 @@ describe("POST /:setId/cards/:cardId — user set", () => {
     const body = await res.json();
     expect(body.mode).toBe("user");
     expect(existsSync(join(userPath, "my-set", "cards", "sv4-1.json"))).toBe(true);
+  });
+});
+
+describe("POST /:setId/fork", () => {
+  it("creates a user set that extends the source builtin", async () => {
+    const res = await app.request("/default/fork", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "my-fork", name: "My Fork" }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.id).toBe("my-fork");
+    expect(body.extends).toBe("default");
+
+    const manifest = JSON.parse(readFileSync(join(userPath, "my-fork", "set.json"), "utf-8"));
+    expect(manifest.extends).toBe("default");
+    expect(manifest.name).toBe("My Fork");
+  });
+
+  it("can fork a user set", async () => {
+    mkdirSync(join(userPath, "parent"), { recursive: true });
+    writeJson(join(userPath, "parent", "set.json"), { id: "parent", name: "Parent", extends: "default" });
+    clearTemplateSetCache();
+    const res = await app.request("/parent/fork", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "grandchild", name: "Grandchild" }),
+    });
+    expect(res.status).toBe(200);
+    const manifest = JSON.parse(readFileSync(join(userPath, "grandchild", "set.json"), "utf-8"));
+    expect(manifest.extends).toBe("parent");
+  });
+
+  it("409 on duplicate id", async () => {
+    const a = await app.request("/default/fork", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "dup", name: "First" }),
+    });
+    expect(a.status).toBe(200);
+    const b = await app.request("/default/fork", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "dup", name: "Second" }),
+    });
+    expect(b.status).toBe(409);
+  });
+
+  it("400 on invalid target id", async () => {
+    const res = await app.request("/default/fork", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "bad id!", name: "x" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("400 on missing fields", async () => {
+    const res = await app.request("/default/fork", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "only-id" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("404 on unknown source set", async () => {
+    const res = await app.request("/ghost/fork", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "x", name: "x" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("401 when unauthenticated", async () => {
+    const unauth = buildApp();
+    const res = await unauth.request("/default/fork", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "x", name: "x" }),
+    });
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("POST /:setId — update user-set metadata", () => {
+  beforeEach(() => {
+    mkdirSync(join(userPath, "my-set"), { recursive: true });
+    writeJson(join(userPath, "my-set", "set.json"), { id: "my-set", name: "Mine", extends: "default" });
+    clearTemplateSetCache();
+  });
+
+  it("updates name and description", async () => {
+    const res = await app.request("/my-set", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Renamed", description: "Updated" }),
+    });
+    expect(res.status).toBe(200);
+    const manifest = JSON.parse(readFileSync(join(userPath, "my-set", "set.json"), "utf-8"));
+    expect(manifest.name).toBe("Renamed");
+    expect(manifest.description).toBe("Updated");
+    expect(manifest.extends).toBe("default");
+  });
+
+  it("403 on builtin sets", async () => {
+    const res = await app.request("/default", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Hacked" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("404 on missing set", async () => {
+    const res = await app.request("/ghost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "x" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("401 when unauthenticated", async () => {
+    const unauth = buildApp();
+    const res = await unauth.request("/my-set", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "x" }),
+    });
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("DELETE /:setId — delete user set", () => {
+  beforeEach(() => {
+    mkdirSync(join(userPath, "to-delete", "cards"), { recursive: true });
+    writeJson(join(userPath, "to-delete", "set.json"), { id: "to-delete", name: "Dead Set Walking" });
+    writeJson(join(userPath, "to-delete", "trainer.json"), { id: "t", name: "t", elements: [] });
+    writeJson(join(userPath, "to-delete", "cards", "sv4-1.json"), { id: "sv4-1", name: "x", elements: [] });
+    clearTemplateSetCache();
+  });
+
+  it("recursively removes the user set directory", async () => {
+    const res = await app.request("/to-delete", { method: "DELETE" });
+    expect(res.status).toBe(200);
+    expect(existsSync(join(userPath, "to-delete"))).toBe(false);
+  });
+
+  it("403 on builtin sets", async () => {
+    const res = await app.request("/default", { method: "DELETE" });
+    expect(res.status).toBe(403);
+  });
+
+  it("404 on missing set", async () => {
+    const res = await app.request("/ghost", { method: "DELETE" });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("export / import", () => {
+  beforeEach(() => {
+    mkdirSync(join(builtinPath, "default", "cards"), { recursive: true });
+    writeJson(join(builtinPath, "default", "cards", "sv4-1.json"), {
+      id: "sv4-1", name: "Pikachu Custom", elements: [{ type: "text", props: { text: "p" } }],
+    });
+    clearTemplateSetCache();
+  });
+
+  it("GET /:setId/export returns a bundle with manifest + slots + cards", async () => {
+    const res = await app.request("/default/export");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-disposition")).toContain("default.template-set.json");
+    const body = await res.json();
+    expect(body.manifest.id).toBe("default");
+    expect(body.slots["pokemon-standard"]).toBeDefined();
+    expect(body.cards["sv4-1"]?.name).toBe("Pikachu Custom");
+  });
+
+  it("POST /import roundtrips a user set", async () => {
+    const exp = await app.request("/default/export");
+    const bundle = await exp.json();
+    bundle.id = "imported";
+    const res = await app.request("/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bundle),
+    });
+    expect(res.status).toBe(200);
+    const newSet = JSON.parse(readFileSync(join(userPath, "imported", "set.json"), "utf-8"));
+    expect(newSet.name).toBe("Default");
+    expect(existsSync(join(userPath, "imported", "pokemon-standard.json"))).toBe(true);
+    expect(existsSync(join(userPath, "imported", "cards", "sv4-1.json"))).toBe(true);
+  });
+
+  it("POST /import 409 on duplicate id", async () => {
+    const res = await app.request("/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ manifest: { id: "default", name: "Dup" } }),
+    });
+    expect(res.status).toBe(409);
+  });
+
+  it("POST /import 400 on missing manifest", async () => {
+    const res = await app.request("/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slots: {} }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("POST /import 401 when unauthenticated", async () => {
+    const unauth = buildApp();
+    const res = await unauth.request("/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ manifest: { id: "x", name: "x" } }),
+    });
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("shadow management", () => {
+  let adminApp: Hono<AppEnv>;
+  beforeEach(() => {
+    adminApp = buildApp({ user: { isAuthorized: true, isAdmin: true, email: "admin@example.com" } });
+    mkdirSync(join(shadowsPath, "default", "cards"), { recursive: true });
+    writeJson(join(shadowsPath, "default", "shadow.json"), {
+      setId: "default",
+      createdAt: "2026-01-01T00:00:00Z",
+      lastEditedAt: "2026-01-02T00:00:00Z",
+      editor: "admin@example.com",
+      syncStatus: "pending",
+    });
+    writeJson(join(shadowsPath, "default", "pokemon-fullart.json"), { id: "pf", name: "Shadow PF", elements: [] });
+    writeJson(join(shadowsPath, "default", "cards", "sv4-1.json"), { id: "sv4-1", name: "Shadow Pikachu", elements: [] });
+    clearTemplateSetCache();
+  });
+
+  it("GET /builtin-shadows lists shadows with metadata", async () => {
+    const res = await adminApp.request("/builtin-shadows");
+    expect(res.status).toBe(200);
+    const list = await res.json();
+    expect(list).toHaveLength(1);
+    expect(list[0].setId).toBe("default");
+    expect(list[0].slotIds).toEqual(["pokemon-fullart"]);
+    expect(list[0].cardIds).toEqual(["sv4-1"]);
+    expect(list[0].editor).toBe("admin@example.com");
+  });
+
+  it("GET /builtin-shadows requires admin", async () => {
+    const nonAdmin = buildApp({ user: { isAuthorized: true, isAdmin: false } });
+    const res = await nonAdmin.request("/builtin-shadows");
+    expect(res.status).toBe(403);
+  });
+
+  it("GET /builtin-shadows/export bundles all shadows", async () => {
+    const res = await adminApp.request("/builtin-shadows/export");
+    expect(res.status).toBe(200);
+    const bundle = await res.json();
+    expect(bundle.shadows).toHaveLength(1);
+    expect(bundle.shadows[0].setId).toBe("default");
+    expect(bundle.shadows[0].slots["pokemon-fullart"]?.name).toBe("Shadow PF");
+    expect(bundle.shadows[0].cards["sv4-1"]?.name).toBe("Shadow Pikachu");
+  });
+
+  it("DELETE /builtin-shadows/:setId removes the overlay dir", async () => {
+    const res = await adminApp.request("/builtin-shadows/default", { method: "DELETE" });
+    expect(res.status).toBe(200);
+    expect(existsSync(join(shadowsPath, "default"))).toBe(false);
+  });
+
+  it("DELETE /builtin-shadows/:setId 404 when no shadow exists", async () => {
+    rmSync(join(shadowsPath, "default"), { recursive: true });
+    const res = await adminApp.request("/builtin-shadows/default", { method: "DELETE" });
+    expect(res.status).toBe(404);
   });
 });
 
