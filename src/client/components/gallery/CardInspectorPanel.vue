@@ -449,6 +449,7 @@ async function setMode(field: "textMode" | "hpTextMode", choice: ModeChoice) {
 }
 .inspector-tab {
   flex: 1;
+  min-width: 0;
   background: none;
   border: none;
   color: #aaa;
@@ -456,6 +457,9 @@ async function setMode(field: "textMode" | "hpTextMode", choice: ModeChoice) {
   font-weight: 600;
   padding: 6px 8px;
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .inspector-tab:hover:not(:disabled) { color: #fff; }
 .inspector-tab:disabled { opacity: 0.4; cursor: not-allowed; }

@@ -130,6 +130,12 @@ watch(
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
   box-sizing: content-box;
+  /* Skip paint+layout for off-screen thumbs. The embedded base64 card art
+   * gets re-rasterized on every size change (e.g. flipping to print-size
+   * mode), so painting all 50 cards at once tanks framerate. content-visibility
+   * defers everything outside the viewport. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 230px 326px;
 }
 
 /* Compact chrome (used by Gallery print-preview). Tighter padding and smaller
