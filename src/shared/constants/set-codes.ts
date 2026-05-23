@@ -23,11 +23,12 @@ export const SET_MAP: Record<string, string> = {
   WHT: "sv10.5w",
   SVP: "svp",
   SVE: "sve",
-  MEE: "sve",  // Limitless basic energies → SV Energies fallback
+  MEE: "mee",  // Mega Evolution Energy — ME-era basic energies (8 cards)
   // Mega Evolution era
   MEG: "me01",
   PFL: "me02",
   ASC: "me02.5",
+  POR: "me03",
   MEP: "mep",
   // Sword & Shield era
   SWSH: "swsh1",
@@ -76,10 +77,11 @@ export const SET_NAMES: Record<string, string> = {
   WHT: "White Flare",
   SVP: "SV Black Star Promos",
   SVE: "SV Energies",
-  MEE: "Basic Energies",
+  MEE: "Mega Evolution Energy",
   MEG: "Mega Evolution",
   PFL: "Phantasmal Flames",
   ASC: "Ascended Heroes",
+  POR: "Perfect Order",
   MEP: "MEP Black Star Promos",
   SWSH: "Sword & Shield",
   SSH: "Sword & Shield",
