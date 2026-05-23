@@ -30,6 +30,28 @@ function computePrintUnfriendly(id: string): boolean {
   return printOverrides[id] === true;
 }
 
+/** TCGdex doesn't ship images for the mee/sve placeholder sets — borrow a
+ *  known-good SV-era printing's image when the upstream `image` is empty. */
+const BASIC_ENERGY_FALLBACK_IMAGE: Record<string, string> = {
+  "Grass Energy": "https://assets.tcgdex.net/en/sv/sv02/278",
+  "Fire Energy": "https://assets.tcgdex.net/en/sv/sv03/230",
+  "Water Energy": "https://assets.tcgdex.net/en/sv/sv02/279",
+  "Lightning Energy": "https://assets.tcgdex.net/en/sv/sv01/257",
+  "Psychic Energy": "https://assets.tcgdex.net/en/sv/sv03.5/207",
+  "Fighting Energy": "https://assets.tcgdex.net/en/sv/sv01/258",
+  "Darkness Energy": "https://assets.tcgdex.net/en/sv/sv06.5/098",
+  "Metal Energy": "https://assets.tcgdex.net/en/sv/sv06.5/099",
+};
+
+function resolveImageBase(raw: TcgdexCard): string {
+  if (raw.image) return raw.image;
+  if (raw.category === "Energy") {
+    const fallback = BASIC_ENERGY_FALLBACK_IMAGE[raw.name];
+    if (fallback) return fallback;
+  }
+  return "";
+}
+
 function normalizeCard(raw: TcgdexCard, setCode: string): Card {
   const tcgdexId = raw.set?.id ?? SET_MAP[setCode] ?? "";
   const category = (raw.category === "Pokemon" || raw.category === "Trainer" || raw.category === "Energy")
@@ -47,7 +69,7 @@ function normalizeCard(raw: TcgdexCard, setCode: string): Card {
     localId: raw.localId,
     name,
     subtitle,
-    imageBase: raw.image ?? "",
+    imageBase: resolveImageBase(raw),
     category,
     trainerType: raw.trainerType as Card["trainerType"],
     rarity,
