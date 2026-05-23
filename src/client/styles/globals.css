@@ -1119,6 +1119,13 @@ body {
   margin-top: 12px;
 }
 
+.print-section-hint {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #9aa5b8;
+}
+
 .print-radio-group {
   display: flex;
   gap: 16px;

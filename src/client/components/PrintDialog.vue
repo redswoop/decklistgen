@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { api } from "../lib/client.js";
 
 const props = defineProps<{
@@ -11,6 +11,8 @@ const emit = defineEmits<{
 }>();
 
 const quantityMode = ref<"all-dupes" | "one-each">("all-dupes");
+const paper = ref<"letter" | "super-b">("letter");
+const orientation = ref<"portrait" | "landscape">("portrait");
 const includePokemon = ref(true);
 const includeSupporters = ref(true);
 const includeItems = ref(true);
@@ -18,11 +20,27 @@ const includeTools = ref(true);
 const includeStadiums = ref(true);
 const includeBasicEnergy = ref(true);
 
+const cardsPerSheet = computed(() => {
+  const sheet = paper.value === "super-b" ? { w: 13, h: 19 } : { w: 8.5, h: 11 };
+  const usable = orientation.value === "landscape"
+    ? { w: sheet.h - 0.5, h: sheet.w - 0.5 }
+    : { w: sheet.w - 0.5, h: sheet.h - 0.5 };
+  const cols = Math.floor(usable.w / 2.5);
+  const rows = Math.floor(usable.h / 3.5);
+  return cols * rows;
+});
+
 function handlePrint() {
   const params: Record<string, string> = {};
 
   if (quantityMode.value === "one-each") {
     params.qty = "one-each";
+  }
+  if (paper.value !== "letter") {
+    params.paper = paper.value;
+  }
+  if (orientation.value !== "portrait") {
+    params.orientation = orientation.value;
   }
   if (!includeBasicEnergy.value) {
     params.noBasicEnergy = "1";
@@ -57,6 +75,30 @@ function handlePrint() {
         <label class="print-radio">
           <input type="radio" v-model="quantityMode" value="one-each" />
           1 of each
+        </label>
+      </div>
+
+      <div class="print-section-label">Paper</div>
+      <div class="print-radio-group">
+        <label class="print-radio">
+          <input type="radio" v-model="paper" value="letter" />
+          Letter (8.5 × 11)
+        </label>
+        <label class="print-radio">
+          <input type="radio" v-model="paper" value="super-b" />
+          Super-B (13 × 19)
+        </label>
+      </div>
+
+      <div class="print-section-label">Orientation <span class="print-section-hint">— {{ cardsPerSheet }} cards/sheet</span></div>
+      <div class="print-radio-group">
+        <label class="print-radio">
+          <input type="radio" v-model="orientation" value="portrait" />
+          Portrait
+        </label>
+        <label class="print-radio">
+          <input type="radio" v-model="orientation" value="landscape" />
+          Landscape
         </label>
       </div>
 

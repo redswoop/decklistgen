@@ -401,6 +401,8 @@ app.get("/print/:deckId", requireAuth, async (c) => {
   const oneEach = q.qty === "one-each";
   const noBasicEnergy = q.noBasicEnergy === "1";
   const excludeSet = new Set((q.exclude || "").split(",").filter(Boolean));
+  const paper = q.paper === "super-b" ? "super-b" : "letter";
+  const orientation = q.orientation === "landscape" ? "landscape" : "portrait";
 
   const entries = deck.cards.filter((entry) => {
     const { card } = entry;
@@ -430,7 +432,7 @@ app.get("/print/:deckId", requireAuth, async (c) => {
     cardSvgs.push([oneEach ? 1 : entry.count, svg]);
   }
 
-  const html = generatePrintHtml(cardSvgs);
+  const html = generatePrintHtml(cardSvgs, { paper, orientation });
   return c.html(html);
 });
 
