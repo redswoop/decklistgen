@@ -14,6 +14,7 @@ interface DeckRow {
   imported_at: string | null;
   created_at: string;
   updated_at: string;
+  template_set_id: string | null;
 }
 
 function rowToDeck(row: DeckRow): SavedDeck {
@@ -27,6 +28,7 @@ function rowToDeck(row: DeckRow): SavedDeck {
     importedAt: row.imported_at ?? undefined,
     isPublic: row.is_public === 1,
     isListed: row.is_listed === 1,
+    templateSetId: row.template_set_id ?? undefined,
   };
 }
 
@@ -83,14 +85,15 @@ export async function getDeck(id: string, userId?: string): Promise<SavedDeck | 
 export async function createDeck(userId: string, deck: SavedDeck): Promise<void> {
   getDb()
     .query(`
-      INSERT INTO decks (id, user_id, name, cards, is_public, is_listed, import_source, imported_at, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO decks (id, user_id, name, cards, is_public, is_listed, import_source, imported_at, created_at, updated_at, template_set_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .run(
       deck.id, userId, deck.name, JSON.stringify(deck.cards),
       deck.isPublic ? 1 : 0, deck.isListed ? 1 : 0,
       deck.importSource ?? null, deck.importedAt ?? null,
-      deck.createdAt, deck.updatedAt
+      deck.createdAt, deck.updatedAt,
+      deck.templateSetId ?? null,
     );
 }
 
@@ -103,14 +106,23 @@ export async function updateDeck(id: string, userId: string, updates: Partial<Sa
   if (updates.cards !== undefined) deck.cards = consolidateDeckCards(updates.cards);
   if (updates.isPublic !== undefined) deck.isPublic = updates.isPublic;
   if (updates.isListed !== undefined) deck.isListed = updates.isListed;
+  if ("templateSetId" in updates) {
+    deck.templateSetId = updates.templateSetId || undefined;
+  }
   deck.updatedAt = new Date().toISOString();
 
   getDb()
     .query(`
-      UPDATE decks SET name = ?, cards = ?, is_public = ?, is_listed = ?, updated_at = ?
+      UPDATE decks SET name = ?, cards = ?, is_public = ?, is_listed = ?, updated_at = ?, template_set_id = ?
       WHERE id = ? AND user_id = ?
     `)
-    .run(deck.name, JSON.stringify(deck.cards), deck.isPublic ? 1 : 0, deck.isListed ? 1 : 0, deck.updatedAt, id, userId);
+    .run(
+      deck.name, JSON.stringify(deck.cards),
+      deck.isPublic ? 1 : 0, deck.isListed ? 1 : 0,
+      deck.updatedAt,
+      deck.templateSetId ?? null,
+      id, userId,
+    );
 
   return deck;
 }

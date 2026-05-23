@@ -77,7 +77,7 @@ function saveLayout(partial: Partial<LayoutState>) {
 
 const saved = loadLayout();
 
-const { items, totalCards, toText, currentDeckName, currentDeckId, isDirty, toDeckCards, markSaved, importSource, importedAt, undo, redo } = useDecklist();
+const { items, totalCards, toText, currentDeckName, currentDeckId, isDirty, toDeckCards, markSaved, importSource, importedAt, undo, redo, currentDeckTemplateSetId } = useDecklist();
 const { createDeck, updateDeck } = useDecks();
 
 // Deck sub-view: gallery (home) vs build (working deck)
@@ -93,6 +93,8 @@ const previewDeckMembership = ref<DeckMembership[] | undefined>(undefined);
 const previewDeckName = ref<string | undefined>(undefined);
 const previewSavedDeckId = ref<string | undefined>(undefined);
 const previewSavedDeckCards = ref<DeckCard[] | undefined>(undefined);
+const previewDeckTemplateSetId = ref<string | undefined>(undefined);
+const previewCardTemplateSetId = ref<string | undefined>(undefined);
 
 // Close mobile panels on tab switch
 watch(currentView, () => {
@@ -231,6 +233,8 @@ function handlePreview(card: Card, cards: Card[]) {
   previewDeckName.value = undefined;
   previewSavedDeckId.value = undefined;
   previewSavedDeckCards.value = undefined;
+  previewDeckTemplateSetId.value = undefined;
+  previewCardTemplateSetId.value = undefined;
   setCardParam(card.id);
 }
 
@@ -241,6 +245,9 @@ function handleDeckPreview(card: Card) {
   previewDeckName.value = currentDeckName.value || undefined;
   previewSavedDeckId.value = undefined;
   previewSavedDeckCards.value = undefined;
+  previewDeckTemplateSetId.value = currentDeckTemplateSetId.value ?? undefined;
+  const item = items.value.find((i) => i.setCode === card.setCode && i.localId === card.localId);
+  previewCardTemplateSetId.value = item?.templateSetId;
   setCardParam(card.id);
 }
 
@@ -330,6 +337,7 @@ async function handleSaveDeck(name: string) {
       cards: toDeckCards(),
       importedAt: importedAt.value ?? undefined,
       importSource: importSource.value ?? undefined,
+      templateSetId: currentDeckTemplateSetId.value ?? undefined,
     });
     markSaved(deck.id, deck.name);
   } catch (e) {
@@ -345,6 +353,7 @@ async function handleWorkingSaveUpdate() {
       data: {
         name: currentDeckName.value,
         cards: toDeckCards(),
+        templateSetId: currentDeckTemplateSetId.value ?? undefined,
       },
     });
     markSaved(currentDeckId.value, currentDeckName.value);
@@ -635,6 +644,8 @@ function handleTabClick(tab: string) {
       :deck-name="previewDeckName"
       :saved-deck-id="previewSavedDeckId"
       :saved-deck-cards="previewSavedDeckCards"
+      :deck-template-set-id="previewDeckTemplateSetId"
+      :card-template-set-id="previewCardTemplateSetId"
       @close="closeLightbox"
       @card-change="handleCardChange"
       @deck-updated="handleDeckUpdated"

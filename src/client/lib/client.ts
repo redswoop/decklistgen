@@ -217,12 +217,19 @@ export const api = {
     const qs = params.toString();
     return qs ? `${base}?${qs}` : base;
   },
-  pokeproxySvgUrl: (cardId: string, settings?: ProxySettings, version?: number) => {
+  pokeproxySvgUrl: (
+    cardId: string,
+    settings?: ProxySettings,
+    version?: number,
+    setIds?: { cardSetId?: string; deckSetId?: string },
+  ) => {
     const base = `/api/pokeproxy/svg/${cardId}`;
     const params = new URLSearchParams();
     if (settings?.fontSize != null) params.set("fontSize", String(settings.fontSize));
     if (settings?.maxCover != null) params.set("maxCover", String(settings.maxCover));
     if (version) params.set("v", String(version));
+    if (setIds?.cardSetId) params.set("cardSetId", setIds.cardSetId);
+    if (setIds?.deckSetId) params.set("deckSetId", setIds.deckSetId);
     const qs = params.toString();
     return qs ? `${base}?${qs}` : base;
   },
@@ -286,7 +293,7 @@ export const api = {
   // Deck management endpoints
   listDecks: () => get<DeckSummary[]>("/decks"),
   getDeck: (id: string) => get<SavedDeck>(`/decks/${id}`),
-  createDeck: (data: { name: string; cards: DeckCard[]; importedAt?: string; importSource?: string }) =>
+  createDeck: (data: { name: string; cards: DeckCard[]; importedAt?: string; importSource?: string; templateSetId?: string }) =>
     post<SavedDeck>("/decks", data),
   updateDeck: (id: string, data: Partial<SavedDeck>) =>
     put<SavedDeck>(`/decks/${id}`, data),

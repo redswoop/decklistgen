@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import TemplateSetPicker from "./TemplateSetPicker.vue";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
@@ -17,7 +18,17 @@ const {
   items, totalCards, countColor, stats, DECK_SIZE,
   incrementCard, removeCard,
   currentDeckId, currentDeckName, isDirty, loadSavedDeck,
+  currentDeckTemplateSetId, setDeckTemplateSetId, setCardTemplateSetId,
 } = useDecklist();
+
+const deckTemplateSetId = computed<string | undefined>({
+  get: () => currentDeckTemplateSetId.value ?? undefined,
+  set: (v) => setDeckTemplateSetId(v ?? null),
+});
+
+function onCardTemplateSetChange(setCode: string, localId: string, value: string | undefined) {
+  setCardTemplateSetId(setCode, localId, value ?? null);
+}
 
 const { decks, fetchDeck } = useDecks();
 
@@ -93,6 +104,10 @@ function confirmDirtySwitch() {
         </div>
         <div v-if="otherDecks.length === 0" class="dcp-switcher-empty">No other decks</div>
       </div>
+
+      <div class="dcp-template-set">
+        <TemplateSetPicker v-model="deckTemplateSetId" label="Template set" />
+      </div>
     </div>
 
     <!-- Deck contents -->
@@ -114,6 +129,12 @@ function confirmDirtySwitch() {
         <div class="item-info">
           <div class="item-name">{{ item.name }}</div>
           <div class="item-set">{{ item.setCode }} {{ item.localId }}</div>
+          <TemplateSetPicker
+            class="item-tsp"
+            compact
+            :model-value="item.templateSetId"
+            @update:model-value="(v) => onCardTemplateSetChange(item.setCode, item.localId, v)"
+          />
         </div>
         <div class="item-controls">
           <button @click.stop="removeCard(item.setCode, item.localId)">-</button>

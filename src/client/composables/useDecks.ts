@@ -22,7 +22,7 @@ export function useDecks() {
   }
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; cards: DeckCard[]; importedAt?: string; importSource?: string }) =>
+    mutationFn: (data: { name: string; cards: DeckCard[]; importedAt?: string; importSource?: string; templateSetId?: string }) =>
       api.createDeck(data),
     onSuccess: invalidate,
   });

@@ -44,6 +44,7 @@ app.post("/", async (c) => {
     cards: SavedDeck["cards"];
     importedAt?: string;
     importSource?: string;
+    templateSetId?: string;
   }>();
 
   if (!body.name?.trim()) return c.json({ error: "Name is required" }, 400);
@@ -57,6 +58,7 @@ app.post("/", async (c) => {
     updatedAt: now,
     importedAt: body.importedAt,
     importSource: body.importSource,
+    templateSetId: body.templateSetId,
   };
 
   await createDeck(user.id, deck);

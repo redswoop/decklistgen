@@ -63,6 +63,9 @@ const props = defineProps<{
   /** When set, replace operates on this saved deck instead of working deck */
   savedDeckId?: string;
   savedDeckCards?: DeckCard[];
+  /** Template-set defaults for the deck-preview render. Card-level wins over deck-level. */
+  deckTemplateSetId?: string;
+  cardTemplateSetId?: string;
 }>();
 const emit = defineEmits<{
   close: [];
@@ -315,7 +318,10 @@ const mainImageUrl = computed(() => {
 // SVG Proxy
 const svgUrl = computed(() => {
   const v = cacheBust.value;
-  return api.pokeproxySvgUrl(currentCard.value.id, undefined, v);
+  const setIds = props.source === 'deck'
+    ? { cardSetId: props.cardTemplateSetId, deckSetId: props.deckTemplateSetId }
+    : undefined;
+  return api.pokeproxySvgUrl(currentCard.value.id, undefined, v, setIds);
 });
 const svgLoading = ref(true);
 const svgError = ref(false);

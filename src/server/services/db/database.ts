@@ -125,6 +125,11 @@ function initSchema(db: Database) {
   try {
     db.exec("ALTER TABLE invite_codes ADD COLUMN use_count INTEGER NOT NULL DEFAULT 0");
   } catch { /* already exists */ }
+
+  // Phase 3 template-sets: per-deck override column. Per-card override travels in the cards JSON blob.
+  try {
+    db.exec("ALTER TABLE decks ADD COLUMN template_set_id TEXT");
+  } catch { /* already exists */ }
 }
 
 export function getDb(): Database {

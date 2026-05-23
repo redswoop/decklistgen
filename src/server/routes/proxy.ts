@@ -190,6 +190,8 @@ app.get("/svg/:cardId", async (c) => {
   const svgOpts: SvgRenderOptions = {};
   if (query.synth != null) svgOpts.synth = true;
   if (query.fullart != null) svgOpts.fullart = true;
+  if (typeof query.cardSetId === "string" && query.cardSetId) svgOpts.cardSetId = query.cardSetId;
+  if (typeof query.deckSetId === "string" && query.deckSetId) svgOpts.deckSetId = query.deckSetId;
   try {
     const svg = await generateSvgFromTemplate(cardId, svgOpts);
     return new Response(svg, {
@@ -420,7 +422,11 @@ app.get("/print/:deckId", requireAuth, async (c) => {
   for (let ci = 0; ci < entries.length; ci++) {
     const entry = entries[ci];
     const cardId = entry.card.id;
-    const svg = await generateSvgFromTemplate(cardId, undefined, entry.artCard?.id, `c${ci}-`);
+    const svgOpts: SvgRenderOptions = {
+      cardSetId: entry.templateSetId,
+      deckSetId: deck.templateSetId,
+    };
+    const svg = await generateSvgFromTemplate(cardId, svgOpts, entry.artCard?.id, `c${ci}-`);
     cardSvgs.push([oneEach ? 1 : entry.count, svg]);
   }
 

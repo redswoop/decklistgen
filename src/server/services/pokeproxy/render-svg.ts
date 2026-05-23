@@ -17,6 +17,10 @@ const CACHE_DIR = join(import.meta.dir, "../../../../cache");
 export interface SvgRenderOptions {
   synth?: boolean;
   fullart?: boolean;
+  /** Per-card template-set override (wins over deckSetId + global). */
+  cardSetId?: string;
+  /** Per-deck template-set default (wins over global). */
+  deckSetId?: string;
 }
 
 export function cachePath(cardId: string, suffix: string): string {
@@ -162,7 +166,12 @@ export async function generateSvgFromTemplate(
   setCardIdPrefix(idPrefix ?? `${cardId}-`);
   const resolved = resolveTemplate(
     cardData as TcgdexCard,
-    { globalSetId: DEFAULT_SET_ID, slotOverride: templateName },
+    {
+      globalSetId: DEFAULT_SET_ID,
+      slotOverride: templateName,
+      cardSetId: opts?.cardSetId,
+      deckSetId: opts?.deckSetId,
+    },
     getAllSets(),
   );
   const svg = renderResolvedTemplate(resolved.template.elements, cardData, imageB64);

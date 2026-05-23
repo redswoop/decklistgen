@@ -77,6 +77,21 @@ describe("GET /pokeproxy/svg/:cardId with query params", () => {
     const svg = await res.text();
     expect(svg).toStartWith("<svg");
   });
+
+  test("unknown deckSetId falls back to default and still renders", async () => {
+    const res = await app.request(`/pokeproxy/svg/${MOCK_CARD_ID}?deckSetId=does-not-exist`);
+    expect(res.status).toBe(200);
+    const svg = await res.text();
+    expect(svg).toStartWith("<svg");
+    expect(svg).toContain("Ho-Oh");
+  });
+
+  test("unknown cardSetId falls back to default and still renders", async () => {
+    const res = await app.request(`/pokeproxy/svg/${MOCK_CARD_ID}?cardSetId=missing&deckSetId=also-missing`);
+    expect(res.status).toBe(200);
+    const svg = await res.text();
+    expect(svg).toStartWith("<svg");
+  });
 });
 
 describe("GET /pokeproxy/image/:cardId/:type with ?w= thumbnail", () => {
