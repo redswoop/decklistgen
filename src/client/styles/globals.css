@@ -1808,6 +1808,28 @@ body {
   color: #7f8fa6;
 }
 
+.lb-generate-variants-btn {
+  margin-left: auto;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid rgba(233, 69, 96, 0.4);
+  border-radius: 4px;
+  background: rgba(233, 69, 96, 0.12);
+  color: #e94560;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.lb-generate-variants-btn:hover:not(:disabled) {
+  background: rgba(233, 69, 96, 0.22);
+}
+
+.lb-generate-variants-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .lb-variant-zoom {
   width: 60px;
   height: 4px;

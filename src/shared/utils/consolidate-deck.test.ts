@@ -40,7 +40,7 @@ describe("consolidateDeckCards", () => {
     expect(consolidateDeckCards([])).toEqual([]);
   });
 
-  it("merges same card with and without artCard override", () => {
+  it("preserves an existing artCard when a later entry has none", () => {
     const card = makeCard("SCR", "173", "Terapagos ex");
     const artCard = makeCard("SV06", "50", "Terapagos ex");
     const cards: DeckCard[] = [
@@ -50,10 +50,23 @@ describe("consolidateDeckCards", () => {
     const result = consolidateDeckCards(cards);
     expect(result).toHaveLength(1);
     expect(result[0].count).toBe(3);
-    expect(result[0].artCard).toBeDefined(); // first entry's artCard preserved
+    expect(result[0].artCard?.id).toBe(artCard.id);
   });
 
-  it("merges same card with different artCard overrides", () => {
+  it("adopts a later artCard when the earlier entry had none", () => {
+    const card = makeCard("SCR", "173", "Terapagos ex");
+    const artCard = makeCard("SV06", "50", "Terapagos ex");
+    const cards: DeckCard[] = [
+      { count: 1, card },
+      { count: 2, card, artCard },
+    ];
+    const result = consolidateDeckCards(cards);
+    expect(result).toHaveLength(1);
+    expect(result[0].count).toBe(3);
+    expect(result[0].artCard?.id).toBe(artCard.id);
+  });
+
+  it("last non-undefined artCard wins when both entries set it", () => {
     const card = makeCard("SCR", "173", "Terapagos ex");
     const artA = makeCard("SV06", "50", "Terapagos ex");
     const artB = makeCard("SV07", "99", "Terapagos ex");
@@ -64,8 +77,19 @@ describe("consolidateDeckCards", () => {
     const result = consolidateDeckCards(cards);
     expect(result).toHaveLength(1);
     expect(result[0].count).toBe(3);
-    // First occurrence wins
-    expect(result[0].artCard?.id).toBe(artA.id);
+    expect(result[0].artCard?.id).toBe(artB.id);
+  });
+
+  it("adopts a later templateSetId when the earlier entry had none", () => {
+    const card = makeCard("SCR", "173", "Terapagos ex");
+    const cards: DeckCard[] = [
+      { count: 1, card },
+      { count: 2, card, templateSetId: "fullart" },
+    ];
+    const result = consolidateDeckCards(cards);
+    expect(result).toHaveLength(1);
+    expect(result[0].count).toBe(3);
+    expect(result[0].templateSetId).toBe("fullart");
   });
 
   it("does NOT merge different cards even if both have artCards", () => {

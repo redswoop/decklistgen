@@ -17,10 +17,13 @@ import { api } from "../lib/client.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
 import { useAuth } from "../composables/useAuth.js";
+import { useToast } from "../composables/useToast.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import CardZoom from "./lightbox/CardZoom.vue";
 import LightboxDevTools from "./lightbox/LightboxDevTools.vue";
 import CardThumb from "./CardThumb.vue";
+import TemplateSetPicker from "./TemplateSetPicker.vue";
+import { useTemplateSetCatalog } from "../composables/useTemplateSetCatalog.js";
 import type { DeckMembership } from "../../shared/types/customized-card.js";
 import type { DeckCard } from "../../shared/types/deck.js";
 import { consolidateDeckCards } from "../../shared/utils/consolidate-deck.js";
@@ -73,7 +76,8 @@ const emit = defineEmits<{
   deckUpdated: [];
 }>();
 
-const { addCard, removeCard, getDeckCount } = useDecklist();
+const { addCard, removeCard, getDeckCount, items: deckItems, setCardTemplateSetId, swapCard, sweepZeroCount } = useDecklist();
+const { setLabel, globalSetId } = useTemplateSetCatalog();
 const { isAuthorized, isLoggedIn } = useAuth();
 // Search set navigation. activeCard is the source of truth and stays
 // stable across searchCards mutations (e.g. deck decrements that remove
@@ -124,6 +128,8 @@ watch([variants, activeCardId], () => {
   variantIndex.value = idx >= 0 ? idx : 0;
 }, { immediate: true });
 
+const isDeckContext = computed(() => props.source === 'deck');
+
 const currentCard = computed(() => {
   if (!variants.value?.length) return activeCard.value;
   return variants.value[variantIndex.value] ?? activeCard.value;
@@ -132,28 +138,51 @@ const currentCard = computed(() => {
 const hasMultipleVariants = computed(() => (variants.value?.length ?? 1) > 1);
 const { updateDeck } = useDecks();
 
-const isDeckContext = computed(() => props.source === 'deck');
+// Per-card template-set override. Reads live from the working deck for source='deck',
+// so navigating left/right through deck cards updates the picker without prop churn.
+const activeCardTemplateSetId = computed<string | undefined>(() => {
+  if (isDeckContext.value) {
+    const entry = deckItems.value.find(
+      (i) => i.setCode === activeCard.value.setCode && i.localId === activeCard.value.localId,
+    );
+    return entry?.templateSetId;
+  }
+  return props.cardTemplateSetId;
+});
 
-// Reactive map of variant counts in deck — recomputes when deck items change
+const cardPickerInheritLabel = computed(() => {
+  const fallback = props.deckTemplateSetId ?? globalSetId.value;
+  return `Inherit deck default (${setLabel(fallback)})`;
+});
+
+function onCardTemplateSetChange(value: string | undefined) {
+  if (!isDeckContext.value) return;
+  setCardTemplateSetId(activeCard.value.setCode, activeCard.value.localId, value ?? null);
+}
+
+// Deck-stack entry for the lightbox's anchor card. Used by the per-printing
+// swap action to know whether there's anything to swap from.
+const activeDeckEntry = computed(() => {
+  if (!isDeckContext.value) return undefined;
+  if (props.savedDeckCards) {
+    return props.savedDeckCards.find(
+      (dc) => dc.card.setCode === activeCard.value.setCode && dc.card.localId === activeCard.value.localId,
+    );
+  }
+  return deckItems.value.find(
+    (i) => i.setCode === activeCard.value.setCode && i.localId === activeCard.value.localId,
+  );
+});
+
 const variantCounts = computed(() => {
   const counts = new Map<string, number>();
   if (!variants.value) return counts;
   for (const v of variants.value) {
-    let count = 0;
-    if (props.savedDeckCards) {
-      // Check artCard match first (different mechanics variant used for art)
-      const artMatch = props.savedDeckCards.find(
-        (dc) => dc.artCard && dc.artCard.setCode === v.setCode && dc.artCard.localId === v.localId
-      );
-      if (artMatch) count = artMatch.count;
-      else {
-        count = props.savedDeckCards.find(
-          (dc) => !dc.artCard && dc.card.setCode === v.setCode && dc.card.localId === v.localId
-        )?.count ?? 0;
-      }
-    } else {
-      count = getDeckCount(v.setCode, v.localId);
-    }
+    const count = props.savedDeckCards
+      ? props.savedDeckCards.find(
+          (dc) => dc.card.setCode === v.setCode && dc.card.localId === v.localId,
+        )?.count ?? 0
+      : getDeckCount(v.setCode, v.localId);
     counts.set(v.id, count);
   }
   return counts;
@@ -170,68 +199,30 @@ const totalNameCount = computed(() => {
   return sum;
 });
 
-// Build a DeckCard entry for a variant, handling artCard for different mechanics
-function buildDeckCard(variant: Card, count: number): DeckCard {
-  if (variant.mechanicsHash !== activeCard.value.mechanicsHash) {
-    // Different mechanics — use activeCard for rules text, variant for art
-    return { count, card: activeCard.value, artCard: variant };
-  }
-  return { count, card: variant };
-}
-
-// Add one copy of a specific variant
 async function handleVariantAdd(v: Card) {
   if (props.savedDeckId && props.savedDeckCards) {
-    const newCards = props.savedDeckCards.map(dc => ({ ...dc }));
-    // Find existing entry for this variant (by artCard or base card)
-    const existingIdx = newCards.findIndex((dc) => {
-      if (dc.artCard) return dc.artCard.setCode === v.setCode && dc.artCard.localId === v.localId;
-      return dc.card.setCode === v.setCode && dc.card.localId === v.localId;
-    });
+    const newCards = props.savedDeckCards.map((dc) => ({ ...dc }));
+    const existingIdx = newCards.findIndex(
+      (dc) => dc.card.setCode === v.setCode && dc.card.localId === v.localId,
+    );
     if (existingIdx !== -1) {
       newCards[existingIdx].count++;
     } else {
-      newCards.push(buildDeckCard(v, 1));
+      newCards.push({ count: 1, card: v });
     }
     await updateDeck({ id: props.savedDeckId, data: { cards: consolidateDeckCards(newCards) } });
     emit("deckUpdated");
   } else {
-    // Working deck — different mechanics need artCard handling
-    if (v.mechanicsHash !== activeCard.value.mechanicsHash) {
-      // For working deck, we use the useDecklist composable which doesn't support artCard directly.
-      // Add the base card and set artCard via the items ref.
-      const { items } = useDecklist();
-      const existing = items.value.find(
-        (i) => i.artCard && i.artCard.setCode === v.setCode && i.artCard.localId === v.localId
-      );
-      if (existing) {
-        existing.count++;
-      } else {
-        items.value.push({
-          setCode: activeCard.value.setCode,
-          localId: activeCard.value.localId,
-          count: 1,
-          name: activeCard.value.name,
-          imageUrl: cardImageUrl(v.imageBase, "low"),
-          card: activeCard.value,
-          artCard: v,
-        });
-      }
-    } else {
-      addCard(v);
-    }
+    addCard(v);
   }
 }
 
-// Remove one copy of a specific variant
 async function handleVariantRemove(v: Card) {
   if (props.savedDeckCards && props.savedDeckId) {
     const newCards: DeckCard[] = [];
     let removed = false;
     for (const dc of props.savedDeckCards) {
-      const isMatch = dc.artCard
-        ? (dc.artCard.setCode === v.setCode && dc.artCard.localId === v.localId)
-        : (dc.card.setCode === v.setCode && dc.card.localId === v.localId);
+      const isMatch = dc.card.setCode === v.setCode && dc.card.localId === v.localId;
       if (isMatch && !removed) {
         removed = true;
         if (dc.count > 1) newCards.push({ ...dc, count: dc.count - 1 });
@@ -242,21 +233,49 @@ async function handleVariantRemove(v: Card) {
     await updateDeck({ id: props.savedDeckId, data: { cards: consolidateDeckCards(newCards) } });
     emit("deckUpdated");
   } else {
-    // Working deck
-    const { items } = useDecklist();
-    const artMatch = items.value.find(
-      (i) => i.artCard && i.artCard.setCode === v.setCode && i.artCard.localId === v.localId
-    );
-    if (artMatch) {
-      if (artMatch.count > 0) artMatch.count--;
-    } else {
-      removeCard(v.setCode, v.localId);
-    }
+    removeCard(v.setCode, v.localId);
   }
 }
 
-function isDifferentMechanics(v: Card): boolean {
-  return v.mechanicsHash !== activeCard.value.mechanicsHash;
+// Swap-to-this-printing: replace all copies of activeCard in the deck with N
+// copies of `v`. Single undo step (working deck); single update call (saved).
+// After swap, the lightbox stays anchored on activeCard whose count is now 0;
+// the onUnmounted sweep cleans it up when the user closes.
+async function handleVariantSwap(v: Card) {
+  if (!isDeckContext.value || v.id === activeCard.value.id) return;
+  const entryCount = activeDeckEntry.value?.count ?? 0;
+  if (entryCount <= 0) return;
+  if (props.savedDeckId && props.savedDeckCards) {
+    const out: DeckCard[] = [];
+    let captured = 0;
+    let preservedTemplateSetId: string | undefined;
+    for (const dc of props.savedDeckCards) {
+      const isFrom =
+        dc.card.setCode === activeCard.value.setCode &&
+        dc.card.localId === activeCard.value.localId;
+      if (isFrom) {
+        captured += dc.count;
+        preservedTemplateSetId = preservedTemplateSetId ?? dc.templateSetId;
+        // drop the from-entry entirely
+      } else {
+        out.push(dc);
+      }
+    }
+    const targetIdx = out.findIndex(
+      (dc) => dc.card.setCode === v.setCode && dc.card.localId === v.localId,
+    );
+    if (targetIdx !== -1) {
+      out[targetIdx] = { ...out[targetIdx], count: out[targetIdx].count + captured };
+    } else {
+      const entry: DeckCard = { count: captured, card: v };
+      if (preservedTemplateSetId) entry.templateSetId = preservedTemplateSetId;
+      out.push(entry);
+    }
+    await updateDeck({ id: props.savedDeckId, data: { cards: out } });
+    emit("deckUpdated");
+  } else {
+    swapCard(activeCard.value.setCode, activeCard.value.localId, v);
+  }
 }
 
 // Card detail (attacks, abilities, weakness/resistance)
@@ -269,14 +288,12 @@ watch(currentCardId, (id) => {
 const lightboxOpen = ref(true);
 const { data: cardDetail } = useCardDetail(currentCardId, lightboxOpen);
 
-// Pokeproxy status for current variant
 const { data: ppStatus } = usePokeproxyStatus(currentCardId);
 
 const hasCleanedImage = computed(() =>
   ppStatus.value?.hasClean || ppStatus.value?.hasComposite
 );
 
-// Local bump for settings changes; global generationVersion handles cross-component cache busting
 const localBust = ref(0);
 
 const cacheBust = computed(() =>
@@ -291,35 +308,29 @@ const cleanedImageUrl = computed(() => {
   return null;
 });
 
-// Background art: cleaned image if available, else original (low-res, decorative blur)
 const bgImageUrl = computed(() => cleanedImageUrl.value ?? (cardImageUrl(currentCard.value.imageBase, "low") || null));
 
-// Main image URL based on selected version
 const mainImageUrl = computed(() => {
   if (selectedVersion.value === "cleaned" && cleanedImageUrl.value) {
     return cleanedImageUrl.value;
   }
   if (selectedVersion.value === "cleaned" && !cleanedImageUrl.value) {
-    // No cleaned image — show original as background for the "generate" overlay
     return currentCard.value.imageBase
       ? cardImageUrl(currentCard.value.imageBase, "high")
       : null;
   }
   if (selectedVersion.value === "proxy" && !hasCleanedImage.value) {
-    // Proxy without clean — no background image, SVG only
     return null;
   }
-  // Original or proxy-with-clean
   return currentCard.value.imageBase
     ? cardImageUrl(currentCard.value.imageBase, "high")
     : null;
 });
 
-// SVG Proxy
 const svgUrl = computed(() => {
   const v = cacheBust.value;
   const setIds = props.source === 'deck'
-    ? { cardSetId: props.cardTemplateSetId, deckSetId: props.deckTemplateSetId }
+    ? { cardSetId: activeCardTemplateSetId.value, deckSetId: props.deckTemplateSetId }
     : undefined;
   return api.pokeproxySvgUrl(currentCard.value.id, undefined, v, setIds);
 });
@@ -336,7 +347,6 @@ const generating = computed(() => isGenerating(currentCard.value.id));
 
 watch(generating, (now, was) => {
   if (was && !now) {
-    // generationVersion was already bumped globally; just reset SVG loading state
     svgLoading.value = true; svgError.value = false;
   }
 });
@@ -406,7 +416,12 @@ function onKeydown(e: KeyboardEvent) {
   if (e.key === "ArrowRight") nextCard();
 }
 onMounted(() => window.addEventListener("keydown", onKeydown));
-onUnmounted(() => window.removeEventListener("keydown", onKeydown));
+onUnmounted(() => {
+  window.removeEventListener("keydown", onKeydown);
+  // Sweep zero-count working-deck entries created by variant-picker decrements,
+  // so closing the lightbox leaves a clean deck (no faded ghost tiles).
+  sweepZeroCount();
+});
 
 // Variant grid zoom — persisted to localStorage
 const VARIANT_ZOOM_KEY = "decklistgen-variant-zoom";
@@ -416,6 +431,39 @@ const ZOOM_STEPS = [60, 90, 130, 180]; // px widths for variant thumbnails
 function setVariantZoom(step: number) {
   variantZoom.value = step;
   localStorage.setItem(VARIANT_ZOOM_KEY, String(step));
+}
+
+// Generate all same-name variants in one click. Reuses generateCleanImage,
+// which dedupes in-flight requests and short-circuits already-generated cards
+// unless force=true. Auth gating mirrors BrowseGenerateButton.
+const generatingAllVariants = ref(false);
+
+const generateAllVariantsDisabledReason = computed(() => {
+  if (!isLoggedIn.value) return "Sign in to generate";
+  if (!isAuthorized.value) return "Your account is not authorized to generate images";
+  if (!variants.value?.length) return "No variants to generate";
+  if (generatingAllVariants.value) return "Generating...";
+  return null;
+});
+
+async function handleGenerateAllVariants() {
+  if (generateAllVariantsDisabledReason.value !== null) return;
+  const list = variants.value;
+  if (!list?.length) return;
+  generatingAllVariants.value = true;
+  const toast = useToast();
+  try {
+    let queued = 0;
+    for (const v of list) {
+      try {
+        await generateCleanImage(v.id, false);
+        queued++;
+      } catch {}
+    }
+    toast.info(`${queued} variant${queued !== 1 ? "s" : ""} queued for generation`);
+  } finally {
+    generatingAllVariants.value = false;
+  }
 }
 
 // Tags
@@ -550,6 +598,15 @@ function navigateToDeck(deckId: string) {
               <div class="lb-variants-header">
                 <span v-if="isDeckContext && totalNameCount > 0" class="lb-variants-status">{{ totalNameCount }} in deck</span>
                 <span v-else class="lb-variants-status">{{ variants?.length ?? 0 }} variants</span>
+                <button
+                  class="lb-generate-variants-btn"
+                  :disabled="generateAllVariantsDisabledReason !== null"
+                  :title="generateAllVariantsDisabledReason ?? 'Queue all variants for generation'"
+                  data-testid="lb-generate-variants-btn"
+                  @click="handleGenerateAllVariants"
+                >
+                  {{ generatingAllVariants ? 'Queuing...' : `Generate ${variants?.length ?? 0}` }}
+                </button>
                 <input
                   type="range"
                   class="lb-variant-zoom"
@@ -568,13 +625,25 @@ function navigateToDeck(deckId: string) {
                   :count="getVariantDeckCount(v) || undefined"
                   :show-remove="isDeckContext"
                   :show-add="true"
+                  :show-swap="isDeckContext && v.id !== activeCard.id && (activeDeckEntry?.count ?? 0) > 0"
+                  :swap-title="`Replace ${(activeDeckEntry?.count ?? 0)}× ${activeCard.setCode} #${activeCard.localId} with ${v.setCode} #${v.localId}`"
                   :active="i === variantIndex"
-                  :art-only="isDifferentMechanics(v)"
                   @click="variantIndex = i"
                   @add="handleVariantAdd(v)"
                   @remove="handleVariantRemove(v)"
+                  @swap="handleVariantSwap(v)"
                 />
               </div>
+            </div>
+
+            <!-- Per-card template-set override (deck context only) -->
+            <div v-if="isDeckContext" class="lb-template-set">
+              <TemplateSetPicker
+                :model-value="activeCardTemplateSetId"
+                :inherit-label="cardPickerInheritLabel"
+                label="Template set for this card"
+                @update:model-value="onCardTemplateSetChange"
+              />
             </div>
 
             <!-- Card metadata -->

@@ -294,4 +294,99 @@ describe("useDecklist undo/redo", () => {
     expect(deck.canUndo.value).toBe(true);
     expect(deck.canRedo.value).toBe(false);
   });
+
+  it("setCardArtCard sets and clears the artCard override on the matching entry", () => {
+    const card = makeCard("1");
+    const art = makeCard("2", "Variant");
+    deck.addCard(card);
+
+    deck.setCardArtCard("test", "1", art);
+    expect(deck.items.value[0].artCard?.id).toBe("2");
+
+    deck.setCardArtCard("test", "1", null);
+    expect(deck.items.value[0].artCard).toBeUndefined();
+  });
+
+  it("setCardArtCard pushes undo history", () => {
+    const card = makeCard("1");
+    const art = makeCard("2", "Variant");
+    deck.addCard(card);
+
+    deck.setCardArtCard("test", "1", art);
+    expect(deck.items.value[0].artCard?.id).toBe("2");
+
+    deck.undo();
+    expect(deck.items.value[0].artCard).toBeUndefined();
+  });
+
+  it("setCardArtCard is a no-op when no matching entry exists", () => {
+    const art = makeCard("2", "Variant");
+    deck.setCardArtCard("test", "missing", art);
+    expect(deck.items.value.length).toBe(0);
+  });
+
+  it("swapCard migrates count to a new target entry when target is absent", () => {
+    const from = makeCard("1", "Original");
+    const to = makeCard("2", "Variant");
+    deck.addCard(from);
+    deck.addCard(from);
+    deck.addCard(from); // ×3
+
+    deck.swapCard("test", "1", to);
+
+    const fromEntry = deck.items.value.find((i) => i.localId === "1");
+    const toEntry = deck.items.value.find((i) => i.localId === "2");
+    expect(fromEntry?.count).toBe(0);
+    expect(toEntry?.count).toBe(3);
+  });
+
+  it("swapCard adds counts when the target entry already exists", () => {
+    const from = makeCard("1", "Original");
+    const to = makeCard("2", "Variant");
+    deck.addCard(from);
+    deck.addCard(from); // from ×2
+    deck.addCard(to);   // to ×1
+
+    deck.swapCard("test", "1", to);
+
+    const toEntry = deck.items.value.find((i) => i.localId === "2");
+    expect(toEntry?.count).toBe(3);
+    const fromEntry = deck.items.value.find((i) => i.localId === "1");
+    expect(fromEntry?.count).toBe(0);
+  });
+
+  it("swapCard is one undo step", () => {
+    const from = makeCard("1", "Original");
+    const to = makeCard("2", "Variant");
+    deck.addCard(from);
+    deck.addCard(from); // from ×2
+
+    deck.swapCard("test", "1", to);
+
+    deck.undo();
+
+    const fromEntry = deck.items.value.find((i) => i.localId === "1");
+    const toEntry = deck.items.value.find((i) => i.localId === "2");
+    expect(fromEntry?.count).toBe(2);
+    expect(toEntry).toBeUndefined();
+  });
+
+  it("swapCard is a no-op when source entry is missing or empty", () => {
+    const to = makeCard("2", "Variant");
+
+    // Missing entirely
+    deck.swapCard("test", "missing", to);
+    expect(deck.items.value.length).toBe(0);
+
+    // Present but count 0 (decrement to 0)
+    const from = makeCard("1", "Original");
+    deck.addCard(from);
+    deck.removeCard("test", "1");
+    expect(deck.items.value[0].count).toBe(0);
+
+    const before = deck.items.value.length;
+    deck.swapCard("test", "1", to);
+    expect(deck.items.value.length).toBe(before);
+    expect(deck.items.value.find((i) => i.localId === "2")).toBeUndefined();
+  });
 });

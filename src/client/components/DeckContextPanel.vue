@@ -4,6 +4,7 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 import TemplateSetPicker from "./TemplateSetPicker.vue";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
+import { useTemplateSetCatalog } from "../composables/useTemplateSetCatalog.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import type { Card } from "../../shared/types/card.js";
 import type { DeckSummary } from "../../shared/types/deck.js";
@@ -18,17 +19,15 @@ const {
   items, totalCards, countColor, stats, DECK_SIZE,
   incrementCard, removeCard,
   currentDeckId, currentDeckName, isDirty, loadSavedDeck,
-  currentDeckTemplateSetId, setDeckTemplateSetId, setCardTemplateSetId,
+  currentDeckTemplateSetId, setDeckTemplateSetId,
 } = useDecklist();
+
+const { setLabel } = useTemplateSetCatalog();
 
 const deckTemplateSetId = computed<string | undefined>({
   get: () => currentDeckTemplateSetId.value ?? undefined,
   set: (v) => setDeckTemplateSetId(v ?? null),
 });
-
-function onCardTemplateSetChange(setCode: string, localId: string, value: string | undefined) {
-  setCardTemplateSetId(setCode, localId, value ?? null);
-}
 
 const { decks, fetchDeck } = useDecks();
 
@@ -128,13 +127,14 @@ function confirmDirtySwitch() {
         />
         <div class="item-info">
           <div class="item-name">{{ item.name }}</div>
-          <div class="item-set">{{ item.setCode }} {{ item.localId }}</div>
-          <TemplateSetPicker
-            class="item-tsp"
-            compact
-            :model-value="item.templateSetId"
-            @update:model-value="(v) => onCardTemplateSetChange(item.setCode, item.localId, v)"
-          />
+          <div class="item-set">
+            <span>{{ item.setCode }} {{ item.localId }}</span>
+            <span
+              v-if="item.templateSetId"
+              class="item-tsp-badge"
+              :title="`Template set override: ${setLabel(item.templateSetId)} — edit in the card preview`"
+            >{{ setLabel(item.templateSetId) }}</span>
+          </div>
         </div>
         <div class="item-controls">
           <button @click.stop="removeCard(item.setCode, item.localId)">-</button>

@@ -23,6 +23,10 @@ const props = withDefaults(defineProps<{
   showRegen?: boolean;
   /** Highlight as selected/active */
   active?: boolean;
+  /** Show a "swap to this printing" action in the top-right action stack. */
+  showSwap?: boolean;
+  /** Title (tooltip) for the swap action button. */
+  swapTitle?: string;
   /** "Art only" badge for different-mechanics variants */
   artOnly?: boolean;
   /** Show selection checkbox instead of count badge */
@@ -40,6 +44,8 @@ const props = withDefaults(defineProps<{
   showRemove: false,
   showRegen: false,
   active: false,
+  showSwap: false,
+  swapTitle: "Replace this printing in the deck",
   artOnly: false,
   selectable: false,
   selected: false,
@@ -51,6 +57,7 @@ const emit = defineEmits<{
   click: [];
   add: [];
   remove: [];
+  swap: [];
   regenerate: [];
   "toggle-select": [cardId: string];
 }>();
@@ -110,6 +117,12 @@ const isZeroCount = computed(() => props.count === 0);
           :title="generating ? 'Generation in progress' : 'Regenerate artwork'"
           @click.stop="emit('regenerate')"
         >&#x21bb;</button>
+        <button
+          v-if="showSwap"
+          class="card-thumb-action card-thumb-action-swap"
+          :title="swapTitle"
+          @click.stop="emit('swap')"
+        >&#x21c4;</button>
         <button
           v-if="showAdd && !showRemove"
           class="card-thumb-action card-thumb-action-add"

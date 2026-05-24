@@ -222,6 +222,7 @@ export const api = {
     settings?: ProxySettings,
     version?: number,
     setIds?: { cardSetId?: string; deckSetId?: string },
+    artCardId?: string,
   ) => {
     const base = `/api/pokeproxy/svg/${cardId}`;
     const params = new URLSearchParams();
@@ -230,6 +231,7 @@ export const api = {
     if (version) params.set("v", String(version));
     if (setIds?.cardSetId) params.set("cardSetId", setIds.cardSetId);
     if (setIds?.deckSetId) params.set("deckSetId", setIds.deckSetId);
+    if (artCardId) params.set("artCardId", artCardId);
     const qs = params.toString();
     return qs ? `${base}?${qs}` : base;
   },

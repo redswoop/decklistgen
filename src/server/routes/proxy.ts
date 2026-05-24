@@ -192,8 +192,12 @@ app.get("/svg/:cardId", async (c) => {
   if (query.fullart != null) svgOpts.fullart = true;
   if (typeof query.cardSetId === "string" && query.cardSetId) svgOpts.cardSetId = query.cardSetId;
   if (typeof query.deckSetId === "string" && query.deckSetId) svgOpts.deckSetId = query.deckSetId;
+  const artCardId =
+    typeof query.artCardId === "string" && isValidCardId(query.artCardId)
+      ? query.artCardId
+      : undefined;
   try {
-    const svg = await generateSvgFromTemplate(cardId, svgOpts);
+    const svg = await generateSvgFromTemplate(cardId, svgOpts, artCardId);
     return new Response(svg, {
       headers: {
         "Content-Type": "image/svg+xml",

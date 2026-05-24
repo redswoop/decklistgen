@@ -248,6 +248,40 @@ export function useDecklist() {
     if (item) item.templateSetId = setId || undefined;
   }
 
+  function setCardArtCard(setCode: string, localId: string, artCard: Card | null) {
+    pushUndo();
+    const item = items.value.find((i) => i.setCode === setCode && i.localId === localId);
+    if (item) item.artCard = artCard ?? undefined;
+  }
+
+  /** Replace all copies of (fromSetCode, fromLocalId) with the same count of toCard.
+   *  Single undo step. The from-entry's count drops to 0 (sweepable). If the
+   *  to-card stack doesn't exist yet it's created; if it does, counts are added. */
+  function swapCard(fromSetCode: string, fromLocalId: string, toCard: Card) {
+    const from = items.value.find((i) => i.setCode === fromSetCode && i.localId === fromLocalId);
+    if (!from || from.count <= 0) return;
+    if (from.setCode === toCard.setCode && from.localId === toCard.localId) return;
+    pushUndo();
+    const migrated = from.count;
+    from.count = 0;
+    const to = items.value.find(
+      (i) => i.setCode === toCard.setCode && i.localId === toCard.localId,
+    );
+    if (to) {
+      to.count += migrated;
+    } else {
+      items.value.push({
+        setCode: toCard.setCode,
+        localId: toCard.localId,
+        count: migrated,
+        name: toCard.name,
+        imageUrl: cardImageUrl(toCard.imageBase, "low"),
+        card: toCard,
+        ...(from.templateSetId ? { templateSetId: from.templateSetId } : {}),
+      });
+    }
+  }
+
   const totalCards = computed(() =>
     items.value.reduce((sum, i) => sum + i.count, 0)
   );
@@ -359,5 +393,9 @@ export function useDecklist() {
     loadSavedDeck, markSaved, toDeckCards,
     // Template-set overrides (Phase 3)
     currentDeckTemplateSetId, setDeckTemplateSetId, setCardTemplateSetId,
+    // Per-card art override
+    setCardArtCard,
+    // Per-printing swap (move all copies of one printing to another)
+    swapCard,
   };
 }
