@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, onMounted, onUnmounted } from "vue";
 import { useQueueData } from "../composables/useQueue.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import type { QueueJob } from "../../shared/types/queue.js";
@@ -9,6 +9,17 @@ const { runningJobs, pendingJobs, historyJobs, cancel, clearHistory } = useQueue
 const isEmpty = computed(
   () => runningJobs.value.length === 0 && pendingJobs.value.length === 0 && historyJobs.value.length === 0,
 );
+
+// Ticks every second so in-flight elapsed times update without waiting for
+// the 2s poll. Completed jobs use job.completedAt, so they stay static.
+const now = ref(Date.now());
+let tickHandle: ReturnType<typeof setInterval> | null = null;
+onMounted(() => {
+  tickHandle = setInterval(() => { now.value = Date.now(); }, 1000);
+});
+onUnmounted(() => {
+  if (tickHandle !== null) clearInterval(tickHandle);
+});
 
 function statusColor(status: QueueJob["status"]): string {
   switch (status) {
@@ -20,7 +31,7 @@ function statusColor(status: QueueJob["status"]): string {
 }
 
 function elapsed(job: QueueJob): string {
-  const end = job.completedAt ?? Date.now();
+  const end = job.completedAt ?? now.value;
   const start = job.startedAt ?? job.createdAt;
   const s = Math.round((end - start) / 1000);
   if (s < 60) return `${s}s`;
