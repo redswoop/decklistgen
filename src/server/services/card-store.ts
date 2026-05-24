@@ -141,7 +141,7 @@ export function isSetLoaded(code: string): boolean {
   return loadedSets.has(code.toUpperCase());
 }
 
-export async function loadEra(era: "sv" | "swsh"): Promise<{ loaded: number; sets: string[] }> {
+export async function loadEra(era: "sv" | "swsh" | "me"): Promise<{ loaded: number; sets: string[] }> {
   const seen = new Set<string>();
   const codes: string[] = [];
   for (const [code, tcgdexId] of Object.entries(SET_MAP)) {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useFilters } from "../composables/useFilters.js";
 import { useSets, useFilterOptions } from "../composables/useCards.js";
 import { useEraLoader } from "../composables/useEraLoader.js";
@@ -17,7 +17,8 @@ const { data: sets } = useSets();
 const { data: filterOpts } = useFilterOptions();
 const { loadingEra, loadingSet, loadEra, loadAllEras, loadSet } = useEraLoader();
 
-const sidebarEra = ref(filters.era ?? "all");
+const sidebarEra = ref<string>(filters.era ?? "all");
+watch(() => filters.era, (v) => { sidebarEra.value = v ?? "all"; });
 
 // Collapsible filter groups
 const categoryOpen = ref(true);
@@ -52,7 +53,7 @@ function formatSetLabel(code: string) {
 async function handleEraChange(e: Event) {
   const val = (e.target as HTMLSelectElement).value;
   sidebarEra.value = val;
-  if (val === "sv" || val === "swsh") {
+  if (val === "sv" || val === "swsh" || val === "me") {
     await loadEra(val);
   } else {
     await loadAllEras();
@@ -148,6 +149,7 @@ const propsFilterCount = computed(() => {
         <option value="all">All Eras</option>
         <option value="sv">Scarlet &amp; Violet</option>
         <option value="swsh">Sword &amp; Shield</option>
+        <option value="me">Mega Evolution</option>
       </select>
       <div v-if="loadingEra" class="era-progress"><div class="era-progress-bar" /></div>
 

@@ -538,6 +538,13 @@ const tileShowRegen = computed(() => props.context !== "cards");
           >
             <span class="welcome-btn-label">Sword &amp; Shield</span>
           </button>
+          <button
+            class="welcome-btn welcome-btn-me"
+            :disabled="loadingEra"
+            @click="loadEra('me')"
+          >
+            <span class="welcome-btn-label">Mega Evolution</span>
+          </button>
         </div>
         <div v-if="loadingEra" class="welcome-loading">
           <div class="era-progress"><div class="era-progress-bar" /></div>

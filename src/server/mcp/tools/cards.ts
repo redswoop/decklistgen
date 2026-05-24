@@ -25,7 +25,7 @@ const specialAttributes = [
 const searchInputSchema = {
   nameSearch: z.string().optional().describe("Substring match on card name (case-insensitive)."),
   sets: z.array(z.string()).optional().describe("Set codes to include, e.g. ['SVI','PAR']."),
-  era: z.enum(["sv", "swsh"]).optional().describe("Limit to an era."),
+  era: z.enum(["sv", "swsh", "me"]).optional().describe("Limit to an era."),
   category: z.enum(["Pokemon", "Trainer", "Energy"]).optional(),
   trainerType: z.enum(["Item", "Supporter", "Stadium", "Tool"]).optional(),
   rarities: z.array(z.string()).optional(),

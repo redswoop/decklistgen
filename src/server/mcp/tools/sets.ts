@@ -60,10 +60,10 @@ export function registerSetTools(server: McpServer): void {
     {
       title: "Load every set in an era",
       description:
-        "Load all sets in a given era ('sv' for Scarlet & Violet, 'swsh' for Sword & Shield). " +
-        "Convenient for bulk-loading; may take a few seconds on first call.",
+        "Load all sets in a given era ('sv' for Scarlet & Violet, 'swsh' for Sword & Shield, " +
+        "'me' for Mega Evolution). Convenient for bulk-loading; may take a few seconds on first call.",
       inputSchema: {
-        era: z.enum(["sv", "swsh"]).describe("Era to load."),
+        era: z.enum(["sv", "swsh", "me"]).describe("Era to load."),
       },
     },
     async ({ era }) => {

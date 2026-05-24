@@ -12,7 +12,7 @@ export interface Card {
   setId: string;
   setCode: string;
   setName: string;
-  era: "sv" | "swsh";
+  era: "sv" | "swsh" | "me";
   hp?: number;
   stage?: string;
   retreat?: number;
@@ -101,7 +101,7 @@ export interface SetInfo {
   code: string;     // PTCGL code ("SFA")
   tcgdexId: string; // TCGdex ID ("sv06.5")
   name: string;     // "Shrouded Fable"
-  era: "sv" | "swsh";
+  era: "sv" | "swsh" | "me";
   cardCount?: number;
   loaded: boolean;
 }

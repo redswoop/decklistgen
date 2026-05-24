@@ -24,8 +24,8 @@ app.get("/", (c) => {
 });
 
 app.post("/load-era/:era", async (c) => {
-  const era = c.req.param("era") as "sv" | "swsh";
-  if (era !== "sv" && era !== "swsh") return c.json({ error: `Unknown era: ${era}` }, 400);
+  const era = c.req.param("era") as "sv" | "swsh" | "me";
+  if (era !== "sv" && era !== "swsh" && era !== "me") return c.json({ error: `Unknown era: ${era}` }, 400);
   logAction("set.loadEra", getClientIp(c), { era });
   const result = await loadEra(era);
   return c.json(result);

@@ -71,7 +71,7 @@ Options:
   --no-fullart         Exclude full-art cards
   --foil               Only foil cards
   --no-foil            Exclude foil cards
-  --era sv|swsh        Filter by era
+  --era sv|swsh|me     Filter by era
   -o, --output FILE    Write decklist to file
   --list-filters       Show available filter values
   -h, --help           Show this help
@@ -109,7 +109,7 @@ if (values["trainer-type"]) filters.trainerType = values["trainer-type"];
 if (values.rarity?.length) filters.rarities = values.rarity;
 if (values.type?.length) filters.energyTypes = values.type;
 if (values.attr?.length) filters.specialAttributes = values.attr as SpecialAttribute[];
-if (values.era) filters.era = values.era as "sv" | "swsh";
+if (values.era) filters.era = values.era as "sv" | "swsh" | "me";
 if (values.fullart) filters.isFullArt = true;
 if (values["no-fullart"]) filters.isFullArt = false;
 if (values.foil) filters.hasFoil = true;

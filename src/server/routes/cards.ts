@@ -15,7 +15,7 @@ const app = new Hono();
 function parseFilters(query: Record<string, string>): CardFilters {
   const filters: CardFilters = {};
   if (query.sets) filters.sets = query.sets.split(",");
-  if (query.era) filters.era = query.era as "sv" | "swsh";
+  if (query.era) filters.era = query.era as "sv" | "swsh" | "me";
   if (query.category) filters.category = query.category as CardFilters["category"];
   if (query.trainerType) filters.trainerType = query.trainerType;
   if (query.rarities) filters.rarities = query.rarities.split(",");

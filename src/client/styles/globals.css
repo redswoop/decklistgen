@@ -1368,6 +1368,7 @@ body {
 
 .card-thumb-action-add { background: rgba(233, 69, 96, 0.9); }
 .card-thumb-action-regen { background: rgba(46, 160, 67, 0.9); }
+.card-thumb-action-swap { background: rgba(74, 144, 226, 0.9); font-size: 12px; }
 
 /* Generating overlay */
 .card-thumb-generating {
@@ -1935,6 +1936,31 @@ body {
   padding: 20px 24px;
 }
 
+/* Per-card template-set picker */
+.lb-template-set {
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  border: 1px solid #2a2f3a;
+  border-radius: 6px;
+  background: #161b22;
+}
+
+.lb-template-set .tsp-root {
+  display: flex;
+  width: 100%;
+}
+
+.lb-template-set .tsp-label {
+  font-size: 11px;
+  color: #8b949e;
+  margin-right: 8px;
+}
+
+.lb-template-set .tsp-select {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Card metadata block */
 .lb-card-meta-block {
   margin-bottom: 12px;
@@ -2278,6 +2304,10 @@ body {
 
 .welcome-btn-swsh:hover:not(:disabled) {
   border-color: #3b82f6;
+}
+
+.welcome-btn-me:hover:not(:disabled) {
+  border-color: #f59e0b;
 }
 
 .welcome-loading {
@@ -4522,10 +4552,25 @@ body {
   gap: 8px;
 }
 
-.decklist-item .item-tsp {
-  margin-top: 2px;
+.decklist-item .item-set {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.decklist-item .item-tsp-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: #1f2d40;
+  color: #79b8ff;
+  border: 1px solid #2c4361;
   max-width: 100%;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dcp-items {

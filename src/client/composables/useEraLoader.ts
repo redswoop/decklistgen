@@ -16,7 +16,7 @@ export function useEraLoader() {
     queryClient.invalidateQueries({ queryKey: ["cards"] });
   }
 
-  async function loadEra(era: "sv" | "swsh") {
+  async function loadEra(era: "sv" | "swsh" | "me") {
     loadingEra.value = true;
     try {
       await api.loadEra(era);
@@ -31,7 +31,7 @@ export function useEraLoader() {
   async function loadAllEras() {
     loadingEra.value = true;
     try {
-      await Promise.all([api.loadEra("sv"), api.loadEra("swsh")]);
+      await Promise.all([api.loadEra("sv"), api.loadEra("swsh"), api.loadEra("me")]);
       invalidateAll();
       setEra("all");
       setSets([]);
@@ -60,7 +60,7 @@ export function useEraLoader() {
       loadingEra.value = true;
       try {
         if (filters.era === "all") {
-          await Promise.all([api.loadEra("sv"), api.loadEra("swsh")]);
+          await Promise.all([api.loadEra("sv"), api.loadEra("swsh"), api.loadEra("me")]);
         } else {
           await api.loadEra(filters.era);
         }

@@ -56,6 +56,10 @@ describe("MCP server", () => {
     expect(payload.total).toBe(payload.sets.length);
     expect(payload.sets[0]).toHaveProperty("code");
     expect(payload.sets[0]).toHaveProperty("era");
+    const eras = new Set(payload.sets.map((s: { era: string }) => s.era));
+    expect(eras.has("sv")).toBe(true);
+    expect(eras.has("swsh")).toBe(true);
+    expect(eras.has("me")).toBe(true);
   });
 
   test("search_cards finds a card by name in a loaded set", async () => {

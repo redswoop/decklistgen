@@ -23,12 +23,13 @@ export const SET_MAP: Record<string, string> = {
   WHT: "sv10.5w",
   SVP: "svp",
   SVE: "sve",
-  MEE: "mee",  // Mega Evolution Energy — ME-era basic energies (8 cards)
   // Mega Evolution era
   MEG: "me01",
   PFL: "me02",
   ASC: "me02.5",
   POR: "me03",
+  CRI: "me04",
+  MEE: "mee",  // Mega Evolution Energy — ME-era basic energies (8 cards)
   MEP: "mep",
   // Sword & Shield era
   SWSH: "swsh1",
@@ -82,6 +83,7 @@ export const SET_NAMES: Record<string, string> = {
   PFL: "Phantasmal Flames",
   ASC: "Ascended Heroes",
   POR: "Perfect Order",
+  CRI: "Chaos Rising",
   MEP: "MEP Black Star Promos",
   SWSH: "Sword & Shield",
   SSH: "Sword & Shield",
@@ -114,7 +116,8 @@ for (const [code, id] of Object.entries(SET_MAP)) {
 }
 
 /** Determine era from TCGdex set ID */
-export function getEra(tcgdexId: string): "sv" | "swsh" {
-  if (tcgdexId.startsWith("sv") || tcgdexId.startsWith("sve")) return "sv";
+export function getEra(tcgdexId: string): "sv" | "swsh" | "me" {
+  if (tcgdexId.startsWith("me")) return "me";
+  if (tcgdexId.startsWith("sv")) return "sv";
   return "swsh";
 }
