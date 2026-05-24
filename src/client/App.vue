@@ -17,6 +17,8 @@ import ExportDialog from "./components/ExportDialog.vue";
 import ImportDialog from "./components/ImportDialog.vue";
 import SaveDeckDialog from "./components/SaveDeckDialog.vue";
 import CardLightbox from "./components/CardLightbox.vue";
+import BrowseGenerateButton from "./components/BrowseGenerateButton.vue";
+import BrowseGenerateDialog from "./components/BrowseGenerateDialog.vue";
 import AuthPage from "./components/AuthPage.vue";
 import UserMenu from "./components/UserMenu.vue";
 import AdminPanel from "./components/AdminPanel.vue";
@@ -31,6 +33,9 @@ import { useEraLoader } from "./composables/useEraLoader.js";
 import { api } from "./lib/client.js";
 import { useQueue, useQueueBadge } from "./composables/useQueue.js";
 import { generateCleanImage } from "./composables/usePokeproxy.js";
+import { useToast } from "./composables/useToast.js";
+import { MAX_GENERATE_BATCH_NON_ADMIN } from "../shared/constants/generate-limits.js";
+import { clampForAdmin } from "./components/browse-generate-gating.js";
 import type { Card } from "../shared/types/card.js";
 import type { DeckCard } from "../shared/types/deck.js";
 import type { DeckMembership } from "../shared/types/customized-card.js";
@@ -86,6 +91,64 @@ const deckSubView = ref<'gallery' | 'build'>(currentDeckId.value ? 'build' : 'ga
 const showExport = ref(false);
 const showImport = ref(false);
 const showSaveDeck = ref(false);
+
+// Browse: multi-select + generate dialog
+const browseSelectedIds = ref(new Set<string>());
+const browseGridRef = ref<InstanceType<typeof CardGrid> | null>(null);
+const showBrowseGenerate = ref(false);
+const browseGenerating = ref(false);
+
+function toggleBrowseSelect(cardId: string) {
+  const next = new Set(browseSelectedIds.value);
+  if (next.has(cardId)) next.delete(cardId);
+  else next.add(cardId);
+  browseSelectedIds.value = next;
+}
+
+function getBrowseVisibleCards(): Card[] {
+  const exposed = browseGridRef.value as unknown as { visibleCards?: Card[] } | null;
+  return exposed?.visibleCards ?? [];
+}
+
+const browseVisibleCount = computed(() => getBrowseVisibleCards().length);
+
+const browseActualCount = computed(() =>
+  browseSelectedIds.value.size > 0
+    ? browseSelectedIds.value.size
+    : browseVisibleCount.value,
+);
+
+const browseEffectiveCount = computed(() =>
+  clampForAdmin(isAdmin.value, browseActualCount.value),
+);
+
+function openBrowseGenerate() {
+  showBrowseGenerate.value = true;
+}
+
+async function handleBrowseGenerate({ force }: { force: boolean }) {
+  if (browseGenerating.value) return;
+  browseGenerating.value = true;
+  showBrowseGenerate.value = false;
+  const toast = useToast();
+  try {
+    const sourceIds = browseSelectedIds.value.size > 0
+      ? Array.from(browseSelectedIds.value)
+      : getBrowseVisibleCards().map((c) => c.id);
+    const limit = isAdmin.value ? sourceIds.length : MAX_GENERATE_BATCH_NON_ADMIN;
+    const ids = sourceIds.slice(0, limit);
+    let queued = 0;
+    for (const id of ids) {
+      try {
+        await generateCleanImage(id, force);
+        queued++;
+      } catch {}
+    }
+    toast.info(`${queued} card${queued !== 1 ? "s" : ""} queued for generation`);
+  } finally {
+    browseGenerating.value = false;
+  }
+}
 const previewCard = ref<Card | null>(null);
 const previewSource = ref<'grid' | 'deck'>('grid');
 const gridSearchCards = ref<Card[]>([]);
@@ -511,7 +574,23 @@ function handleTabClick(tab: string) {
           <!-- Browse: inline filter bar + card grid -->
           <div v-if="currentView === 'browse'" class="browse-center">
             <InlineFilterBar />
-            <CardGrid context="browse" @preview-card="handlePreview" @regenerate-card="handleBrowseRegenerate" />
+            <CardGrid
+              ref="browseGridRef"
+              context="browse"
+              :selectable="true"
+              :selected-ids="browseSelectedIds"
+              @preview-card="handlePreview"
+              @regenerate-card="handleBrowseRegenerate"
+              @toggle-select="toggleBrowseSelect"
+            >
+              <template #toolbar>
+                <BrowseGenerateButton
+                  :selected-count="browseSelectedIds.size"
+                  :visible-count="browseVisibleCount"
+                  @click="openBrowseGenerate"
+                />
+              </template>
+            </CardGrid>
           </div>
 
           <CardsView
@@ -625,6 +704,14 @@ function handleTabClick(tab: string) {
     <AdminPanel
       v-if="showAdmin && isAdmin"
       @close="showAdmin = false"
+    />
+    <BrowseGenerateDialog
+      :open="showBrowseGenerate"
+      :effective-count="browseEffectiveCount"
+      :actual-count="browseActualCount"
+      :is-admin="isAdmin"
+      @confirm="handleBrowseGenerate"
+      @cancel="showBrowseGenerate = false"
     />
     <Teleport to="body">
       <div v-if="showAuthDialog" class="auth-dialog-backdrop" @click="showAuthDialog = false">

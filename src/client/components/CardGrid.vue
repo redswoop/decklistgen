@@ -407,6 +407,10 @@ function handleTilePreview(card: Card) {
 const tileShowAdd = computed(() => props.context !== "cards");
 const tileShowRemove = computed(() => props.context === "working-deck" || props.context === "deck");
 const tileShowRegen = computed(() => props.context !== "cards");
+
+defineExpose({
+  visibleCards: orderedCards,
+});
 </script>
 
 <template>

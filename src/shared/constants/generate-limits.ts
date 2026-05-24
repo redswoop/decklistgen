@@ -1,0 +1,1 @@
+export const MAX_GENERATE_BATCH_NON_ADMIN = 25;
