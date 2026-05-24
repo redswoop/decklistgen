@@ -45,4 +45,38 @@ describe("rateLimit", () => {
     const r3 = await app.request("/");
     expect(r3.headers.get("X-RateLimit-Remaining")).toBe("0");
   });
+
+  test("skipIf bypasses the limit entirely when it returns true", async () => {
+    const app = new Hono();
+    // Simulate session middleware setting a user on every request.
+    app.use("*", async (c, next) => {
+      c.set("user", { id: "u1" });
+      await next();
+    });
+    app.use(
+      "*",
+      rateLimit(2, 60_000, { skipIf: (c) => !!c.get("user") }),
+    );
+    app.get("/", (c) => c.text("ok"));
+
+    // Far above the cap of 2 — all should pass.
+    for (let i = 0; i < 10; i++) {
+      const res = await app.request("/");
+      expect(res.status).toBe(200);
+    }
+  });
+
+  test("skipIf still enforces the limit when it returns false", async () => {
+    const app = new Hono();
+    app.use(
+      "*",
+      rateLimit(2, 60_000, { skipIf: () => false }),
+    );
+    app.get("/", (c) => c.text("ok"));
+
+    await app.request("/");
+    await app.request("/");
+    const res = await app.request("/");
+    expect(res.status).toBe(429);
+  });
 });

@@ -68,8 +68,14 @@ app.use("/api/auth/register", rateLimit(10, 60_000));
 app.use("/api/auth/setup", rateLimit(5, 60_000));
 app.use("/api/auth/magic/*", rateLimit(10, 60_000));
 
-// Rate limit expensive generation endpoint: 30 per minute
-app.use("/api/pokeproxy/generate/*", rateLimit(30, 60_000));
+// Rate limit expensive generation endpoint: 30 per minute for unauthenticated
+// callers (defense in depth — the route already requires authorization).
+// Authenticated users bypass the cap so large admin batches (per the
+// typed-confirmation safeguard in the Browse Generate dialog) go through.
+app.use(
+  "/api/pokeproxy/generate/*",
+  rateLimit(30, 60_000, { skipIf: (c) => !!c.get("user") }),
+);
 
 // API routes
 app.route("/api/auth", authRouter);

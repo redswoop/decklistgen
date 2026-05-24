@@ -1,4 +1,5 @@
 import { createMiddleware } from "hono/factory";
+import type { Context } from "hono";
 import { getClientIp } from "../services/logger.js";
 
 interface RateLimitBucket {
@@ -6,12 +7,17 @@ interface RateLimitBucket {
   resetAt: number;
 }
 
+interface RateLimitOpts {
+  /** When this returns true for a request, the limit is bypassed entirely. */
+  skipIf?: (c: Context) => boolean;
+}
+
 /**
  * Simple in-memory rate limiter by IP address.
  * @param max - Max requests per window
  * @param windowMs - Window size in milliseconds
  */
-export function rateLimit(max: number, windowMs: number) {
+export function rateLimit(max: number, windowMs: number, opts: RateLimitOpts = {}) {
   const buckets = new Map<string, RateLimitBucket>();
 
   // Sweep expired entries every 60s to prevent memory leak
@@ -23,6 +29,10 @@ export function rateLimit(max: number, windowMs: number) {
   }, 60_000).unref();
 
   return createMiddleware(async (c, next) => {
+    if (opts.skipIf?.(c)) {
+      await next();
+      return;
+    }
     const ip = getClientIp(c);
     const now = Date.now();
     let bucket = buckets.get(ip);
