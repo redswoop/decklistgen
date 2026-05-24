@@ -16,3 +16,4 @@ process.env.FONT_SIZE_STORE_PATH ??= join(dir, "font-sizes.json");
 process.env.TEXT_MODE_OVERRIDE_STORE_PATH ??= join(dir, "text-mode-overrides.json");
 process.env.TEMPLATE_SETS_PATH ??= join(dir, "template-sets");
 process.env.BUILTIN_SHADOWS_PATH ??= join(dir, "builtin-shadows");
+process.env.CARD_TEXT_OVERRIDES_PATH ??= join(dir, "card-text-overrides.json");

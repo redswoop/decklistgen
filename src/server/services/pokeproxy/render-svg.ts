@@ -11,6 +11,7 @@ import { getAllSets } from "../template-set-store.js";
 import { resetIconIds } from "./type-icons.js";
 import { setCardIdPrefix } from "./svg-frame.js";
 import { renderResolvedTemplate } from "./render-json-template.js";
+import { applyCardTextOverride } from "./card-text-overrides.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../../cache");
 
@@ -32,12 +33,12 @@ export function loadCardData(cardId: string): Record<string, unknown> {
   const jsonPath = cachePath(cardId, ".json");
   if (existsSync(jsonPath)) {
     try {
-      return JSON.parse(readFileSync(jsonPath, "utf-8"));
+      return applyCardTextOverride(cardId, JSON.parse(readFileSync(jsonPath, "utf-8")));
     } catch {}
   }
   const card = getCard(cardId);
-  if (!card) return { id: cardId };
-  return {
+  if (!card) return applyCardTextOverride(cardId, { id: cardId });
+  return applyCardTextOverride(cardId, {
     id: card.id,
     localId: card.localId,
     name: card.name,
@@ -49,7 +50,7 @@ export function loadCardData(cardId: string): Record<string, unknown> {
     rarity: card.rarity,
     trainerType: card.trainerType,
     set: { name: card.setName, id: card.setId },
-  };
+  });
 }
 
 export async function ensureCardLoaded(cardId: string): Promise<void> {

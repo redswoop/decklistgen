@@ -1,0 +1,9 @@
+{
+  "byName": {
+    "me04": {
+      "Special Red Card": {
+        "effect": "You can only use this if your opponent has 3 or fewer prize cards remaining. Your opponent shuffles their hand and puts it to the bottom of their deck. If they put any cards on the bottom of their deck in this way, they draw 3 cards."
+      }
+    }
+  }
+}
