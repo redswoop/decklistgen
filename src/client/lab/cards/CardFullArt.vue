@@ -11,11 +11,13 @@ defineProps<{
 </script>
 
 <template>
-  <article
-    class="card"
-    :style="{ '--art': `url('${card.artUrl}')` }"
-  >
-    <div class="art" aria-hidden="true" />
+  <article class="card">
+    <!--
+      Art is a real <img>, not a CSS background, so it always prints —
+      Chrome's "Background graphics" toggle and downstream printer drivers
+      can suppress backgrounds but never an inline image.
+    -->
+    <img class="art" :src="card.artUrl" alt="" aria-hidden="true" />
 
     <div class="name-anchor">
       <NameCluster
@@ -58,18 +60,32 @@ defineProps<{
   font-family: var(--font-body);
   color: var(--color-name);
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.4);
+  /*
+   * print-color-adjust:exact tells the browser to honor backgrounds,
+   * gradients, and box-shadows when printing — without it, Chrome strips
+   * them unless the user enables "Background graphics" in the print dialog.
+   * Inherited by every descendant (the property is `inherited`), so this
+   * one declaration covers EnergyDot gradients, the glass panel tint,
+   * the "Ability" pill, etc.
+   */
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
 }
 
 /*
  * Art is its own layer so the content panel's backdrop-filter can blur
- * it without affecting the rest of the card chrome.
+ * it without affecting the rest of the card chrome. object-fit:cover
+ * mirrors what background-size:cover would have done.
  */
 .art {
   position: absolute;
   inset: 0;
-  background-image: var(--art);
-  background-size: cover;
-  background-position: center;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 /* anchors mirror the JSON anchorX/anchorY 1:1 — these numbers are the contract.

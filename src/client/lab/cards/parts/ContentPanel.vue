@@ -41,6 +41,21 @@ defineProps<{
   padding: var(--panel-padding);
 }
 
+/*
+ * Print fallback: backdrop-filter renders inconsistently across Chromium
+ * print pipelines (sometimes dropped entirely, sometimes rasterized as a
+ * flat tint). Replace it with an opaque dark wash so text contrast is
+ * preserved deterministically on paper — the artwork is already crisp
+ * without the blur, and the eye reads the opaque tint as the glass.
+ */
+@media print {
+  .content-panel {
+    background: rgb(0 0 0 / 0.62);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
 .ability {
   display: flex;
   flex-direction: column;

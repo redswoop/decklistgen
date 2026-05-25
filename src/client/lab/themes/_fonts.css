@@ -5,27 +5,16 @@
  * The naming convention here matches the font's displayName in that registry
  * so a future migration to read the registry directly is straightforward.
  *
- * font-display: swap → show fallback immediately, swap when font loads.
- * For print/screenshot determinism we'd want `block`; for live iteration
- * `swap` gives the fastest feedback loop and matches what browsers default
- * to for most web type.
+ * All faces use font-display: block so the printer never snapshots fallback
+ * metrics — name widths, HP-cluster alignment, and energy glyph positioning
+ * all depend on the real font's advance widths. Lab.vue's print path also
+ * awaits document.fonts.ready before showing cards.
+ *
+ * Only fonts the fullart cards actually reference are declared here. Bauhaus
+ * (trainer-header word), Inter (UI), and EssentiarumVG (video-game type
+ * pictographs) are kept in src/client/public/fonts/ for future use but
+ * deliberately not declared — no point downloading them on every page load.
  */
-
-/* Inter — fallback / generic UI font */
-@font-face {
-  font-family: "Inter";
-  src: url("/fonts/Inter-Bold.ttf") format("truetype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Inter";
-  src: url("/fonts/Inter-Black.ttf") format("truetype");
-  font-weight: 900;
-  font-style: normal;
-  font-display: swap;
-}
 
 /*
  * Gill Sans — the canonical Pokémon TCG title font.
@@ -39,21 +28,21 @@
   src: url("/fonts/Gill Sans.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 @font-face {
   font-family: "Gill Sans";
   src: url("/fonts/Gill Sans Bold.otf") format("opentype");
   font-weight: 700;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 @font-face {
   font-family: "Gill Sans";
   src: url("/fonts/GillSans Condensed Bold.otf") format("opentype");
   font-weight: 900;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 /* Futura Heavy — HP and damage values */
@@ -62,7 +51,7 @@
   src: url("/fonts/Futura Heavy.otf") format("opentype");
   font-weight: 900;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 /* Frutiger — info bar (weakness/resistance/retreat, card number) */
@@ -71,7 +60,7 @@
   src: url("/fonts/Frutiger 400.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 /* Sanvito Pro — Pokédex / flavor text */
@@ -80,16 +69,7 @@
   src: url("/fonts/sanvitopro-regular.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
-}
-
-/* Bauhaus — classic trainer-header word (not yet used in fullart lab) */
-@font-face {
-  font-family: "Bauhaus";
-  src: url("/fonts/Bauhaus 5.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 /* EssentiarumTCG — glyph font for energy-type symbols (G/R/W/L/P/F/D/M/Y/N/C).
@@ -100,5 +80,5 @@
   src: url("/fonts/EssentiarumTCG.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
