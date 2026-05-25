@@ -8,6 +8,12 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, "../../dist/client"),
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        lab:  resolve(__dirname, "lab.html"),
+      },
+    },
   },
   server: {
     port: 5173,

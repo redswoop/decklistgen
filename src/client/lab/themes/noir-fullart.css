@@ -1,0 +1,83 @@
+/*
+ * Noir fullart theme — same components, completely different look.
+ * Demonstrates the theme-swap value: change CSS variables only, no
+ * component changes, no template re-authoring.
+ *
+ * Font choices: serif title/body via Sanvito Pro (the Pokédex flavor-text font),
+ * Futura Heavy retained for HP/damage so the heavy digits still read at a glance.
+ */
+
+.theme-noir-fullart {
+  --card-w: 750;
+  --card-h: 1050;
+
+  --font-title:   "Sanvito Pro", Palatino, Georgia, serif;
+  --font-body:    "Sanvito Pro", Palatino, Georgia, serif;
+  --font-hp:      "Futura Heavy", Futura, Impact, 'Helvetica Neue', Arial, sans-serif;
+  --font-infobar: "Frutiger", 'Helvetica Neue', Arial, sans-serif;
+  --font-pokedex: "Sanvito Pro", Palatino, Georgia, serif;
+
+  --weight-title:   400;   /* Sanvito Pro only ships 400 */
+  --weight-body:    400;
+  --weight-hp:      900;
+  --weight-infobar: 400;
+
+  /* Noir runs its title face larger than the default since Sanvito Pro is
+   * a serif and reads thinner at the same px size as Gill Sans Condensed. */
+  --size-name:          60px;
+  --size-evolves-from:  32px;
+  --size-hp:            48px;
+  --size-hp-label:      24px;
+  --size-attack-name:   34px;
+  --size-attack-damage: 42px;
+  --size-attack-effect: 26px;
+  --size-ability-label: 24px;
+  --size-ability-name:  34px;
+  --size-ability-text:  26px;
+  --size-footer:        13px;
+  --size-label:         22px;
+  --size-multiplier:    28px;
+  --size-suffix-logo:   60px;   /* slightly larger than default — noir's name is 60px vs default's 48px */
+
+  --color-name:         #f5e6c8;
+  --color-name-stroke:  transparent;
+  --width-name-stroke:  0;
+
+  --color-hp-text:      #f5e6c8;
+  --color-hp-stroke:    transparent;
+  --width-hp-stroke:    0;
+
+  --color-attack-name:  #f5e6c8;
+  --color-attack-text:  #e8e0d0;
+  --color-ability-name: #c9a96a;
+  --color-ability-label-bg: #1a1a1a;
+  --color-ability-label-text: #c9a96a;
+
+  --shadow-title:     0 2px 12px rgb(0 0 0 / 0.9), 0 0 2px rgb(0 0 0 / 1);
+  --shadow-secondary: 0 1px 4px rgb(0 0 0 / 0.9);
+
+  --opacity-secondary: 0.65;
+  --opacity-tertiary:  0.45;
+
+  --panel-bg:           rgb(10 10 12 / 0.55);
+  --panel-blur:         14px;
+  --panel-radius:       12px;
+  --panel-inset-side:   20px;
+  --panel-inset-bottom: 72px;
+  --panel-padding:      30px;
+  --panel-padding-bottom: 42px;
+
+  --footer-bottom:      22px;
+
+  --color-type-Grass:     #5a7a4d;
+  --color-type-Fire:      #a04a2a;
+  --color-type-Water:     #3e6a8c;
+  --color-type-Lightning: #b89640;
+  --color-type-Psychic:   #7a4d85;
+  --color-type-Fighting:  #8a4a2a;
+  --color-type-Darkness:  #1a1a1a;
+  --color-type-Metal:     #6a7480;
+  --color-type-Fairy:     #a86585;
+  --color-type-Dragon:    #a08030;
+  --color-type-Colorless: #9a9a9a;
+}

@@ -1,0 +1,101 @@
+/*
+ * Default fullart theme — decoration only, real Pokémon TCG fonts.
+ *
+ * Font choices mirror the "Authentic TCG" preset from src/shared/constants/fonts.ts:
+ *   - title  → Gill Sans (weight 900 → Condensed Bold, the narrow card-name font)
+ *   - body   → Gill Sans (regular weight — effect text)
+ *   - hp     → Futura Heavy (the heavy display font Pokémon uses for HP/damage)
+ *   - infobar→ Frutiger (Stage / Evolves from / weakness-resistance-retreat row)
+ *   - pokedex→ Sanvito Pro (flavor text — not yet placed in this theme)
+ */
+
+.theme-default-fullart {
+  /* card geometry — matches the SVG renderer's native 750×1050 canvas so the
+   * JSON template numbers in data/templates/pokemon-fullart.json port 1:1. */
+  --card-w: 750;
+  --card-h: 1050;
+
+  /* font families — fallbacks lifted from FontDef.cssStack in the registry */
+  --font-title:   "Gill Sans", 'Gill Sans MT', Calibri, 'Helvetica Neue', Arial, Helvetica, sans-serif;
+  --font-body:    "Gill Sans", 'Gill Sans MT', Calibri, 'Helvetica Neue', Arial, Helvetica, sans-serif;
+  --font-hp:      "Futura Heavy", Futura, Impact, 'Helvetica Neue', Arial, Helvetica, sans-serif;
+  --font-infobar: "Frutiger", 'Helvetica Neue', Arial, Helvetica, sans-serif;
+  --font-pokedex: "Sanvito Pro", Palatino, Georgia, serif;
+
+  /* font weights — Gill Sans needs 900 to land on Condensed Bold */
+  --weight-title:   900;
+  --weight-body:    400;
+  --weight-hp:      900;
+  --weight-infobar: 400;
+
+  /* type sizes — mirror src/shared/constants/font-sizes.ts at the 750-wide scale */
+  --size-name:          48px;
+  --size-evolves-from:  37px;
+  --size-hp:            52px;
+  --size-hp-label:      25px;
+  --size-attack-name:   38px;
+  --size-attack-damage: 46px;
+  --size-attack-effect: 30px;
+  --size-ability-label: 30px;
+  --size-ability-name:  38px;
+  --size-ability-text:  30px;
+  --size-footer:        14px;
+  --size-label:         24px;   /* Weak / Resist / Retreat labels */
+  --size-multiplier:    32px;   /* "×2", "-30" */
+
+  /* Name-tag logo (ex / V / VSTAR PNG next to the card name) — fixed px,
+   * mirrors `"height": 55` on the suffix-logo image node in
+   * data/templates/pokemon-fullart.json. Not derived from --size-name
+   * because the SVG template is also independent of the name font size. */
+  --size-suffix-logo:   55px;
+
+  /* primary colors */
+  --color-name:         #ffffff;
+  --color-name-stroke:  #000000;
+  --width-name-stroke:  2.5px;
+
+  --color-hp-text:      #ffffff;
+  --color-hp-stroke:    #000000;
+  --width-hp-stroke:    2.5px;
+
+  --color-attack-name:  #ffffff;
+  --color-attack-text:  #ffffff;
+  --color-ability-name: #ff8c00;
+  --color-ability-label-bg: #ff8c00;
+  --color-ability-label-text: #ffffff;
+
+  /* shadows / decoration */
+  --shadow-title:     0 4px 4px rgb(0 0 0 / 0.6);
+  --shadow-secondary: 2px 2px 0 rgb(0 0 0 / 0.8);
+
+  --opacity-secondary: 0.7;
+  --opacity-tertiary:  0.5;
+
+  /* content panel (glass) — anchored bottom, grows upward by content.
+   * Geometry mirrors content-block in pokemon-fullart.json:
+   *   anchorX=20, width=710 → 20px inset both sides
+   *   paddingTop=15, paddingL/R=15, paddingBottom=37, rx=25 */
+  --panel-bg:           rgb(0 0 0 / 0.32);
+  --panel-blur:         8px;
+  --panel-radius:       25px;
+  --panel-inset-side:   20px;
+  --panel-inset-bottom: 70px;
+  --panel-padding:      15px;
+  --panel-padding-bottom: 37px;
+
+  --footer-bottom:      22px;
+
+  /* energy palette — mirrors ICON_MAP in src/server/services/pokeproxy/type-icons.ts
+   * so the lab's energy circles match the SVG renderer's. */
+  --color-type-Grass:     #439837;
+  --color-type-Fire:      #e4613e;
+  --color-type-Water:     #3099e1;
+  --color-type-Lightning: #dfbc28;
+  --color-type-Psychic:   #e96c8c;
+  --color-type-Fighting:  #e49021;
+  --color-type-Darkness:  #4f4747;
+  --color-type-Metal:     #74b0cb;
+  --color-type-Fairy:     #e18ce1;
+  --color-type-Dragon:    #576fbc;
+  --color-type-Colorless: #828282;
+}

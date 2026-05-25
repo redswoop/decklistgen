@@ -2,7 +2,9 @@
 
 Pokemon TCG proxy tool: browse cards, build decklists, generate cleaned artwork, print proxies.
 
-**See also: [CARD_STYLE.md](./CARD_STYLE.md)** — visual conventions for rendered cards (aesthetic priorities, template alignment rules).
+**See also:**
+- [CARD_STYLE.md](./CARD_STYLE.md) — visual conventions for rendered cards (aesthetic priorities, template alignment rules).
+- [CARD_LAB.md](./CARD_LAB.md) — CSS/Vue card renderer prototype at `src/client/lab/`, evaluated as a replacement for the SVG renderer. Isolated sandbox, fullart-only, components-hold-structure + themes-hold-decoration architecture.
 
 ## Tech Stack
 

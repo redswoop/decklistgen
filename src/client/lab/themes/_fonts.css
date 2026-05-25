@@ -1,0 +1,104 @@
+/*
+ * Web font declarations for the lab. Same .otf/.ttf files used by the SVG
+ * renderer (registered in src/shared/constants/fonts.ts).
+ *
+ * The naming convention here matches the font's displayName in that registry
+ * so a future migration to read the registry directly is straightforward.
+ *
+ * font-display: swap → show fallback immediately, swap when font loads.
+ * For print/screenshot determinism we'd want `block`; for live iteration
+ * `swap` gives the fastest feedback loop and matches what browsers default
+ * to for most web type.
+ */
+
+/* Inter — fallback / generic UI font */
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter-Black.ttf") format("truetype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+ * Gill Sans — the canonical Pokémon TCG title font.
+ *
+ * Weight 900 maps to "GillSans Condensed Bold" per the registry's
+ * pokemonaaah.net note. That file is narrower than Gill Sans Bold and
+ * matches the visual width Pokémon TCG uses for card names.
+ */
+@font-face {
+  font-family: "Gill Sans";
+  src: url("/fonts/Gill Sans.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gill Sans";
+  src: url("/fonts/Gill Sans Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gill Sans";
+  src: url("/fonts/GillSans Condensed Bold.otf") format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Futura Heavy — HP and damage values */
+@font-face {
+  font-family: "Futura Heavy";
+  src: url("/fonts/Futura Heavy.otf") format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Frutiger — info bar (weakness/resistance/retreat, card number) */
+@font-face {
+  font-family: "Frutiger";
+  src: url("/fonts/Frutiger 400.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Sanvito Pro — Pokédex / flavor text */
+@font-face {
+  font-family: "Sanvito Pro";
+  src: url("/fonts/sanvitopro-regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Bauhaus — classic trainer-header word (not yet used in fullart lab) */
+@font-face {
+  font-family: "Bauhaus";
+  src: url("/fonts/Bauhaus 5.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* EssentiarumTCG — glyph font for energy-type symbols (G/R/W/L/P/F/D/M/Y/N/C).
+ * Same physical file the SVG renderer embeds in type-icons.ts. Consumed by
+ * EnergyDot's `.glyph` span; the character map lives in EnergyDot.vue. */
+@font-face {
+  font-family: "EssentiarumTCG";
+  src: url("/fonts/EssentiarumTCG.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
