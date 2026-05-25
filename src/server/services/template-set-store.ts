@@ -34,10 +34,35 @@ export function clearTemplateSetCache(): void {
   cache = null;
 }
 
-/** Get all sets as a Map (id -> LoadedSet). Builds the cache on first call. */
+/** Get all sets as a Map (id -> LoadedSet). Builds the cache on first call,
+ *  and rebuilds it if any template-source file has been modified since. */
 export function getAllSets(): Map<string, LoadedSet> {
-  if (!cache) cache = { loadedAt: Date.now(), sets: buildSets() };
+  if (cache && latestTemplateMtime() <= cache.loadedAt) return cache.sets;
+  cache = { loadedAt: Date.now(), sets: buildSets() };
   return cache.sets;
+}
+
+function latestTemplateMtime(): number {
+  let latest = 0;
+  for (const root of [getBuiltinTemplatesPath(), getTemplateSetsPath(), getBuiltinShadowsPath()]) {
+    for (const setDir of listSubdirs(root)) {
+      latest = Math.max(latest, dirJsonMtime(setDir));
+      const cardsDir = join(setDir, "cards");
+      if (existsSync(cardsDir)) latest = Math.max(latest, dirJsonMtime(cardsDir));
+    }
+  }
+  return latest;
+}
+
+function dirJsonMtime(dir: string): number {
+  let latest = 0;
+  try {
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith(".json")) continue;
+      try { latest = Math.max(latest, statSync(join(dir, name)).mtimeMs); } catch {}
+    }
+  } catch {}
+  return latest;
 }
 
 export function getSet(setId: string): LoadedSet | undefined {

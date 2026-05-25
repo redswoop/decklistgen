@@ -276,6 +276,24 @@ function galleryHtml(): string {
     font-size: 13px;
     margin-bottom: 12px;
   }
+  .theme-selector {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    color: #ccc;
+    font-size: 13px;
+  }
+  .theme-selector select {
+    background: #16213e;
+    color: #fff;
+    border: 1px solid #2d3748;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 13px;
+    font-family: inherit;
+  }
   .gallery {
     display: flex;
     flex-wrap: wrap;
@@ -770,6 +788,10 @@ function galleryHtml(): string {
     </div>
   </div>
   <div id="view-cards" style="display:none">
+  <div class="theme-selector">
+    <label for="set-select">Theme:</label>
+    <select id="set-select" onchange="onSetChange(this.value)"></select>
+  </div>
   <div class="gallery" id="gallery"></div>
   </div>
 
@@ -1034,11 +1056,43 @@ async function resetPalettes() {
   }
 }
 
+let currentSetId = localStorage.getItem('gallery.setId') || 'default';
+
 function svgUrl(cardId) {
-  return '/api/pokeproxy/svg/' + cardId + '?t=' + Date.now();
+  return '/api/pokeproxy/svg/' + cardId + '?deckSetId=' + encodeURIComponent(currentSetId) + '&t=' + Date.now();
+}
+
+async function loadSetOptions() {
+  const select = document.getElementById('set-select');
+  if (!select) return;
+  try {
+    const resp = await fetch('/gallery/editor/sets');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const sets = await resp.json();
+    select.innerHTML = sets.map(function(s) {
+      return '<option value="' + s.id + '">' + esc(s.name) + '</option>';
+    }).join('');
+    if (sets.some(function(s) { return s.id === currentSetId; })) {
+      select.value = currentSetId;
+    } else {
+      currentSetId = sets[0] ? sets[0].id : 'default';
+      select.value = currentSetId;
+    }
+  } catch (e) {
+    select.innerHTML = '<option value="default">default</option>';
+  }
+}
+
+function onSetChange(setId) {
+  currentSetId = setId;
+  localStorage.setItem('gallery.setId', setId);
+  for (const cardId of Object.keys(cardData)) {
+    loadSvg(cardId);
+  }
 }
 
 async function init() {
+  await loadSetOptions();
   const resp = await fetch('/gallery/cards');
   const cards = await resp.json();
   document.querySelector('.subtitle').textContent = cards.length + ' test cards';
@@ -1105,7 +1159,7 @@ async function loadSvg(cardId) {
 }
 
 async function loadLightboxSvg(cardId) {
-  loadLightboxPanel('lightbox-svg', '/api/pokeproxy/svg/' + cardId + '?t=' + Date.now());
+  loadLightboxPanel('lightbox-svg', '/api/pokeproxy/svg/' + cardId + '?deckSetId=' + encodeURIComponent(currentSetId) + '&t=' + Date.now());
 }
 
 async function loadLightboxPanel(elId, url) {
