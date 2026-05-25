@@ -72,8 +72,9 @@ export function enrichCardData(data: Record<string, unknown>): Record<string, un
   const retreat = (data.retreat as number) ?? 0;
   data._retreatDots = Array.from({ length: retreat }, () => "Colorless");
 
-  // Big logo suffix (for VSTAR cards)
-  const bigLogoSuffix = suffix === "VSTAR" ? "VSTAR-big" : undefined;
+  // Big logo suffix — background watermark for VSTAR and V cards.
+  const bigLogoSuffix =
+    suffix === "VSTAR" ? "VSTAR-big" : suffix === "V" ? "V-big" : undefined;
   if (bigLogoSuffix) data._bigLogoSuffix = bigLogoSuffix;
 
   // Adaptive text mode — default "light" (white text for dark backgrounds)

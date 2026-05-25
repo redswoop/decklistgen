@@ -1,13 +1,27 @@
 <script setup lang="ts">
-import type { LabCard } from "../types";
+import { computed } from "vue";
+import type { LabCard, NameSuffix } from "../types";
 import NameCluster  from "./parts/NameCluster.vue";
 import HpCluster    from "./parts/HpCluster.vue";
 import ContentPanel from "./parts/ContentPanel.vue";
 import FooterRow    from "./parts/FooterRow.vue";
 
-defineProps<{
+const props = defineProps<{
   card: LabCard;
 }>();
+
+/*
+ * Background watermark (the big silver V / VSTAR mark behind the artwork).
+ * Mirrors the SVG renderer's `big-logo` element in pokemon-fullart.json:
+ *   anchorX=-50, anchorY=-38, height=280, opacity=0.7, clipToCard=1.
+ * Only V and VSTAR have a watermark asset; ex and VMAX show nothing.
+ */
+const BIG_LOGO_FILES: Partial<Record<NameSuffix, string>> = {
+  V:     "/logos/pokemon-v-big.png",
+  VSTAR: "/logos/pokemon-vstar-big.png",
+};
+
+const bigLogoSrc = computed(() => props.card.suffix ? BIG_LOGO_FILES[props.card.suffix] : undefined);
 </script>
 
 <template>
@@ -18,6 +32,19 @@ defineProps<{
       can suppress backgrounds but never an inline image.
     -->
     <img class="art" :src="card.artUrl" alt="" aria-hidden="true" />
+
+    <!--
+      Background watermark — large translucent suffix mark painted over the
+      artwork, clipped to the card by .card's overflow:hidden. SVG parity:
+      pokemon-fullart.json big-logo @ anchorX=-50, anchorY=-38, height=280, opacity=0.7.
+    -->
+    <img
+      v-if="bigLogoSrc"
+      :src="bigLogoSrc"
+      class="big-logo"
+      alt=""
+      aria-hidden="true"
+    />
 
     <div class="name-anchor">
       <NameCluster
@@ -84,6 +111,26 @@ defineProps<{
   height: 100%;
   object-fit: cover;
   object-position: center;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/*
+ * Big-logo watermark — positioned in the 750×1050 canvas to match the SVG
+ * renderer. The card's overflow:hidden + border-radius clips the portion
+ * that extends past the top-left edge (the renderer's clipToCard=1 mode).
+ *
+ * SVG-side: anchorX=-50, anchorY=-38 are top-left coordinates; height=280
+ * with the asset's native aspect (300×227 → ~370 width) ports 1:1.
+ */
+.big-logo {
+  position: absolute;
+  left: -50px;
+  top:  -38px;
+  height: 280px;
+  width:  auto;
+  opacity: 0.7;
+  pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
 }

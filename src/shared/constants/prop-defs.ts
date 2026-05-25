@@ -75,7 +75,7 @@ export const IMAGE_ENERGY_DEFS: PropDef[] = [
 ];
 
 export const IMAGE_LOGO_DEFS: PropDef[] = [
-  { key: "suffix", label: "Logo", type: "select", options: ["V", "ex", "VSTAR", "VSTAR-big"], group: "content" },
+  { key: "suffix", label: "Logo", type: "select", options: ["V", "V-big", "ex", "VSTAR", "VSTAR-big"], group: "content" },
   { key: "height", label: "Height", type: "number", min: 10, max: 600, step: 1, group: "content" },
   { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.05, group: "appearance" },
   { key: "clipToCard", label: "Clip", type: "select", options: ["0", "1"], group: "appearance" },
@@ -137,7 +137,7 @@ export const PROP_DEFS: Record<string, PropDef[]> = {
     { key: "src", label: "Source", type: "select", options: ["energy", "logo"], group: "content" },
     { key: "energyType", label: "Type", type: "select", options: [...ENERGY_TYPES], group: "content" },
     { key: "radius", label: "Radius", type: "number", min: 5, max: 60, step: 1, group: "content" },
-    { key: "suffix", label: "Logo", type: "select", options: ["V", "ex", "VSTAR", "VSTAR-big"], group: "content" },
+    { key: "suffix", label: "Logo", type: "select", options: ["V", "V-big", "ex", "VSTAR", "VSTAR-big"], group: "content" },
     { key: "height", label: "Height", type: "number", min: 10, max: 600, step: 1, group: "content" },
     { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.05, group: "appearance" },
     { key: "clipToCard", label: "Clip", type: "select", options: ["0", "1"], group: "appearance" },
@@ -178,7 +178,7 @@ export const SUB_PROP_DEFS: Record<string, PropDef[]> = {
     { key: "src", label: "Source", type: "select", options: ["energy", "logo"], group: "content" },
     { key: "energyType", label: "Type", type: "select", options: [...ENERGY_TYPES], group: "content" },
     { key: "radius", label: "Radius", type: "number", min: 5, max: 60, step: 1, group: "content" },
-    { key: "suffix", label: "Logo", type: "select", options: ["V", "ex", "VSTAR", "VSTAR-big"], group: "content" },
+    { key: "suffix", label: "Logo", type: "select", options: ["V", "V-big", "ex", "VSTAR", "VSTAR-big"], group: "content" },
     { key: "height", label: "Height", type: "number", min: 10, max: 600, step: 1, group: "content" },
     { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.05, group: "appearance" },
     { key: "clipToCard", label: "Clip", type: "select", options: ["0", "1"], group: "appearance" },

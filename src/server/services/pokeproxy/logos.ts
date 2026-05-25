@@ -15,6 +15,7 @@ function loadLogoB64(filename: string): string {
 
 // Lazy-loaded cache
 let _vB64: string | null = null;
+let _vBigB64: string | null = null;
 let _exB64: string | null = null;
 let _vstarB64: string | null = null;
 let _vstarBigB64: string | null = null;
@@ -22,6 +23,8 @@ let _vstarBigB64: string | null = null;
 // Original pixel dimensions (300px-wide resized versions)
 export const LOGO_V_W = 300;
 export const LOGO_V_H = 227;
+export const LOGO_V_BIG_W = 300;
+export const LOGO_V_BIG_H = 227;
 export const LOGO_EX_W = 300;
 export const LOGO_EX_H = 212;
 export const LOGO_VSTAR_W = 300;
@@ -32,6 +35,11 @@ export const LOGO_VSTAR_BIG_H = 227;
 export function getVLogoB64(): string {
   if (!_vB64) _vB64 = loadLogoB64("pokemon-v.png");
   return _vB64;
+}
+
+export function getVBigLogoB64(): string {
+  if (!_vBigB64) _vBigB64 = loadLogoB64("pokemon-v-big.png");
+  return _vBigB64;
 }
 
 export function getExLogoB64(): string {
@@ -68,6 +76,10 @@ export function renderSuffixLogo(
     b64 = getVLogoB64();
     srcW = LOGO_V_W;
     srcH = LOGO_V_H;
+  } else if (suffix === "V-big") {
+    b64 = getVBigLogoB64();
+    srcW = LOGO_V_BIG_W;
+    srcH = LOGO_V_BIG_H;
   } else if (suffix === "ex") {
     b64 = getExLogoB64();
     srcW = LOGO_EX_W;

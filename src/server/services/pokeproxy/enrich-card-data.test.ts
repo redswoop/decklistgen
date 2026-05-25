@@ -195,4 +195,24 @@ describe("enrichCardData", () => {
     const data = enrichCardData({ name: "Pikachu", category: "Pokemon" });
     expect(data._trainerGradient).toBeUndefined();
   });
+
+  test("_bigLogoSuffix is VSTAR-big for VSTAR cards", () => {
+    const data = enrichCardData({ name: "Leafeon VSTAR", stage: "VSTAR" });
+    expect(data._bigLogoSuffix).toBe("VSTAR-big");
+  });
+
+  test("_bigLogoSuffix is V-big for V cards", () => {
+    const data = enrichCardData({ name: "Charizard V" });
+    expect(data._bigLogoSuffix).toBe("V-big");
+  });
+
+  test("_bigLogoSuffix is undefined for ex cards", () => {
+    const data = enrichCardData({ name: "Charizard ex" });
+    expect(data._bigLogoSuffix).toBeUndefined();
+  });
+
+  test("_bigLogoSuffix is undefined for plain Pokemon", () => {
+    const data = enrichCardData({ name: "Pikachu" });
+    expect(data._bigLogoSuffix).toBeUndefined();
+  });
 });

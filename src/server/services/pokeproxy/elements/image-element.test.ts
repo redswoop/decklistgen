@@ -87,6 +87,14 @@ describe("ImageElement clipToCard mode (big-logo replacement)", () => {
     expect(svg).toContain("data:image/png;base64,");
   });
 
+  test("render with V-big suffix produces image element", () => {
+    const el = new ImageElement({ src: "logo", suffix: "V-big", height: 280, opacity: 0.7, clipToCard: 1 }, undefined, "big-logo-1");
+    const svg = el.render(-50, -38);
+    expect(svg).toContain("<image");
+    expect(svg).toContain("data:image/png;base64,");
+    expect(svg).toContain('clip-path="url(#card-clip)"');
+  });
+
   test("render with unknown suffix + clipToCard returns empty group", () => {
     const el = new ImageElement({ src: "logo", suffix: "UNKNOWN", height: 280, clipToCard: 1 }, undefined, "big-logo-1");
     const svg = el.render(-50, -38);
