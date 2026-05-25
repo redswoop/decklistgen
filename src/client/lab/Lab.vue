@@ -27,9 +27,14 @@ const PRINT_SCALE = (2.5 * 96) / CARD_W;
 /*
  * URL ?print=1 flips the page into a print-ready 3×3 grid sized to US Letter.
  * Anything in the live-iteration UI (toolbar, page background, zoom) is hidden.
+ * Add &auto=1 to also fire window.print() once fonts settle — the Print
+ * button below opens a new tab with both flags for one-click testing.
  */
-const isPrint = typeof window !== "undefined"
-  && new URLSearchParams(window.location.search).get("print") === "1";
+const params = typeof window !== "undefined"
+  ? new URLSearchParams(window.location.search)
+  : new URLSearchParams();
+const isPrint    = params.get("print") === "1";
+const autoPrint  = params.get("auto")  === "1";
 
 const activeTheme = ref(THEMES[0].id);
 const zoom        = ref(0.4);
@@ -47,8 +52,24 @@ onMounted(async () => {
   if (isPrint) {
     await document.fonts.ready;
     ready.value = true;
+    if (autoPrint) {
+      // One frame after layout so the print sheet is committed to the DOM.
+      requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+    }
   }
 });
+
+function openPrintView() {
+  // Carry the active theme so the new tab inherits the same look.
+  const url = `${window.location.pathname}?print=1&auto=1&theme=${activeTheme.value}`;
+  window.open(url, "_blank", "noopener");
+}
+
+// Apply ?theme= from the URL (set by openPrintView) so the print tab matches.
+const urlTheme = params.get("theme");
+if (urlTheme && THEMES.some(t => t.id === urlTheme)) {
+  activeTheme.value = urlTheme;
+}
 
 const frameStyle = computed(() => ({
   width:  `${CARD_W * zoom.value}px`,
@@ -87,6 +108,8 @@ const cardHPx = `${CARD_H}px`;
         <input type="range" min="0.25" max="1.0" step="0.05" v-model.number="zoom" />
         <span class="zoom-readout">{{ Math.round(zoom * 100) }}%</span>
       </div>
+
+      <button class="print-btn" type="button" @click="openPrintView">Print…</button>
 
       <span class="count">{{ SAMPLE_CARDS.length }} cards</span>
     </header>
@@ -217,6 +240,21 @@ html, body {
   width: 40px;
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.print-btn {
+  background: #1f1f26;
+  color: #e8e8ea;
+  border: 1px solid #2a2a32;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.print-btn:hover {
+  background: #2a2a32;
+  border-color: #3a3a44;
 }
 
 .count {
