@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import CardFullArt from "./cards/CardFullArt.vue";
-import { SAMPLE_CARDS } from "./sample-cards";
+import CardTrainer from "./cards/CardTrainer.vue";
+import { SAMPLE_CARDS, SAMPLE_TRAINERS } from "./sample-cards";
 
 const THEMES = [
   { id: "default-fullart", label: "Default" },
@@ -111,7 +112,7 @@ const cardHPx = `${CARD_H}px`;
 
       <button class="print-btn" type="button" @click="openPrintView">Print…</button>
 
-      <span class="count">{{ SAMPLE_CARDS.length }} cards</span>
+      <span class="count">{{ SAMPLE_TRAINERS.length + SAMPLE_CARDS.length }} cards</span>
     </header>
 
     <!--
@@ -125,8 +126,17 @@ const cardHPx = `${CARD_H}px`;
       :class="`theme-${activeTheme}`"
     >
       <div
+        v-for="(c, i) in SAMPLE_TRAINERS"
+        :key="`t-${i}`"
+        class="print-cell"
+      >
+        <div class="print-scaler" :style="printScalerStyle">
+          <CardTrainer :card="c" />
+        </div>
+      </div>
+      <div
         v-for="(c, i) in SAMPLE_CARDS"
-        :key="i"
+        :key="`p-${i}`"
         class="print-cell"
       >
         <div class="print-scaler" :style="printScalerStyle">
@@ -141,8 +151,18 @@ const cardHPx = `${CARD_H}px`;
       :class="`theme-${activeTheme}`"
     >
       <div
+        v-for="(c, i) in SAMPLE_TRAINERS"
+        :key="`t-${i}`"
+        class="card-frame"
+        :style="frameStyle"
+      >
+        <div class="card-scaler" :style="scalerStyle">
+          <CardTrainer :card="c" />
+        </div>
+      </div>
+      <div
         v-for="(c, i) in SAMPLE_CARDS"
-        :key="i"
+        :key="`p-${i}`"
         class="card-frame"
         :style="frameStyle"
       >

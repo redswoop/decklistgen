@@ -1,4 +1,59 @@
-import type { LabCard } from "./types";
+import type { LabCard, LabTrainerCard } from "./types";
+
+/*
+ * Hand-authored lab trainers. Renders ahead of SAMPLE_CARDS so the gallery
+ * leads with the trainer variants (Supporter / Tool with VSTAR Power / Item).
+ *
+ * Effect strings come straight from the cached TCGdex data:
+ *   sv02-254  — Iono (Ultra Rare fullart)
+ *   sv01-249  — Arven (Special Illustration Rare)
+ *   swsh12-156 — Forest Seal Stone (Tool with VSTAR Power "Star Alchemy")
+ *   sv03.5-206 — Switch (Hyper Rare; no clean art cached, shows dark fallback)
+ *
+ * Forest Seal Stone splits the raw cached effect string into three pieces:
+ *   intro line  → effect field (the "attached Pokémon V" attachment rule)
+ *   middle line → vstarPower.name
+ *   tail        → vstarPower.effect (with the "(You can't use…)" rule note)
+ */
+export const SAMPLE_TRAINERS: LabTrainerCard[] = [
+  {
+    name: "Iono",
+    trainerType: "Supporter",
+    artUrl: "/api/pokeproxy/image/sv02-254/clean",
+    illustrator: "sadaji",
+    effect: "Each player shuffles their hand and puts it on the bottom of their deck. If either player put any cards on the bottom of their deck in this way, each player draws a card for each of their remaining Prize cards.",
+    ruleText: "You may play only 1 Supporter card during your turn.",
+  },
+  {
+    name: "Arven",
+    trainerType: "Supporter",
+    artUrl: "/api/pokeproxy/image/sv01-249/clean",
+    illustrator: "Akira Komayama",
+    effect: "Search your deck for an Item card and a Pokémon Tool card, reveal them, and put them into your hand. Then, shuffle your deck.",
+    ruleText: "You may play only 1 Supporter card during your turn.",
+  },
+  {
+    name: "Forest Seal Stone",
+    trainerType: "Tool",
+    artUrl: "/api/pokeproxy/image/swsh12-156/clean",
+    illustrator: "5ban Graphics",
+    effect: "The Pokémon V this card is attached to can use the VSTAR Power on this card.",
+    vstarPower: {
+      kind: "ability",
+      name: "Star Alchemy",
+      effect: "During your turn, you may search your deck for a card and put it into your hand. Then, shuffle your deck. (You can't use more than 1 VSTAR Power in a game.)",
+    },
+    ruleText: "Attach a Pokémon Tool to 1 of your Pokémon that doesn't already have a Pokémon Tool attached to it.",
+  },
+  {
+    name: "Switch",
+    trainerType: "Item",
+    artUrl: "/api/pokeproxy/image/me01-130/clean",
+    illustrator: "Studio Bora Inc.",
+    effect: "Switch your Active Pokémon with 1 of your Benched Pokémon.",
+  },
+];
+
 
 /*
  * Hand-authored lab cards. Real card data sourced from cache/<id>.json.

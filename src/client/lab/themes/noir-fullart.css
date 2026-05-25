@@ -39,6 +39,14 @@
   --size-multiplier:    28px;
   --size-suffix-logo:   60px;   /* slightly larger than default — noir's name is 60px vs default's 48px */
 
+  /* Trainer-specific type sizes — slightly bigger than default since noir
+   * uses a thinner serif title face that needs more px to read at the same
+   * visual weight. */
+  --size-trainer-name:   52px;
+  --size-trainer-type:   28px;
+  --size-trainer-effect: 32px;
+  --size-rule-text:      22px;
+
   --color-name:         #f5e6c8;
   --color-name-stroke:  transparent;
   --width-name-stroke:  0;
@@ -52,6 +60,16 @@
   --color-ability-name: #c9a96a;
   --color-ability-label-bg: #1a1a1a;
   --color-ability-label-text: #c9a96a;
+
+  /* VSTAR Power pill — noir uses inverted treatment (dark pill, light text)
+   * with a muted teal accent. */
+  --color-vstar-name:        #8ec8c8;
+  --color-vstar-label-bg:    #1a1a1a;
+  --color-vstar-label-text:  #8ec8c8;
+
+  /* Trainer header banner — noir runs flat charcoal, no metallic ramp. */
+  --color-trainer-banner-bg: linear-gradient(180deg, #1a1a1a 0%, #0a0a0c 100%);
+  --color-trainer-type:      #f5e6c8;
 
   --shadow-title:     0 2px 12px rgb(0 0 0 / 0.9), 0 0 2px rgb(0 0 0 / 1);
   --shadow-secondary: 0 1px 4px rgb(0 0 0 / 0.9);
