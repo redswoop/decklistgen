@@ -118,9 +118,9 @@ Verification card: `Volcanion` (`me01-025`) in `sample-cards.ts` ships with the 
 
 Two distinct categories, easy to conflate. See [the canonical reference](../../.claude/projects/-home-armen-src-decklistgen/memory/project_vmax_logo_missing.md) in memory.
 
-- **Name-tag** logos (small, 55px tall, next to the card name) ship for ex / V / VSTAR. PNGs at `src/client/public/logos/`. Loaded via `LOGO_FILES` in `NameCluster.vue`.
+- **Name-tag** logos (small, 55px tall, next to the card name) ship for ex / V / VSTAR / VMAX. PNGs at `src/client/public/logos/`. Loaded via `LOGO_FILES` in `NameCluster.vue`. The VMAX PNG is a wide composite (chrome V + rainbow MAX baked into one image) — don't try to recreate it as two separate elements.
 - **Watermark** (large, ~280px, painted behind the artwork at 0.7 opacity) ships only for VSTAR. The asset (`pokemon-vstar-big.png`) lives in the SVG renderer's `fonts/` dir but is **not yet copied into the lab** — see "What graduation looks like" below.
-- VMAX has **neither**. The lab falls back to the styled `.suffix-text` rendering in `NameCluster.vue`, which renders the literal "VMAX" string.
+- VMAX has a name-tag but **no watermark**.
 
 ## Sample cards
 
@@ -130,7 +130,7 @@ Card data is sourced from `cache/<id>.json` (real card data); art URLs hit `/api
 
 ## Suffix logos
 
-ex / V / VSTAR render as actual PNG images (`/logos/pokemon-*.png`, copied from `src/server/services/pokeproxy/fonts/`). VMAX renders as styled text — **no VMAX asset exists anywhere in the repo or git history**, and `renderSuffixLogo()` in the SVG renderer returns empty for VMAX too. If a `pokemon-vmax.png` lands later, drop it at `src/client/public/logos/pokemon-vmax.png` and add `VMAX: "/logos/pokemon-vmax.png"` to `LOGO_FILES` in `NameCluster.vue`.
+ex / V / VSTAR / VMAX all render as actual PNG images (`/logos/pokemon-*.png`, copied from `src/server/services/pokeproxy/fonts/`). VMAX was added 2026-05-26 as a wide composite PNG (chrome V + rainbow MAX in one image). The SVG renderer's `renderSuffixLogo()` is **not yet updated** for VMAX — the new asset is consumed by the lab only. Extend `renderSuffixLogo()` and add a loader in `logos.ts` if the SVG side needs parity.
 
 ## Web fonts
 
