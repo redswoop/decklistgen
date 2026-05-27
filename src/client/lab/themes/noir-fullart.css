@@ -71,6 +71,19 @@
   --color-trainer-banner-bg: linear-gradient(180deg, #1a1a1a 0%, #0a0a0c 100%);
   --color-trainer-type:      #f5e6c8;
 
+  /* Stage plaque — noir inverts the default's pewter ramp: charcoal plate
+   * with the warm cream accent the rest of the theme uses for foreground. */
+  --stage-pill-height:         34px;
+  --stage-pill-radius:         17px;
+  --stage-pill-pad-l:          19px;
+  --stage-pill-pad-r:          15px;
+  --stage-pill-tail-width:     19px;
+  --stage-pill-font-size:      19px;
+  --stage-pill-weight:         400;
+  --stage-pill-letter-spacing: 0.16em;
+  --stage-pill-bg:             linear-gradient(180deg, #1f1f22 0%, #0a0a0c 100%);
+  --stage-pill-color:          #f5e6c8;
+
   --shadow-title:     0 2px 12px rgb(0 0 0 / 0.9), 0 0 2px rgb(0 0 0 / 1);
   --shadow-secondary: 0 1px 4px rgb(0 0 0 / 0.9);
 

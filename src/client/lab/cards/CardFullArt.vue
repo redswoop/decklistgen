@@ -5,6 +5,7 @@ import NameCluster  from "./parts/NameCluster.vue";
 import HpCluster    from "./parts/HpCluster.vue";
 import ContentPanel from "./parts/ContentPanel.vue";
 import FooterRow    from "./parts/FooterRow.vue";
+import StagePill    from "./parts/StagePill.vue";
 
 const props = defineProps<{
   card: LabCard;
@@ -45,6 +46,10 @@ const bigLogoSrc = computed(() => props.card.suffix ? BIG_LOGO_FILES[props.card.
       alt=""
       aria-hidden="true"
     />
+
+    <div class="stage-anchor">
+      <StagePill :stage="card.stage" />
+    </div>
 
     <div class="name-anchor">
       <NameCluster
@@ -139,6 +144,13 @@ const bigLogoSrc = computed(() => props.card.suffix ? BIG_LOGO_FILES[props.card.
  * Name has no right constraint: the SVG renderer uses wrap=0 (nowrap), so the
  * name overflows toward the HP cluster when long ("Mega Charizard X") rather
  * than wrapping to a second line. */
+/*
+ * Stage plaque sits in the upper-left, above the name. Inset rather than
+ * flush to the corner because printed cards get their corners rounded/cut
+ * during finishing — anything flush to (0,0) loses text to the trim.
+ * Left aligns with the name (45px) so the title block has one x-baseline.
+ */
+.stage-anchor   { position: absolute; left: 45px;  top: 8px;  }
 .name-anchor    { position: absolute; left: 45px;  top: 46px; }
 .hp-anchor      { position: absolute; left: 514px; top: 42px; }
 

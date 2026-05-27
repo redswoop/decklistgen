@@ -67,6 +67,7 @@ export const SAMPLE_CARDS: LabCard[] = [
   {
     name: "Lunala",
     evolvesFrom: "Cosmoem",
+    stage: "Stage2",
     type: "Psychic",
     hp: 160,
     artUrl: "/api/pokeproxy/image/cel25-15/clean",
@@ -89,6 +90,7 @@ export const SAMPLE_CARDS: LabCard[] = [
   },
   {
     name: "Zekrom",
+    stage: "Basic",
     type: "Lightning",
     hp: 130,
     artUrl: "/api/pokeproxy/image/cel25-10/clean",
@@ -115,6 +117,7 @@ export const SAMPLE_CARDS: LabCard[] = [
     name: "Meowscarada",
     suffix: "ex",
     evolvesFrom: "Floragato",
+    stage: "Stage2",
     type: "Grass",
     hp: 310,
     artUrl: "/api/pokeproxy/image/sv02-256/clean",
@@ -137,6 +140,7 @@ export const SAMPLE_CARDS: LabCard[] = [
   {
     name: "Mega Feraligatr",
     suffix: "ex",
+    stage: "Stage2",
     type: "Water",
     hp: 370,
     artUrl: "/api/pokeproxy/image/me02.5-274/clean",
@@ -155,6 +159,7 @@ export const SAMPLE_CARDS: LabCard[] = [
   {
     name: "Mega Charizard X",
     suffix: "ex",
+    stage: "Stage2",
     type: "Fire",
     hp: 360,
     artUrl: "/api/pokeproxy/image/me02-125/clean",
@@ -172,6 +177,7 @@ export const SAMPLE_CARDS: LabCard[] = [
   {
     name: "Mega Charizard Y",
     suffix: "ex",
+    stage: "Stage2",
     type: "Fire",
     hp: 360,
     artUrl: "/api/pokeproxy/image/me02.5-294/clean",
@@ -213,6 +219,7 @@ export const SAMPLE_CARDS: LabCard[] = [
   {
     name: "Surfing Pikachu",
     suffix: "V",
+    stage: "Basic",
     type: "Lightning",
     hp: 200,
     artUrl: "/api/pokeproxy/image/cel25-8/clean",
@@ -266,6 +273,7 @@ export const SAMPLE_CARDS: LabCard[] = [
    */
   {
     name: "Volcanion",
+    stage: "Basic",
     type: "Fire",
     hp: 130,
     artUrl: "/api/pokeproxy/image/me01-025/clean",

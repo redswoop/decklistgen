@@ -18,6 +18,14 @@ export type EnergyType =
 
 export type NameSuffix = "ex" | "V" | "VSTAR" | "VMAX";
 
+/*
+ * Evolution stage as it appears on the card's top-left plaque. Mirrors the
+ * `stage` field on TCGdex data; the renderer only displays Basic/Stage1/Stage2
+ * since VMAX/VSTAR/Mega get their own distinctive header treatment on real
+ * cards (handled separately — for now they fall back to "no pill").
+ */
+export type Stage = "Basic" | "Stage1" | "Stage2";
+
 export interface LabAttack {
   name: string;
   cost: EnergyType[];
@@ -34,6 +42,7 @@ export interface LabCard {
   name: string;
   suffix?: NameSuffix;
   evolvesFrom?: string;
+  stage?: Stage;
   type: EnergyType;
   hp: number;
   artUrl: string;
