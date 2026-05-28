@@ -608,14 +608,15 @@ describe("GET /pokeproxy/print/:deckId (requireAuth)", () => {
     expect(res.status).toBe(404);
   });
 
-  test("art=original returns <img> tags instead of inline SVG", async () => {
+  test("art=original returns <img> tags instead of inline card SVG", async () => {
     const res = await req(`/pokeproxy/print/${testDeckId}?art=original`, { session: authorizedSession });
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("<!DOCTYPE html>");
     expect(html).toContain("<img src=");
     expect(html).toContain("/high.png");
-    expect(html).not.toContain("<svg");
+    // Crop-marks SVG is expected; card SVGs are not.
+    expect(html).not.toContain("<svg xmlns");
     // count=2 → 2 img tags
     const imgs = html.match(/<img src=/g);
     expect(imgs).toHaveLength(2);

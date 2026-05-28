@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watchEffect } from "vue";
 import { api } from "../lib/client.js";
+import { gridForPaper } from "../../shared/utils/print-grid.js";
 
 const props = defineProps<{
   deckId: string;
@@ -10,26 +11,62 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-const quantityMode = ref<"all-dupes" | "one-each">("all-dupes");
-const artwork = ref<"proxy" | "original">("proxy");
-const paper = ref<"letter" | "super-b">("letter");
-const orientation = ref<"portrait" | "landscape">("portrait");
-const includePokemon = ref(true);
-const includeSupporters = ref(true);
-const includeItems = ref(true);
-const includeTools = ref(true);
-const includeStadiums = ref(true);
-const includeBasicEnergy = ref(true);
+const STORAGE_KEY = "print-options-v1";
 
-const cardsPerSheet = computed(() => {
-  const sheet = paper.value === "super-b" ? { w: 13, h: 19 } : { w: 8.5, h: 11 };
-  const usable = orientation.value === "landscape"
-    ? { w: sheet.h - 0.5, h: sheet.w - 0.5 }
-    : { w: sheet.w - 0.5, h: sheet.h - 0.5 };
-  const cols = Math.floor(usable.w / 2.5);
-  const rows = Math.floor(usable.h / 3.5);
-  return cols * rows;
+type StoredOptions = {
+  quantityMode: "all-dupes" | "one-each";
+  artwork: "proxy" | "original";
+  paper: "letter" | "super-b";
+  orientation: "portrait" | "landscape";
+  includePokemon: boolean;
+  includeSupporters: boolean;
+  includeItems: boolean;
+  includeTools: boolean;
+  includeStadiums: boolean;
+  includeBasicEnergy: boolean;
+};
+
+function loadStored(): Partial<StoredOptions> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+const stored = loadStored();
+
+const quantityMode = ref<"all-dupes" | "one-each">(stored.quantityMode ?? "all-dupes");
+const artwork = ref<"proxy" | "original">(stored.artwork ?? "proxy");
+const paper = ref<"letter" | "super-b">(stored.paper ?? "letter");
+const orientation = ref<"portrait" | "landscape">(stored.orientation ?? "portrait");
+const includePokemon = ref(stored.includePokemon ?? true);
+const includeSupporters = ref(stored.includeSupporters ?? true);
+const includeItems = ref(stored.includeItems ?? true);
+const includeTools = ref(stored.includeTools ?? true);
+const includeStadiums = ref(stored.includeStadiums ?? true);
+const includeBasicEnergy = ref(stored.includeBasicEnergy ?? true);
+
+watchEffect(() => {
+  const opts: StoredOptions = {
+    quantityMode: quantityMode.value,
+    artwork: artwork.value,
+    paper: paper.value,
+    orientation: orientation.value,
+    includePokemon: includePokemon.value,
+    includeSupporters: includeSupporters.value,
+    includeItems: includeItems.value,
+    includeTools: includeTools.value,
+    includeStadiums: includeStadiums.value,
+    includeBasicEnergy: includeBasicEnergy.value,
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(opts));
+  } catch {}
 });
+
+const cardsPerSheet = computed(() => gridForPaper(paper.value, orientation.value).cardsPerSheet);
 
 function handlePrint() {
   const params: Record<string, string> = {};
@@ -61,7 +98,6 @@ function handlePrint() {
   }
 
   window.open(api.deckPrintUrl(props.deckId, params), "_blank");
-  emit("close");
 }
 </script>
 

@@ -449,6 +449,7 @@ app.get("/print/:deckId", requireAuth, async (c) => {
   }
 
   const html = generatePrintHtml(cardContent, { paper, orientation });
+  c.header("Cache-Control", "no-store");
   return c.html(html);
 });
 
