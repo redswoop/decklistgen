@@ -11,6 +11,7 @@ const emit = defineEmits<{
 }>();
 
 const quantityMode = ref<"all-dupes" | "one-each">("all-dupes");
+const artwork = ref<"proxy" | "original">("proxy");
 const paper = ref<"letter" | "super-b">("letter");
 const orientation = ref<"portrait" | "landscape">("portrait");
 const includePokemon = ref(true);
@@ -35,6 +36,9 @@ function handlePrint() {
 
   if (quantityMode.value === "one-each") {
     params.qty = "one-each";
+  }
+  if (artwork.value === "original") {
+    params.art = "original";
   }
   if (paper.value !== "letter") {
     params.paper = paper.value;
@@ -75,6 +79,18 @@ function handlePrint() {
         <label class="print-radio">
           <input type="radio" v-model="quantityMode" value="one-each" />
           1 of each
+        </label>
+      </div>
+
+      <div class="print-section-label">Artwork</div>
+      <div class="print-radio-group">
+        <label class="print-radio">
+          <input type="radio" v-model="artwork" value="proxy" />
+          Generated proxy
+        </label>
+        <label class="print-radio">
+          <input type="radio" v-model="artwork" value="original" />
+          Original art
         </label>
       </div>
 

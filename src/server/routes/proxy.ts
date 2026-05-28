@@ -11,6 +11,7 @@ import { getCardSettings, updateCardSettings, deleteCardSettings } from "../serv
 import { getCustomizedCards, deleteCardArtifacts, invalidateCustomizedCardsCache } from "../services/customized-cards.js";
 import { getDeck } from "../services/deck-store.js";
 import { generatePrintHtml } from "../services/pokeproxy/print-html.js";
+import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import {
   cachePath,
   ensureCardLoaded,
@@ -407,6 +408,7 @@ app.get("/print/:deckId", requireAuth, async (c) => {
   const excludeSet = new Set((q.exclude || "").split(",").filter(Boolean));
   const paper = q.paper === "super-b" ? "super-b" : "letter";
   const orientation = q.orientation === "landscape" ? "landscape" : "portrait";
+  const useOriginalArt = q.art === "original";
 
   const entries = deck.cards.filter((entry) => {
     const { card } = entry;
@@ -422,21 +424,31 @@ app.get("/print/:deckId", requireAuth, async (c) => {
     return true;
   });
 
-  resetIconIds();
+  const cardContent: [number, string][] = [];
 
-  const cardSvgs: [number, string][] = [];
-  for (let ci = 0; ci < entries.length; ci++) {
-    const entry = entries[ci];
-    const cardId = entry.card.id;
-    const svgOpts: SvgRenderOptions = {
-      cardSetId: entry.templateSetId,
-      deckSetId: deck.templateSetId,
-    };
-    const svg = await generateSvgFromTemplate(cardId, svgOpts, entry.artCard?.id, `c${ci}-`);
-    cardSvgs.push([oneEach ? 1 : entry.count, svg]);
+  if (useOriginalArt) {
+    for (const entry of entries) {
+      const source = entry.artCard ?? entry.card;
+      const url = cardImageUrl(source.imageBase, "high");
+      const name = (source.name || "card").replace(/"/g, "&quot;");
+      const img = url ? `<img src="${url}" alt="${name}" />` : "";
+      cardContent.push([oneEach ? 1 : entry.count, img]);
+    }
+  } else {
+    resetIconIds();
+    for (let ci = 0; ci < entries.length; ci++) {
+      const entry = entries[ci];
+      const cardId = entry.card.id;
+      const svgOpts: SvgRenderOptions = {
+        cardSetId: entry.templateSetId,
+        deckSetId: deck.templateSetId,
+      };
+      const svg = await generateSvgFromTemplate(cardId, svgOpts, entry.artCard?.id, `c${ci}-`);
+      cardContent.push([oneEach ? 1 : entry.count, svg]);
+    }
   }
 
-  const html = generatePrintHtml(cardSvgs, { paper, orientation });
+  const html = generatePrintHtml(cardContent, { paper, orientation });
   return c.html(html);
 });
 

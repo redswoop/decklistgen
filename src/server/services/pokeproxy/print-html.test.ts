@@ -37,4 +37,12 @@ describe("generatePrintHtml", () => {
     ]);
     expect(html.match(/<div class="card">/g)?.length).toBe(3);
   });
+
+  test("embeds img content for original-art prints", () => {
+    const img = '<img src="https://assets.example/card/high.png" alt="Card" />';
+    const html = generatePrintHtml([[2, img]]);
+    expect(html.match(/<img src="https:\/\/assets\.example\/card\/high\.png"/g)?.length).toBe(2);
+    expect(html).toContain(".card img");
+    expect(html).toContain("object-fit: contain");
+  });
 });

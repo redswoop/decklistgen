@@ -562,6 +562,7 @@ describe("GET /pokeproxy/print/:deckId (requireAuth)", () => {
             rarity: "Rare",
             setId: "cel25",
             setName: "Celebrations",
+            imageBase: "https://assets.tcgdex.net/en/cel25/cel25/1",
           } as any,
         },
       ],
@@ -605,6 +606,19 @@ describe("GET /pokeproxy/print/:deckId (requireAuth)", () => {
   test("other user cannot access private deck", async () => {
     const res = await req(`/pokeproxy/print/${testDeckId}`, { session: freeSession });
     expect(res.status).toBe(404);
+  });
+
+  test("art=original returns <img> tags instead of inline SVG", async () => {
+    const res = await req(`/pokeproxy/print/${testDeckId}?art=original`, { session: authorizedSession });
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain("<img src=");
+    expect(html).toContain("/high.png");
+    expect(html).not.toContain("<svg");
+    // count=2 → 2 img tags
+    const imgs = html.match(/<img src=/g);
+    expect(imgs).toHaveLength(2);
   });
 });
 

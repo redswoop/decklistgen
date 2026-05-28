@@ -44,9 +44,14 @@ export function generatePrintHtml(
     page-break-inside: avoid;
     overflow: hidden;
   }
-  .card svg {
+  .card svg,
+  .card img {
     width: 100%;
     height: 100%;
+  }
+  .card img {
+    object-fit: contain;
+    display: block;
   }
   @media print {
     body { padding: 0; }
