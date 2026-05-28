@@ -6,14 +6,14 @@ import { useEraLoader } from "../composables/useEraLoader.js";
 import type { SpecialAttribute } from "../../shared/types/filters.js";
 
 const {
-  filters, setSets, setCategory, setTrainerType,
+  filters, setSets, setEra, setCategory, setTrainerType,
   setRarities, setEnergyTypes, setSpecialAttrs,
   setFullArt, setFoil, reset,
 } = useFilters();
 
 const { data: sets } = useSets();
 const { data: filterOpts } = useFilterOptions();
-const { loadingEra, loadingSet, loadEra, loadAllEras, loadSet } = useEraLoader();
+const { loadingEra } = useEraLoader();
 
 const sidebarEra = ref<string>(filters.era ?? "all");
 watch(() => filters.era, (v) => { sidebarEra.value = v ?? "all"; });
@@ -44,19 +44,20 @@ function formatSetLabel(code: string) {
   return `${info.name} (${info.tcgdexId})`;
 }
 
-async function handleEraChange(e: Event) {
-  const val = (e.target as HTMLSelectElement).value;
+function handleEraChange(e: Event) {
+  const val = (e.target as HTMLSelectElement).value as "sv" | "swsh" | "me" | "all";
   sidebarEra.value = val;
-  if (val === "sv" || val === "swsh" || val === "me") {
-    await loadEra(val);
-  } else {
-    await loadAllEras();
-  }
+  setEra(val);
+  setSets([]);
 }
 
 function handleSetSelectChange(e: Event) {
-  const val = (e.target as HTMLSelectElement).value;
-  if (val) loadSet(val);
+  const target = e.target as HTMLSelectElement;
+  const val = target.value;
+  if (!val) return;
+  const current = filters.sets ?? [];
+  if (!current.includes(val)) setSets([...current, val]);
+  target.value = "";
 }
 
 function handleRemoveSet(code: string) {
@@ -122,17 +123,17 @@ const showMore = ref(false);
 <template>
   <div class="inline-filter-bar">
     <div class="ifb-row">
-      <select class="ifb-select" :value="sidebarEra" :disabled="loadingEra" @change="handleEraChange">
+      <select class="ifb-select" :value="sidebarEra" @change="handleEraChange">
         <option value="all">All Eras</option>
         <option value="sv">Scarlet &amp; Violet</option>
         <option value="swsh">Sword &amp; Shield</option>
         <option value="me">Mega Evolution</option>
       </select>
 
-      <select class="ifb-select ifb-select-wide" value="" :disabled="!!loadingSet" @change="handleSetSelectChange">
-        <option value="">{{ loadingSet ? `Loading ${loadingSet}...` : "Add set..." }}</option>
+      <select class="ifb-select ifb-select-wide" value="" @change="handleSetSelectChange">
+        <option value="">Add set...</option>
         <option v-for="s in visibleSets" :key="s.code" :value="s.code">
-          {{ s.name }} ({{ s.tcgdexId }}){{ s.loaded ? " *" : "" }}
+          {{ s.name }} ({{ s.tcgdexId }})
         </option>
       </select>
 
@@ -180,7 +181,7 @@ const showMore = ref(false);
       >Reset</button>
     </div>
 
-    <div v-if="loadingEra || loadingSet" class="ifb-loading">
+    <div v-if="loadingEra" class="ifb-loading">
       <div class="ifb-loading-bar" />
     </div>
 

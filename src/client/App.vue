@@ -42,7 +42,7 @@ import type { DeckMembership } from "../shared/types/customized-card.js";
 
 const { isLoggedIn, loading: authLoading, checkAuth, isAdmin, needsSetup } = useAuth();
 const { activeJobCount } = useQueueBadge();
-const { restoreFromUrl } = useEraLoader();
+const { loadAllEras } = useEraLoader();
 const { showAuthDialog } = useAuthDialog();
 
 // View synced to URL hash, card param for lightbox deep-links
@@ -376,9 +376,10 @@ watch([currentView, isLoggedIn], ([view, loggedIn]) => {
 onMounted(async () => {
   document.addEventListener('keydown', handleUndoRedo);
   await checkAuth();
-  // Restore era/set data from URL params — must happen here (not in FilterSidebar)
-  // because on mobile the sidebar doesn't mount until the user opens the panel
-  restoreFromUrl();
+  // Eager-load every era so the in-memory card index is complete by the time
+  // variant lookups (and any cross-era reprints) are queried. Fast no-op on a
+  // warm server because loadSet is idempotent.
+  loadAllEras();
   if (previewCardId.value && !previewCard.value) {
     try {
       const card = await api.getCard(previewCardId.value);

@@ -144,7 +144,6 @@ export const api = {
 
   // Sets & cards
   getSets: () => get<SetInfo[]>("/sets"),
-  loadSet: (code: string) => post<{ loaded: number; code: string }>(`/sets/${code}/load`, {}),
   loadEra: (era: string) => post<{ loaded: number; sets: string[] }>(`/sets/load-era/${era}`, {}),
   getCards: (filters: CardFilters, page = 1, pageSize = 60) =>
     get<{ cards: Card[]; total: number; page: number; pageSize: number }>(

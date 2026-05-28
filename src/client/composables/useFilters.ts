@@ -87,11 +87,6 @@ watch([() => ({ ...filters }), page], () => {
   writeTimer = setTimeout(writeUrl, 100);
 }, { deep: true });
 
-/** Returns set codes that need to be loaded (from URL restore) */
-function getPendingSetLoads(): string[] {
-  return filters.sets ?? [];
-}
-
 export function useFilters() {
   function setSets(sets: string[]) { filters.sets = sets.length ? sets : undefined; }
   function setEra(era?: "sv" | "swsh" | "me" | "all") { filters.era = era; }
@@ -123,6 +118,5 @@ export function useFilters() {
     setSets, setEra, setCategory, setTrainerType,
     setRarities, setEnergyTypes, setSpecialAttrs,
     setFullArt, setFoil, setNameSearch, reset,
-    getPendingSetLoads,
   };
 }

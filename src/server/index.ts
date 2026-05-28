@@ -18,6 +18,7 @@ import mcpRouter from "./routes/mcp.js";
 import { sessionMiddleware } from "./middleware/auth.js";
 import { rateLimit } from "./middleware/rate-limit.js";
 import { logAccess, getClientIp } from "./services/logger.js";
+import { loadEra } from "./services/card-store.js";
 
 const app = new Hono<AppEnv>();
 
@@ -106,6 +107,26 @@ app.get("/magic/*", async (c) => {
 
 const port = parseInt(process.env.PORT ?? "3001", 10);
 console.log(`DecklistGen server listening on :${port}`);
+
+// Eager-load every era in the background so the in-memory card index is
+// complete by the time variant lookups (and cross-era searches) need it.
+// Each loadEra is internally idempotent, so this is safe across restarts.
+async function preloadAllEras() {
+  const start = Date.now();
+  console.log("Preloading all eras (sv, swsh, me)...");
+  const results = await Promise.allSettled([
+    loadEra("sv"),
+    loadEra("swsh"),
+    loadEra("me"),
+  ]);
+  const totals = results.map((r, i) => {
+    const era = ["sv", "swsh", "me"][i];
+    if (r.status === "fulfilled") return `${era}=${r.value.loaded}`;
+    return `${era}=ERR(${r.reason instanceof Error ? r.reason.message : String(r.reason)})`;
+  });
+  console.log(`Preload finished in ${Date.now() - start}ms — ${totals.join(", ")}`);
+}
+preloadAllEras().catch((e) => console.error("Preload crashed:", e));
 
 export default {
   port,

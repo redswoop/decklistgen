@@ -50,7 +50,7 @@ const emit = defineEmits<{
 const { filters, setNameSearch } = useFilters();
 const { addCard, getDeckCount } = useDecklist();
 const { imageMode, setImageMode } = usePokeproxy();
-const { loadingEra, loadEra, loadAllEras } = useEraLoader();
+const { loadingEra } = useEraLoader();
 
 // Only query API when no external cards provided
 const localPage = ref(1);
@@ -515,45 +515,13 @@ defineExpose({
       </div>
     </div>
 
-    <!-- Welcome state: no filters active (only in API mode) -->
-    <div v-else-if="!isExternalMode && !hasAnyFilter && !isLoading" class="welcome-content">
+    <!-- Boot loading state: server-side preload is still running -->
+    <div v-else-if="!isExternalMode && loadingEra && allCards.length === 0" class="welcome-content">
       <div class="welcome-card">
-        <div class="welcome-title">Pokemon TCG Card Browser</div>
-        <div class="welcome-subtitle">Load an era to browse cards</div>
-        <div class="welcome-buttons">
-          <button
-            class="welcome-btn welcome-btn-all"
-            :disabled="loadingEra"
-            @click="loadAllEras()"
-          >
-            <span class="welcome-btn-label">All Eras</span>
-          </button>
-          <button
-            class="welcome-btn welcome-btn-sv"
-            :disabled="loadingEra"
-            @click="loadEra('sv')"
-          >
-            <span class="welcome-btn-label">Scarlet &amp; Violet</span>
-          </button>
-          <button
-            class="welcome-btn welcome-btn-swsh"
-            :disabled="loadingEra"
-            @click="loadEra('swsh')"
-          >
-            <span class="welcome-btn-label">Sword &amp; Shield</span>
-          </button>
-          <button
-            class="welcome-btn welcome-btn-me"
-            :disabled="loadingEra"
-            @click="loadEra('me')"
-          >
-            <span class="welcome-btn-label">Mega Evolution</span>
-          </button>
-        </div>
-        <div v-if="loadingEra" class="welcome-loading">
+        <div class="welcome-title">Loading cards…</div>
+        <div class="welcome-loading">
           <div class="era-progress"><div class="era-progress-bar" /></div>
         </div>
-        <div class="welcome-hint">or pick individual sets from the sidebar</div>
       </div>
     </div>
 
