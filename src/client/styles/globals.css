@@ -1198,6 +1198,18 @@ body {
   display: block;
 }
 
+/* Thumb-scale chrome simplification: at ~165px wide the lab's content panel
+ * (attacks, ability, trainer effect) and footer row (weakness/resistance/
+ * retreat, illustrator credit) are unreadable AND overlap card-thumb's own
+ * "{SET} #{NUM}" overlay label. Hide them so the thumb reads as art + frame
+ * + identifying chrome (name, HP, stage pill, trainer banner). The lightbox
+ * and Gallery still show everything — this is :deep scoped to .card-thumb.
+ */
+.card-thumb .content-anchor,
+.card-thumb .footer-anchor {
+  display: none;
+}
+
 .card-thumb-placeholder {
   width: 100%;
   aspect-ratio: 5/7;
