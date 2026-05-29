@@ -1206,7 +1206,9 @@ body {
  * and Gallery still show everything — this is :deep scoped to .card-thumb.
  */
 .card-thumb .content-anchor,
-.card-thumb .footer-anchor {
+.card-thumb .footer-anchor,
+.lb-version-thumb .content-anchor,
+.lb-version-thumb .footer-anchor {
   display: none;
 }
 
@@ -1927,6 +1929,10 @@ body {
   outline-offset: -2px;
   transition: outline-color 0.15s;
   overflow: hidden;
+  /* Reserve the true card aspect so the CSS-rendered proxy preview fits
+   * without collapsing to a sub-pixel-shorter source image (same fix as
+   * .lb-card-image and .card-thumb). */
+  aspect-ratio: 750 / 1050;
 }
 
 .lb-version:hover .lb-version-thumb {
@@ -1938,6 +1944,12 @@ body {
 }
 
 .lb-version-img {
+  width: 100%;
+  display: block;
+  border-radius: 5px;
+}
+
+.lb-version-css {
   width: 100%;
   display: block;
   border-radius: 5px;

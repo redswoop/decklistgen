@@ -563,7 +563,14 @@ function navigateToDeck(deckId: string) {
             </div>
             <div :class="['lb-version', { active: selectedVersion === 'proxy' }]">
               <div class="lb-version-thumb" @click="selectVersion('proxy')">
-                <img :src="svgUrl" class="lb-version-img" :alt="currentCard.name" />
+                <CssCardRenderer
+                  v-if="cleanedImageUrl"
+                  :card="currentCard"
+                  :detail="cardDetail"
+                  :art-url="cleanedImageUrl"
+                  class="lb-version-css"
+                />
+                <div v-else class="lb-version-placeholder">--</div>
               </div>
               <span class="lb-version-label">Proxy</span>
             </div>
