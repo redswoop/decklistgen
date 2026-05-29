@@ -76,6 +76,28 @@ describe("adaptPokemon", () => {
     });
   });
 
+  it("strips the suffix token from the name (the lab renders it as a logo)", () => {
+    const ex = baseCard({ name: "Charizard ex", isEx: true });
+    expect(adaptPokemon(ex, undefined, "/x").name).toBe("Charizard");
+
+    const v = baseCard({ name: "Surfing Pikachu V", isV: true });
+    expect(adaptPokemon(v, undefined, "/x").name).toBe("Surfing Pikachu");
+
+    const vstar = baseCard({ name: "Charizard VSTAR", isVstar: true });
+    expect(adaptPokemon(vstar, undefined, "/x").name).toBe("Charizard");
+
+    const vmax = baseCard({ name: "Flying Pikachu VMAX", isVmax: true });
+    expect(adaptPokemon(vmax, undefined, "/x").name).toBe("Flying Pikachu");
+
+    // No suffix: name passes through untouched.
+    expect(adaptPokemon(baseCard({ name: "Lunala" }), undefined, "/x").name).toBe("Lunala");
+
+    // Edge case: name already lacks the token even though the flag is set
+    // (dirty upstream data). Don't mangle, return as-is.
+    const weird = baseCard({ name: "Charizard", isEx: true });
+    expect(adaptPokemon(weird, undefined, "/x").name).toBe("Charizard");
+  });
+
   it("fans in the suffix flags by precedence (VSTAR > VMAX > V > ex)", () => {
     const both = baseCard({ isV: true, isVstar: true });
     expect(adaptPokemon(both, undefined, "/x").suffix).toBe("VSTAR");

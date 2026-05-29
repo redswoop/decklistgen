@@ -43,6 +43,21 @@ function pickSuffix(card: Card): NameSuffix | undefined {
   return undefined;
 }
 
+/**
+ * Strip the suffix token from the card's name. The lab's NameCluster renders
+ * the suffix as a PNG logo next to the base name, so the raw " ex" / " V" /
+ * " VMAX" / " VSTAR" tail in the Card model would double up. Mirrors
+ * `splitNameSuffix()` in src/server/services/pokeproxy/svg-helpers.ts.
+ */
+function stripSuffix(name: string, suffix: NameSuffix | undefined): string {
+  if (!suffix) return name;
+  if (suffix === "ex" && name.toLowerCase().endsWith(" ex")) return name.slice(0, -3).trimEnd();
+  if (suffix === "V" && name.endsWith(" V")) return name.slice(0, -2).trimEnd();
+  if (suffix === "VMAX" && name.endsWith(" VMAX")) return name.slice(0, -5).trimEnd();
+  if (suffix === "VSTAR" && name.endsWith(" VSTAR")) return name.slice(0, -6).trimEnd();
+  return name;
+}
+
 function pickStage(rawStage: string | undefined): Stage | undefined {
   if (rawStage === "Basic" || rawStage === "Stage1" || rawStage === "Stage2") {
     return rawStage;
@@ -90,9 +105,10 @@ export function adaptPokemon(card: Card, detail: CardDetail | undefined, artUrl:
     console.warn(`[card-to-lab] ${card.id} has ${detail.abilities.length} abilities; only the first will render.`);
   }
   const ability = detail?.abilities?.[0];
+  const suffix = pickSuffix(card);
   return {
-    name: card.name,
-    suffix: pickSuffix(card),
+    name: stripSuffix(card.name, suffix),
+    suffix,
     evolvesFrom: detail?.evolveFrom,
     stage: pickStage(card.stage),
     type: toEnergyType(card.energyTypes[0]),
