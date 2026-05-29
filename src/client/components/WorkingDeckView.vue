@@ -5,7 +5,6 @@ import BeautifyDialog from "./BeautifyDialog.vue";
 import BatchGenerateDialog from "./BatchGenerateDialog.vue";
 import PrintDialog from "./PrintDialog.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import TemplateSetPicker from "./TemplateSetPicker.vue";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
 import { useAuth } from "../composables/useAuth.js";
@@ -25,13 +24,7 @@ const {
   addCard, removeCard, clear, sweepZeroCount, hasZeroCount,
   currentDeckId, currentDeckName, isDirty,
   toDeckCards, loadSavedDeck,
-  currentDeckTemplateSetId, setDeckTemplateSetId,
 } = useDecklist();
-
-const deckTemplateSetId = computed<string | undefined>({
-  get: () => currentDeckTemplateSetId.value ?? undefined,
-  set: (v) => setDeckTemplateSetId(v ?? null),
-});
 
 const { fetchDeck } = useDecks();
 const { isLoggedIn } = useAuth();
@@ -127,7 +120,6 @@ async function handleBeautifyUpdated() {
     >
       <template #toolbar>
         <div class="dm-view-actions">
-          <TemplateSetPicker v-model="deckTemplateSetId" />
           <button class="dm-action-btn" @click="showBeautify = true" :disabled="items.length === 0">Beautify</button>
           <button class="dm-action-btn" @click="showBatchGenerate = true" :disabled="items.length === 0 || !isLoggedIn" :title="!isLoggedIn ? 'Sign in to generate card images' : undefined">Generate</button>
           <button class="dm-action-btn" :disabled="!currentDeckId" :title="!isLoggedIn ? 'Sign in to save and print decks' : (!currentDeckId ? 'Save the deck first to print' : 'Open printable proxy sheet')" @click="handlePrint">Print</button>

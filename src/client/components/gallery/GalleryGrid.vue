@@ -5,20 +5,17 @@ import type { GalleryCardWithSource } from "../../composables/useGalleryCardSour
 
 type PreviewMode = "editing" | "physical";
 
-const props = defineProps<{
+defineProps<{
   cards: GalleryCardWithSource[];
   selectedCardId: string | null;
   previewMode: PreviewMode;
   thumbWidth: number;
-  /** Per-card cache-bust resolver. The grid evaluates this inside the v-for
-   *  binding so a per-card bump only updates the affected thumb's prop, not
-   *  the whole grid. (See useGallerySvgRev.) */
-  svgRevFor: (cardId: string) => number;
+  /** Bumped when any cached clean PNG changes, so thumb art URLs refetch. */
+  imageCacheBust: number;
 }>();
 
 const emit = defineEmits<{
   select: [card: GalleryCardWithSource];
-  "open-editor": [cardId: string];
   swap: [card: GalleryCardWithSource];
 }>();
 
@@ -66,7 +63,7 @@ function badgesFor(card: GalleryCardWithSource): ThumbBadge[] {
       :card-id="card.cardId"
       :card="card.card"
       :has-clean="card.hasClean"
-      :cache-bust="svgRevFor(card.cardId)"
+      :cache-bust="imageCacheBust"
       :width="thumbWidth"
       :label="card.label"
       :name="card.name"
@@ -79,7 +76,6 @@ function badgesFor(card: GalleryCardWithSource): ThumbBadge[] {
       :swappable="isSwappable(card)"
       :has-override="hasOverride(card)"
       @click="emit('select', card)"
-      @dblclick="emit('open-editor', card.cardId)"
       @swap="emit('swap', card)"
     />
   </div>

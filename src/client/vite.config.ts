@@ -10,8 +10,9 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        main: resolve(__dirname, "index.html"),
-        lab:  resolve(__dirname, "lab.html"),
+        main:  resolve(__dirname, "index.html"),
+        lab:   resolve(__dirname, "lab.html"),
+        print: resolve(__dirname, "print.html"),
       },
     },
   },

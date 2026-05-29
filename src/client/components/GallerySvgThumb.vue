@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { computed } from "vue";
 import type { Card } from "../../shared/types/card.js";
-import { getSvg } from "../composables/useGallerySvgCache.js";
 import { api } from "../lib/client.js";
 import CssCardRenderer from "./CssCardRenderer.vue";
 
@@ -10,13 +9,11 @@ interface Badge { text: string; variant: BadgeVariant }
 
 const props = withDefaults(defineProps<{
   cardId: string;
-  /** Bumped by the parent (e.g. after a font-size save) to force a re-fetch. */
+  /** Bumped when the cached clean PNG changes (after a successful Clean run). */
   cacheBust: number;
-  /** Pixel width of the SVG box. Height is 96/68 of width (card aspect). */
+  /** Pixel width of the card box. Height is card aspect (1.412). */
   width?: number;
-  /** Full Card for the CSS renderer. When this and `hasClean` are both set
-   *  the thumb mounts CssCardRenderer over the cached clean PNG; otherwise it
-   *  falls back to the server SVG render. */
+  /** Full Card for the renderer. When missing, the thumb shows a placeholder. */
   card?: Card | null;
   /** True when a cleaned-art PNG exists in cache (clean or composite). */
   hasClean?: boolean;
@@ -26,12 +23,11 @@ const props = withDefaults(defineProps<{
   metaLine?: string;
   /** Optional badge pills (cards tab shows CLEANED / FULLART / etc). */
   badges?: Badge[];
-  /** Show a generating spinner overlay even if the SVG has loaded. */
+  /** Show a generating spinner overlay even if the render has loaded. */
   loading?: boolean;
-  /** Render at true 2.5x3.5 card aspect (width × 1.4) instead of the slightly
-   *  fudged 1.412 (96/68) used by the default editing-size thumbnails. Used by
-   *  the Gallery's print-preview mode where the on-screen card must align with
-   *  a real card held against the monitor. */
+  /** Render at true 2.5x3.5 card aspect (width × 1.4) instead of 1.412. Used
+   *  by the Gallery's print-preview mode where the on-screen card must align
+   *  with a real card held against the monitor. */
   physical?: boolean;
   /** "full" (default) shows label, name, id, badges, metaLine.
    *  "compact" shows only label + name above the card; everything else is
@@ -64,16 +60,9 @@ const props = withDefaults(defineProps<{
 
 defineEmits<{ click: []; dblclick: []; swap: [] }>();
 
-const svgHtml = ref<string>("");
-
 const frameHeight = computed(() =>
   Math.round(props.width * (props.physical ? 1.4 : 1.412)),
 );
-
-// CSS renderer is the preferred path for the cards tab whenever a clean image
-// exists and the server handed us the full Card. SVG fetch is only kicked off
-// when we'd otherwise render nothing (no clean cached, or no Card).
-const useCss = computed(() => !!props.card && props.hasClean);
 
 const cleanArtUrl = computed(() =>
   props.hasClean
@@ -81,23 +70,7 @@ const cleanArtUrl = computed(() =>
     : null,
 );
 
-watch(
-  () => [props.cardId, props.cacheBust, useCss.value] as const,
-  async ([cardId, bust, css]) => {
-    if (css) {
-      // CSS path owns rendering; no SVG fetch needed.
-      svgHtml.value = "";
-      return;
-    }
-    svgHtml.value = "";
-    const html = await getSvg(cardId, bust);
-    // Stale-response guard: only commit if the props haven't changed since.
-    if (props.cardId === cardId && props.cacheBust === bust && !useCss.value) {
-      svgHtml.value = html;
-    }
-  },
-  { immediate: true },
-);
+const ready = computed(() => !!props.card && !!cleanArtUrl.value);
 </script>
 
 <template>
@@ -127,17 +100,14 @@ watch(
       :style="{ width: `${width}px`, height: `${frameHeight}px` }"
     >
       <CssCardRenderer
-        v-if="useCss && card && cleanArtUrl"
+        v-if="ready && card && cleanArtUrl"
         :card="card"
         :art-url="cleanArtUrl"
         class="svg-thumb-css"
       />
-      <div
-        v-else-if="svgHtml"
-        class="svg-thumb-svg"
-        v-html="svgHtml"
-      />
-      <div v-else class="svg-thumb-placeholder">Loading…</div>
+      <div v-else class="svg-thumb-placeholder">
+        {{ hasClean ? "Loading…" : "No clean art" }}
+      </div>
       <div v-if="loading" class="svg-thumb-overlay">
         <div class="svg-thumb-spinner" />
       </div>
@@ -173,7 +143,7 @@ watch(
 
 /* Compact chrome (used by Gallery print-preview). Tighter padding and smaller
  * labels keep the on-screen card aligned with a physical card held against
- * the monitor — the SVG portion is what should match real card dimensions. */
+ * the monitor — the card portion is what should match real card dimensions. */
 .svg-thumb-compact {
   padding: 4px 4px 6px 4px;
   border-radius: 6px;
@@ -254,17 +224,6 @@ watch(
   justify-content: center;
   border-radius: 6px;
   overflow: hidden;
-}
-
-.svg-thumb-svg {
-  width: 100%;
-  height: 100%;
-}
-
-.svg-thumb-svg :deep(svg) {
-  width: 100%;
-  height: 100%;
-  display: block;
 }
 
 .svg-thumb-css {

@@ -22,7 +22,7 @@ const imageMode: Ref<ImageMode> = ref(readModeFromUrl());
 const generatingSet = reactive(new Set<string>());
 
 // Status cache: cardId -> availability. Populated by batch queries.
-const statusCache = reactive(new Map<string, { hasClean: boolean; hasComposite: boolean; hasSvg: boolean; mtime?: number }>());
+const statusCache = reactive(new Map<string, { hasClean: boolean; hasComposite: boolean; mtime?: number }>());
 
 // Global generation version counter per card — survives component unmount.
 // Bump after successful generation so SVG URLs change and browsers re-fetch.
@@ -177,10 +177,6 @@ export async function generateCleanImage(cardId: string, force = false) {
     }
     console.error("Generate failed:", e);
   }
-}
-
-export async function regenerateSvg(cardId: string) {
-  await api.pokeproxyRegenerateSvg(cardId);
 }
 
 /** Must be called from a component setup to capture the query client */

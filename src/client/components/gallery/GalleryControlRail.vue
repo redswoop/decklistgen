@@ -1,54 +1,22 @@
 <script setup lang="ts">
-/** Left rail container with three collapsible sections:
- *  Font sizes (open by default), Font family, Display calibration.
- *
- *  Emits @saved when any editor saves so the parent can refresh the grid. */
+/** Left rail container. Display calibration is the last surviving section after
+ *  the SVG override editors (font size, font family) were retired. */
 import { ref } from "vue";
-import FontSizeEditor from "./FontSizeEditor.vue";
-import FontFamilyEditor from "./FontFamilyEditor.vue";
 import DisplayCalibrationSection from "./DisplayCalibrationSection.vue";
 
-const emit = defineEmits<{ saved: []; openCalibration: [] }>();
+const emit = defineEmits<{ openCalibration: [] }>();
 
-type Section = "sizes" | "family" | "calibration";
-const open = ref<Record<Section, boolean>>({
-  sizes: true,
-  family: false,
-  calibration: true,
-});
-
-function toggle(s: Section) { open.value[s] = !open.value[s]; }
-function handleSaved() { emit("saved"); }
+const calibrationOpen = ref(true);
 </script>
 
 <template>
   <aside class="rail">
     <div class="rail-section">
-      <button class="rail-head" @click="toggle('sizes')">
-        <span class="rail-caret">{{ open.sizes ? "▾" : "▸" }}</span>
-        Font sizes
-      </button>
-      <div v-if="open.sizes" class="rail-body">
-        <FontSizeEditor @saved="handleSaved" @reset="handleSaved" />
-      </div>
-    </div>
-
-    <div class="rail-section">
-      <button class="rail-head" @click="toggle('family')">
-        <span class="rail-caret">{{ open.family ? "▾" : "▸" }}</span>
-        Font family
-      </button>
-      <div v-if="open.family" class="rail-body">
-        <FontFamilyEditor @saved="handleSaved" @reset="handleSaved" />
-      </div>
-    </div>
-
-    <div class="rail-section">
-      <button class="rail-head" @click="toggle('calibration')">
-        <span class="rail-caret">{{ open.calibration ? "▾" : "▸" }}</span>
+      <button class="rail-head" @click="calibrationOpen = !calibrationOpen">
+        <span class="rail-caret">{{ calibrationOpen ? "▾" : "▸" }}</span>
         Display
       </button>
-      <div v-if="open.calibration" class="rail-body">
+      <div v-if="calibrationOpen" class="rail-body">
         <DisplayCalibrationSection @open="emit('openCalibration')" />
       </div>
     </div>

@@ -8,7 +8,6 @@ const emit = defineEmits<{
 
 const {
   totalClean,
-  totalSettings,
   totalStale,
   filteredCards,
   filters,
@@ -59,10 +58,6 @@ const hasActiveFilters = computed(() =>
         >
           <span class="cards-stat-value" :class="{ warn: totalStale > 0 }">{{ totalStale }}</span>
           <span class="cards-stat-label">Stale</span>
-        </div>
-        <div class="cards-stat">
-          <span class="cards-stat-value">{{ totalSettings }}</span>
-          <span class="cards-stat-label">Settings</span>
         </div>
       </div>
 

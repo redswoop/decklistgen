@@ -9,7 +9,6 @@ interface GalleryCard {
   label: string;
   hasClean: boolean;
   hasComposite: boolean;
-  hasSvg: boolean;
   hasSource: boolean;
   cleanMeta: Record<string, unknown> | null;
 }
@@ -27,7 +26,6 @@ const withClean = computed(
   () => props.cards.filter((c) => c.hasClean || c.hasComposite).length,
 );
 const missing = computed(() => total.value - withClean.value);
-const withSvg = computed(() => props.cards.filter((c) => c.hasSvg).length);
 const withSource = computed(() => props.cards.filter((c) => c.hasSource).length);
 
 const latestClean = computed(() => {
@@ -63,10 +61,6 @@ const needsAttention = computed(() =>
       <div class="overview-stat" :class="missing > 0 && 'overview-stat-warn'">
         <div class="overview-stat-val">{{ missing }}</div>
         <div class="overview-stat-lbl">missing</div>
-      </div>
-      <div class="overview-stat">
-        <div class="overview-stat-val">{{ withSvg }}</div>
-        <div class="overview-stat-lbl">SVG cached</div>
       </div>
       <div class="overview-stat">
         <div class="overview-stat-val">{{ withSource }}</div>

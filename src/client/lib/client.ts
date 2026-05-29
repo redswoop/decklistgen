@@ -2,7 +2,6 @@ import type { Card, CardDetail, SetInfo } from "../../shared/types/card.js";
 import type { CardFilters } from "../../shared/types/filters.js";
 import type { FilterOptions } from "../../shared/types/filters.js";
 import type { DecklistEntry, DecklistOutput, LimitlessPlayer, ImportResult } from "../../shared/types/decklist.js";
-import type { ProxySettings } from "../../shared/types/proxy-settings.js";
 import type { SavedDeck, DeckSummary, DeckCard } from "../../shared/types/deck.js";
 import type { CustomizedCardsResponse } from "../../shared/types/customized-card.js";
 import type { BeautifyOptions } from "../../shared/types/beautify.js";
@@ -104,7 +103,6 @@ export interface PokeproxyStatus {
   cardId: string;
   hasClean: boolean;
   hasComposite: boolean;
-  hasSvg: boolean;
   hasOriginal?: boolean;
   mtime?: number;
 }
@@ -200,12 +198,12 @@ export const api = {
   pokeproxyStatus: (cardId: string) =>
     get<PokeproxyStatus>(`/pokeproxy/status/${cardId}`),
   pokeproxyBatchStatus: (cardIds: string[]) =>
-    post<Record<string, { hasClean: boolean; hasComposite: boolean; hasSvg: boolean; mtime?: number }>>(
+    post<Record<string, { hasClean: boolean; hasComposite: boolean; mtime?: number }>>(
       "/pokeproxy/status/batch", { cardIds }
     ),
   pokeproxyBatchGenInfo: (cardIds: string[]) =>
     post<Record<string, {
-      hasClean: boolean; hasComposite: boolean; hasSvg: boolean; mtime?: number;
+      hasClean: boolean; hasComposite: boolean; mtime?: number;
       skip?: boolean; isStale?: boolean; staleSummary?: string;
     }>>("/pokeproxy/status/batch", { cardIds, includeGenInfo: true }),
   pokeproxyImageUrl: (cardId: string, type: "clean" | "composite" = "composite", version?: number, width?: number) => {
@@ -216,70 +214,8 @@ export const api = {
     const qs = params.toString();
     return qs ? `${base}?${qs}` : base;
   },
-  pokeproxySvgUrl: (
-    cardId: string,
-    settings?: ProxySettings,
-    version?: number,
-    setIds?: { cardSetId?: string; deckSetId?: string },
-    artCardId?: string,
-  ) => {
-    const base = `/api/pokeproxy/svg/${cardId}`;
-    const params = new URLSearchParams();
-    if (settings?.fontSize != null) params.set("fontSize", String(settings.fontSize));
-    if (settings?.maxCover != null) params.set("maxCover", String(settings.maxCover));
-    if (version) params.set("v", String(version));
-    if (setIds?.cardSetId) params.set("cardSetId", setIds.cardSetId);
-    if (setIds?.deckSetId) params.set("deckSetId", setIds.deckSetId);
-    if (artCardId) params.set("artCardId", artCardId);
-    const qs = params.toString();
-    return qs ? `${base}?${qs}` : base;
-  },
-  deckPrintUrl: (id: string, params?: Record<string, string>) => {
-    const base = `/api/pokeproxy/print/${id}`;
-    if (!params) return base;
-    const qs = new URLSearchParams(params).toString();
-    return qs ? `${base}?${qs}` : base;
-  },
-  pokeproxyEnergyPreviewUrl: () => `/api/pokeproxy/energy-preview`,
   pokeproxyGenerate: (cardId: string, force = false) =>
     post<{ jobId: string; cardId: string; status: string }>(`/pokeproxy/generate/${cardId}${force ? "?force=true" : ""}`, {}),
-  pokeproxyRegenerateSvg: (cardId: string) =>
-    post<{ cardId: string; status: string }>(`/pokeproxy/svg/${cardId}/regenerate`, {}),
-  pokeproxyInspect: (cardId: string) =>
-    get<{
-      cardId: string;
-      template: string;
-      textMode: "dark" | "light";
-      textBrightness: number;
-      hpTextMode: "dark" | "light" | null;
-      hpBrightness: number | null;
-      textModeOverridden?: boolean;
-      hpTextModeOverridden?: boolean;
-      textModeAverage?: "dark" | "light";
-      textModeHistogram?: "dark" | "light";
-      histogram?: {
-        darkRatio: number;
-        brightRatio: number;
-        midRatio: number;
-        meanLuminance: number;
-      };
-      hasSource: boolean;
-      hasClean: boolean;
-      hasComposite: boolean;
-      hasSvg: boolean;
-    }>(`/pokeproxy/inspect/${cardId}`),
-  pokeproxyGetTextModeOverride: (cardId: string) =>
-    get<{ cardId: string; textMode?: "dark" | "light"; hpTextMode?: "dark" | "light" }>(
-      `/pokeproxy/text-mode-override/${cardId}`,
-    ),
-  pokeproxySaveTextModeOverride: (
-    cardId: string,
-    patch: { textMode?: "dark" | "light" | null; hpTextMode?: "dark" | "light" | null },
-  ) =>
-    put<{ cardId: string; textMode?: "dark" | "light"; hpTextMode?: "dark" | "light" }>(
-      `/pokeproxy/text-mode-override/${cardId}`,
-      patch,
-    ),
   pokeproxyGetPrompt: (cardId: string) =>
     get<{
       cardId: string;
@@ -312,14 +248,6 @@ export const api = {
   getPublicDeck: (id: string) => get<SavedDeck>(`/public/decks/${id}`),
   copyPublicDeck: (id: string) => post<SavedDeck>(`/public/decks/${id}/copy`, {}),
 
-  // Card settings endpoints
-  getCardSettings: (cardId: string) =>
-    get<ProxySettings>(`/pokeproxy/settings/${cardId}`),
-  updateCardSettings: (cardId: string, patch: Partial<ProxySettings>) =>
-    put<ProxySettings>(`/pokeproxy/settings/${cardId}`, patch),
-  deleteCardSettings: (cardId: string) =>
-    del<{ ok: boolean }>(`/pokeproxy/settings/${cardId}`),
-
   // Customized cards endpoints
   getCustomizedCards: () =>
     get<CustomizedCardsResponse>("/pokeproxy/customized"),
@@ -347,7 +275,6 @@ export const api = {
       isFullArt: boolean;
       hasClean: boolean;
       hasComposite: boolean;
-      hasSvg: boolean;
       hasSource: boolean;
       cleanMeta: Record<string, unknown> | null;
       promptRule: string | null;

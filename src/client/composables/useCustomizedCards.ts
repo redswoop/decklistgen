@@ -1,8 +1,7 @@
-import { ref, reactive, computed, type Ref } from "vue";
+import { ref, reactive, computed } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../lib/client.js";
 import { generateCleanImage } from "./usePokeproxy.js";
-import type { CustomizedCard } from "../../shared/types/customized-card.js";
 
 // Module-level shared state — survives component remounts
 const filters = reactive({
@@ -24,7 +23,6 @@ export function useCustomizedCards() {
 
   const cards = computed(() => data.value?.cards ?? []);
   const totalClean = computed(() => data.value?.totalClean ?? 0);
-  const totalSettings = computed(() => data.value?.totalSettings ?? 0);
   const totalStale = computed(() => data.value?.totalStale ?? 0);
 
   function toggleSelect(cardId: string) {
@@ -89,7 +87,6 @@ export function useCustomizedCards() {
     cards,
     isLoading,
     totalClean,
-    totalSettings,
     totalStale,
     selectedIds,
     toggleSelect,

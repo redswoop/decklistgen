@@ -1,6 +1,6 @@
 import { ref, watch, onMounted, onUnmounted } from "vue";
 
-export type AppView = "browse" | "build" | "cards" | "public" | "queue" | "editor" | "gallery" | "variants";
+export type AppView = "browse" | "build" | "cards" | "public" | "queue" | "gallery" | "variants";
 
 function parseHash(): { view: AppView } {
   const hash = window.location.hash.replace(/^#\/?/, "");
@@ -23,9 +23,6 @@ function parseHash(): { view: AppView } {
   if (hash === "queue") {
     return { view: "queue" };
   }
-  if (hash === "editor" || hash.startsWith("editor/")) {
-    return { view: "editor" };
-  }
   if (hash === "gallery" || hash.startsWith("gallery/")) {
     return { view: "gallery" };
   }
@@ -46,7 +43,6 @@ function toHash(view: AppView): string {
   if (view === "cards") return "#/cards";
   if (view === "public") return "#/public";
   if (view === "queue") return "#/queue";
-  if (view === "editor") return "#/editor";
   if (view === "gallery") return "#/gallery";
   if (view === "variants") return "#/variants";
   return "#/browse";
@@ -78,7 +74,7 @@ export function useRoute() {
   watch(currentView, (view) => {
     const target = toHash(view);
     const current = window.location.hash;
-    // Don't clobber sub-paths (e.g. #/editor/cardId → #/editor)
+    // Don't clobber sub-paths (e.g. #/gallery/cardId → #/gallery)
     if (current !== target && !current.startsWith(target + "/")) {
       suppressHashSync = true;
       window.location.hash = target;

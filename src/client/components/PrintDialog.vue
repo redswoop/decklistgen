@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, watchEffect } from "vue";
-import { api } from "../lib/client.js";
 import { gridForPaper } from "../../shared/utils/print-grid.js";
 
 const props = defineProps<{
@@ -69,23 +68,15 @@ watchEffect(() => {
 const cardsPerSheet = computed(() => gridForPaper(paper.value, orientation.value).cardsPerSheet);
 
 function handlePrint() {
-  const params: Record<string, string> = {};
+  const params = new URLSearchParams();
+  params.set("deckId", props.deckId);
+  params.set("auto", "1");
 
-  if (quantityMode.value === "one-each") {
-    params.qty = "one-each";
-  }
-  if (artwork.value === "original") {
-    params.art = "original";
-  }
-  if (paper.value !== "letter") {
-    params.paper = paper.value;
-  }
-  if (orientation.value !== "portrait") {
-    params.orientation = orientation.value;
-  }
-  if (!includeBasicEnergy.value) {
-    params.noBasicEnergy = "1";
-  }
+  if (quantityMode.value === "one-each") params.set("qty", "one-each");
+  if (artwork.value === "original") params.set("art", "original");
+  if (paper.value !== "letter") params.set("paper", paper.value);
+  if (orientation.value !== "portrait") params.set("orientation", orientation.value);
+  if (!includeBasicEnergy.value) params.set("noBasicEnergy", "1");
 
   const excluded: string[] = [];
   if (!includePokemon.value) excluded.push("pokemon");
@@ -93,11 +84,9 @@ function handlePrint() {
   if (!includeItems.value) excluded.push("items");
   if (!includeTools.value) excluded.push("tools");
   if (!includeStadiums.value) excluded.push("stadiums");
-  if (excluded.length) {
-    params.exclude = excluded.join(",");
-  }
+  if (excluded.length) params.set("exclude", excluded.join(","));
 
-  window.open(api.deckPrintUrl(props.deckId, params), "_blank");
+  window.open(`/print.html?${params.toString()}`, "_blank");
 }
 </script>
 

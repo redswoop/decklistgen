@@ -36,25 +36,17 @@ test.describe("Gallery inspector (right rail)", () => {
     await expect(page.locator(".overview")).toHaveCount(0);
     await expect(firstThumb).toHaveClass(/svg-thumb-selected/);
 
-    // Inspector tabs: SVG active by default
-    await expect(page.locator(".inspector-tab-active", { hasText: "SVG" })).toBeVisible();
+    // Inspector tabs: Proxy active by default
+    await expect(page.locator(".inspector-tab-active", { hasText: "Proxy" })).toBeVisible();
 
-    // Inspector shows brightness mode (Render data section)
-    await page.waitForSelector(".inspector-mode", { timeout: 10000 });
-    const modeText = await page.locator(".inspector-mode").first().textContent();
-    expect(["dark", "light"]).toContain(modeText?.trim());
+    // Inspector renders card metadata
+    await expect(page.locator(".inspector-section-title", { hasText: "Card data" })).toBeVisible();
 
     // Deselect via close button → fleet overview is back
     await page.locator(".inspector-close").click();
     await expect(page.locator(".overview-head", { hasText: "Fleet overview" })).toBeVisible();
     await expect(firstThumb).not.toHaveClass(/svg-thumb-selected/);
   });
-
-  // Note: double-click → editor route is a 1-line wire (@dblclick handler).
-  // Asserting the resulting navigation is awkward because App.vue redirects
-  // anonymous users away from the editor view in a watch — the editor hash
-  // never settles. Worth-testing-end-to-end once a logged-in test user
-  // fixture exists.
 
   test("deck cards appear in the gallery; reference fallbacks tagged", async ({ page }) => {
     // First visit just to seed localStorage in the right origin.

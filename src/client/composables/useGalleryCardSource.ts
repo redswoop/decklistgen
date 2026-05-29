@@ -29,7 +29,6 @@ export interface GalleryCard {
   isFullArt: boolean;
   hasClean: boolean;
   hasComposite: boolean;
-  hasSvg: boolean;
   hasSource: boolean;
   cleanMeta: Record<string, unknown> | null;
   promptRule: string | null;

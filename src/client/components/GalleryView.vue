@@ -15,8 +15,6 @@ import {
 import { useDisplayCalibration } from "../composables/useDisplayCalibration.js";
 import { generateCleanImage, getGenerationVersion } from "../composables/usePokeproxy.js";
 import { useToast } from "../composables/useToast.js";
-import { getSvg, peekSvg } from "../composables/useGallerySvgCache.js";
-import { useGallerySvgRev } from "../composables/useGallerySvgRev.js";
 import { useGallerySlotOverrides } from "../composables/useGallerySlotOverrides.js";
 import SlotOverridePicker from "./gallery/SlotOverridePicker.vue";
 
@@ -40,14 +38,8 @@ async function refetch() {
   await cardSource.refetch();
 }
 
-// Cache-bust tracking.
-//   svgRev          — per-card revisions. bumpGlobal() invalidates everything
-//                     (font-family / font-size changes); bumpCard(id) only
-//                     invalidates that thumb (text-mode override, regen).
-//   imageCacheBust  — bumped when the cleaned/composite PNG on disk changes
-//                     (after ComfyUI clean). PNG and SVG are separate so an
-//                     SVG-only change doesn't refetch every cached image.
-const svgRev = useGallerySvgRev();
+// imageCacheBust — bumped when the cleaned/composite PNG on disk changes
+//                  (after ComfyUI clean) so thumb art URLs refetch.
 const imageCacheBust = ref(Date.now());
 
 // Slot-override picker state. `pickerSlot` is the reference card whose slot
@@ -73,16 +65,6 @@ function clearSwap() {
   slotOverrides.clearOverride(slot.slotKey);
   pickerSlot.value = null;
 }
-
-// Warm the SVG cache for every gallery card so the Print button is usable as
-// soon as the user opens the gallery. The thumbnails themselves are rendered
-// by GallerySvgThumb, which has its own watch on (cardId, cacheBust).
-watch(cards, (list) => {
-  if (!list) return;
-  for (const card of list) {
-    void getSvg(card.cardId, svgRev.revFor(card.cardId));
-  }
-}, { immediate: true });
 
 // Selection (right-rail inspector). Persisted across reload.
 const SELECTED_LS_KEY = "decklistgen-gallery-selected";
@@ -170,30 +152,10 @@ async function doClean(force: boolean) {
       await pollJob(data.jobId);
     }
     lightboxStatus.value = "Done — refreshing...";
-    // Clean changes both the cleaned PNG and the SVG (which embeds it),
-    // but only for this one card — no need to invalidate the whole grid.
+    // Clean updates only this card's PNG; the grid as a whole stays cached.
     imageCacheBust.value = Date.now();
-    svgRev.bumpCard(card.cardId);
     await refetch();
     lightboxStatus.value = "Done";
-  } catch (e) {
-    lightboxStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
-  } finally {
-    lightboxBusy.value = false;
-  }
-}
-
-async function doRegen() {
-  if (!activeCard.value || lightboxBusy.value) return;
-  const cardId = activeCard.value.cardId;
-  lightboxBusy.value = true;
-  lightboxStatus.value = "Regenerating SVG...";
-  try {
-    await api.pokeproxyRegenerateSvg(cardId);
-    // Regen only changes the SVG; the cleaned PNG on disk is untouched.
-    // One-card change → bump just that thumb.
-    svgRev.bumpCard(cardId);
-    lightboxStatus.value = "SVG updated";
   } catch (e) {
     lightboxStatus.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
   } finally {
@@ -276,19 +238,6 @@ const filteredCards = computed(() => {
   return list;
 });
 
-/** Bump the global SVG cache-bust so every `<GallerySvgThumb>` re-fetches.
- *  Used after font-family / font-size saves that affect every rendered card. */
-function refreshAllRenderedSvgs() {
-  svgRev.bumpGlobal();
-  if (cards.value) {
-    for (const card of cards.value) void getSvg(card.cardId, svgRev.revFor(card.cardId));
-  }
-}
-
-function editInEditor(cardId: string) {
-  window.location.hash = `#/editor/${cardId}`;
-}
-
 // --- Bulk-generate ---
 const bulkBusy = ref(false);
 const showForceConfirm = ref(false);
@@ -350,44 +299,17 @@ const galleryGenerationTick = computed(() => {
 watch(galleryGenerationTick, (next, prev) => {
   if (next > prev) {
     // ComfyUI generation finishing affects whichever card just generated; we
-    // can't pinpoint it from the tick sum, so refresh broadly. (If this turns
-    // out to be a noisy path, expose the changed cardId from useQueue and bump
-    // just that one.)
-    svgRev.bumpGlobal();
+    // can't pinpoint it from the tick sum, so refresh broadly.
     imageCacheBust.value = Date.now();
     refetch();
   }
 });
 
-async function openPrint() {
+function openPrint() {
   if (!cards.value || cards.value.length === 0) return;
-  const settled = await Promise.all(
-    cards.value.map(async (c) => {
-      // Resolve from cache when present (no extra fetch) — fall through to
-      // getSvg for any straggler cards whose initial warm hasn't returned.
-      const rev = svgRev.revFor(c.cardId);
-      const p = peekSvg(c.cardId, rev) ?? getSvg(c.cardId, rev);
-      return await p;
-    }),
-  );
-  const svgs = settled.filter((s) => s.startsWith("<svg"));
-  if (svgs.length === 0) return;
-  const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Gallery Print</title>
-<style>
-@page { size: letter; margin: 0.25in; }
-body { margin: 0; padding: 0.25in; }
-.card-grid { display: flex; flex-wrap: wrap; align-content: flex-start; }
-.card { width: 2.5in; height: 3.5in; page-break-inside: avoid; overflow: hidden; }
-.card svg { width: 100%; height: 100%; }
-@media print { body { padding: 0; } }
-</style></head><body>
-<div class="card-grid">${svgs.map(s => `<div class="card">${s}</div>`).join("\n")}</div>
-</body></html>`;
-  const w = window.open("", "_blank");
-  if (!w) return;
-  w.document.write(html);
-  w.document.close();
+  const ids = cards.value.map((c) => c.cardId);
+  sessionStorage.setItem("gallery-print-ids", JSON.stringify(ids));
+  window.open("/print.html?gallery=1&auto=1", "_blank");
 }
 </script>
 
@@ -414,7 +336,6 @@ body { margin: 0; padding: 0.25in; }
     <div v-else class="gallery-workbench">
       <GalleryControlRail
         class="gallery-rail"
-        @saved="refreshAllRenderedSvgs"
         @open-calibration="showCalibrationDialog = true"
       />
       <GalleryGrid
@@ -422,27 +343,22 @@ body { margin: 0; padding: 0.25in; }
         :selected-card-id="selectedCardId"
         :preview-mode="previewMode"
         :thumb-width="previewThumbWidth"
-        :svg-rev-for="svgRev.revFor"
+        :image-cache-bust="imageCacheBust"
         @select="selectCard"
-        @open-editor="editInEditor"
         @swap="openSwapPicker"
       />
       <GalleryInspector
         :active-card="activeCard"
         :cards="cards"
         :thumb-width="previewThumbWidth"
-        :svg-rev-for="svgRev.revFor"
         :image-cache-bust="imageCacheBust"
         :busy="lightboxBusy"
         :status="lightboxStatus"
         :prompt-save-status="promptSaveStatus"
         @close="deselectCard"
-        @edit="editInEditor"
         @clean="doClean"
-        @regen="doRegen"
         @save-prompt="savePrompt"
         @select="selectCardById"
-        @text-mode-changed="(cardId: string) => svgRev.bumpCard(cardId)"
       />
     </div>
 

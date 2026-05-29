@@ -22,8 +22,6 @@ import CardZoom from "./lightbox/CardZoom.vue";
 import LightboxDevTools from "./lightbox/LightboxDevTools.vue";
 import CardThumb from "./CardThumb.vue";
 import CssCardRenderer from "./CssCardRenderer.vue";
-import TemplateSetPicker from "./TemplateSetPicker.vue";
-import { useTemplateSetCatalog } from "../composables/useTemplateSetCatalog.js";
 import type { DeckMembership } from "../../shared/types/customized-card.js";
 import type { DeckCard } from "../../shared/types/deck.js";
 import { consolidateDeckCards } from "../../shared/utils/consolidate-deck.js";
@@ -66,9 +64,6 @@ const props = defineProps<{
   /** When set, replace operates on this saved deck instead of working deck */
   savedDeckId?: string;
   savedDeckCards?: DeckCard[];
-  /** Template-set defaults for the deck-preview render. Card-level wins over deck-level. */
-  deckTemplateSetId?: string;
-  cardTemplateSetId?: string;
 }>();
 const emit = defineEmits<{
   close: [];
@@ -76,8 +71,7 @@ const emit = defineEmits<{
   deckUpdated: [];
 }>();
 
-const { addCard, removeCard, getDeckCount, items: deckItems, setCardTemplateSetId, swapCard, sweepZeroCount } = useDecklist();
-const { setLabel, globalSetId } = useTemplateSetCatalog();
+const { addCard, removeCard, getDeckCount, items: deckItems, swapCard, sweepZeroCount } = useDecklist();
 const { isAuthorized, isLoggedIn } = useAuth();
 // Search set navigation. activeCard is the source of truth and stays
 // stable across searchCards mutations (e.g. deck decrements that remove
@@ -137,28 +131,6 @@ const currentCard = computed(() => {
 
 const hasMultipleVariants = computed(() => (variants.value?.length ?? 1) > 1);
 const { updateDeck } = useDecks();
-
-// Per-card template-set override. Reads live from the working deck for source='deck',
-// so navigating left/right through deck cards updates the picker without prop churn.
-const activeCardTemplateSetId = computed<string | undefined>(() => {
-  if (isDeckContext.value) {
-    const entry = deckItems.value.find(
-      (i) => i.setCode === activeCard.value.setCode && i.localId === activeCard.value.localId,
-    );
-    return entry?.templateSetId;
-  }
-  return props.cardTemplateSetId;
-});
-
-const cardPickerInheritLabel = computed(() => {
-  const fallback = props.deckTemplateSetId ?? globalSetId.value;
-  return `Inherit deck default (${setLabel(fallback)})`;
-});
-
-function onCardTemplateSetChange(value: string | undefined) {
-  if (!isDeckContext.value) return;
-  setCardTemplateSetId(activeCard.value.setCode, activeCard.value.localId, value ?? null);
-}
 
 // Deck-stack entry for the lightbox's anchor card. Used by the per-printing
 // swap action to know whether there's anything to swap from.
@@ -327,17 +299,6 @@ const mainImageUrl = computed(() => {
     : null;
 });
 
-// svgUrl is still computed for the small "Proxy" thumbnail in the version
-// picker and the zoom overlay — both stay SVG-rendered in V1. The main proxy
-// view (the big card image) is rendered by <CssCardRenderer>; no SVG fetch.
-const svgUrl = computed(() => {
-  const v = cacheBust.value;
-  const setIds = props.source === 'deck'
-    ? { cardSetId: activeCardTemplateSetId.value, deckSetId: props.deckTemplateSetId }
-    : undefined;
-  return api.pokeproxySvgUrl(currentCard.value.id, undefined, v, setIds);
-});
-
 const generating = computed(() => isGenerating(currentCard.value.id));
 
 function handleGenerate() {
@@ -373,12 +334,12 @@ function handleMainImageClick() {
 
 // Zoom
 const showZoom = ref(false);
+const zoomMode = computed<"proxy" | "image">(() =>
+  selectedVersion.value === "proxy" ? "proxy" : "image",
+);
 const zoomImageUrl = computed(() => {
   if (selectedVersion.value === "cleaned" && cleanedImageUrl.value) {
     return cleanedImageUrl.value;
-  }
-  if (selectedVersion.value === "proxy") {
-    return svgUrl.value;
   }
   return cardImageUrl(currentCard.value.imageBase, "high");
 });
@@ -623,16 +584,6 @@ function navigateToDeck(deckId: string) {
               </div>
             </div>
 
-            <!-- Per-card template-set override (deck context only) -->
-            <div v-if="isDeckContext" class="lb-template-set">
-              <TemplateSetPicker
-                :model-value="activeCardTemplateSetId"
-                :inherit-label="cardPickerInheritLabel"
-                label="Template set for this card"
-                @update:model-value="onCardTemplateSetChange"
-              />
-            </div>
-
             <!-- Card metadata -->
             <div v-if="currentCard.category === 'Pokemon'" class="lb-card-meta-block">
               <div class="lb-stage-line">
@@ -762,7 +713,11 @@ function navigateToDeck(deckId: string) {
     <!-- Zoom overlay -->
     <div v-if="showZoom" @click.stop>
       <CardZoom
+        :mode="zoomMode"
         :image-url="zoomImageUrl"
+        :card="currentCard"
+        :detail="cardDetail"
+        :art-url="cleanedImageUrl"
         :alt="currentCard.name"
         @close="showZoom = false"
       />

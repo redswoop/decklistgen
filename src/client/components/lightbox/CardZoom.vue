@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
+import type { Card, CardDetail } from "../../../shared/types/card.js";
+import CssCardRenderer from "../CssCardRenderer.vue";
 
 defineProps<{
-  imageUrl: string;
+  mode: "proxy" | "image";
+  /** For mode="image": URL of the cleaned/original art. */
+  imageUrl?: string | null;
+  /** For mode="proxy": card data fed to CssCardRenderer. */
+  card?: Card;
+  detail?: CardDetail;
+  artUrl?: string | null;
   alt: string;
 }>();
 const emit = defineEmits<{ close: [] }>();
@@ -64,7 +72,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 <template>
   <div class="zoom-overlay" @click="onBgClick" @wheel.prevent="onWheel">
     <img
-      :src="imageUrl"
+      v-if="mode === 'image'"
+      :src="imageUrl ?? ''"
       :alt="alt"
       class="zoom-img"
       :class="{ dragging }"
@@ -78,6 +87,21 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       @pointercancel="onPointerUp"
       draggable="false"
     />
+    <div
+      v-else-if="mode === 'proxy' && card"
+      class="zoom-card"
+      :class="{ dragging }"
+      :style="{
+        transform: `scale(${scale}) translate(${translateX / scale}px, ${translateY / scale}px)`,
+        cursor: scale > 1 ? (dragging ? 'grabbing' : 'grab') : 'zoom-in',
+      }"
+      @pointerdown="onPointerDown"
+      @pointermove="onPointerMove"
+      @pointerup="onPointerUp"
+      @pointercancel="onPointerUp"
+    >
+      <CssCardRenderer :card="card" :detail="detail" :art-url="artUrl ?? ''" />
+    </div>
     <button class="zoom-close" @click="emit('close')">&times;</button>
     <div class="zoom-hint">Scroll to zoom · Drag to pan · Esc to close</div>
   </div>
@@ -104,6 +128,20 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 }
 
 .zoom-img.dragging {
+  transition: none;
+}
+
+.zoom-card {
+  /* Fit 750:1050 inside the viewport, leaving 10% margin. */
+  width: min(90vw, calc(90vh * 750 / 1050));
+  aspect-ratio: 750 / 1050;
+  border-radius: 12px;
+  user-select: none;
+  transition: transform 0.1s ease-out;
+  touch-action: none;
+}
+
+.zoom-card.dragging {
   transition: none;
 }
 

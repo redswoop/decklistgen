@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import TemplateSetPicker from "./TemplateSetPicker.vue";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
-import { useTemplateSetCatalog } from "../composables/useTemplateSetCatalog.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import type { Card } from "../../shared/types/card.js";
 import type { DeckSummary } from "../../shared/types/deck.js";
@@ -19,15 +17,7 @@ const {
   items, totalCards, countColor, stats, DECK_SIZE,
   incrementCard, removeCard,
   currentDeckId, currentDeckName, isDirty, loadSavedDeck,
-  currentDeckTemplateSetId, setDeckTemplateSetId,
 } = useDecklist();
-
-const { setLabel } = useTemplateSetCatalog();
-
-const deckTemplateSetId = computed<string | undefined>({
-  get: () => currentDeckTemplateSetId.value ?? undefined,
-  set: (v) => setDeckTemplateSetId(v ?? null),
-});
 
 const { decks, fetchDeck } = useDecks();
 
@@ -104,9 +94,6 @@ function confirmDirtySwitch() {
         <div v-if="otherDecks.length === 0" class="dcp-switcher-empty">No other decks</div>
       </div>
 
-      <div class="dcp-template-set">
-        <TemplateSetPicker v-model="deckTemplateSetId" label="Template set" />
-      </div>
     </div>
 
     <!-- Deck contents -->
@@ -129,11 +116,6 @@ function confirmDirtySwitch() {
           <div class="item-name">{{ item.name }}</div>
           <div class="item-set">
             <span>{{ item.setCode }} {{ item.localId }}</span>
-            <span
-              v-if="item.templateSetId"
-              class="item-tsp-badge"
-              :title="`Template set override: ${setLabel(item.templateSetId)} — edit in the card preview`"
-            >{{ setLabel(item.templateSetId) }}</span>
           </div>
         </div>
         <div class="item-controls">

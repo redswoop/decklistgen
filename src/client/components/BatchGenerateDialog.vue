@@ -20,7 +20,6 @@ type BatchMode = "missing" | "stale" | "all";
 interface GenInfo {
   hasClean: boolean;
   hasComposite: boolean;
-  hasSvg: boolean;
   skip?: boolean;
   isStale?: boolean;
   staleSummary?: string;

@@ -10,7 +10,6 @@ import CardsView from "./components/CardsView.vue";
 import CardsFilterSidebar from "./components/CardsFilterSidebar.vue";
 import PublicDecksView from "./components/PublicDecksView.vue";
 import QueueView from "./components/QueueView.vue";
-import EditorView from "./components/editor/EditorView.vue";
 import GalleryView from "./components/GalleryView.vue";
 import VariantsView from "./components/VariantsView.vue";
 import ExportDialog from "./components/ExportDialog.vue";
@@ -156,8 +155,6 @@ const previewDeckMembership = ref<DeckMembership[] | undefined>(undefined);
 const previewDeckName = ref<string | undefined>(undefined);
 const previewSavedDeckId = ref<string | undefined>(undefined);
 const previewSavedDeckCards = ref<DeckCard[] | undefined>(undefined);
-const previewDeckTemplateSetId = ref<string | undefined>(undefined);
-const previewCardTemplateSetId = ref<string | undefined>(undefined);
 
 // Close mobile panels on tab switch
 watch(currentView, () => {
@@ -190,8 +187,7 @@ watch([mobileLeftOpen, mobileRightOpen], ([left, right]) => {
 // Views that take the full center pane (no sidebars)
 const fullWidthView = computed(() =>
   currentView.value === 'queue' || currentView.value === 'public' ||
-  currentView.value === 'editor' || currentView.value === 'gallery' ||
-  currentView.value === 'variants'
+  currentView.value === 'gallery' || currentView.value === 'variants'
 );
 
 // Is the Deck tab showing the gallery? (full width, no sidebars)
@@ -296,8 +292,6 @@ function handlePreview(card: Card, cards: Card[]) {
   previewDeckName.value = undefined;
   previewSavedDeckId.value = undefined;
   previewSavedDeckCards.value = undefined;
-  previewDeckTemplateSetId.value = undefined;
-  previewCardTemplateSetId.value = undefined;
   setCardParam(card.id);
 }
 
@@ -308,9 +302,6 @@ function handleDeckPreview(card: Card) {
   previewDeckName.value = currentDeckName.value || undefined;
   previewSavedDeckId.value = undefined;
   previewSavedDeckCards.value = undefined;
-  previewDeckTemplateSetId.value = currentDeckTemplateSetId.value ?? undefined;
-  const item = items.value.find((i) => i.setCode === card.setCode && i.localId === card.localId);
-  previewCardTemplateSetId.value = item?.templateSetId;
   setCardParam(card.id);
 }
 
@@ -497,11 +488,6 @@ function handleTabClick(tab: string) {
           @click="handleTabClick('queue')"
         >Queue<span v-if="activeJobCount > 0" class="nav-badge">{{ activeJobCount }}</span></button>
         <button
-          :class="['app-nav-tab', { active: currentView === 'editor', 'requires-auth': !isLoggedIn }]"
-          :title="!isLoggedIn ? 'Sign in to use the editor' : undefined"
-          @click="handleTabClick('editor')"
-        >Editor</button>
-        <button
           :class="['app-nav-tab', { active: currentView === 'gallery' }]"
           @click="handleTabClick('gallery')"
         >Gallery</button>
@@ -600,7 +586,6 @@ function handleTabClick(tab: string) {
           />
           <PublicDecksView v-else-if="currentView === 'public'" />
           <QueueView v-else-if="currentView === 'queue'" />
-          <EditorView v-else-if="currentView === 'editor'" />
           <GalleryView v-else-if="currentView === 'gallery'" />
           <VariantsView v-else-if="currentView === 'variants'" @preview-card="handlePreview" />
 
@@ -652,8 +637,6 @@ function handleTabClick(tab: string) {
         @click="handleTabClick('public')">Public</button>
       <button :class="['mobile-tab', { active: currentView === 'queue', 'requires-auth': !isLoggedIn }]"
         @click="handleTabClick('queue')">Queue<span v-if="activeJobCount > 0" class="nav-badge mobile-nav-badge">{{ activeJobCount }}</span></button>
-      <button :class="['mobile-tab', { active: currentView === 'editor', 'requires-auth': !isLoggedIn }]"
-        @click="handleTabClick('editor')">Editor</button>
       <button :class="['mobile-tab', { active: currentView === 'gallery' }]"
         @click="handleTabClick('gallery')">Gallery</button>
       <button :class="['mobile-tab', { active: currentView === 'variants' }]"
@@ -732,8 +715,6 @@ function handleTabClick(tab: string) {
       :deck-name="previewDeckName"
       :saved-deck-id="previewSavedDeckId"
       :saved-deck-cards="previewSavedDeckCards"
-      :deck-template-set-id="previewDeckTemplateSetId"
-      :card-template-set-id="previewCardTemplateSetId"
       @close="closeLightbox"
       @card-change="handleCardChange"
       @deck-updated="handleDeckUpdated"

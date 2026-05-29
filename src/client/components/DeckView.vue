@@ -5,7 +5,6 @@ import BeautifyDialog from "./BeautifyDialog.vue";
 import BatchGenerateDialog from "./BatchGenerateDialog.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import PrintDialog from "./PrintDialog.vue";
-import TemplateSetPicker from "./TemplateSetPicker.vue";
 import { useDecks } from "../composables/useDecks.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { generateCleanImage } from "../composables/usePokeproxy.js";
@@ -160,20 +159,6 @@ function handleSave() {
   emit("save-update");
 }
 
-// --- Template-set override (per-deck) ---
-const deckTemplateSetId = computed<string | undefined>({
-  get: () => deck.value?.templateSetId,
-  set: (v) => { void saveTemplateSetId(v); },
-});
-
-async function saveTemplateSetId(v: string | undefined) {
-  if (!deck.value) return;
-  if ((deck.value.templateSetId ?? undefined) === v) return;
-  // Empty string signals "clear" to the server (deck-store treats falsy as undefined).
-  await updateDeck({ id: deck.value.id, data: { templateSetId: v ?? "" } });
-  if (deck.value) await loadDeck(deck.value.id, true);
-}
-
 // --- Rename ---
 const renaming = ref(false);
 const renameValue = ref("");
@@ -280,7 +265,6 @@ function handlePreview(card: Card, cards: Card[]) {
             @keyup.escape="renaming = false"
             @blur="confirmRename"
           />
-          <TemplateSetPicker v-model="deckTemplateSetId" />
           <button class="dm-action-btn" title="Edit this deck" @click="handleEditDeck">Edit</button>
           <button class="dm-action-btn" :disabled="!canSave" :title="saveTooltip" @click="handleSave">Save</button>
           <button class="dm-action-btn" title="Rename this deck" @click="startRename">Rename</button>
