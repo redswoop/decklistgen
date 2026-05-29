@@ -1167,6 +1167,15 @@ body {
   outline-offset: -2px;
   transition: outline-color 0.15s;
   overflow: hidden;
+  /* Reserve the true card aspect so the CSS-rendered proxy view fits without
+   * the parent collapsing to the TCGdex source PNG's slightly-shorter ratio
+   * (same fix as .lb-card-image). Affects the empty/placeholder state too. */
+  aspect-ratio: 750 / 1050;
+  /* Skip paint+layout for off-screen tiles. Grids easily mount 50+ cards
+   * and each CSS proxy view is a non-trivial Vue subtree; without this,
+   * scrolling a long browse list stutters. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 230px 322px;
 }
 
 .card-thumb:hover {
@@ -1178,6 +1187,12 @@ body {
 }
 
 .card-thumb-img {
+  width: 100%;
+  border-radius: 6px;
+  display: block;
+}
+
+.card-thumb-css {
   width: 100%;
   border-radius: 6px;
   display: block;

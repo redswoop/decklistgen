@@ -9,6 +9,7 @@ import {
 } from "../composables/usePokeproxy.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import { useDecklist } from "../composables/useDecklist.js";
+import CssCardRenderer from "./CssCardRenderer.vue";
 
 const props = withDefaults(defineProps<{
   card: Card;
@@ -79,6 +80,22 @@ const displayCount = computed(() =>
 
 const generating = computed(() => isGenerating(props.card.id));
 const hasClean = computed(() => hasCleanedImage(props.card.id));
+
+// CSS proxy render — when proxy mode is on AND a clean image exists, mount
+// the lab's Vue/CSS card composition over the cleaned art. Falls back to the
+// raw <img> path otherwise (status not loaded, no clean cached, or
+// imageMode==='original'). Mirrors the lightbox's gate on cleanedImageUrl.
+//
+// CardDetail isn't passed: thumbnails are too small to read attack/ability
+// text legibly. The renderer shows art + name + HP + frame, which is the
+// visible payload at thumbnail size.
+const cleanedArtUrl = computed(() => {
+  if (props.imageMode !== "proxy") return null;
+  if (!hasClean.value) return null;
+  return getCardImageUrl(props.card, "proxy", "low");
+});
+
+const useCss = computed(() => !!cleanedArtUrl.value);
 const isZeroCount = computed(() => props.count === 0);
 </script>
 
@@ -88,8 +105,16 @@ const isZeroCount = computed(() => props.count === 0);
     :title="`${card.name} (${card.rarity})`"
     @click="emit('click')"
   >
-    <!-- Card image -->
-    <img v-if="imgSrc" :src="imgSrc" :alt="card.name" class="card-thumb-img" loading="lazy" />
+    <!-- Card image — CSS proxy in proxy mode (when a clean is cached),
+         otherwise the raw image URL (cleaned art in proxy mode without a
+         status hit, or original art in original mode). -->
+    <CssCardRenderer
+      v-if="useCss"
+      :card="card"
+      :art-url="cleanedArtUrl!"
+      class="card-thumb-css"
+    />
+    <img v-else-if="imgSrc" :src="imgSrc" :alt="card.name" class="card-thumb-img" loading="lazy" />
     <div v-else class="card-thumb-placeholder">{{ card.name }}</div>
 
     <!-- TL zone: checkbox, or inline - [count] + controls, or read-only badge -->
