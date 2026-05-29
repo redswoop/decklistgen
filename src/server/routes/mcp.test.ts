@@ -60,7 +60,7 @@ describe("POST /api/mcp (Streamable HTTP transport)", () => {
     const names = (payload.result?.tools ?? []).map((t) => t.name);
     expect(names).toContain("list_sets");
     expect(names).toContain("search_cards");
-    expect(names).toContain("render_proxy_svg");
+    expect(names).toContain("get_card_image_url");
   });
 
   test("tools/call invokes list_sets", async () => {

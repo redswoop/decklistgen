@@ -7,7 +7,6 @@ import { sessionMiddleware } from "../middleware/auth.js";
 import { loadSet } from "../services/card-store.js";
 import { createUser, deleteUser } from "../services/user-store.js";
 import { createSession, deleteUserSessions } from "../services/session-store.js";
-import { createDeck, deleteDeck } from "../services/deck-store.js";
 import type { AppEnv } from "../types.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
@@ -145,7 +144,6 @@ describe("GET /pokeproxy/status/:cardId", () => {
     expect(body.cardId).toBe(MOCK_CARD_ID);
     expect(typeof body.hasClean).toBe("boolean");
     expect(typeof body.hasComposite).toBe("boolean");
-    expect(typeof body.hasSvg).toBe("boolean");
   });
 
   test("returns status for nonexistent card (all false)", async () => {
@@ -154,7 +152,6 @@ describe("GET /pokeproxy/status/:cardId", () => {
     const body = await res.json();
     expect(body.hasClean).toBe(false);
     expect(body.hasComposite).toBe(false);
-    expect(body.hasSvg).toBe(false);
   });
 });
 
@@ -254,33 +251,6 @@ describe("GET /pokeproxy/image/:cardId/:type", () => {
 // =========================================================================
 // SVG endpoints (public)
 // =========================================================================
-
-describe("GET /pokeproxy/svg/:cardId", () => {
-  test("renders SVG without auth", async () => {
-    const res = await req(`/pokeproxy/svg/${MOCK_CARD_ID}`);
-    expect(res.status).toBe(200);
-    const svg = await res.text();
-    expect(svg).toStartWith("<svg");
-    expect(svg).toContain("Ho-Oh");
-  });
-
-  test("returns a response for nonexistent card (may render fallback)", async () => {
-    const res = await req(`/pokeproxy/svg/${NONEXISTENT_CARD}`);
-    // Template renderer may produce a fallback SVG or error — either way, not auth-blocked
-    expect(res.status).not.toBe(401);
-    expect(res.status).not.toBe(403);
-  });
-});
-
-describe("POST /pokeproxy/svg/:cardId/regenerate", () => {
-  test("no-op regenerate works without auth", async () => {
-    const res = await postJson(`/pokeproxy/svg/${MOCK_CARD_ID}/regenerate`, {});
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.cardId).toBe(MOCK_CARD_ID);
-    expect(body.status).toBe("regenerated");
-  });
-});
 
 // =========================================================================
 // Prompt endpoints
@@ -423,64 +393,6 @@ describe("POST /pokeproxy/generate/:cardId (requireAuthorized)", () => {
 // Card settings endpoints (requireAuth / requireAuthorized)
 // =========================================================================
 
-describe("GET /pokeproxy/settings/:cardId (requireAuth)", () => {
-  test("401 without session", async () => {
-    const res = await req(`/pokeproxy/settings/${MOCK_CARD_ID}`);
-    expect(res.status).toBe(401);
-  });
-
-  test("any logged-in user can read settings (including free)", async () => {
-    const res = await req(`/pokeproxy/settings/${MOCK_CARD_ID}`, { session: freeSession });
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(typeof body).toBe("object");
-  });
-});
-
-describe("PUT /pokeproxy/settings/:cardId (requireAuthorized)", () => {
-  test("401 without session", async () => {
-    const res = await putJson(`/pokeproxy/settings/${MOCK_CARD_ID}`, { fontSize: 20 });
-    expect(res.status).toBe(401);
-  });
-
-  test("403 for free-tier user", async () => {
-    const res = await putJson(`/pokeproxy/settings/${MOCK_CARD_ID}`, { fontSize: 20 }, freeSession);
-    expect(res.status).toBe(403);
-  });
-
-  test("succeeds for authorized user", async () => {
-    const res = await putJson(
-      `/pokeproxy/settings/${MOCK_CARD_ID}`,
-      { fontSize: 22 },
-      authorizedSession,
-    );
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.fontSize).toBe(22);
-  });
-
-  test("authorized user can read back saved settings", async () => {
-    const res = await req(`/pokeproxy/settings/${MOCK_CARD_ID}`, { session: authorizedSession });
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.fontSize).toBe(22);
-  });
-});
-
-describe("DELETE /pokeproxy/settings/:cardId (requireAuth)", () => {
-  test("401 without session", async () => {
-    const res = await del(`/pokeproxy/settings/${MOCK_CARD_ID}`);
-    expect(res.status).toBe(401);
-  });
-
-  test("logged-in user can delete their own settings", async () => {
-    // First save a setting, then delete it
-    await putJson(`/pokeproxy/settings/${MOCK_CARD_ID}`, { fontSize: 18 }, authorizedSession);
-    const res = await del(`/pokeproxy/settings/${MOCK_CARD_ID}`, authorizedSession);
-    expect(res.status).toBe(200);
-  });
-});
-
 // =========================================================================
 // Customized cards endpoints
 // =========================================================================
@@ -537,91 +449,6 @@ describe("POST /pokeproxy/customized/batch/delete (requireAuthorized)", () => {
   });
 });
 
-// =========================================================================
-// Print endpoint (requireAuth)
-// =========================================================================
-
-describe("GET /pokeproxy/print/:deckId (requireAuth)", () => {
-  const testDeckId = `print-test-deck-${Date.now()}`;
-
-  beforeAll(async () => {
-    await createDeck(authorizedId, {
-      id: testDeckId,
-      name: "Print Test Deck",
-      cards: [
-        {
-          count: 2,
-          card: {
-            id: MOCK_CARD_ID,
-            localId: "1",
-            name: "Ho-Oh",
-            category: "Pokemon",
-            hp: 130,
-            energyTypes: ["Fire"],
-            stage: "Basic",
-            rarity: "Rare",
-            setId: "cel25",
-            setName: "Celebrations",
-            imageBase: "https://assets.tcgdex.net/en/cel25/cel25/1",
-          } as any,
-        },
-      ],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-  });
-
-  afterAll(async () => {
-    await deleteDeck(testDeckId, authorizedId);
-  });
-
-  test("401 without session", async () => {
-    const res = await req(`/pokeproxy/print/${testDeckId}`);
-    expect(res.status).toBe(401);
-  });
-
-  test("404 for nonexistent deck", async () => {
-    const res = await req(`/pokeproxy/print/nonexistent-deck-id`, { session: authorizedSession });
-    expect(res.status).toBe(404);
-  });
-
-  test("returns HTML print sheet for owned deck", async () => {
-    const res = await req(`/pokeproxy/print/${testDeckId}`, { session: authorizedSession });
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toContain("<!DOCTYPE html>");
-    expect(html).toContain("PokeProxy - Print Sheet");
-    expect(html).toContain("<svg");
-    expect(html).toContain("Ho-Oh");
-  });
-
-  test("prints correct number of card copies", async () => {
-    const res = await req(`/pokeproxy/print/${testDeckId}`, { session: authorizedSession });
-    const html = await res.text();
-    // count=2, so there should be 2 card divs
-    const cardDivs = html.match(/<div class="card">/g);
-    expect(cardDivs).toHaveLength(2);
-  });
-
-  test("other user cannot access private deck", async () => {
-    const res = await req(`/pokeproxy/print/${testDeckId}`, { session: freeSession });
-    expect(res.status).toBe(404);
-  });
-
-  test("art=original returns <img> tags instead of inline card SVG", async () => {
-    const res = await req(`/pokeproxy/print/${testDeckId}?art=original`, { session: authorizedSession });
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toContain("<!DOCTYPE html>");
-    expect(html).toContain("<img src=");
-    expect(html).toContain("/high.png");
-    // Crop-marks SVG is expected; card SVGs are not.
-    expect(html).not.toContain("<svg xmlns");
-    // count=2 → 2 img tags
-    const imgs = html.match(/<img src=/g);
-    expect(imgs).toHaveLength(2);
-  });
-});
 
 // =========================================================================
 // Error response format consistency
@@ -632,7 +459,6 @@ describe("error response format", () => {
     const endpoints = [
       () => postJson(`/pokeproxy/generate/${MOCK_CARD_ID}`, {}),
       () => putJson(`/pokeproxy/prompt/${MOCK_CARD_ID}`, { prompt: "x" }),
-      () => putJson(`/pokeproxy/settings/${MOCK_CARD_ID}`, { fontSize: 20 }),
       () => del(`/pokeproxy/customized/${MOCK_CARD_ID}`),
       () => postJson("/pokeproxy/customized/batch/delete", { cardIds: [] }),
     ];
@@ -648,7 +474,6 @@ describe("error response format", () => {
     const endpoints = [
       () => postJson(`/pokeproxy/generate/${MOCK_CARD_ID}`, {}, freeSession),
       () => putJson(`/pokeproxy/prompt/${MOCK_CARD_ID}`, { prompt: "x" }, freeSession),
-      () => putJson(`/pokeproxy/settings/${MOCK_CARD_ID}`, { fontSize: 20 }, freeSession),
       () => del(`/pokeproxy/customized/${MOCK_CARD_ID}`, freeSession),
       () => postJson("/pokeproxy/customized/batch/delete", { cardIds: [] }, freeSession),
     ];

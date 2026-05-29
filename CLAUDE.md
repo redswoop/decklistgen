@@ -4,7 +4,7 @@ Pokemon TCG proxy tool: browse cards, build decklists, generate cleaned artwork,
 
 **See also:**
 - [CARD_STYLE.md](./CARD_STYLE.md) — visual conventions for rendered cards (aesthetic priorities, template alignment rules).
-- [CARD_LAB.md](./CARD_LAB.md) — CSS/Vue card renderer prototype at `src/client/lab/`, evaluated as a replacement for the SVG renderer. Isolated sandbox, fullart-only, components-hold-structure + themes-hold-decoration architecture.
+- [CARD_LAB.md](./CARD_LAB.md) — CSS/Vue card renderer at `src/client/lab/`. It now powers every card surface (lightbox, grid thumbs, gallery, print sheet); the lab page is the live sandbox for theme/component work.
 
 ## Tech Stack
 
@@ -13,7 +13,7 @@ Pokemon TCG proxy tool: browse cards, build decklists, generate cleaned artwork,
 - **Client**: Vue 3 + Vite + TanStack Vue Query (port 5173 dev)
 - **Data**: TCGdex API, cached as JSON in `cache/`
 - **Image gen**: ComfyUI + Flux Klein 9B (optional, for artwork cleaning)
-- **SVG proxy**: TypeScript renderer in `src/server/services/pokeproxy/`
+- **Card render**: client-side Vue components in `src/client/lab/cards/`, themed via CSS variables in `src/client/lab/themes/`. Mounted via `CssCardRenderer.vue`.
 
 ## Commands
 
@@ -44,22 +44,16 @@ Playwright is configured (`playwright.config.ts` at repo root, e2e specs in `e2e
 
 Dev servers run on `:3001` (Hono) and `:5173` (Vite); tests hit the Vite URL. Don't spawn them from tests — connect to the ones the user already has running. A 401 from `/api/auth/me` during anonymous walks is expected noise.
 
-Beware destructive side-effects when walking the Gallery: clicking Save/Reset/Delete buttons hits endpoints that can wipe real `data/*.json` files (see the Gallery section below).
-
 ### File-backed stores
 
-Any file-backed store under `src/server/services/pokeproxy/*-store.ts` must use an env-var path override so tests can be redirected to a temp directory:
+If you add a new file-backed store, redirect its path via an env-var override so tests don't wipe the user's real `data/<name>.json`:
 
 ```ts
 const STORE_PATH = process.env.<NAME>_STORE_PATH
-  ?? join(import.meta.dir, "../../../../data/<name>.json");
+  ?? join(import.meta.dir, "../../../data/<name>.json");
 ```
 
-Add a matching `process.env.<NAME>_STORE_PATH ??= join(dir, "<name>.json");` line to `tests/setup-test-env.ts` (wired via `bunfig.toml`'s `[test] preload`).
-
-**Why:** stores typically export a `resetX()` function that `unlinkSync`s the file at `STORE_PATH`, and test files call it in `beforeEach`. Without the env-var indirection, `bun test` wipes the user's real `data/<name>.json` on every run. This bit `font-family-store.test.ts` and `font-style.test.ts` before the env-var pattern was introduced.
-
-Currently wired: `FONT_FAMILY_STORE_PATH`, `FONT_SIZE_STORE_PATH`. `energy-palette-store.ts` exports `resetPalettes()` (called in `beforeEach`) but does **not** use the env-var pattern yet — it should.
+Then add `process.env.<NAME>_STORE_PATH ??= join(dir, "<name>.json");` to `tests/setup-test-env.ts` (wired via `bunfig.toml`'s `[test] preload`).
 
 ## Code Style
 
@@ -98,22 +92,15 @@ data/              # Persistent data files (prompts.json etc.)
 
 ## Gallery
 
-The `/gallery/` endpoint (`src/server/routes/gallery.ts`) is the place to preview and evaluate all visual samples — rendered cards, energy glyphs, etc. When adding new visual elements or previews, add them to the gallery page, not the main client app.
+The Gallery (Vue view `GalleryView.vue`, backed by `GET /gallery/cards`) previews every rendered card across the deck + a reference card set. Use it to spot regressions in the CSS renderer, audit which cards still need clean art, and inspect the cleaning pipeline (Source / Cleaned tabs). When adding new visual cases worth scrutinizing, extend `TEST_CARDS` in `src/server/routes/gallery.ts`.
 
-**Destructive endpoints:** the Gallery exposes Save and Reset controls for several override stores. `DELETE /gallery/font-sizes`, `DELETE /gallery/palettes`, and `DELETE /gallery/font-family` each call the corresponding `resetX()` store function, which `unlinkSync`s the underlying `data/*.json` file outright. There is no soft-reset. Don't click Reset (or trigger DELETE from a script) without backing the file up first — snapshot, or `git checkout HEAD -- data/<file>.json` after.
+## Card Renderer
 
-## Template Conventions
+The card renderer is **client-side CSS/Vue** — `CssCardRenderer.vue` adapts a production `Card` + optional `CardDetail` into the lab's `LabCard` shape via `src/client/lib/card-to-lab.ts`, then mounts one of the three card variants in `src/client/lab/cards/` (`CardFullArt`, `CardTrainer`, `CardBasicEnergy`). Theme variables live in `src/client/lab/themes/`. See `CARD_LAB.md` for the full architecture (components-hold-structure / themes-hold-decoration, font roles, energy palette).
 
-JSON card templates in `data/templates/` should follow these conventions:
+### Print sheet
 
-- **Opacity tiers (3 levels only)**:
-  - `1.0` — primary content (names, HP, ability/attack effect text, attack damage)
-  - `0.7` — secondary (subtitles, evolves-from, decorative watermarks)
-  - `0.5` — tertiary (rule text, footer, faded labels)
-- **Left-edge anchorX**: name-cluster at `45`, evolves-from at `47` (matches fullart/vstar/trainer)
-- **HP energy radius**: `21` across all templates
-- **Content-block padding**: `paddingTop: 15`, `padding L/R: 15`, `paddingBottom: 37`, `rx: 25`, `filter: "glass-blur"` for cards with glassy content panels.
-- **Suffix logo** (the `ex` / `V` / `VSTAR` mark next to the name) lives as a sibling image inside the `name-cluster` box, bound to `_nameSuffix`.
+Deck-print and gallery-print both open `/print.html?…` in a new tab — a dedicated Vite entry (`src/client/print/PrintSheet.vue`) that fetches the deck (or reads card IDs from `sessionStorage`), waits for `document.fonts.ready`, and lays out a 2.5″×3.5″ grid sized to the requested paper. Triggered from `PrintDialog.vue`; on the Gallery side, `openPrint()` stashes IDs in `sessionStorage["gallery-print-ids"]`.
 
 ## Client Architecture
 
@@ -133,7 +120,7 @@ JSON card templates in `data/templates/` should follow these conventions:
 
 - Anonymous users can browse cards, build local WIP decks, import/export, and beautify. Server-side features (save, generate, print) require sign-in.
 - Auth middleware: `sessionMiddleware` (resolves user on every request), `requireAuth` (401 if no user), `requireAuthorized` (403 if not authorized/admin)
-- Public API routes: `/api/cards`, `/api/sets`, `/api/decklist`, `/api/public/decks`, `/api/pokeproxy/status`, `/api/pokeproxy/svg`, `/api/pokeproxy/image`
+- Public API routes: `/api/cards`, `/api/sets`, `/api/decklist`, `/api/public/decks`, `/api/pokeproxy/status`, `/api/pokeproxy/image`
 - Protected API routes: `/api/decks` (requireAuth on all), `/api/pokeproxy/generate` (requireAuthorized), `/api/pokeproxy/queue` (requireAuth)
 - Client auth state: `useAuth()` composable (singleton refs). `useAuthDialog()` for triggering sign-in dialog from any component.
 - TanStack Query: gate queries on `enabled: isLoggedIn` to avoid 401s for anonymous users. Queries auto-fire when user signs in.

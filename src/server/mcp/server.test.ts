@@ -43,7 +43,6 @@ describe("MCP server", () => {
     expect(names).toContain("format_decklist");
     expect(names).toContain("list_public_decks");
     expect(names).toContain("get_public_deck");
-    expect(names).toContain("render_proxy_svg");
     expect(names).toContain("get_card_image_url");
     expect(names).toContain("proxy_status");
   });

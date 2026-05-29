@@ -11,11 +11,9 @@ describe("customized-cards", () => {
 
     expect(result).toHaveProperty("cards");
     expect(result).toHaveProperty("totalClean");
-    expect(result).toHaveProperty("totalSettings");
     expect(result).toHaveProperty("totalStale");
     expect(Array.isArray(result.cards)).toBe(true);
     expect(typeof result.totalClean).toBe("number");
-    expect(typeof result.totalSettings).toBe("number");
     expect(typeof result.totalStale).toBe("number");
   });
 
@@ -29,7 +27,6 @@ describe("customized-cards", () => {
       expect(cc.card).toHaveProperty("name");
       expect(typeof cc.hasClean).toBe("boolean");
       expect(typeof cc.hasComposite).toBe("boolean");
-      expect(typeof cc.hasSettings).toBe("boolean");
       expect(typeof cc.hasPromptOverride).toBe("boolean");
       expect(typeof cc.isStale).toBe("boolean");
       expect(Array.isArray(cc.deckMembership)).toBe(true);

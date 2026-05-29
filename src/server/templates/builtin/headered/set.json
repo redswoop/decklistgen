@@ -1,6 +1,0 @@
-{
-  "id": "headered",
-  "name": "Headered",
-  "description": "Adds a top header pill to every card, keeping the name / HP / evolves-from contained for legibility. Inherits unchanged slots from the default set.",
-  "extends": "default"
-}

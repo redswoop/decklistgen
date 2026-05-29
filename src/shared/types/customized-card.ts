@@ -1,5 +1,4 @@
 import type { Card } from "./card.js";
-import type { ProxySettings } from "./proxy-settings.js";
 
 export interface CleanMeta {
   prompt: string;
@@ -20,8 +19,6 @@ export interface CustomizedCard {
   hasClean: boolean;
   hasComposite: boolean;
   cleanMeta: CleanMeta | null;
-  hasSettings: boolean;
-  settings: ProxySettings | null;
   hasPromptOverride: boolean;
   isStale: boolean;
   staleSummary: string | null;
@@ -31,6 +28,5 @@ export interface CustomizedCard {
 export interface CustomizedCardsResponse {
   cards: CustomizedCard[];
   totalClean: number;
-  totalSettings: number;
   totalStale: number;
 }

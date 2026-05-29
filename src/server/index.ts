@@ -9,8 +9,6 @@ import decklistRouter from "./routes/decklist.js";
 import decksRouter from "./routes/decks.js";
 import proxyRouter from "./routes/proxy.js";
 import galleryRouter from "./routes/gallery.js";
-import { editorRouter } from "./routes/editor.js";
-import { templateSetsRouter } from "./routes/template-sets.js";
 import { authRouter } from "./routes/auth.js";
 import { adminRouter } from "./routes/admin.js";
 import { publicDecksRouter } from "./routes/public-decks.js";
@@ -40,9 +38,7 @@ app.use("*", cors({
 // Security headers
 app.use("*", async (c, next) => {
   await next();
-  const isGallery = c.req.path.startsWith("/gallery");
-  const scriptSrc = isGallery ? "script-src 'self' 'unsafe-inline'; " : "";
-  c.header("Content-Security-Policy", `default-src 'self'; ${scriptSrc}img-src 'self' data: https://assets.tcgdex.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:`);
+  c.header("Content-Security-Policy", `default-src 'self'; img-src 'self' data: https://assets.tcgdex.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:`);
   c.header("X-Content-Type-Options", "nosniff");
   c.header("X-Frame-Options", "DENY");
   c.header("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -88,8 +84,6 @@ app.route("/api/decklist", decklistRouter);
 app.route("/api/decks", decksRouter);
 app.route("/api/pokeproxy", proxyRouter);
 app.route("/api/mcp", mcpRouter);
-app.route("/gallery/editor", editorRouter);
-app.route("/gallery/editor/sets", templateSetsRouter);
 app.route("/gallery", galleryRouter);
 
 // In production, serve static files

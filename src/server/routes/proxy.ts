@@ -2,33 +2,21 @@ import { Hono } from "hono";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import sharp from "sharp";
-import { join } from "node:path";
 import { getCard } from "../services/card-store.js";
 import { ping as comfyPing, COMFYUI_URL } from "../services/comfyui.js";
 import { submitJob, listJobs, getJob, cancelJob, clearCompleted } from "../services/gen-queue.js";
 import { getPromptForCard, saveCardPrompt } from "../services/prompt-db.js";
-import { getCardSettings, updateCardSettings, deleteCardSettings } from "../services/card-settings.js";
-import { getCustomizedCards, deleteCardArtifacts, invalidateCustomizedCardsCache } from "../services/customized-cards.js";
-import { getDeck } from "../services/deck-store.js";
-import { generatePrintHtml } from "../services/pokeproxy/print-html.js";
-import { cardImageUrl } from "../../shared/utils/card-image-url.js";
+import { getCustomizedCards, deleteCardArtifacts } from "../services/customized-cards.js";
 import {
   cachePath,
   ensureCardLoaded,
-  ensureSourceImage,
-  generateSvgFromTemplate,
   loadCardData,
-  type SvgRenderOptions,
-} from "../services/pokeproxy/render-svg.js";
-import { resetIconIds } from "../services/pokeproxy/type-icons.js";
+} from "../services/pokeproxy/cache.js";
 import { requireAuth, requireAuthorized } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
-import { renderEnergyPreviewSvg } from "../services/pokeproxy/energy-preview.js";
 import { logAction, getClientIp } from "../services/logger.js";
 import { isValidCardId } from "../../shared/validation.js";
 
-
-const CACHE_DIR = join(import.meta.dir, "../../../cache");
 
 const FULLART_DEFAULT_PROMPT =
   "Expand the illustration from the reference image into a large, detailed scene. " +
@@ -54,7 +42,6 @@ function getStatus(cardId: string) {
   return {
     hasClean,
     hasComposite,
-    hasSvg: hasFile(cardId, ".svg"),
     hasFullart: hasFile(cardId, "_fullart.png"),
     mtime: mtime || undefined,
   };
@@ -67,17 +54,6 @@ const app = new Hono<AppEnv>();
 app.get("/comfyui-ping", async (c) => {
   const ok = await comfyPing();
   return c.json({ ok, url: COMFYUI_URL });
-});
-
-/** Energy glyph color preview — all 11 types in a row */
-app.get("/energy-preview", (c) => {
-  const svg = renderEnergyPreviewSvg();
-  return new Response(svg, {
-    headers: {
-      "Content-Type": "image/svg+xml",
-      "Cache-Control": "public, max-age=86400",
-    },
-  });
 });
 
 /** Check what proxy assets exist for a card */
@@ -180,82 +156,6 @@ app.get("/image/:cardId/:type", async (c) => {
       "Cache-Control": "public, max-age=86400",
     },
   });
-});
-
-/** Serve an SVG proxy card */
-app.get("/svg/:cardId", async (c) => {
-  const cardId = c.req.param("cardId");
-  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
-  logAction("proxy.svg", getClientIp(c), { cardId });
-  const query = c.req.query();
-  const svgOpts: SvgRenderOptions = {};
-  if (query.synth != null) svgOpts.synth = true;
-  if (query.fullart != null) svgOpts.fullart = true;
-  if (typeof query.cardSetId === "string" && query.cardSetId) svgOpts.cardSetId = query.cardSetId;
-  if (typeof query.deckSetId === "string" && query.deckSetId) svgOpts.deckSetId = query.deckSetId;
-  const artCardId =
-    typeof query.artCardId === "string" && isValidCardId(query.artCardId)
-      ? query.artCardId
-      : undefined;
-  try {
-    const svg = await generateSvgFromTemplate(cardId, svgOpts, artCardId);
-    return new Response(svg, {
-      headers: {
-        "Content-Type": "image/svg+xml",
-        "Cache-Control": "no-cache",
-      },
-    });
-  } catch (e) {
-    console.error("SVG generation failed:", e);
-    return c.json({ error: "SVG generation failed" }, 500);
-  }
-});
-
-/** Force-regenerate an SVG proxy card (SVGs are rendered on-the-fly, so this is a no-op) */
-app.post("/svg/:cardId/regenerate", (c) => {
-  const cardId = c.req.param("cardId");
-  return c.json({ cardId, status: "regenerated" });
-});
-
-/** Inspect a card — returns rendering metadata (template, brightness analysis,
- *  cached-artifact flags). Used by the Gallery inspector to surface why the
- *  renderer picked dark vs. light text. */
-app.get("/inspect/:cardId", async (c) => {
-  const cardId = c.req.param("cardId");
-  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
-  try {
-    const { inspectCard } = await import("../services/pokeproxy/analyze-card.js");
-    const report = await inspectCard(cardId);
-    return c.json(report);
-  } catch (e) {
-    console.error("Card inspect failed:", e);
-    return c.json({ error: "Inspect failed" }, 500);
-  }
-});
-
-/** Get the current text-mode override for a card.
- *  Empty body `{}` means no override is set (auto-detection applies). */
-app.get("/text-mode-override/:cardId", async (c) => {
-  const cardId = c.req.param("cardId");
-  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
-  const { getTextModeOverride } = await import("../services/pokeproxy/text-mode-store.js");
-  return c.json({ cardId, ...getTextModeOverride(cardId) });
-});
-
-/** Save (merge) a text-mode override. Body: `{ textMode?: "dark"|"light"|null,
- *  hpTextMode?: "dark"|"light"|null }`. Pass `null` to clear that field back to
- *  auto-detection. */
-app.put("/text-mode-override/:cardId", requireAuthorized, async (c) => {
-  const cardId = c.req.param("cardId");
-  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
-  const body = await c.req.json<{
-    textMode?: "dark" | "light" | null;
-    hpTextMode?: "dark" | "light" | null;
-  }>();
-  const { saveTextModeOverride } = await import("../services/pokeproxy/text-mode-store.js");
-  const saved = saveTextModeOverride(cardId, body);
-  logAction("card.textModeOverride", getClientIp(c), { cardId, ...body });
-  return c.json({ cardId, ...saved });
 });
 
 /** Get the resolved prompt for a card */
@@ -394,94 +294,8 @@ app.post("/queue/clear", requireAuthorized, (c) => {
   return c.json({ ok: true, cleared });
 });
 
-/** Print-ready HTML sheet for an entire deck */
-app.get("/print/:deckId", requireAuth, async (c) => {
-  const user = c.get("user")!;
-  const deckId = c.req.param("deckId");
-  const deck = await getDeck(deckId, user.id);
-  if (!deck) return c.json({ error: "Deck not found" }, 404);
-
-  // Parse filter query params
-  const q = c.req.query();
-  const oneEach = q.qty === "one-each";
-  const noBasicEnergy = q.noBasicEnergy === "1";
-  const excludeSet = new Set((q.exclude || "").split(",").filter(Boolean));
-  const paper = q.paper === "super-b" ? "super-b" : "letter";
-  const orientation = q.orientation === "landscape" ? "landscape" : "portrait";
-  const useOriginalArt = q.art === "original";
-
-  const entries = deck.cards.filter((entry) => {
-    const { card } = entry;
-    if (excludeSet.has("pokemon") && card.category === "Pokemon") return false;
-    if (card.category === "Trainer" && card.trainerType) {
-      const key = card.trainerType.toLowerCase() + "s";
-      if (excludeSet.has(key)) return false;
-    }
-    if (noBasicEnergy && card.category === "Energy") {
-      const raw = loadCardData(card.id);
-      if (!raw.effect) return false;
-    }
-    return true;
-  });
-
-  const cardContent: [number, string][] = [];
-
-  if (useOriginalArt) {
-    for (const entry of entries) {
-      const source = entry.artCard ?? entry.card;
-      const url = cardImageUrl(source.imageBase, "high");
-      const name = (source.name || "card").replace(/"/g, "&quot;");
-      const img = url ? `<img src="${url}" alt="${name}" />` : "";
-      cardContent.push([oneEach ? 1 : entry.count, img]);
-    }
-  } else {
-    resetIconIds();
-    for (let ci = 0; ci < entries.length; ci++) {
-      const entry = entries[ci];
-      const cardId = entry.card.id;
-      const svgOpts: SvgRenderOptions = {
-        cardSetId: entry.templateSetId,
-        deckSetId: deck.templateSetId,
-      };
-      const svg = await generateSvgFromTemplate(cardId, svgOpts, entry.artCard?.id, `c${ci}-`);
-      cardContent.push([oneEach ? 1 : entry.count, svg]);
-    }
-  }
-
-  const html = generatePrintHtml(cardContent, { paper, orientation });
-  c.header("Cache-Control", "no-store");
-  return c.html(html);
-});
-
-// --- Card settings endpoints (require auth) ---
-
-/** Get proxy settings for a card */
-app.get("/settings/:cardId", requireAuth, (c) => {
-  const user = c.get("user")!;
-  const cardId = c.req.param("cardId");
-  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
-  return c.json(getCardSettings(user.id, cardId));
-});
-
-/** Update proxy settings (merge patch) */
-app.put("/settings/:cardId", requireAuthorized, async (c) => {
-  const user = c.get("user")!;
-  const cardId = c.req.param("cardId");
-  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
-  logAction("card.settingsUpdate", getClientIp(c), { cardId });
-  const patch = await c.req.json();
-  const result = updateCardSettings(user.id, cardId, patch);
-  return c.json(result);
-});
-
-/** Clear proxy settings */
-app.delete("/settings/:cardId", requireAuth, (c) => {
-  const user = c.get("user")!;
-  const cardId = c.req.param("cardId");
-  if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
-  const deleted = deleteCardSettings(user.id, cardId);
-  return c.json({ ok: deleted });
-});
+// Deck print is now a client-side page at /print.html — no server route needed.
+// Legacy /settings/:cardId endpoints were removed with the SVG renderer.
 
 // --- Customized cards endpoints ---
 

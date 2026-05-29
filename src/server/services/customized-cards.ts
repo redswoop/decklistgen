@@ -1,14 +1,13 @@
 /**
  * Customized cards aggregation service.
  *
- * Scans cache/ for clean images, card-settings.json for proxy settings,
- * and prompt-db.ts for card-specific overrides. Unions all three sets
- * and returns enriched card data with staleness detection and deck membership.
+ * Scans cache/ for clean images and the prompt-db for card-specific overrides,
+ * unions both sets, and returns enriched card data with staleness detection
+ * and deck membership.
  */
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { getAllCardSettings, getCardSettings } from "./card-settings.js";
 import { getPromptForCard, getOverrideCardIds } from "./prompt-db.js";
 import { listDecks, getDeck } from "./deck-store.js";
 import { getCard, loadSet, isSetLoaded } from "./card-store.js";
@@ -95,17 +94,13 @@ export async function getCustomizedCards(userId?: string): Promise<CustomizedCar
     }
   } catch {}
 
-  // 2. Get all card settings (user-scoped if userId provided)
-  const allSettings = userId ? getAllCardSettings(userId) : {};
-  const settingsCardIds = new Set(Object.keys(allSettings));
-
-  // 3. Get card-specific prompt overrides
+  // 2. Get card-specific prompt overrides
   const overrideCardIds = getOverrideCardIds();
 
-  // 4. Union all three sets
-  const allCardIds = new Set([...cleanCardIds, ...settingsCardIds, ...overrideCardIds]);
+  // 3. Union both sets
+  const allCardIds = new Set([...cleanCardIds, ...overrideCardIds]);
 
-  // 5. Load deck membership data (user-scoped if userId provided)
+  // 4. Load deck membership data (user-scoped if userId provided)
   const deckMembershipMap = new Map<string, DeckMembership[]>();
   if (userId) {
     try {
@@ -128,10 +123,9 @@ export async function getCustomizedCards(userId?: string): Promise<CustomizedCar
     } catch {}
   }
 
-  // 6. Build result for each card
+  // 5. Build result for each card
   const cards: CustomizedCard[] = [];
   let totalClean = 0;
-  let totalSettings = 0;
   let totalStale = 0;
 
   for (const cardId of allCardIds) {
@@ -143,7 +137,6 @@ export async function getCustomizedCards(userId?: string): Promise<CustomizedCar
 
     const hasClean = cleanCardIds.has(cardId);
     const hasComposite = existsSync(cachePath(cardId, "_composite.png"));
-    const hasSettings = settingsCardIds.has(cardId);
     const hasPromptOverride = overrideCardIds.has(cardId);
 
     // Load clean metadata
@@ -174,7 +167,6 @@ export async function getCustomizedCards(userId?: string): Promise<CustomizedCar
     }
 
     if (hasClean) totalClean++;
-    if (hasSettings) totalSettings++;
     if (isStale) totalStale++;
 
     cards.push({
@@ -182,8 +174,6 @@ export async function getCustomizedCards(userId?: string): Promise<CustomizedCar
       hasClean,
       hasComposite,
       cleanMeta,
-      hasSettings,
-      settings: hasSettings ? allSettings[cardId] : null,
       hasPromptOverride,
       isStale,
       staleSummary,
@@ -200,7 +190,6 @@ export async function getCustomizedCards(userId?: string): Promise<CustomizedCar
   const result: CustomizedCardsResponse = {
     cards,
     totalClean,
-    totalSettings,
     totalStale,
   };
 
@@ -210,10 +199,10 @@ export async function getCustomizedCards(userId?: string): Promise<CustomizedCar
   return result;
 }
 
-/** Delete all cache artifacts for a card (clean, composite, meta, svg). */
+/** Delete all cache artifacts for a card (clean, composite, meta). */
 export async function deleteCardArtifacts(cardId: string): Promise<void> {
   const { unlink } = await import("node:fs/promises");
-  const suffixes = ["_clean.png", "_composite.png", "_clean_meta.json", ".svg"];
+  const suffixes = ["_clean.png", "_composite.png", "_clean_meta.json"];
   for (const suffix of suffixes) {
     const path = cachePath(cardId, suffix);
     if (existsSync(path)) {
