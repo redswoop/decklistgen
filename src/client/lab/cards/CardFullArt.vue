@@ -15,11 +15,15 @@ const props = defineProps<{
  * Background watermark (the big silver V / VSTAR mark behind the artwork).
  * Mirrors the SVG renderer's `big-logo` element in pokemon-fullart.json:
  *   anchorX=-50, anchorY=-38, height=280, opacity=0.7, clipToCard=1.
- * Only V and VSTAR have a watermark asset; ex and VMAX show nothing.
+ *
+ * VMAX reuses the VSTAR asset as a placeholder until a real pokemon-vmax-big.png
+ * is sourced. Visually wrong but better than nothing — the chrome silhouette
+ * occupies the right corner real estate at the right scale.
  */
 const BIG_LOGO_FILES: Partial<Record<NameSuffix, string>> = {
   V:     "/logos/pokemon-v-big.png",
   VSTAR: "/logos/pokemon-vstar-big.png",
+  VMAX:  "/logos/pokemon-vstar-big.png",
 };
 
 const bigLogoSrc = computed(() => props.card.suffix ? BIG_LOGO_FILES[props.card.suffix] : undefined);
@@ -48,7 +52,7 @@ const bigLogoSrc = computed(() => props.card.suffix ? BIG_LOGO_FILES[props.card.
     />
 
     <div class="stage-anchor">
-      <StagePill :stage="card.stage" />
+      <StagePill :stage="card.stage" :suffix="card.suffix" />
     </div>
 
     <div class="name-anchor">

@@ -53,7 +53,7 @@
    * src/shared/constants/font-sizes.ts. */
   --size-trainer-name:   44px;   /* $cardName.trainer */
   --size-trainer-type:   32px;   /* $trainerType — left text on the header banner */
-  --size-trainer-effect: 36px;   /* $trainerEffect — body of the trainer effect */
+  --size-trainer-effect: 30px;   /* Body of the trainer effect; sized to match Pokemon attack/ability text (--size-attack-effect / --size-ability-text). */
   --size-rule-text:      26px;   /* $ruleText — "Play only 1 Supporter per turn." */
 
   /* primary colors */
@@ -128,7 +128,10 @@
   --panel-bg:           rgb(0 0 0 / 0.32);
   --panel-blur:         8px;
   --panel-radius:       25px;
-  --panel-inset-side:   20px;
+  /* Side inset = frame width (22) + 20 breathing room so the opaque glass
+   * panel doesn't visually crash into the cardboard frame. The opaque panel
+   * needs the gap; the thin footer text below can sit closer to the frame. */
+  --panel-inset-side:   42px;
   --panel-inset-bottom: 70px;
   --panel-padding:      15px;
   --panel-padding-bottom: 37px;

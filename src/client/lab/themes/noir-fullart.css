@@ -44,7 +44,8 @@
    * visual weight. */
   --size-trainer-name:   52px;
   --size-trainer-type:   28px;
-  --size-trainer-effect: 32px;
+  /* Matches --size-attack-effect / --size-ability-text — same body size as Pokemon effect text. */
+  --size-trainer-effect: 26px;
   --size-rule-text:      22px;
 
   --color-name:         #f5e6c8;
@@ -103,7 +104,8 @@
   --panel-bg:           rgb(10 10 12 / 0.55);
   --panel-blur:         14px;
   --panel-radius:       12px;
-  --panel-inset-side:   20px;
+  /* Side inset = frame width (18) + 20 breathing room. */
+  --panel-inset-side:   38px;
   --panel-inset-bottom: 72px;
   --panel-padding:      30px;
   --panel-padding-bottom: 42px;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { formatStageLabel, isShowableStage } from "./stage";
+import { formatStageLabel, isShowableStage, pillLabelForSuffix } from "./stage";
 
 describe("formatStageLabel", () => {
   it("uppercases Basic", () => {
@@ -28,5 +28,18 @@ describe("isShowableStage", () => {
     expect(isShowableStage(undefined)).toBe(false);
     expect(isShowableStage("")).toBe(false);
     expect(isShowableStage("Mega")).toBe(false);
+  });
+});
+
+describe("pillLabelForSuffix", () => {
+  it("returns the suffix as label for VMAX and VSTAR", () => {
+    expect(pillLabelForSuffix("VMAX")).toBe("VMAX");
+    expect(pillLabelForSuffix("VSTAR")).toBe("VSTAR");
+  });
+
+  it("returns null for ex, V, and undefined (no override)", () => {
+    expect(pillLabelForSuffix("ex")).toBeNull();
+    expect(pillLabelForSuffix("V")).toBeNull();
+    expect(pillLabelForSuffix(undefined)).toBeNull();
   });
 });

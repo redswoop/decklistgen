@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { Stage } from "../../types";
-import { formatStageLabel, isShowableStage } from "./stage";
+import type { NameSuffix, Stage } from "../../types";
+import { formatStageLabel, isShowableStage, pillLabelForSuffix } from "./stage";
 
 const props = defineProps<{
   stage?: Stage | string;
+  suffix?: NameSuffix;
 }>();
 
-const show  = computed(() => isShowableStage(props.stage));
-const label = computed(() => show.value ? formatStageLabel(props.stage as Stage) : "");
+// VMAX/VSTAR override the stage label with the suffix name — that's how
+// the real cards mark them ("VMAX" / "VSTAR" plaque in lieu of stage).
+const suffixLabel = computed(() => pillLabelForSuffix(props.suffix));
+const show  = computed(() => !!suffixLabel.value || isShowableStage(props.stage));
+const label = computed(() =>
+  suffixLabel.value
+    ?? (isShowableStage(props.stage) ? formatStageLabel(props.stage as Stage) : "")
+);
 </script>
 
 <template>
