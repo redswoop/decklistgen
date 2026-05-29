@@ -6,8 +6,6 @@ export interface DeckCard {
   card: Card;
   /** When set, use this card's image instead of card's image (art override from a different variant) */
   artCard?: Card;
-  /** Per-card template-set override. Wins over the deck-level and global defaults. */
-  templateSetId?: string;
 }
 
 /** A saved deck persisted on the server */
@@ -21,8 +19,6 @@ export interface SavedDeck {
   importSource?: string;
   isPublic?: boolean;
   isListed?: boolean;
-  /** Per-deck template-set default. Wins over the global default but loses to per-card. */
-  templateSetId?: string;
 }
 
 /** Lightweight summary for listing decks */

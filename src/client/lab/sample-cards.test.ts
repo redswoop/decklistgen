@@ -56,10 +56,9 @@ describe("sample basic energies", () => {
 
 describe("sample trainers", () => {
   /*
-   * Special Energy cards route through CardTrainer (the SVG renderer does the
-   * same via enrich-card-data.ts setting trainerType="Special Energy"). The
-   * lab's trainer header swaps gradient + tag text based on this value, so
-   * we want at least one to keep that branch exercised.
+   * Special Energy cards route through CardTrainer — the trainer header
+   * swaps gradient + tag text based on trainerType="Special Energy", so we
+   * keep at least one to exercise that branch.
    */
   it("includes at least one Special Energy regression card", () => {
     const specials = SAMPLE_TRAINERS.filter(t => t.trainerType === "Special Energy");

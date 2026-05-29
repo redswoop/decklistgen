@@ -81,7 +81,7 @@ function saveLayout(partial: Partial<LayoutState>) {
 
 const saved = loadLayout();
 
-const { items, totalCards, toText, currentDeckName, currentDeckId, isDirty, toDeckCards, markSaved, importSource, importedAt, undo, redo, currentDeckTemplateSetId } = useDecklist();
+const { items, totalCards, toText, currentDeckName, currentDeckId, isDirty, toDeckCards, markSaved, importSource, importedAt, undo, redo } = useDecklist();
 const { createDeck, updateDeck } = useDecks();
 
 // Deck sub-view: gallery (home) vs build (working deck)
@@ -392,7 +392,6 @@ async function handleSaveDeck(name: string) {
       cards: toDeckCards(),
       importedAt: importedAt.value ?? undefined,
       importSource: importSource.value ?? undefined,
-      templateSetId: currentDeckTemplateSetId.value ?? undefined,
     });
     markSaved(deck.id, deck.name);
   } catch (e) {
@@ -408,7 +407,6 @@ async function handleWorkingSaveUpdate() {
       data: {
         name: currentDeckName.value,
         cards: toDeckCards(),
-        templateSetId: currentDeckTemplateSetId.value ?? undefined,
       },
     });
     markSaved(currentDeckId.value, currentDeckName.value);

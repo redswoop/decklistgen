@@ -233,46 +233,4 @@ describe("deck-store", () => {
     expect(fetched!.isListed).toBe(true);
   });
 
-  test("createDeck and getDeck round-trip deck-level templateSetId", async () => {
-    const deck = makeDeck({ name: "Phase 3 Deck", templateSetId: "my-user-set" });
-    await createDeck(TEST_USER_ID, deck);
-
-    const fetched = await getDeck(deck.id, TEST_USER_ID);
-    expect(fetched!.templateSetId).toBe("my-user-set");
-  });
-
-  test("createDeck without templateSetId leaves it undefined", async () => {
-    const deck = makeDeck({ name: "No Set" });
-    await createDeck(TEST_USER_ID, deck);
-
-    const fetched = await getDeck(deck.id, TEST_USER_ID);
-    expect(fetched!.templateSetId).toBeUndefined();
-  });
-
-  test("updateDeck can set templateSetId and clear it", async () => {
-    const deck = makeDeck({ name: "Mutate Set" });
-    await createDeck(TEST_USER_ID, deck);
-
-    const set = await updateDeck(deck.id, TEST_USER_ID, { templateSetId: "user-a" });
-    expect(set!.templateSetId).toBe("user-a");
-
-    const cleared = await updateDeck(deck.id, TEST_USER_ID, { templateSetId: undefined });
-    expect(cleared!.templateSetId).toBeUndefined();
-  });
-
-  test("per-card templateSetId round-trips through the cards blob", async () => {
-    const deck = makeDeck({
-      name: "Per-card Override",
-      templateSetId: "deck-default",
-      cards: [
-        { count: 1, card: makeCard(), templateSetId: "card-special" },
-        { count: 3, card: makeCard({ id: "sv06.5-037", localId: "037", name: "Munkidori" }) },
-      ],
-    });
-    await createDeck(TEST_USER_ID, deck);
-
-    const fetched = await getDeck(deck.id, TEST_USER_ID);
-    expect(fetched!.cards[0].templateSetId).toBe("card-special");
-    expect(fetched!.cards[1].templateSetId).toBeUndefined();
-  });
 });

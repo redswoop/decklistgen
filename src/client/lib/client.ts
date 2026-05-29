@@ -230,7 +230,7 @@ export const api = {
   // Deck management endpoints
   listDecks: () => get<DeckSummary[]>("/decks"),
   getDeck: (id: string) => get<SavedDeck>(`/decks/${id}`),
-  createDeck: (data: { name: string; cards: DeckCard[]; importedAt?: string; importSource?: string; templateSetId?: string }) =>
+  createDeck: (data: { name: string; cards: DeckCard[]; importedAt?: string; importSource?: string }) =>
     post<SavedDeck>("/decks", data),
   updateDeck: (id: string, data: Partial<SavedDeck>) =>
     put<SavedDeck>(`/decks/${id}`, data),

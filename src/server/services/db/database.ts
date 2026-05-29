@@ -126,10 +126,10 @@ function initSchema(db: Database) {
     db.exec("ALTER TABLE invite_codes ADD COLUMN use_count INTEGER NOT NULL DEFAULT 0");
   } catch { /* already exists */ }
 
-  // Phase 3 template-sets: per-deck override column. Per-card override travels in the cards JSON blob.
+  // Drop the dead template_set_id column on databases that pre-date the SVG-renderer deletion.
   try {
-    db.exec("ALTER TABLE decks ADD COLUMN template_set_id TEXT");
-  } catch { /* already exists */ }
+    db.exec("ALTER TABLE decks DROP COLUMN template_set_id");
+  } catch { /* never existed or already dropped */ }
 }
 
 export function getDb(): Database {

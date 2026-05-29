@@ -80,18 +80,6 @@ describe("consolidateDeckCards", () => {
     expect(result[0].artCard?.id).toBe(artB.id);
   });
 
-  it("adopts a later templateSetId when the earlier entry had none", () => {
-    const card = makeCard("SCR", "173", "Terapagos ex");
-    const cards: DeckCard[] = [
-      { count: 1, card },
-      { count: 2, card, templateSetId: "fullart" },
-    ];
-    const result = consolidateDeckCards(cards);
-    expect(result).toHaveLength(1);
-    expect(result[0].count).toBe(3);
-    expect(result[0].templateSetId).toBe("fullart");
-  });
-
   it("does NOT merge different cards even if both have artCards", () => {
     const cardA = makeCard("SCR", "173", "Terapagos ex");
     const cardB = makeCard("SCR", "174", "Charizard ex");

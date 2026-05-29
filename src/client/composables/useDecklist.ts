@@ -8,8 +8,6 @@ export interface DecklistItem extends DecklistEntry {
   imageUrl: string;
   card: Card;
   artCard?: Card;
-  /** Per-card template-set override (wins over deck-level and global). */
-  templateSetId?: string;
 }
 
 export interface DeckStats {
@@ -50,7 +48,6 @@ interface DeckMeta {
   importSource: string | null;
   importedAt: string | null;
   lastSavedSnapshot: string;
-  templateSetId?: string | null;
 }
 
 function loadMeta(): DeckMeta {
@@ -58,7 +55,7 @@ function loadMeta(): DeckMeta {
     const raw = localStorage.getItem(META_KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
-  return { deckId: null, deckName: "", importSource: null, importedAt: null, lastSavedSnapshot: "", templateSetId: null };
+  return { deckId: null, deckName: "", importSource: null, importedAt: null, lastSavedSnapshot: "" };
 }
 
 const items = ref<DecklistItem[]>(loadItems());
@@ -81,7 +78,6 @@ const currentDeckName = ref(meta.deckName);
 const importSource = ref<string | null>(meta.importSource);
 const importedAt = ref<string | null>(meta.importedAt);
 const lastSavedSnapshot = ref(meta.lastSavedSnapshot);
-const currentDeckTemplateSetId = ref<string | null>(meta.templateSetId ?? null);
 
 watch(items, (val) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(val));
@@ -94,19 +90,17 @@ function saveMeta() {
     importSource: importSource.value,
     importedAt: importedAt.value,
     lastSavedSnapshot: lastSavedSnapshot.value,
-    templateSetId: currentDeckTemplateSetId.value,
   }));
 }
 
 watch(
-  [currentDeckId, currentDeckName, importSource, importedAt, lastSavedSnapshot, currentDeckTemplateSetId],
+  [currentDeckId, currentDeckName, importSource, importedAt, lastSavedSnapshot],
   saveMeta,
 );
 
 function currentSnapshot(): string {
   return JSON.stringify({
-    items: items.value.map((i) => ({ s: i.setCode, l: i.localId, c: i.count, t: i.templateSetId ?? null })),
-    templateSetId: currentDeckTemplateSetId.value,
+    items: items.value.map((i) => ({ s: i.setCode, l: i.localId, c: i.count })),
   });
 }
 
@@ -160,7 +154,6 @@ export function useDecklist() {
     importSource.value = null;
     importedAt.value = null;
     lastSavedSnapshot.value = "";
-    currentDeckTemplateSetId.value = null;
   }
 
   function importDeck(newItems: DecklistItem[], mode: "merge" | "replace", source?: string) {
@@ -210,13 +203,11 @@ export function useDecklist() {
       imageUrl: cardImageUrl(dc.card.imageBase, "low"),
       card: dc.card,
       artCard: dc.artCard,
-      templateSetId: dc.templateSetId,
     }));
     currentDeckId.value = deck.id;
     currentDeckName.value = deck.name;
     importSource.value = deck.importSource ?? null;
     importedAt.value = deck.importedAt ?? null;
-    currentDeckTemplateSetId.value = deck.templateSetId ?? null;
     lastSavedSnapshot.value = currentSnapshot();
   }
 
@@ -233,19 +224,7 @@ export function useDecklist() {
       count: i.count,
       card: i.card,
       ...(i.artCard ? { artCard: i.artCard } : {}),
-      ...(i.templateSetId ? { templateSetId: i.templateSetId } : {}),
     }));
-  }
-
-  function setDeckTemplateSetId(setId: string | null) {
-    pushUndo();
-    currentDeckTemplateSetId.value = setId || null;
-  }
-
-  function setCardTemplateSetId(setCode: string, localId: string, setId: string | null) {
-    pushUndo();
-    const item = items.value.find((i) => i.setCode === setCode && i.localId === localId);
-    if (item) item.templateSetId = setId || undefined;
   }
 
   function setCardArtCard(setCode: string, localId: string, artCard: Card | null) {
@@ -277,7 +256,6 @@ export function useDecklist() {
         name: toCard.name,
         imageUrl: cardImageUrl(toCard.imageBase, "low"),
         card: toCard,
-        ...(from.templateSetId ? { templateSetId: from.templateSetId } : {}),
       });
     }
   }
@@ -391,8 +369,6 @@ export function useDecklist() {
     currentDeckId, currentDeckName, isDirty,
     importSource, importedAt,
     loadSavedDeck, markSaved, toDeckCards,
-    // Template-set overrides (Phase 3)
-    currentDeckTemplateSetId, setDeckTemplateSetId, setCardTemplateSetId,
     // Per-card art override
     setCardArtCard,
     // Per-printing swap (move all copies of one printing to another)

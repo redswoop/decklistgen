@@ -220,14 +220,12 @@ async function handleVariantSwap(v: Card) {
   if (props.savedDeckId && props.savedDeckCards) {
     const out: DeckCard[] = [];
     let captured = 0;
-    let preservedTemplateSetId: string | undefined;
     for (const dc of props.savedDeckCards) {
       const isFrom =
         dc.card.setCode === activeCard.value.setCode &&
         dc.card.localId === activeCard.value.localId;
       if (isFrom) {
         captured += dc.count;
-        preservedTemplateSetId = preservedTemplateSetId ?? dc.templateSetId;
         // drop the from-entry entirely
       } else {
         out.push(dc);
@@ -239,9 +237,7 @@ async function handleVariantSwap(v: Card) {
     if (targetIdx !== -1) {
       out[targetIdx] = { ...out[targetIdx], count: out[targetIdx].count + captured };
     } else {
-      const entry: DeckCard = { count: captured, card: v };
-      if (preservedTemplateSetId) entry.templateSetId = preservedTemplateSetId;
-      out.push(entry);
+      out.push({ count: captured, card: v });
     }
     await updateDeck({ id: props.savedDeckId, data: { cards: out } });
     emit("deckUpdated");

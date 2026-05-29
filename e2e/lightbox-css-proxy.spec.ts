@@ -42,7 +42,6 @@ async function seedDeckAndOpen(page: Page) {
         importSource: null,
         importedAt: null,
         lastSavedSnapshot: "",
-        templateSetId: null,
       }),
     );
     // Default the version tab to "proxy" so the CSS overlay is the active
