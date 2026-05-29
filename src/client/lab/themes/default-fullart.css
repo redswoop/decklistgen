@@ -135,6 +135,14 @@
 
   --footer-bottom:      22px;
 
+  /* Cardboard frame — thick solid ring painted at the card edge over the
+   * outer rim of the artwork. The width effectively crops the artwork from
+   * the outside in. Watermark + content sit on top of the frame (see
+   * stacking in CardFullArt.vue). Silver mirrors the modern Scarlet & Violet
+   * border treatment. */
+  --frame-color:  #c0c0c0;
+  --frame-width:  22px;
+
   /* energy palette — mirrors ICON_MAP in src/server/services/pokeproxy/type-icons.ts
    * so the lab's energy circles match the SVG renderer's. */
   --color-type-Grass:     #439837;

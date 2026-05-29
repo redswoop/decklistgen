@@ -108,6 +108,13 @@
   --panel-padding:      30px;
   --panel-padding-bottom: 42px;
 
+  /* Cardboard frame — pewter ring painted at the card edge over the outer
+   * rim of the artwork. Slightly thinner than default since noir's palette
+   * reads heavy at full width. Darker silver to sit inside the noir tonal
+   * range without competing with the cream-gold text accent. */
+  --frame-color:  #9a9a9a;
+  --frame-width:  18px;
+
   --footer-bottom:      22px;
 
   --color-type-Grass:     #5a7a4d;

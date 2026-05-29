@@ -118,6 +118,30 @@ const bigLogoSrc = computed(() => props.card.suffix ? BIG_LOGO_FILES[props.card.
   object-position: center;
   user-select: none;
   -webkit-user-drag: none;
+  z-index: 0;
+}
+
+/*
+ * Cardboard frame — thick solid ring painted over the outer edge of the
+ * artwork. The frame is a `border` on a pseudo-element pinned to the card
+ * bounds (inset:0), so its thickness crops the artwork from the outside in.
+ *
+ * Stacking: art (z:0) → frame (z:1) → watermark + content (z:2). The
+ * watermark and all text/content sit ON TOP of the frame so a V/VSTAR mark
+ * bleeds across the frame as it would on a real card, and text positioning
+ * stays put regardless of frame thickness (no need to inset content).
+ *
+ * border-radius matches the card's outer radius so the frame's outer edge
+ * follows the rounded corners exactly.
+ */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: var(--frame-width) solid var(--frame-color);
+  border-radius: 28px;
+  pointer-events: none;
+  z-index: 1;
 }
 
 /*
@@ -138,6 +162,7 @@ const bigLogoSrc = computed(() => props.card.suffix ? BIG_LOGO_FILES[props.card.
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
+  z-index: 2;   /* above the frame so the V/VSTAR mark bleeds across it */
 }
 
 /* anchors mirror the JSON anchorX/anchorY 1:1 — these numbers are the contract.
@@ -150,9 +175,11 @@ const bigLogoSrc = computed(() => props.card.suffix ? BIG_LOGO_FILES[props.card.
  * during finishing — anything flush to (0,0) loses text to the trim.
  * Left aligns with the name (45px) so the title block has one x-baseline.
  */
-.stage-anchor   { position: absolute; left: 45px;  top: 8px;  }
-.name-anchor    { position: absolute; left: 45px;  top: 46px; }
-.hp-anchor      { position: absolute; left: 514px; top: 42px; }
+/* z-index: 2 on every content anchor keeps text/badges above the inner
+ * frame line (z:1) — the frame never bisects a glyph. */
+.stage-anchor   { position: absolute; left: 45px;  top: 8px;  z-index: 2; }
+.name-anchor    { position: absolute; left: 45px;  top: 46px; z-index: 2; }
+.hp-anchor      { position: absolute; left: 514px; top: 42px; z-index: 2; }
 
 /*
  * Content panel is anchored to the bottom only. Height is content-driven:
@@ -164,6 +191,7 @@ const bigLogoSrc = computed(() => props.card.suffix ? BIG_LOGO_FILES[props.card.
   left:   var(--panel-inset-side);
   right:  var(--panel-inset-side);
   bottom: var(--panel-inset-bottom);
+  z-index: 2;
 }
 
 .footer-anchor {
@@ -171,5 +199,6 @@ const bigLogoSrc = computed(() => props.card.suffix ? BIG_LOGO_FILES[props.card.
   left:   var(--panel-inset-side);
   right:  var(--panel-inset-side);
   bottom: var(--footer-bottom);
+  z-index: 2;
 }
 </style>

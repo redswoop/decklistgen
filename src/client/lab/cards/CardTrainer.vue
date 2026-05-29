@@ -71,6 +71,19 @@ defineProps<{
   object-position: center;
   user-select: none;
   -webkit-user-drag: none;
+  z-index: 0;
+}
+
+/* Cardboard frame — same treatment as fullart. See CardFullArt.vue for the
+ * stacking rationale (art z:0 → frame z:1 → content z:2). */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: var(--frame-width) solid var(--frame-color);
+  border-radius: 28px;
+  pointer-events: none;
+  z-index: 1;
 }
 
 /*
@@ -83,12 +96,14 @@ defineProps<{
   position: absolute;
   left: 20px;
   top:  12px;
+  z-index: 2;
 }
 
 .name-anchor {
   position: absolute;
   left: 45px;
   top:  78px;
+  z-index: 2;
 }
 
 .name {
@@ -109,6 +124,7 @@ defineProps<{
   left:   var(--panel-inset-side);
   right:  var(--panel-inset-side);
   bottom: var(--panel-inset-bottom);
+  z-index: 2;
 }
 
 .content-panel {
