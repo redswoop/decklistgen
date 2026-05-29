@@ -181,9 +181,12 @@ const bigLogoSrc = computed(() => props.card.suffix ? BIG_LOGO_FILES[props.card.
  */
 /* z-index: 2 on every content anchor keeps text/badges above the inner
  * frame line (z:1) — the frame never bisects a glyph. */
-.stage-anchor   { position: absolute; left: 45px;  top: 8px;  z-index: 2; }
-.name-anchor    { position: absolute; left: 45px;  top: 46px; z-index: 2; }
-.hp-anchor      { position: absolute; left: 514px; top: 42px; z-index: 2; }
+.stage-anchor   { position: absolute; left: 14px;  top: 8px;  z-index: 2; }
+/* Name + HP shifted ~14px below their SVG-template baseline so the
+ * stage pill above gets breathing room. HP keeps its original 4px offset
+ * from the name so the two stay visually aligned. */
+.name-anchor    { position: absolute; left: 45px;  top: 60px; z-index: 2; }
+.hp-anchor      { position: absolute; left: 514px; top: 56px; z-index: 2; }
 
 /*
  * Content panel is anchored to the bottom only. Height is content-driven:

@@ -68,9 +68,14 @@
   --color-vstar-label-bg:    #1a1a1a;
   --color-vstar-label-text:  #8ec8c8;
 
-  /* Trainer header banner — noir runs flat charcoal, no metallic ramp. */
-  --color-trainer-banner-bg: linear-gradient(180deg, #1a1a1a 0%, #0a0a0c 100%);
-  --color-trainer-type:      #f5e6c8;
+  /* Trainer header banner — aliased to the stage-pill treatment so the
+   * trainer banner reads as the same family of plaque as the stage tags. */
+  --color-trainer-banner-bg: var(--stage-pill-bg);
+  --color-trainer-type:      var(--stage-pill-color);
+  /* TRAINER / ENERGY tag — sized per subtitle.trainer (28 in default; 26 in
+   * noir to follow noir's proportional shrink). */
+  --color-trainer-tag:       var(--stage-pill-color);
+  --size-trainer-tag:        26px;
 
   /* Basic Energy pill — noir mutes the SVG template's red/silver to charcoal/cream.
    * The signature serif title face carries the pill on its own; no stroke. */
@@ -117,7 +122,7 @@
   --frame-color:  #9a9a9a;
   --frame-width:  18px;
 
-  --footer-bottom:      22px;
+  --footer-bottom:      34px;
 
   --color-type-Grass:     #5a7a4d;
   --color-type-Fire:      #a04a2a;
@@ -139,4 +144,15 @@
 .theme-noir-fullart .trainer-header[data-trainer-type="Special Energy"] {
   --color-trainer-banner-bg: linear-gradient(180deg, #232732 0%, #0e1118 100%);
   --color-trainer-type:      #8ec8c8;
+  --color-trainer-tag:       #8ec8c8;
 }
+
+/*
+ * Per-trainer-type label color — noir uses the LIGHT shade variants
+ * (TRAINER_TYPE_COLORS_LIGHT in constants.ts) since its banner runs dark
+ * and dark inks would be invisible.
+ */
+.theme-noir-fullart .trainer-header[data-trainer-type="Supporter"] { --color-trainer-type: #ffc8a8; }
+.theme-noir-fullart .trainer-header[data-trainer-type="Item"]      { --color-trainer-type: #a8d4ff; }
+.theme-noir-fullart .trainer-header[data-trainer-type="Tool"]      { --color-trainer-type: #d8b0f0; }
+.theme-noir-fullart .trainer-header[data-trainer-type="Stadium"]   { --color-trainer-type: #b8e6a0; }
