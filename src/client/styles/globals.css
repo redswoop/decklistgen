@@ -1635,6 +1635,12 @@ body {
   overflow: hidden;
   transition: box-shadow 0.2s;
   flex-shrink: 0;
+  /* Reserve the true 2.5:3.5 card footprint. The TCGdex source images come
+   * back at 600:825 (~1.375), 7-8px shorter than a real card — without this
+   * reservation, the parent collapses to the image's height and clips the
+   * bottom edge of the CSS proxy overlay (which uses the true 750:1050). */
+  width: 300px;
+  aspect-ratio: 750 / 1050;
 }
 
 .lb-card-image:hover {
@@ -1663,6 +1669,26 @@ body {
 }
 
 .lb-img-svg.loaded {
+  opacity: 1;
+}
+
+/* CSS card renderer overlay — mirrors .lb-img-svg's opacity-swap pattern.
+ * Visible only when the user has selected the "Proxy" version tab. The
+ * inner CssCardRenderer is responsive (aspect-ratio:750/1050), so the 300px
+ * width here defines both axes. */
+.lb-card-css {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 300px;
+  display: block;
+  border-radius: 10px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.lb-card-css.active {
   opacity: 1;
 }
 
@@ -3499,6 +3525,11 @@ body {
   }
 
   .lb-img-svg {
+    width: 100%;
+    max-width: 240px;
+  }
+
+  .lb-card-css {
     width: 100%;
     max-width: 240px;
   }

@@ -50,6 +50,8 @@ export interface CardDetail extends Card {
   resistances: Array<{ type: string; value: string }>;
   description?: string;
   evolveFrom?: string;
+  /** Rule text on Special Energy / some Trainer cards. TCGdex stores it under `effect`. */
+  effect?: string;
 }
 
 /** Raw card from TCGdex API */

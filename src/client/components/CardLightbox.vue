@@ -7,7 +7,6 @@ import {
   usePokeproxyStatus,
   isGenerating,
   generateCleanImage,
-  regenerateSvg,
   useGenerationQueryClient,
   getGenerationVersion,
   getCardImageUrl,
@@ -22,6 +21,7 @@ import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import CardZoom from "./lightbox/CardZoom.vue";
 import LightboxDevTools from "./lightbox/LightboxDevTools.vue";
 import CardThumb from "./CardThumb.vue";
+import CssCardRenderer from "./CssCardRenderer.vue";
 import TemplateSetPicker from "./TemplateSetPicker.vue";
 import { useTemplateSetCatalog } from "../composables/useTemplateSetCatalog.js";
 import type { DeckMembership } from "../../shared/types/customized-card.js";
@@ -327,6 +327,9 @@ const mainImageUrl = computed(() => {
     : null;
 });
 
+// svgUrl is still computed for the small "Proxy" thumbnail in the version
+// picker and the zoom overlay — both stay SVG-rendered in V1. The main proxy
+// view (the big card image) is rendered by <CssCardRenderer>; no SVG fetch.
 const svgUrl = computed(() => {
   const v = cacheBust.value;
   const setIds = props.source === 'deck'
@@ -334,22 +337,8 @@ const svgUrl = computed(() => {
     : undefined;
   return api.pokeproxySvgUrl(currentCard.value.id, undefined, v, setIds);
 });
-const svgLoading = ref(true);
-const svgError = ref(false);
-function onSvgLoad() { svgLoading.value = false; svgError.value = false; }
-function onSvgError() { svgLoading.value = false; svgError.value = true; }
-
-watch(currentCardId, () => {
-  svgLoading.value = true; svgError.value = false;
-});
 
 const generating = computed(() => isGenerating(currentCard.value.id));
-
-watch(generating, (now, was) => {
-  if (was && !now) {
-    svgLoading.value = true; svgError.value = false;
-  }
-});
 
 function handleGenerate() {
   generateCleanImage(currentCard.value.id);
@@ -382,27 +371,13 @@ function handleMainImageClick() {
   }
 }
 
-const svgRegenerating = ref(false);
-async function handleRegenerateSvg() {
-  if (svgRegenerating.value) return;
-  svgRegenerating.value = true;
-  svgLoading.value = true; svgError.value = false;
-  try {
-    await regenerateSvg(currentCard.value.id);
-    localBust.value++;
-  } finally {
-    svgRegenerating.value = false;
-  }
-}
-
-
 // Zoom
 const showZoom = ref(false);
 const zoomImageUrl = computed(() => {
   if (selectedVersion.value === "cleaned" && cleanedImageUrl.value) {
     return cleanedImageUrl.value;
   }
-  if (selectedVersion.value === "proxy" && !svgLoading.value && !svgError.value) {
+  if (selectedVersion.value === "proxy") {
     return svgUrl.value;
   }
   return cardImageUrl(currentCard.value.imageBase, "high");
@@ -538,13 +513,22 @@ function navigateToDeck(deckId: string) {
               class="lb-img"
             />
             <div v-else class="lb-img-placeholder">{{ selectedVersion !== 'proxy' ? currentCard.name : '' }}</div>
-            <img
-              :src="svgUrl"
-              :alt="currentCard.name"
-              :class="['lb-img-svg', { loaded: selectedVersion === 'proxy' && !svgLoading && !svgError }]"
-              @load="onSvgLoad"
-              @error="onSvgError"
-            />
+            <!--
+              CSS card renderer for the Proxy view. Overlays the cleaned image
+              (mainImageUrl) with the Vue/CSS card composition. Mounts only when
+              a clean image exists; otherwise the existing "Click to generate"
+              CTA takes over via needsGeneration.
+            -->
+            <div
+              v-if="cleanedImageUrl"
+              :class="['lb-card-css', { active: selectedVersion === 'proxy' }]"
+            >
+              <CssCardRenderer
+                :card="currentCard"
+                :detail="cardDetail"
+                :art-url="cleanedImageUrl"
+              />
+            </div>
             <div v-if="generating" class="lb-generating-overlay">
               <div class="generate-spinner"></div>
               <div class="lb-gen-text">Generating...</div>
@@ -579,11 +563,7 @@ function navigateToDeck(deckId: string) {
             </div>
             <div :class="['lb-version', { active: selectedVersion === 'proxy' }]">
               <div class="lb-version-thumb" @click="selectVersion('proxy')">
-                <img v-if="!svgLoading && !svgError" :src="svgUrl" class="lb-version-img" />
-                <div v-else class="lb-version-placeholder">
-                  <div v-if="svgLoading || svgRegenerating" class="generate-spinner small"></div>
-                  <span v-else>--</span>
-                </div>
+                <img :src="svgUrl" class="lb-version-img" :alt="currentCard.name" />
               </div>
               <span class="lb-version-label">Proxy</span>
             </div>

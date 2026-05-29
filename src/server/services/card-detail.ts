@@ -53,5 +53,6 @@ export async function getCardDetail(cardId: string): Promise<CardDetail | null> 
     resistances,
     description: (raw.description as string) ?? undefined,
     evolveFrom: (raw.evolveFrom as string) ?? undefined,
+    effect: (raw.effect as string) ?? undefined,
   };
 }
