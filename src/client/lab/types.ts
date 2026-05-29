@@ -63,7 +63,7 @@ export interface LabCard {
  * subsection (some ACE SPEC Pokémon Tools).
  */
 
-export type TrainerType = "Supporter" | "Item" | "Tool" | "Stadium";
+export type TrainerType = "Supporter" | "Item" | "Tool" | "Stadium" | "Special Energy";
 
 /*
  * VSTAR Power on a trainer (or a Pokémon VSTAR) — presents as either a
@@ -89,4 +89,17 @@ export interface LabTrainerCard {
   vstarPower?: LabVStarPower;
   attacks?: LabAttack[];
   ruleText?: string;
+}
+
+/*
+ * Basic Energy shape — mirrors the basic-energy.json template (name top-left,
+ * "Basic Energy" pill top-right, glassy footer at the bottom). No effect text,
+ * no abilities — those route to LabTrainerCard with trainerType="Special Energy"
+ * the same way the SVG renderer reuses the trainer template for special energies.
+ */
+export interface LabBasicEnergyCard {
+  name: string;             // e.g. "Fire Energy"
+  energyType: EnergyType;   // drives pill tint + name accent
+  artUrl: string;
+  footer?: string;          // "Scarlet & Violet Energy • 002" etc.
 }

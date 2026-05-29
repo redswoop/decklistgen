@@ -1,4 +1,4 @@
-import type { LabCard, LabTrainerCard } from "./types";
+import type { LabCard, LabTrainerCard, LabBasicEnergyCard } from "./types";
 
 /*
  * Hand-authored lab trainers. Renders ahead of SAMPLE_CARDS so the gallery
@@ -51,6 +51,39 @@ export const SAMPLE_TRAINERS: LabTrainerCard[] = [
     artUrl: "/api/pokeproxy/image/me01-130/clean",
     illustrator: "Studio Bora Inc.",
     effect: "Switch your Active Pokémon with 1 of your Benched Pokémon.",
+  },
+  /*
+   * Special Energy — exercises the CardTrainer path with trainerType="Special
+   * Energy". The SVG renderer reaches the same routing via enrich-card-data.ts
+   * (category=Energy + effect → synthesized trainerType=Special Energy).
+   * Double Turbo Energy (swsh10-216) is the textbook regression card: real
+   * effect text with two paragraphs and inline {C}{C} cost tokens.
+   */
+  {
+    name: "Double Turbo Energy",
+    trainerType: "Special Energy",
+    artUrl: "/api/pokeproxy/image/swsh10-216/clean",
+    illustrator: "Toyste Beach",
+    effect: "As long as this card is attached to a Pokémon, it provides {C}{C} Energy.\nThe attacks of the Pokémon this card is attached to do 20 less damage to your opponent's Pokémon (before applying Weakness and Resistance).",
+  },
+];
+
+
+/*
+ * Hand-authored basic energies — exercise the CardBasicEnergy component
+ * (name top-left, "Basic Energy" pill top-right, glassy footer at bottom).
+ * Mirrors the basic-energy.json template path in the SVG renderer.
+ *
+ * mee-002 is Fire Energy from the Mega Evolution Energy expansion — picked
+ * because its _clean.png is in the local cache. The cached art is rendered
+ * straight; the pill and footer overlay decoration on top.
+ */
+export const SAMPLE_BASIC_ENERGIES: LabBasicEnergyCard[] = [
+  {
+    name: "Fire Energy",
+    energyType: "Fire",
+    artUrl: "/api/pokeproxy/image/mee-002/clean",
+    footer: "Mega Evolution Energy • 002",
   },
 ];
 

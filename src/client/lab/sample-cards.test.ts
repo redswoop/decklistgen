@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { SAMPLE_CARDS } from "./sample-cards";
+import { SAMPLE_CARDS, SAMPLE_TRAINERS, SAMPLE_BASIC_ENERGIES } from "./sample-cards";
 import type { EnergyType } from "./types";
 
 const VALID_TYPES: ReadonlySet<EnergyType> = new Set([
@@ -37,5 +37,32 @@ describe("sample lab cards", () => {
       expect(card.hp).toBeGreaterThan(0);
       expect(card.retreat).toBeGreaterThanOrEqual(0);
     }
+  });
+});
+
+describe("sample basic energies", () => {
+  it("ships at least one basic energy (CardBasicEnergy regression coverage)", () => {
+    expect(SAMPLE_BASIC_ENERGIES.length).toBeGreaterThan(0);
+  });
+
+  it("every basic energy declares a valid energy type", () => {
+    for (const card of SAMPLE_BASIC_ENERGIES) {
+      expect(VALID_TYPES.has(card.energyType)).toBe(true);
+      expect(card.name).toBeTruthy();
+      expect(card.artUrl).toBeTruthy();
+    }
+  });
+});
+
+describe("sample trainers", () => {
+  /*
+   * Special Energy cards route through CardTrainer (the SVG renderer does the
+   * same via enrich-card-data.ts setting trainerType="Special Energy"). The
+   * lab's trainer header swaps gradient + tag text based on this value, so
+   * we want at least one to keep that branch exercised.
+   */
+  it("includes at least one Special Energy regression card", () => {
+    const specials = SAMPLE_TRAINERS.filter(t => t.trainerType === "Special Energy");
+    expect(specials.length).toBeGreaterThan(0);
   });
 });

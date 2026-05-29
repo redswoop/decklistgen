@@ -71,6 +71,16 @@
   --color-trainer-banner-bg: linear-gradient(180deg, #1a1a1a 0%, #0a0a0c 100%);
   --color-trainer-type:      #f5e6c8;
 
+  /* Basic Energy pill — noir mutes the SVG template's red/silver to charcoal/cream.
+   * The signature serif title face carries the pill on its own; no stroke. */
+  --color-energy-pill-bg:      #1a1a1a;
+  --color-energy-pill-text:    #c9a96a;
+  --color-energy-pill-stroke:  transparent;
+  --width-energy-pill-stroke:  0;
+  --color-energy-pill-border:  #c9a96a;
+  --width-energy-pill-border:  2px;
+  --size-energy-pill-label:    26px;
+
   /* Stage plaque — noir inverts the default's pewter ramp: charcoal plate
    * with the warm cream accent the rest of the theme uses for foreground. */
   --stage-pill-height:         34px;
@@ -111,4 +121,13 @@
   --color-type-Fairy:     #a86585;
   --color-type-Dragon:    #a08030;
   --color-type-Colorless: #9a9a9a;
+}
+
+/*
+ * Special-energy header banner — noir leans cooler than the regular trainer
+ * banner to set the category apart without breaking the monochrome restraint.
+ */
+.theme-noir-fullart .trainer-header[data-trainer-type="Special Energy"] {
+  --color-trainer-banner-bg: linear-gradient(180deg, #232732 0%, #0e1118 100%);
+  --color-trainer-type:      #8ec8c8;
 }

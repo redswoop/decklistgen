@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import CardFullArt from "./cards/CardFullArt.vue";
-import CardTrainer from "./cards/CardTrainer.vue";
-import { SAMPLE_CARDS, SAMPLE_TRAINERS } from "./sample-cards";
+import CardFullArt    from "./cards/CardFullArt.vue";
+import CardTrainer    from "./cards/CardTrainer.vue";
+import CardBasicEnergy from "./cards/CardBasicEnergy.vue";
+import { SAMPLE_CARDS, SAMPLE_TRAINERS, SAMPLE_BASIC_ENERGIES } from "./sample-cards";
 
 const THEMES = [
   { id: "default-fullart", label: "Default" },
@@ -112,7 +113,7 @@ const cardHPx = `${CARD_H}px`;
 
       <button class="print-btn" type="button" @click="openPrintView">Print…</button>
 
-      <span class="count">{{ SAMPLE_TRAINERS.length + SAMPLE_CARDS.length }} cards</span>
+      <span class="count">{{ SAMPLE_TRAINERS.length + SAMPLE_CARDS.length + SAMPLE_BASIC_ENERGIES.length }} cards</span>
     </header>
 
     <!--
@@ -143,6 +144,15 @@ const cardHPx = `${CARD_H}px`;
           <CardFullArt :card="c" />
         </div>
       </div>
+      <div
+        v-for="(c, i) in SAMPLE_BASIC_ENERGIES"
+        :key="`e-${i}`"
+        class="print-cell"
+      >
+        <div class="print-scaler" :style="printScalerStyle">
+          <CardBasicEnergy :card="c" />
+        </div>
+      </div>
     </section>
 
     <section
@@ -168,6 +178,16 @@ const cardHPx = `${CARD_H}px`;
       >
         <div class="card-scaler" :style="scalerStyle">
           <CardFullArt :card="c" />
+        </div>
+      </div>
+      <div
+        v-for="(c, i) in SAMPLE_BASIC_ENERGIES"
+        :key="`e-${i}`"
+        class="card-frame"
+        :style="frameStyle"
+      >
+        <div class="card-scaler" :style="scalerStyle">
+          <CardBasicEnergy :card="c" />
         </div>
       </div>
     </section>

@@ -1,15 +1,24 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import type { TrainerType } from "../../types";
 
-defineProps<{
+const props = defineProps<{
   trainerType: TrainerType;
 }>();
+
+/*
+ * Right-hand tag: regular trainers ("Supporter" / "Item" / "Tool" / "Stadium")
+ * say TRAINER; special-energy cards route through this same component (the
+ * SVG renderer does the same — enrich-card-data.ts sets trainerType="Special
+ * Energy" for category=Energy with effect) but get an ENERGY tag instead.
+ */
+const tagText = computed(() => props.trainerType === "Special Energy" ? "ENERGY" : "TRAINER");
 </script>
 
 <template>
-  <div class="trainer-header">
+  <div class="trainer-header" :data-trainer-type="trainerType">
     <span class="trainer-type">{{ trainerType }}</span>
-    <span class="trainer-tag">TRAINER</span>
+    <span class="trainer-tag">{{ tagText }}</span>
   </div>
 </template>
 
