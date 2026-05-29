@@ -75,8 +75,9 @@ defineProps<{
   transform-origin: right center;
   font-size: 24px;
   font-style: normal;
-  color: #ffffff;
-  opacity: 0.85;
+  /* fill-alpha rather than element opacity so the 2.5px black stroke stays
+   * full strength on the metallic banner. */
+  color: rgb(255 255 255 / 0.85);
   letter-spacing: 0.04em;
 }
 </style>

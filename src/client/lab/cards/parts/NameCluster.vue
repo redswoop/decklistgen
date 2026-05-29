@@ -49,15 +49,19 @@ const logoSrc = computed(() => props.suffix ? LOGO_FILES[props.suffix] : undefin
 
 /* Evolves-from uses the infobar (Frutiger) face and a stroke, matching
  * fontFamily="infobar" + strokeWidth=2.5 on the evolves-from text node in
- * data/templates/pokemon-fullart.json. Sizing comes from $evolvesFrom.fullart. */
+ * data/templates/pokemon-fullart.json. Sizing comes from $evolvesFrom.fullart.
+ *
+ * Legibility note: the "secondary" feel comes from fading the *fill* only
+ * (rgb alpha on color). Element-level `opacity` would also fade the black
+ * stroke, collapsing the contrast that keeps the text readable over busy
+ * artwork. The stroke and shadow stay full-strength on purpose. */
 .evolves-from {
   font-family: var(--font-infobar);
   font-weight: 700;
   font-size: var(--size-evolves-from);
-  color: var(--color-name);
-  opacity: var(--opacity-secondary);
+  color: rgb(255 255 255 / 0.85);
   -webkit-text-stroke: var(--width-name-stroke) var(--color-name-stroke);
-  text-shadow: var(--shadow-title);
+  text-shadow: 0 2px 6px rgb(0 0 0 / 0.9);
   paint-order: stroke fill;
   line-height: 1;
   white-space: nowrap;

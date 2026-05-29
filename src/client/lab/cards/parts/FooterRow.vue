@@ -73,9 +73,13 @@ defineProps<{
   gap: 4px;
 }
 
+/* Stroked text uses fill-alpha for the "secondary/tertiary" feel rather than
+ * element-level opacity, so the black stroke stays full strength and the
+ * label remains legible if the glass panel ever clears off. Same technique
+ * as .evolves-from in NameCluster.vue. */
 .label {
   font-size: var(--size-label);
-  opacity: var(--opacity-secondary);
+  color: rgb(255 255 255 / 0.85);
   -webkit-text-stroke: var(--width-name-stroke) var(--color-name-stroke);
   text-shadow: var(--shadow-title);
   paint-order: stroke fill;
@@ -89,7 +93,7 @@ defineProps<{
 }
 
 .value.muted {
-  opacity: var(--opacity-tertiary);
+  color: rgb(255 255 255 / 0.6);
 }
 
 .retreat-dots {
