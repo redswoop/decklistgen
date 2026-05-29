@@ -353,6 +353,7 @@ export const api = {
       promptRule: string | null;
       promptText: string | null;
       promptSkip: boolean;
+      card: Card | null;
     }>>(resp);
   },
 

@@ -14,6 +14,7 @@ import { useQuery } from "@tanstack/vue-query";
 import { api } from "../lib/client.js";
 import { useDecklist } from "./useDecklist.js";
 import { useGallerySlotOverrides } from "./useGallerySlotOverrides.js";
+import type { Card } from "../../shared/types/card.js";
 
 export interface GalleryCard {
   label: string;
@@ -34,6 +35,9 @@ export interface GalleryCard {
   promptRule: string | null;
   promptText: string | null;
   promptSkip: boolean;
+  /** Full enriched Card from the server's in-memory store. Used by the CSS
+   *  card renderer; null when the store hasn't loaded the card's set. */
+  card: Card | null;
 }
 
 export type CardSource = "deck" | "reference";

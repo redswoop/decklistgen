@@ -64,6 +64,8 @@ function badgesFor(card: GalleryCardWithSource): ThumbBadge[] {
       v-for="card in cards"
       :key="card.cardId"
       :card-id="card.cardId"
+      :card="card.card"
+      :has-clean="card.hasClean"
       :cache-bust="svgRevFor(card.cardId)"
       :width="thumbWidth"
       :label="card.label"

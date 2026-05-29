@@ -113,6 +113,10 @@ function buildGalleryCard(cardId: string, label = "") {
     promptRule: promptResult?.ruleName ?? null,
     promptText: promptResult?.prompt ?? null,
     promptSkip: promptResult?.skip ?? false,
+    // Full enriched Card from the in-memory store. Lets the client mount the
+    // CSS card renderer without a second per-card fetch. May be null if the
+    // store hasn't loaded this card's set (cached-JSON-only path).
+    card: storeCard ?? null,
   };
 }
 

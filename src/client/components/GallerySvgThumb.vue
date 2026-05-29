@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import type { Card } from "../../shared/types/card.js";
 import { getSvg } from "../composables/useGallerySvgCache.js";
+import { api } from "../lib/client.js";
+import CssCardRenderer from "./CssCardRenderer.vue";
 
 type BadgeVariant = "standard" | "fullart" | "clean" | "expanded" | "missing" | "reference";
 interface Badge { text: string; variant: BadgeVariant }
@@ -11,6 +14,12 @@ const props = withDefaults(defineProps<{
   cacheBust: number;
   /** Pixel width of the SVG box. Height is 96/68 of width (card aspect). */
   width?: number;
+  /** Full Card for the CSS renderer. When this and `hasClean` are both set
+   *  the thumb mounts CssCardRenderer over the cached clean PNG; otherwise it
+   *  falls back to the server SVG render. */
+  card?: Card | null;
+  /** True when a cleaned-art PNG exists in cache (clean or composite). */
+  hasClean?: boolean;
   label?: string;
   name?: string;
   /** Optional metadata line under the name (e.g. "Pokemon | Basic | HP 60"). */
@@ -39,6 +48,8 @@ const props = withDefaults(defineProps<{
   hasOverride?: boolean;
 }>(), {
   width: 230,
+  card: null,
+  hasClean: false,
   label: "",
   name: "",
   metaLine: "",
@@ -59,13 +70,29 @@ const frameHeight = computed(() =>
   Math.round(props.width * (props.physical ? 1.4 : 1.412)),
 );
 
+// CSS renderer is the preferred path for the cards tab whenever a clean image
+// exists and the server handed us the full Card. SVG fetch is only kicked off
+// when we'd otherwise render nothing (no clean cached, or no Card).
+const useCss = computed(() => !!props.card && props.hasClean);
+
+const cleanArtUrl = computed(() =>
+  props.hasClean
+    ? api.pokeproxyImageUrl(props.cardId, "clean", props.cacheBust)
+    : null,
+);
+
 watch(
-  () => [props.cardId, props.cacheBust] as const,
-  async ([cardId, bust]) => {
+  () => [props.cardId, props.cacheBust, useCss.value] as const,
+  async ([cardId, bust, css]) => {
+    if (css) {
+      // CSS path owns rendering; no SVG fetch needed.
+      svgHtml.value = "";
+      return;
+    }
     svgHtml.value = "";
     const html = await getSvg(cardId, bust);
     // Stale-response guard: only commit if the props haven't changed since.
-    if (props.cardId === cardId && props.cacheBust === bust) {
+    if (props.cardId === cardId && props.cacheBust === bust && !useCss.value) {
       svgHtml.value = html;
     }
   },
@@ -99,12 +126,18 @@ watch(
       class="svg-thumb-frame"
       :style="{ width: `${width}px`, height: `${frameHeight}px` }"
     >
+      <CssCardRenderer
+        v-if="useCss && card && cleanArtUrl"
+        :card="card"
+        :art-url="cleanArtUrl"
+        class="svg-thumb-css"
+      />
       <div
-        v-if="svgHtml"
+        v-else-if="svgHtml"
         class="svg-thumb-svg"
         v-html="svgHtml"
       />
-      <div v-else class="svg-thumb-placeholder">Loading SVG…</div>
+      <div v-else class="svg-thumb-placeholder">Loading…</div>
       <div v-if="loading" class="svg-thumb-overlay">
         <div class="svg-thumb-spinner" />
       </div>
@@ -232,6 +265,11 @@ watch(
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.svg-thumb-css {
+  width: 100%;
+  height: 100%;
 }
 
 .svg-thumb-placeholder {
