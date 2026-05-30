@@ -63,10 +63,10 @@ const error = ref("");
 const ready = ref(false);
 
 /**
- * Pick the art URL for a print slot. With `art=original`, always use the
- * TCGdex artwork (the renderer composes chrome over it). Otherwise prefer
- * the cached `clean` PNG (no SVG chrome baked in), falling back to original
- * if no clean exists so a fresh deck still prints something.
+ * Pick the art URL for a print slot. With `art=original`, use the full TCGdex
+ * card scan (printed as a plain image — no CSS chrome). Otherwise prefer the
+ * cached `clean` PNG (no SVG chrome baked in), falling back to original if no
+ * clean exists so a fresh deck still prints something.
  */
 async function resolveArtUrl(card: Card): Promise<string> {
   if (useOriginalArt) {
@@ -213,7 +213,9 @@ function installPageRule() {
         :key="`${e.card.id}-${i}`"
         class="print-cell"
       >
-        <div class="print-scaler" :style="printScalerStyle">
+        <!-- Originals print as the plain full-card scan; no CSS chrome overlay. -->
+        <img v-if="useOriginalArt" class="print-original" :src="e.artUrl" alt="" />
+        <div v-else class="print-scaler" :style="printScalerStyle">
           <CssCardRenderer
             :card="e.card"
             :detail="e.detail"
@@ -281,6 +283,13 @@ html, body {
   width: 750px;
   height: 1050px;
   /* transform set inline via printScalerStyle */
+}
+
+.print-original {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 @media print {
