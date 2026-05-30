@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from "vue";
 import { api } from "../lib/client.js";
 import type { AdminUser, MagicLink, InviteCode } from "../../shared/types/user.js";
+import SyncDecksPanel from "./SyncDecksPanel.vue";
 
 const emit = defineEmits<{
   (e: "close"): void;
@@ -36,7 +37,7 @@ const copiedCode = ref<string | null>(null);
 const confirmDeleteUser = ref<string | null>(null);
 const copiedToken = ref<string | null>(null);
 
-const activeTab = ref<"users" | "invites" | "codes">("users");
+const activeTab = ref<"users" | "invites" | "codes" | "sync">("users");
 
 async function loadUsers() {
   usersLoading.value = true;
@@ -200,6 +201,10 @@ function formatDate(iso: string): string {
             :class="['tab', { active: activeTab === 'invites' }]"
             @click="activeTab = 'invites'"
           >Magic Links</button>
+          <button
+            :class="['tab', { active: activeTab === 'sync' }]"
+            @click="activeTab = 'sync'"
+          >Sync</button>
         </div>
         <div class="header-spacer" />
         <button class="close-btn" @click="emit('close')">&times;</button>
@@ -429,6 +434,11 @@ function formatDate(iso: string): string {
           </tbody>
         </table>
         <div v-else class="empty-state">No magic links yet.</div>
+      </div>
+
+      <!-- Sync Tab -->
+      <div v-if="activeTab === 'sync'" class="admin-body">
+        <SyncDecksPanel />
       </div>
     </div>
   </div>

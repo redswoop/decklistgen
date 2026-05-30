@@ -11,6 +11,7 @@ import proxyRouter from "./routes/proxy.js";
 import galleryRouter from "./routes/gallery.js";
 import { authRouter } from "./routes/auth.js";
 import { adminRouter } from "./routes/admin.js";
+import adminSyncRouter from "./routes/admin-sync.js";
 import { publicDecksRouter } from "./routes/public-decks.js";
 import mcpRouter from "./routes/mcp.js";
 import { sessionMiddleware } from "./middleware/auth.js";
@@ -77,6 +78,7 @@ app.use(
 // API routes
 app.route("/api/auth", authRouter);
 app.route("/api/admin", adminRouter);
+app.route("/api/admin/sync", adminSyncRouter);
 app.route("/api/public/decks", publicDecksRouter);
 app.route("/api/sets", setsRouter);
 app.route("/api/cards", cardsRouter);
