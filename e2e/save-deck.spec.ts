@@ -1,25 +1,15 @@
 import { test, expect } from "@playwright/test";
-
-const TEST_EMAIL = "claude@test.local";
-const TEST_PASSWORD = "playwright-test-2024";
+import { login } from "./helpers/auth";
 
 test.describe("Deck Save Flow", () => {
   test.beforeEach(async ({ page }) => {
+    await login(page);
     // Clear localStorage to start fresh (no stale deckId)
-    await page.goto("/");
     await page.evaluate(() => {
       localStorage.removeItem("decklistgen-decklist");
       localStorage.removeItem("decklistgen-deck-meta");
     });
     await page.reload();
-
-    // Log in
-    await page.waitForSelector(".auth-form", { timeout: 5000 });
-    await page.locator('input[type="email"]').fill(TEST_EMAIL);
-    await page.locator('input[type="password"]').fill(TEST_PASSWORD);
-    await page.locator(".auth-submit").click();
-
-    // Wait for main app to load
     await page.waitForSelector(".app-nav", { timeout: 10000 });
   });
 
@@ -32,17 +22,17 @@ test.describe("Deck Save Flow", () => {
     await eraSelect.selectOption("sv");
 
     // Wait for cards to load
-    await page.waitForSelector(".card-tile", { timeout: 15000 });
+    await page.waitForSelector(".card-thumb", { timeout: 15000 });
 
     // Add a few cards to the deck using the + button
-    const addButtons = page.locator(".card-tile .card-add-btn");
+    const addButtons = page.locator(".card-thumb .card-thumb-action-add");
     const firstAdd = addButtons.first();
     // Hover over the first card to reveal the + button
-    await page.locator(".card-tile").first().hover();
+    await page.locator(".card-thumb").first().hover();
     await firstAdd.click({ force: true });
 
     // Add a second different card
-    await page.locator(".card-tile").nth(1).hover();
+    await page.locator(".card-thumb").nth(1).hover();
     await addButtons.nth(1).click({ force: true });
 
     // Verify cards appeared in the decklist panel
@@ -84,11 +74,11 @@ test.describe("Deck Save Flow", () => {
     await page.locator(".app-nav-tab").filter({ hasText: "Browse" }).click();
     const eraSelect = page.locator("select").first();
     await eraSelect.selectOption("sv");
-    await page.waitForSelector(".card-tile", { timeout: 15000 });
+    await page.waitForSelector(".card-thumb", { timeout: 15000 });
 
     // Add a card
-    await page.locator(".card-tile").first().hover();
-    await page.locator(".card-tile .card-add-btn").first().click({ force: true });
+    await page.locator(".card-thumb").first().hover();
+    await page.locator(".card-thumb .card-thumb-action-add").first().click({ force: true });
 
     // Save button should be enabled
     const saveBtn = page.locator(".decklist-panel .btn-save");
@@ -100,13 +90,13 @@ test.describe("Deck Save Flow", () => {
     await page.locator(".app-nav-tab").filter({ hasText: "Browse" }).click();
     const eraSelect = page.locator("select").first();
     await eraSelect.selectOption("sv");
-    await page.waitForSelector(".card-tile", { timeout: 15000 });
+    await page.waitForSelector(".card-thumb", { timeout: 15000 });
 
     // Add cards
-    await page.locator(".card-tile").first().hover();
-    await page.locator(".card-tile .card-add-btn").first().click({ force: true });
-    await page.locator(".card-tile").nth(1).hover();
-    await page.locator(".card-tile .card-add-btn").nth(1).click({ force: true });
+    await page.locator(".card-thumb").first().hover();
+    await page.locator(".card-thumb .card-thumb-action-add").first().click({ force: true });
+    await page.locator(".card-thumb").nth(1).hover();
+    await page.locator(".card-thumb .card-thumb-action-add").nth(1).click({ force: true });
 
     // Save the deck
     const saveBtn = page.locator(".decklist-panel .btn-save");
@@ -120,8 +110,8 @@ test.describe("Deck Save Flow", () => {
     await page.locator(".decklist-panel .btn-clear").click();
 
     // Add new cards
-    await page.locator(".card-tile").nth(2).hover();
-    await page.locator(".card-tile .card-add-btn").nth(2).click({ force: true });
+    await page.locator(".card-thumb").nth(2).hover();
+    await page.locator(".card-thumb .card-thumb-action-add").nth(2).click({ force: true });
 
     // Save button should say "Save As..." and be enabled (new deck)
     await expect(saveBtn).toBeEnabled();

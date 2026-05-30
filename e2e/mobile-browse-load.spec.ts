@@ -1,20 +1,16 @@
 import { test, expect } from "@playwright/test";
+import { login as apiLogin } from "./helpers/auth";
 
-const TEST_EMAIL = "claude@test.local";
-const TEST_PASSWORD = "playwright-test-2024";
 const MOBILE = { width: 375, height: 812 };
 
 async function login(page: import("@playwright/test").Page) {
-  await page.goto("/");
+  await apiLogin(page);
   await page.evaluate(() => {
     localStorage.removeItem("decklistgen-layout");
     localStorage.removeItem("decklistgen-decklist");
     localStorage.removeItem("decklistgen-deck-meta");
   });
-  await page.waitForSelector(".auth-form", { timeout: 5000 });
-  await page.locator('input[type="email"]').fill(TEST_EMAIL);
-  await page.locator('input[type="password"]').fill(TEST_PASSWORD);
-  await page.locator(".auth-submit").click();
+  await page.reload();
   await page.waitForSelector(".app-nav", { timeout: 10000 });
 }
 

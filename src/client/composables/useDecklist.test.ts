@@ -77,6 +77,9 @@ describe("useDecklist undo/redo", () => {
     deck.removeCard("test", "1");
     expect(deck.items.value.length).toBe(1);
     expect(deck.items.value[0].count).toBe(0);
+    // getDeckCount reports the zero — consumers (grid render, header label)
+    // are responsible for filtering count===0 entries from their display.
+    expect(deck.getDeckCount("test", "1")).toBe(0);
   });
 
   it("removeCard on a 0-count entry is a no-op", () => {

@@ -1,23 +1,17 @@
 import { test, expect } from "@playwright/test";
-
-const TEST_EMAIL = "claude@test.local";
-const TEST_PASSWORD = "playwright-test-2024";
+import { login as apiLogin } from "./helpers/auth";
 
 const MOBILE = { width: 375, height: 812 };
 const DESKTOP = { width: 1280, height: 800 };
 
 async function login(page: import("@playwright/test").Page) {
-  await page.goto("/");
+  await apiLogin(page);
   await page.evaluate(() => {
     localStorage.removeItem("decklistgen-layout");
     localStorage.removeItem("decklistgen-decklist");
     localStorage.removeItem("decklistgen-deck-meta");
   });
   await page.reload();
-  await page.waitForSelector(".auth-form", { timeout: 5000 });
-  await page.locator('input[type="email"]').fill(TEST_EMAIL);
-  await page.locator('input[type="password"]').fill(TEST_PASSWORD);
-  await page.locator(".auth-submit").click();
   await page.waitForSelector(".app-nav", { timeout: 10000 });
 }
 
@@ -107,7 +101,7 @@ test.describe("Mobile Layout", () => {
     await page.locator(".mobile-backdrop").click();
 
     // Wait for cards
-    await page.waitForSelector(".card-tile", { timeout: 15000 });
+    await page.waitForSelector(".card-thumb", { timeout: 15000 });
 
     // Card grid should be approximately full width
     const center = page.locator(".layout-center");
@@ -122,10 +116,10 @@ test.describe("Mobile Layout", () => {
     await page.locator(".mobile-nav-btn").first().click();
     await page.locator(".mobile-slide-left select").first().selectOption("sv");
     await page.locator(".mobile-backdrop").click();
-    await page.waitForSelector(".card-tile", { timeout: 15000 });
+    await page.waitForSelector(".card-thumb", { timeout: 15000 });
 
     // The add button should be visible without hovering
-    const addBtn = page.locator(".card-add-btn").first();
+    const addBtn = page.locator(".card-thumb-action-add").first();
     await expect(addBtn).toBeVisible();
     const opacity = await addBtn.evaluate((el) => getComputedStyle(el).opacity);
     expect(parseFloat(opacity)).toBeGreaterThan(0.5);

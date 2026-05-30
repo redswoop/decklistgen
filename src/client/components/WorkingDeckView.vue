@@ -35,20 +35,24 @@ function displayCard(card: Card, artCard?: Card): Card {
   return { ...card, imageBase: artCard.imageBase };
 }
 
+// Zero-count items remain in the underlying list so undo can restore them,
+// but they shouldn't render in the grid or count toward the unique total.
+const visibleItems = computed(() => items.value.filter((i) => i.count > 0));
+
 const deckCards = computed(() =>
-  items.value.map((i) => displayCard(i.card, i.artCard))
+  visibleItems.value.map((i) => displayCard(i.card, i.artCard))
 );
 
 const cardCounts = computed(() => {
   const counts: Record<string, number> = {};
-  for (const item of items.value) {
+  for (const item of visibleItems.value) {
     counts[item.card.id] = item.count;
   }
   return counts;
 });
 
 const headerLabel = computed(() => {
-  return `${items.value.length} unique · ${totalCards.value}/60 total`;
+  return `${visibleItems.value.length} unique · ${totalCards.value}/60 total`;
 });
 
 const showBeautify = ref(false);

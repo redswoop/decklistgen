@@ -99,7 +99,7 @@ const totalCards = computed(() =>
 const headerLabel = computed(() => {
   if (!deck.value) return "";
   if (props.isWorkingDeckSource && props.workingDeckIsDirty) {
-    const unique = workingItems.value.length;
+    const unique = workingItems.value.filter((i) => i.count > 0).length;
     return `${unique} unique · ${workingTotalCards.value}/60 total`;
   }
   return `${deck.value.cards.length} unique · ${totalCards.value}/60 total`;

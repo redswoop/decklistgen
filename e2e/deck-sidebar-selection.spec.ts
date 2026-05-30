@@ -1,22 +1,16 @@
 import { test, expect, type Page } from "@playwright/test";
-
-const TEST_EMAIL = "claude@test.local";
-const TEST_PASSWORD = "playwright-test-2024";
+import { login as apiLogin } from "./helpers/auth";
 
 const DECK_A = "E2E Sidebar Deck A";
 const DECK_B = "E2E Sidebar Deck B";
 
 async function login(page: Page) {
-  await page.goto("/");
+  await apiLogin(page);
   await page.evaluate(() => {
     localStorage.removeItem("decklistgen-decklist");
     localStorage.removeItem("decklistgen-deck-meta");
   });
   await page.reload();
-  await page.waitForSelector(".auth-form", { timeout: 5000 });
-  await page.locator('input[type="email"]').fill(TEST_EMAIL);
-  await page.locator('input[type="password"]').fill(TEST_PASSWORD);
-  await page.locator(".auth-submit").click();
   await page.waitForSelector(".app-nav", { timeout: 10000 });
 }
 
