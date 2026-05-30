@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import DeleteDeckDialog from "./DeleteDeckDialog.vue";
 import { useDecks } from "../composables/useDecks.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useAuth } from "../composables/useAuth.js";
@@ -186,11 +187,9 @@ async function confirmDelete() {
       </div>
     </div>
 
-    <ConfirmDialog
+    <DeleteDeckDialog
       v-if="deleteTarget"
-      title="Delete Deck"
-      :message="`Delete &quot;${deleteTarget.name}&quot;? This cannot be undone.`"
-      confirm-label="Delete"
+      :deck-name="deleteTarget.name"
       @confirm="confirmDelete"
       @close="deleteTarget = null"
     />

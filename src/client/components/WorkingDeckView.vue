@@ -5,6 +5,7 @@ import BeautifyDialog from "./BeautifyDialog.vue";
 import BatchGenerateDialog from "./BatchGenerateDialog.vue";
 import PrintDialog from "./PrintDialog.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import DeleteDeckDialog from "./DeleteDeckDialog.vue";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
 import { useAuth } from "../composables/useAuth.js";
@@ -26,7 +27,7 @@ const {
   toDeckCards, loadSavedDeck,
 } = useDecklist();
 
-const { fetchDeck } = useDecks();
+const { fetchDeck, deleteDeck } = useDecks();
 const { isLoggedIn } = useAuth();
 
 /** If an art override is set, return a card with the art card's imageBase for display */
@@ -60,6 +61,21 @@ const showBatchGenerate = ref(false);
 const showPrintDialog = ref(false);
 const showSaveBeforePrint = ref(false);
 const showSweepConfirm = ref(false);
+const showDeleteConfirm = ref(false);
+
+const deleteTooltip = computed(() => {
+  if (!isLoggedIn.value) return "Sign in to delete saved decks";
+  if (!currentDeckId.value) return "Save the deck first to delete it";
+  return "Delete this saved deck";
+});
+
+async function handleDelete() {
+  if (!currentDeckId.value) return;
+  const id = currentDeckId.value;
+  showDeleteConfirm.value = false;
+  await deleteDeck(id);
+  clear();
+}
 
 function handleSweep() {
   sweepZeroCount();
@@ -136,6 +152,12 @@ async function handleBeautifyUpdated() {
             :title="hasZeroCount ? 'Remove cards with 0 copies from the deck' : 'No cards with 0 copies to sweep'"
           >Sweep</button>
           <button class="dm-action-btn dm-action-btn-danger" @click="clear()" :disabled="items.length === 0">Clear</button>
+          <button
+            class="dm-action-btn dm-action-btn-danger"
+            :disabled="!currentDeckId || !isLoggedIn"
+            :title="deleteTooltip"
+            @click="showDeleteConfirm = true"
+          >Delete</button>
         </div>
       </template>
     </CardGrid>
@@ -178,6 +200,13 @@ async function handleBeautifyUpdated() {
       confirm-label="Sweep"
       @confirm="handleSweep"
       @close="showSweepConfirm = false"
+    />
+
+    <DeleteDeckDialog
+      v-if="showDeleteConfirm && currentDeckId"
+      :deck-name="currentDeckName || 'Untitled Deck'"
+      @confirm="handleDelete"
+      @close="showDeleteConfirm = false"
     />
   </div>
 </template>

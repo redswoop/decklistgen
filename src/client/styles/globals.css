@@ -1157,6 +1157,37 @@ body {
   line-height: 1.5;
 }
 
+.delete-deck-dialog {
+  width: 420px;
+}
+
+.delete-deck-dialog-instruction {
+  margin-top: 14px;
+  margin-bottom: 6px;
+  color: #e0e0e0;
+}
+
+.delete-deck-dialog-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: #1a1a2e;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 13px;
+  outline: none;
+}
+
+.delete-deck-dialog-input:focus {
+  border-color: #e94560;
+}
+
+.dialog-actions .btn-danger:disabled {
+  background: #5a2230;
+  color: #a08090;
+  cursor: not-allowed;
+}
+
 /* ═══ CardThumb — shared card image with overlay controls ═══ */
 
 .card-thumb {
@@ -4134,7 +4165,6 @@ body {
   background: #16213e;
   border: 1px solid #0f3460;
   border-radius: 10px;
-  overflow: hidden;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
@@ -4155,6 +4185,7 @@ body {
   aspect-ratio: 5 / 7;
   background: #0f3460;
   overflow: hidden;
+  border-radius: 9px 9px 0 0;
 }
 
 .deck-gallery-card-art img {
@@ -4205,6 +4236,7 @@ body {
   align-items: center;
   gap: 4px;
   min-height: 36px;
+  border-radius: 0 0 9px 9px;
 }
 
 .deck-gallery-card-name {
