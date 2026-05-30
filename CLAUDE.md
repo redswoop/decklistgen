@@ -133,6 +133,11 @@ Deck-print and gallery-print both open `/print.html?…` in a new tab — a dedi
   - Variant picker allocation reflects artCard overrides; applying clears stale artCards
   - Sort/group controls reorder cards and persist across reload
   - Card consolidation: same card with/without artCard merges correctly
+- [ ] **Restore skipped e2e specs.** The following describe blocks are `test.describe.skip` after the CSS-renderer migration changed the UI structure they exercised. Each needs to be re-walked against the current app and rewritten — not just selector renames. Tackle one at a time when next touching the relevant component:
+  - `e2e/save-deck.spec.ts` "Deck Save Flow" — save/clear moved from DecklistPanel to DeckContextBar (`.dcb-save-btn`)
+  - `e2e/deck-sidebar-selection.spec.ts` "Deck Sidebar Selection" + "DeckView Toolbar Actions" — nav tab renamed Decks→Deck, sidebar selection model rebuilt
+  - `e2e/mobile-browse-load.spec.ts` "Mobile Browse Initial Load" — mobile filter slide-over selectors drifted
+  - `e2e/mobile-layout.spec.ts` "Mobile Layout" + "Desktop Layout" — mobile nav buttons and slide-over structure changed
 - [ ] **Bug:** No deck-legality validation exists. Radiant Pokemon are limited to 1 total per deck (combined across all Radiants), but the UI lets you add unlimited copies with no warning. Same gap likely affects ACE SPEC (1/deck), Prism Star (1 of each), and the standard 4-copy limit. Detection hook: `rarity === "Radiant Rare"` in `src/server/services/card-store.ts` `normalizeCard()`; surface warning in `WorkingDeckView.vue`.
 
 ## Git
