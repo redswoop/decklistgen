@@ -84,3 +84,34 @@ describe("GET /cards/:id/detail", () => {
     expect(detail.imageBase).toBeDefined();
   });
 });
+
+describe("GET /cards/evolutions", () => {
+  beforeAll(async () => {
+    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(join(CACHE_DIR, `${MOCK_CARD_ID}.json`), JSON.stringify(MOCK_CARD_JSON));
+    await loadSet("CEL");
+  });
+
+  test("returns an empty array for no ids", async () => {
+    const res = await app.request("/cards/evolutions");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ evolutions: [] });
+  });
+
+  test("resolves a Basic to a single-element chain", async () => {
+    const res = await app.request(`/cards/evolutions?ids=${MOCK_CARD_ID}`);
+    expect(res.status).toBe(200);
+    const { evolutions } = await res.json();
+    expect(evolutions).toHaveLength(1);
+    expect(evolutions[0].id).toBe(MOCK_CARD_ID);
+    expect(evolutions[0].stage).toBe("Basic");
+    expect(evolutions[0].chain).toEqual(["Ho-Oh"]);
+  });
+
+  test("skips invalid and unknown ids", async () => {
+    const res = await app.request(`/cards/evolutions?ids=bad%20id,nonexistent-999,${MOCK_CARD_ID}`);
+    const { evolutions } = await res.json();
+    expect(evolutions).toHaveLength(1);
+    expect(evolutions[0].id).toBe(MOCK_CARD_ID);
+  });
+});

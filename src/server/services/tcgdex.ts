@@ -49,6 +49,24 @@ export async function fetchCard(tcgdexId: string, localId: string): Promise<Tcgd
   throw new Error(`Card not found: ${tcgdexId}-${localId}`);
 }
 
+/**
+ * Resolve a card's `evolveFrom` by *name* (for cards not in any loaded set —
+ * e.g. a Stage 1 a Rare-Candy deck skips). Hits TCGdex's name search, then the
+ * matching card's full data. Both calls are disk-cached, so this is a one-time
+ * network hit per unknown name. Returns undefined if nothing matches.
+ */
+export async function fetchCardEvolveFromByName(name: string): Promise<string | undefined> {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  const list = await cachedFetch<Array<{ id: string; name: string }>>(
+    `name-${slug}`,
+    `${BASE_URL}/cards?name=${encodeURIComponent(name)}`,
+  );
+  const match = list.find((c) => c.name.toLowerCase() === name.toLowerCase()) ?? list[0];
+  if (!match) return undefined;
+  const full = await cachedFetch<TcgdexCard>(match.id, `${BASE_URL}/cards/${match.id}`);
+  return (full.evolveFrom as string) ?? undefined;
+}
+
 /** Fetch all cards in a set (full data for each) */
 export async function fetchSetCards(tcgdexId: string): Promise<TcgdexCard[]> {
   const set = await fetchSet(tcgdexId);

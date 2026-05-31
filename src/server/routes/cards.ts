@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAllCards, getCard, getFilterOptions, getVariants, getVariantGroups } from "../services/card-store.js";
 import { ensureCardLoaded, getCardDetail } from "../services/card-detail.js";
+import { resolveEvolutionInfo } from "../services/evolution-chain.js";
 import { applyFilters } from "../../shared/utils/filter-cards.js";
 import type { CardFilters, SpecialAttribute } from "../../shared/types/filters.js";
 import { logAction, getClientIp } from "../services/logger.js";
@@ -67,6 +68,21 @@ app.get("/variant-groups", (c) => {
 
 app.get("/filters", (c) => {
   return c.json(getFilterOptions());
+});
+
+// Batch evolution info for the setup simulator. Public; resolves each card's
+// full name-chain (basic → final). Registered before "/:id" so it isn't
+// swallowed by the param route.
+app.get("/evolutions", async (c) => {
+  const idsParam = c.req.query("ids") ?? "";
+  const ids = idsParam.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 60);
+  const evolutions: Array<Awaited<ReturnType<typeof resolveEvolutionInfo>>> = [];
+  for (const id of ids) {
+    if (!VALID_CARD_ID.test(id)) continue;
+    const info = await resolveEvolutionInfo(id);
+    if (info) evolutions.push(info);
+  }
+  return c.json({ evolutions });
 });
 
 app.get("/:id", async (c) => {

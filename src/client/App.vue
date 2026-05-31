@@ -6,6 +6,8 @@ import DeckContextPanel from "./components/DeckContextPanel.vue";
 import DeckContextBar from "./components/DeckContextBar.vue";
 import DeckGalleryView from "./components/DeckGalleryView.vue";
 import WorkingDeckView from "./components/WorkingDeckView.vue";
+import TestHandPanel from "./components/TestHandPanel.vue";
+import SetupSimPanel from "./components/SetupSimPanel.vue";
 import CardsView from "./components/CardsView.vue";
 import CardsFilterSidebar from "./components/CardsFilterSidebar.vue";
 import PublicDecksView from "./components/PublicDecksView.vue";
@@ -84,8 +86,8 @@ const saved = loadLayout();
 const { items, totalCards, toText, currentDeckName, currentDeckId, isDirty, toDeckCards, markSaved, importSource, importedAt, undo, redo } = useDecklist();
 const { createDeck, updateDeck } = useDecks();
 
-// Deck sub-view: gallery (home) vs build (working deck)
-const deckSubView = ref<'gallery' | 'build'>(currentDeckId.value ? 'build' : 'gallery');
+// Deck sub-view: gallery (home) vs build (working deck) vs test (hand simulator) vs setup (setup simulator)
+const deckSubView = ref<'gallery' | 'build' | 'test' | 'setup'>(currentDeckId.value ? 'build' : 'gallery');
 
 const showExport = ref(false);
 const showImport = ref(false);
@@ -523,6 +525,24 @@ function handleTabClick(tab: string) {
         @import="showImport = true"
         @go-to-gallery="handleGoToGallery"
       />
+      <div v-if="currentView === 'build'" class="deck-subview-toggle" role="group" aria-label="Deck sub-view">
+        <button
+          :class="['dst-btn', { active: deckSubView === 'build' }]"
+          @click="deckSubView = 'build'"
+        >Build</button>
+        <button
+          :class="['dst-btn', { active: deckSubView === 'test' }]"
+          :disabled="items.length === 0"
+          :title="items.length === 0 ? 'Add cards to test a hand' : 'Simulate opening hands and consistency'"
+          @click="deckSubView = 'test'"
+        >Test Hand</button>
+        <button
+          :class="['dst-btn', { active: deckSubView === 'setup' }]"
+          :disabled="items.length === 0"
+          :title="items.length === 0 ? 'Add cards to run the setup simulator' : 'Estimate which turn your key line sets up'"
+          @click="deckSubView = 'setup'"
+        >Setup Sim</button>
+      </div>
     </div>
 
     <!-- Main content area -->
@@ -594,6 +614,8 @@ function handleTabClick(tab: string) {
             @new-deck="handleGalleryNewDeck"
             @import="showImport = true"
           />
+          <TestHandPanel v-else-if="currentView === 'build' && deckSubView === 'test'" />
+          <SetupSimPanel v-else-if="currentView === 'build' && deckSubView === 'setup'" />
           <WorkingDeckView
             v-else
             @preview-card="handleDeckPreview"

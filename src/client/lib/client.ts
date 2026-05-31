@@ -169,6 +169,16 @@ export const api = {
     get<Card>(`/cards/${cardId}`),
   getCardDetail: (cardId: string) =>
     get<CardDetail>(`/cards/${cardId}/detail`),
+  getCardEvolutions: (ids: string[]) =>
+    get<{
+      evolutions: Array<{
+        id: string;
+        stage: string | null;
+        chain: string[];
+        effect?: string;
+        abilities?: Array<{ name: string; effect: string }>;
+      }>;
+    }>("/cards/evolutions", { ids: ids.join(",") }),
   getVariants: (cardId: string, byName = false) =>
     get<{ variants: Card[] }>(`/cards/${cardId}/variants`, byName ? { byName: "1" } : undefined),
   getCardTcgdex: (cardId: string) =>
