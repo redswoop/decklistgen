@@ -7,6 +7,7 @@ import {
 } from "./hand-sim.js";
 import { buildEvolutionLines, normStage, type EvolutionLine, type SimCard } from "./evolution-lines.js";
 import { classifyCard, classifyAbility, type SetupRule, type AbilityRule, type Capability, type PokeRestrict } from "./setup-rules.js";
+import { ciHalfWidth, meanCIHalfWidth } from "./sim-stats.js";
 
 /**
  * Monte Carlo "how many turns until this line sets up?" simulator.
@@ -26,6 +27,9 @@ import { classifyCard, classifyAbility, type SetupRule, type AbilityRule, type C
 
 export const DEFAULT_SETUP_ITERATIONS = 3000;
 export const DEFAULT_SETUP_TURNS = 5;
+export const DEFAULT_TARGET_CI = 0.015; // auto-scale until the headline 95% CI is ≤ ±1.5%
+export const DEFAULT_MAX_ITERATIONS = 12000;
+const AUTO_CHUNK = 1500;
 const HAND_SIZE = 7;
 const PRIZE_COUNT = 6;
 const MAX_LINE_BASICS_IN_PLAY = 2;
@@ -34,11 +38,16 @@ const MAX_BENCH = 5;
 export interface SetupSimOptions {
   deck: SimCard[];
   line: EvolutionLine;
+  /** Minimum / baseline games to run before the CI stop-check kicks in. */
   iterations?: number;
   maxTurns?: number;
   order?: PlayOrder;
   rng?: Rng;
   maxMulligans?: number;
+  /** Auto-scale: keep running until the headline 95% CI half-width is ≤ this (default ±1.5%). */
+  targetCI?: number;
+  /** Hard cap on games per line (default 12,000). */
+  maxIterations?: number;
 }
 
 export interface SetupSimResult {
@@ -54,6 +63,11 @@ export interface SetupSimResult {
   neverSetUpRate: number;
   mulliganRate: number;
   unsatisfiable: boolean;
+  /** 95% CI half-widths (sampling error) for display as `±`. */
+  cumulativeCI: number[];
+  avgSetupTurnCI: number;
+  neverSetUpCI: number;
+  mulliganCI: number;
 }
 
 // --- Game state --------------------------------------------------------------
@@ -738,11 +752,13 @@ function computeUnsatisfiable(deck: SimCard[], line: EvolutionLine): boolean {
 }
 
 export function runSetupSim(opts: SetupSimOptions): SetupSimResult {
-  const iterations = opts.iterations ?? DEFAULT_SETUP_ITERATIONS;
+  const minIters = opts.iterations ?? DEFAULT_SETUP_ITERATIONS;
   const maxTurns = opts.maxTurns ?? DEFAULT_SETUP_TURNS;
   const order = opts.order ?? "first";
   const rng = opts.rng ?? Math.random;
   const maxMulligans = opts.maxMulligans ?? DEFAULT_MAX_MULLIGANS;
+  const targetCI = opts.targetCI ?? DEFAULT_TARGET_CI;
+  const maxIterations = Math.max(minIters, opts.maxIterations ?? DEFAULT_MAX_ITERATIONS);
   const deck = opts.deck;
   const line = opts.line;
   const deckSize = deck.length;
@@ -751,33 +767,47 @@ export function runSetupSim(opts: SetupSimOptions): SetupSimResult {
   let never = 0;
   let mulligans = 0;
   let successSum = 0;
+  let successSqSum = 0;
   let successN = 0;
+  let total = 0;
 
   if (deckSize > 0) {
     const ctx = buildSimContext(deck, line); // classify the deck + pick engine lines once
-    for (let i = 0; i < iterations; i++) {
-      const { setupTurn, wasMulligan } = simulateOneGame(deck, line, rng, maxTurns, order, maxMulligans, ctx);
-      if (wasMulligan) mulligans++;
-      if (setupTurn === null) never++;
-      else {
-        perTurnCounts[setupTurn - 1]++;
-        successSum += setupTurn;
-        successN++;
+    // Run in chunks; stop once the headline (set-up-by-final-turn) CI is tight enough.
+    while (total < maxIterations) {
+      const chunk = Math.min(AUTO_CHUNK, maxIterations - total);
+      for (let i = 0; i < chunk; i++) {
+        const { setupTurn, wasMulligan } = simulateOneGame(deck, line, rng, maxTurns, order, maxMulligans, ctx);
+        if (wasMulligan) mulligans++;
+        if (setupTurn === null) never++;
+        else {
+          perTurnCounts[setupTurn - 1]++;
+          successSum += setupTurn;
+          successSqSum += setupTurn * setupTurn;
+          successN++;
+        }
       }
+      total += chunk;
+      if (total >= minIters && ciHalfWidth(successN, total) <= targetCI) break;
     }
   }
 
-  const n = deckSize > 0 ? iterations : 1;
-  const perTurnSetup = perTurnCounts.map((c) => c / n);
+  const n = total > 0 ? total : 1;
+  const perTurnSetup: number[] = [];
   const cumulativeSetup: number[] = [];
-  let running = 0;
-  for (const p of perTurnSetup) {
-    running += p;
-    cumulativeSetup.push(running);
+  const cumulativeCI: number[] = [];
+  let cumCount = 0;
+  for (const c of perTurnCounts) {
+    perTurnSetup.push(c / n);
+    cumCount += c;
+    cumulativeSetup.push(cumCount / n);
+    cumulativeCI.push(total > 0 ? ciHalfWidth(cumCount, total) : 0);
   }
 
+  const avgSetupTurn = successN > 0 ? successSum / successN : 0;
+
   return {
-    iterations: deckSize > 0 ? iterations : 0,
+    iterations: total,
     deckSize,
     order,
     maxTurns,
@@ -785,9 +815,13 @@ export function runSetupSim(opts: SetupSimOptions): SetupSimResult {
     lineLabel: line.label,
     perTurnSetup,
     cumulativeSetup,
-    avgSetupTurn: successN > 0 ? successSum / successN : 0,
-    neverSetUpRate: deckSize > 0 ? never / iterations : 1,
-    mulliganRate: deckSize > 0 ? mulligans / iterations : 0,
+    avgSetupTurn,
+    neverSetUpRate: total > 0 ? never / total : 1,
+    mulliganRate: total > 0 ? mulligans / total : 0,
     unsatisfiable: computeUnsatisfiable(deck, line),
+    cumulativeCI,
+    avgSetupTurnCI: meanCIHalfWidth(avgSetupTurn, successSqSum, successN),
+    neverSetUpCI: total > 0 ? ciHalfWidth(never, total) : 0,
+    mulliganCI: total > 0 ? ciHalfWidth(mulligans, total) : 0,
   };
 }

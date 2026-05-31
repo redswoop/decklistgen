@@ -9,6 +9,10 @@ const {
 } = useSetupSim();
 
 const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
+const pctCI = (x: number) => {
+  const v = x * 100;
+  return v < 1 ? v.toFixed(1) : v.toFixed(0);
+};
 const turnHeaders = computed(() => Array.from({ length: TURNS }, (_, i) => i + 1));
 const avgLabel = (r: SetupRow) => (r.result.avgSetupTurn > 0 ? `T${r.result.avgSetupTurn.toFixed(1)}` : "—");
 const imgFor = (r: SetupRow) =>
@@ -77,8 +81,12 @@ const groups = computed(() => {
               <td>—</td>
             </template>
             <template v-else>
-              <td v-for="(p, i) in r.result.cumulativeSetup" :key="i" :class="{ 'ssp-final': i === TURNS - 1 }">{{ pct(p) }}</td>
-              <td class="ssp-avg">{{ avgLabel(r) }}</td>
+              <td v-for="(p, i) in r.result.cumulativeSetup" :key="i" :class="{ 'ssp-final': i === TURNS - 1 }">
+                {{ pct(p) }}<span class="ssp-ci">±{{ pctCI(r.result.cumulativeCI[i]) }}%</span>
+              </td>
+              <td class="ssp-avg">
+                {{ avgLabel(r) }}<span v-if="r.result.avgSetupTurn > 0" class="ssp-ci">±{{ r.result.avgSetupTurnCI.toFixed(1) }}</span>
+              </td>
             </template>
           </tr>
         </template>
@@ -88,9 +96,10 @@ const groups = computed(() => {
     <p v-if="rows.length" class="ssp-fineprint">
       Monte Carlo over {{ rows[0].result.iterations.toLocaleString() }} games per line. A greedy bot draws, searches, and
       evolves (incl. Rare Candy) toward each line as fast as legal — 6 prizes set aside, evolution timing respected. It
-      also sets up the deck's draw/search Ability engines (e.g. Bibarel, Genesect, Lunatone+Solrock). Energy costs and
-      opponent interaction aren't modeled, and the bot only sets up engine pieces it draws or Poffins (it won't hard-search
-      for them), so a few ability-heavy decks may still read slightly low.
+      also sets up the deck's draw/search Ability engines (e.g. Bibarel, Genesect, Lunatone+Solrock). ± is the 95%
+      confidence interval (sampling error); each line auto-tunes to ±1.5% (up to 12,000 games). Energy costs and opponent
+      interaction aren't modeled, and the bot only sets up engine pieces it draws or Poffins, so a few ability-heavy decks
+      may still read slightly low.
     </p>
   </div>
 </template>
@@ -131,6 +140,7 @@ const groups = computed(() => {
 .ssp-group td { text-align: left; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: #f0c674; background: #16213e; border-bottom: 1px solid #20407a; padding-top: 0.45rem; }
 .ssp-final { color: #fff; font-weight: 600; }
 .ssp-avg { color: #f0c674; font-weight: 600; }
+.ssp-ci { color: #6f7890; font-size: 0.72em; margin-left: 0.25em; }
 .ssp-cant { text-align: center; color: #8a8aa0; font-style: italic; }
 .ssp-fineprint { margin-top: 0.7rem; font-size: 0.72rem; color: #8a8aa0; max-width: 660px; }
 </style>

@@ -9,7 +9,7 @@ import {
   type GameState,
 } from "./setup-sim.js";
 import { buildEvolutionLines, type SimCard, type EvolutionLine } from "./evolution-lines.js";
-import { makeRng } from "./hand-sim.js";
+import { makeRng, oddsToSeeByTurn, extraDrawsByTurn, hypergeometricAtLeast } from "./hand-sim.js";
 
 let idc = 0;
 function mk(partial: Partial<SimCard> & { name: string }): SimCard {
@@ -316,6 +316,64 @@ describe("evolution-stage ability engines", () => {
     let anySetup = false;
     for (let s = 1; s <= 10; s++) if (simulateOneGame(deck, line, makeRng(s), 5, "second").setupTurn !== null) anySetup = true;
     expect(anySetup).toBe(true);
+  });
+});
+
+describe("calibration & confidence intervals", () => {
+  // A draw-only baseline: one target Basic line + plenty of OTHER basics so mulligans
+  // are negligible, and NO engine/search cards. The target basic is benched the turn
+  // it's first drawn, so "set up by turn T" must equal the closed-form hypergeometric
+  // odds of seeing ≥1 copy in the first 7 + extra cards.
+  const target = () => mk({ name: "Solo", stage: "Basic", chain: ["Solo"] });
+  const otherBasic = () => mk({ name: "Padder", stage: "Basic", chain: ["Padder"] });
+  const baselineDeck = [...copies(target(), 4), ...copies(otherBasic(), 30), ...copies(filler(), 26)];
+  const TOTAL_BASICS = 34;
+
+  it("matches the closed-form hypergeometric setup curve (no engine, both orders)", () => {
+    for (const order of ["first", "second"] as const) {
+      const line = lineFor(baselineDeck, "Solo");
+      const r = runSetupSim({ deck: baselineDeck, line, iterations: 12000, maxIterations: 12000, maxTurns: 5, order, rng: makeRng(order === "first" ? 1 : 2) });
+      for (let t = 1; t <= 5; t++) {
+        const closed = oddsToSeeByTurn(60, 4, 7, extraDrawsByTurn(t, order));
+        const se = Math.sqrt((closed * (1 - closed)) / r.iterations);
+        expect(Math.abs(r.cumulativeSetup[t - 1] - closed)).toBeLessThan(3 * se + 0.01);
+        // CI is honest: the true value sits within ±3·(reported half-width).
+        expect(Math.abs(r.cumulativeSetup[t - 1] - closed)).toBeLessThanOrEqual(3 * r.cumulativeCI[t - 1] + 1e-9);
+      }
+    }
+  });
+
+  it("matches the closed-form mulligan rate", () => {
+    const line = lineFor(baselineDeck, "Solo");
+    const r = runSetupSim({ deck: baselineDeck, line, iterations: 12000, maxIterations: 12000, maxTurns: 5, order: "first", rng: makeRng(5) });
+    const closedMull = 1 - hypergeometricAtLeast(60, TOTAL_BASICS, 7, 1);
+    expect(Math.abs(r.mulliganRate - closedMull)).toBeLessThanOrEqual(3 * r.mulliganCI + 0.005);
+  });
+
+  it("reports CI fields and they shrink as games grow", () => {
+    const line = lineFor(baselineDeck, "Solo");
+    const small = runSetupSim({ deck: baselineDeck, line, iterations: 1500, maxIterations: 1500, maxTurns: 5, rng: makeRng(7) });
+    const big = runSetupSim({ deck: baselineDeck, line, iterations: 12000, maxIterations: 12000, maxTurns: 5, rng: makeRng(7) });
+    expect(small.cumulativeCI).toHaveLength(5);
+    expect(small.cumulativeCI[2]).toBeGreaterThan(big.cumulativeCI[2]);
+    expect(big.avgSetupTurnCI).toBeGreaterThanOrEqual(0);
+  });
+
+  it("auto-scales: stops near the target CI, never exceeds the cap", () => {
+    const line = lineFor(baselineDeck, "Solo");
+    const r = runSetupSim({ deck: baselineDeck, line, maxTurns: 5, order: "second", rng: makeRng(3) }); // defaults: target ±1.5%, cap 12k
+    expect(r.iterations).toBeLessThanOrEqual(12000);
+    // headline = set-up-by-final-turn CI should be at/under target once it stopped (unless capped)
+    const headlineCI = r.cumulativeCI[r.cumulativeCI.length - 1];
+    if (r.iterations < 12000) expect(headlineCI).toBeLessThanOrEqual(0.015 + 1e-6);
+  });
+
+  it("an unsatisfiable line stops fast (CI at p=0 is tiny)", () => {
+    const broken = [...copies(mk({ name: "Big ex", stage: "Stage2", isEx: true, chain: ["Big ex"] }), 3), ...copies(otherBasic(), 20), ...copies(filler(), 37)];
+    const line = lineFor(broken, "Big ex");
+    const r = runSetupSim({ deck: broken, line, maxTurns: 5, rng: makeRng(1) });
+    expect(r.unsatisfiable).toBe(true);
+    expect(r.iterations).toBeLessThan(12000); // p=0 → CI tiny → stops at the first chunk
   });
 });
 

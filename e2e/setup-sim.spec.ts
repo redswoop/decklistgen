@@ -109,8 +109,9 @@ test("Setup Sim: target dropdown + results table react to controls", async ({ pa
   const count = await lineRows.count();
   expect(count).toBeGreaterThanOrEqual(1);
 
-  // The Stage-2 line we seeded is present and shows per-turn percentages.
+  // The Stage-2 line we seeded is present and shows per-turn percentages + confidence intervals.
   await expect(page.locator(".ssp-table")).toContainText("%");
+  await expect(page.locator(".ssp-table")).toContainText("±");
   await expect(page.locator(".ssp-group").first()).toBeVisible();
 
   // Toggling play order keeps the report rendered (numbers recompute).
