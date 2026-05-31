@@ -2,7 +2,8 @@
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useVirtualizer } from "@tanstack/vue-virtual";
 import { useFilters } from "../composables/useFilters.js";
-import { useCards } from "../composables/useCards.js";
+import { useCards, useUniverseCount } from "../composables/useCards.js";
+import { formatCardCountLabel } from "../../shared/utils/card-count-label.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { usePokeproxy, usePokeproxyBatch, type ImageMode } from "../composables/usePokeproxy.js";
 import { useEraLoader } from "../composables/useEraLoader.js";
@@ -55,6 +56,7 @@ const { loadingEra } = useEraLoader();
 // Only query API when no external cards provided
 const localPage = ref(1);
 const { data, isLoading } = useCards(filters, localPage, 99999);
+const { data: universeTotal } = useUniverseCount(filters);
 
 // Sort & Group — persisted to localStorage
 type GroupBy = "none" | "set" | "energyType" | "rarity" | "category";
@@ -380,7 +382,10 @@ const searchValue = computed(() => {
 
 const displayLabel = computed(() => {
   if (props.headerLabel) return props.headerLabel;
-  return `${allCards.value.length} cards`;
+  if (isExternalMode.value) return `${allCards.value.length} cards`;
+  // Server-driven (browse): show "showing X of Y" using the true filtered total.
+  const refined = data.value?.total ?? allCards.value.length;
+  return formatCardCountLabel(refined, universeTotal.value ?? null);
 });
 
 // Skeleton rows for loading state

@@ -30,6 +30,33 @@ export function useCards(filters: CardFilters, page: Ref<number>, pageSize = 60)
   });
 }
 
+/**
+ * Counts cards in the selected "universe" — the set/era + category selection,
+ * before the finer refinement filters narrow it down. Used by the grid header
+ * to show "showing X of Y". Keyed only on the universe-defining fields so it
+ * refetches when those change but stays cached while you tweak rarity/type/etc.
+ * Only runs once a set or era is chosen (otherwise there's no universe to count).
+ */
+export function useUniverseCount(filters: CardFilters) {
+  return useQuery({
+    queryKey: computed(() => [
+      "universe-count",
+      filters.sets,
+      filters.era,
+      filters.category,
+    ]),
+    queryFn: () =>
+      api
+        .getCards(
+          { sets: filters.sets, era: filters.era, category: filters.category },
+          1,
+          1,
+        )
+        .then((r) => r.total),
+    enabled: computed(() => !!(filters.sets?.length || filters.era)),
+  });
+}
+
 export function useSets() {
   return useQuery({
     queryKey: ["sets"] as const,

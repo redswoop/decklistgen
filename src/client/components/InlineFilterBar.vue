@@ -116,8 +116,6 @@ const hasActiveFilters = computed(() => {
     filters.isFullArt || filters.hasFoil
   );
 });
-
-const showMore = ref(false);
 </script>
 
 <template>
@@ -170,11 +168,6 @@ const showMore = ref(false);
       </select>
 
       <button
-        :class="['ifb-more-btn', { active: showMore }]"
-        @click="showMore = !showMore"
-      >{{ showMore ? 'Less' : 'More' }}</button>
-
-      <button
         class="ifb-reset-btn"
         :disabled="!hasActiveFilters && !activeSets.length"
         @click="reset()"
@@ -197,7 +190,7 @@ const showMore = ref(false);
       </span>
     </div>
 
-    <div v-if="showMore" class="ifb-row ifb-row-expanded">
+    <div class="ifb-row ifb-row-expanded">
       <label
         v-for="attr in SPECIAL_ATTRS"
         :key="attr"
