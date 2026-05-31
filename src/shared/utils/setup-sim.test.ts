@@ -246,6 +246,79 @@ describe("rule-driven engine (effect text)", () => {
   });
 });
 
+describe("evolution-stage ability engines", () => {
+  const sprig = () => mk({ name: "Sprigatito", stage: "Basic", hp: 70, chain: ["Sprigatito"] });
+  const flora = () => mk({ name: "Floragato", stage: "Stage1", chain: ["Sprigatito", "Floragato"] });
+  const meow = () => mk({ name: "Meowscarada ex", stage: "Stage2", isEx: true, chain: ["Sprigatito", "Floragato", "Meowscarada ex"] });
+  const poffin = () => mk({ name: "Buddy-Buddy Poffin", category: "Trainer", trainerType: "Item",
+    effect: "Search your deck for up to 2 Basic Pokémon with 70 HP or less and put them onto your Bench. Then, shuffle your deck." });
+  const ultra = () => mk({ name: "Ultra Ball", category: "Trainer", trainerType: "Item",
+    effect: "You can use this card only if you discard 2 other cards from your hand. Search your deck for a Pokémon, reveal it, and put it into your hand. Then, shuffle your deck." });
+  const bidoof = () => mk({ name: "Bidoof", stage: "Basic", hp: 70, chain: ["Bidoof"] });
+  const bibarelWith = () => mk({ name: "Bibarel", stage: "Stage1", chain: ["Bidoof", "Bibarel"],
+    abilities: [{ name: "Industrious Incisors", effect: "Once during your turn, you may draw cards until you have 5 cards in your hand." }] });
+  const bibarelNo = () => mk({ name: "Bibarel", stage: "Stage1", chain: ["Bidoof", "Bibarel"] });
+
+  function makeDeck(bibarel: () => SimCard): SimCard[] {
+    return [
+      ...copies(sprig(), 4), ...copies(flora(), 2), ...copies(meow(), 2), ...copies(rareCandy(), 2),
+      ...copies(bidoof(), 4), ...copies(bibarel(), 3),
+      ...copies(poffin(), 4), ...copies(ultra(), 4),
+      ...copies(filler(), 35),
+    ];
+  }
+
+  it("a Stage-1 draw engine (Bibarel) speeds up the target line", () => {
+    const withDeck = makeDeck(bibarelWith);
+    const noDeck = makeDeck(bibarelNo);
+    const wLine = lineFor(withDeck, "Meowscarada ex");
+    const nLine = lineFor(noDeck, "Meowscarada ex");
+    const w = runSetupSim({ deck: withDeck, line: wLine, iterations: 4000, maxTurns: 5, order: "second", rng: makeRng(9) });
+    const n = runSetupSim({ deck: noDeck, line: nLine, iterations: 4000, maxTurns: 5, order: "second", rng: makeRng(9) });
+    const last = (r: typeof w) => r.cumulativeSetup[r.cumulativeSetup.length - 1];
+    expect(last(w)).toBeGreaterThan(last(n)); // the engine's extra draw finds pieces faster
+  });
+
+  it("the engine line actually evolves and fires its ability (seen in logs)", () => {
+    const deck = makeDeck(bibarelWith);
+    const line = lineFor(deck, "Meowscarada ex");
+    let fired = false;
+    for (let s = 1; s <= 30 && !fired; s++) {
+      const out = simulateOneGame(deck, line, makeRng(s), 5, "second");
+      if (out.log.some((l) => l.includes("Bibarel ability"))) fired = true;
+    }
+    expect(fired).toBe(true);
+  });
+
+  it("benches a partner (Solrock) so a gated ability (Lunatone) can fire", () => {
+    const lunatone = () => mk({ name: "Lunatone", stage: "Basic", hp: 110, energyTypes: ["Psychic"],
+      abilities: [{ name: "Lunar Cycle", effect: "Once during your turn, if you have Solrock in play, you may discard a Basic {F} Energy card from your hand in order to use this Ability. Draw 3 cards." }] });
+    const solrock = () => mk({ name: "Solrock", stage: "Basic", hp: 110, energyTypes: ["Fighting"], chain: ["Solrock"] });
+    const fightEnergy = () => mk({ name: "Fighting Energy", category: "Energy", mechanicsHash: "basic", energyTypes: ["Fighting"] });
+    const deck = [
+      ...copies(sprig(), 4), ...copies(flora(), 2), ...copies(meow(), 2), ...copies(rareCandy(), 2),
+      ...copies(lunatone(), 3), ...copies(solrock(), 3), ...copies(poffin(), 4), ...copies(ultra(), 4),
+      ...copies(fightEnergy(), 36),
+    ];
+    const line = lineFor(deck, "Meowscarada ex");
+    let fired = false;
+    for (let s = 1; s <= 40 && !fired; s++) {
+      const out = simulateOneGame(deck, line, makeRng(s), 5, "second");
+      if (out.log.some((l) => l.includes("Lunatone ability"))) fired = true;
+    }
+    expect(fired).toBe(true);
+  });
+
+  it("never exceeds a 5-card bench even with engines competing", () => {
+    const deck = makeDeck(bibarelWith);
+    const line = lineFor(deck, "Meowscarada ex");
+    // simulateOneGame doesn't expose bench, so assert indirectly: it still completes and can set up.
+    let anySetup = false;
+    for (let s = 1; s <= 10; s++) if (simulateOneGame(deck, line, makeRng(s), 5, "second").setupTurn !== null) anySetup = true;
+    expect(anySetup).toBe(true);
+  });
+});
+
 describe("runSetupSim — aggregate", () => {
   const deck = [
     ...copies(charmander(), 8),

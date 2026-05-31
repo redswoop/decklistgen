@@ -5,7 +5,7 @@ import {
   type Rng,
   type PlayOrder,
 } from "./hand-sim.js";
-import { normStage, type EvolutionLine, type SimCard } from "./evolution-lines.js";
+import { buildEvolutionLines, normStage, type EvolutionLine, type SimCard } from "./evolution-lines.js";
 import { classifyCard, classifyAbility, type SetupRule, type AbilityRule, type Capability, type PokeRestrict } from "./setup-rules.js";
 
 /**
@@ -77,6 +77,48 @@ export interface GameState {
   rules?: Map<string, SetupRule | null>;
   /** name → inferred ability rule (built once per deck). */
   abilityRules?: Map<string, AbilityRule | null>;
+  /** The line being measured — used for ability-usefulness + on-bench context. */
+  target?: EvolutionLine;
+  /** Secondary lines the bot sets up purely for their draw/search abilities. */
+  engineLines?: EvolutionLine[];
+  /** Lowercased Basic names to bench because some ability needs them in play (e.g. Solrock for Lunatone). */
+  enginePartners?: Set<string>;
+}
+
+/** Engine lines + partners the bot maintains alongside the target. */
+export interface EngineSpec {
+  engineLines: EvolutionLine[];
+  enginePartners: Set<string>;
+}
+
+const ENGINE_LINE_CAP = 2;
+
+/**
+ * Pick the deck's best draw/search ability engines (lines whose ability-bearer
+ * has a useful ability), plus any Basics those abilities require in play.
+ */
+export function selectEngines(deck: SimCard[], target: EvolutionLine, abilityRules: Map<string, AbilityRule | null>): EngineSpec {
+  const { lines } = buildEvolutionLines(deck);
+  const scored: Array<{ line: EvolutionLine; ar: AbilityRule; score: number }> = [];
+  for (const line of lines) {
+    if (line.id === target.id) continue;
+    const ar = abilityRules.get(line.finalName) ?? null;
+    if (!ar) continue;
+    const c = ar.cap;
+    const isDrawSearch =
+      c.type === "draw" || c.type === "draw-to" || c.type === "search-pokemon" || c.type === "search-line" || c.type === "search-supporter";
+    if (!isDrawSearch) continue;
+    const value = c.type === "draw" ? c.amount : c.type === "draw-to" ? c.size : 4; // rough draw-equivalent
+    scored.push({ line, ar, score: value * Math.max(1, line.finalCopies) });
+  }
+  scored.sort((a, b) => b.score - a.score || a.line.finalName.localeCompare(b.line.finalName));
+  const engineLines = scored.slice(0, ENGINE_LINE_CAP).map((s) => s.line);
+
+  const enginePartners = new Set<string>();
+  for (const s of scored.slice(0, ENGINE_LINE_CAP)) {
+    if (s.ar.requiresInPlay) enginePartners.add(s.ar.requiresInPlay);
+  }
+  return { engineLines, enginePartners };
 }
 
 function buildRuleMap(deck: SimCard[]): Map<string, SetupRule | null> {
@@ -345,17 +387,26 @@ function runCapability(state: GameState, line: EvolutionLine, cap: Capability, r
     case "rare-candy":
       break; // handled in the evolve phase
     case "bench-basics": {
-      if (!line.basicName) break;
       let n = 0;
-      while (n < cap.count && state.bench.length < MAX_BENCH && lineBasicsInPlay(state, line) < MAX_LINE_BASICS_IN_PLAY) {
-        const t = deckFetchTarget(state, line.basicName, "basic", cap.maxHp, cap.energyType);
+      // Target line's basics first.
+      if (line.basicName) {
+        while (n < cap.count && state.bench.length < MAX_BENCH && lineBasicsInPlay(state, line) < MAX_LINE_BASICS_IN_PLAY) {
+          const t = deckFetchTarget(state, line.basicName, "basic", cap.maxHp, cap.energyType);
+          if (!t) break;
+          state.deck.splice(state.deck.indexOf(t), 1);
+          state.bench.push({ name: t.name, enteredTurn: state.turn });
+          n++;
+        }
+        if (n > 0) log.push(`T${state.turn}: ${label} → benched ${n}× ${line.basicName}`);
+      }
+      // Spill into engine-line basics / partners with any remaining count + bench room.
+      while (n < cap.count && state.bench.length < MAX_BENCH) {
+        const t = engineBenchTargetInDeck(state, cap.maxHp, cap.energyType);
         if (!t) break;
-        const i = state.deck.indexOf(t);
-        state.deck.splice(i, 1);
-        state.bench.push({ name: t.name, enteredTurn: state.turn });
+        state.deck.splice(state.deck.indexOf(t), 1);
+        pushBench(state, t.name, rng, log, ` (engine, via ${label})`);
         n++;
       }
-      if (n > 0) log.push(`T${state.turn}: ${label} → benched ${n}× ${line.basicName}`);
       break;
     }
     case "search-line": {
@@ -427,38 +478,51 @@ export function benchLineBasic(state: GameState, line: EvolutionLine, log: strin
   }
 }
 
-/** Does this search-pokemon ability/rule capability target a piece of the line that's in the deck? */
-function lineFetchableBySearch(state: GameState, line: EvolutionLine, cap: Extract<Capability, { type: "search-pokemon" }>): boolean {
-  for (const name of [line.basicName, line.stage1Name, line.finalName]) {
-    if (name && deckFetchTarget(state, name, cap.restrict, cap.maxHp, cap.energyType)) return true;
+/** Push a Pokémon onto the bench and fire its on-bench ability (Meowth-style). */
+function pushBench(state: GameState, name: string, rng: Rng, log: string[], suffix = ""): BenchSlot {
+  const slot: BenchSlot = { name, enteredTurn: state.turn };
+  state.bench.push(slot);
+  log.push(`T${state.turn}: bench ${name}${suffix}`);
+  const ar = abilityRuleByName(state, name);
+  if (ar?.trigger === "on-bench" && state.target) applyAbility(state, state.target, slot, ar, rng, log);
+  return slot;
+}
+
+/** A deck Basic the bot wants benched for an engine line or partner (target already handled). */
+function engineBenchTargetInDeck(state: GameState, maxHp?: number, energyType?: string): SimCard | undefined {
+  for (const line of state.engineLines ?? []) {
+    if (!line.basicName || bestOnPathSlot(state, line)) continue;
+    const t = state.deck.find((c) => c.name === line.basicName && cardMatchesRestrict(c, "basic", maxHp, energyType));
+    if (t) return t;
   }
-  return false;
+  for (const name of state.enginePartners ?? []) {
+    if (state.bench.some((s) => s.name.toLowerCase() === name)) continue;
+    const t = state.deck.find((c) => c.name.toLowerCase() === name && cardMatchesRestrict(c, "basic", maxHp, energyType));
+    if (t) return t;
+  }
+  return undefined;
 }
 
-/** A Basic (not the line's own basic) whose ability draws/searches toward the line. */
-function engineBasicUseful(state: GameState, line: EvolutionLine, card: SimCard): boolean {
-  if (normStage(card.stage) !== "Basic") return false;
-  if (line.basicName && card.name === line.basicName) return false;
-  const ar = abilityRuleByName(state, card.name);
-  if (!ar) return false;
-  const c = ar.cap;
-  if (c.type === "draw" || c.type === "draw-to" || c.type === "search-supporter" || c.type === "search-line") return true;
-  if (c.type === "search-pokemon") return lineFetchableBySearch(state, line, c);
-  return false;
-}
-
-/** Bench ability-engine Basics from hand (e.g. Genesect ex, Lunatone); fire on-bench abilities. */
-function benchEngineBasics(state: GameState, line: EvolutionLine, rng: Rng, log: string[]): void {
-  for (let guard = 0; guard < MAX_BENCH; guard++) {
+/** Set up the bot's ability engines: bench + evolve each engine line, bench partners. */
+function advanceEngines(state: GameState, rng: Rng, log: string[]): void {
+  for (const line of state.engineLines ?? []) {
+    if (state.bench.length < MAX_BENCH && line.basicName && !bestOnPathSlot(state, line)) {
+      const basic = state.hand.find((c) => c.name === line.basicName);
+      if (basic) {
+        removeFromHand(state, basic);
+        pushBench(state, basic.name, rng, log, " (engine)");
+      }
+    }
+    doEvolutions(state, line, log); // evolve toward the ability bearer (Bibarel, Delphox, …)
+  }
+  for (const name of state.enginePartners ?? []) {
     if (state.bench.length >= MAX_BENCH) break;
-    const card = state.hand.find((c) => engineBasicUseful(state, line, c));
-    if (!card) break;
-    removeFromHand(state, card);
-    const slot: BenchSlot = { name: card.name, enteredTurn: state.turn };
-    state.bench.push(slot);
-    log.push(`T${state.turn}: bench ${card.name} (ability)`);
-    const ar = abilityRuleByName(state, card.name);
-    if (ar?.trigger === "on-bench") applyAbility(state, line, slot, ar, rng, log);
+    if (state.bench.some((s) => s.name.toLowerCase() === name)) continue;
+    const card = state.hand.find((c) => c.name.toLowerCase() === name && normStage(c.stage) === "Basic");
+    if (card) {
+      removeFromHand(state, card);
+      pushBench(state, card.name, rng, log, " (partner)");
+    }
   }
 }
 
@@ -585,6 +649,19 @@ export interface GameOutcome {
   log: string[];
 }
 
+/** Precomputed-once-per-run context, so we don't re-classify the deck every game. */
+export interface SimContext {
+  rules: Map<string, SetupRule | null>;
+  abilityRules: Map<string, AbilityRule | null>;
+  engineSpec: EngineSpec;
+}
+
+export function buildSimContext(deck: SimCard[], target: EvolutionLine): SimContext {
+  const rules = buildRuleMap(deck);
+  const abilityRules = buildAbilityMap(deck);
+  return { rules, abilityRules, engineSpec: selectEngines(deck, target, abilityRules) };
+}
+
 export function simulateOneGame(
   fullDeck: SimCard[],
   line: EvolutionLine,
@@ -592,10 +669,10 @@ export function simulateOneGame(
   maxTurns: number,
   order: PlayOrder,
   maxMulligans: number = DEFAULT_MAX_MULLIGANS,
+  ctx?: SimContext,
 ): GameOutcome {
   const log: string[] = [];
-  const rules = buildRuleMap(fullDeck);
-  const abilityRules = buildAbilityMap(fullDeck);
+  const { rules, abilityRules, engineSpec } = ctx ?? buildSimContext(fullDeck, line);
 
   let library = shuffle(fullDeck, rng);
   let hand = library.slice(0, HAND_SIZE);
@@ -624,18 +701,21 @@ export function simulateOneGame(
     supporterUsed: false,
     rules,
     abilityRules,
+    target: line,
+    engineLines: engineSpec.engineLines,
+    enginePartners: engineSpec.enginePartners,
   };
 
   for (let t = 1; t <= maxTurns; t++) {
     state.turn = t;
     state.supporterUsed = false;
     drawN(state, t === 1 && order === "first" ? 0 : 1);
-    benchLineBasic(state, line, log); // bench early so search can target evolution pieces
-    benchEngineBasics(state, line, rng, log); // bench ability engines (Genesect, Lunatone, Meowth…)
+    benchLineBasic(state, line, log); // bench the target basic early so search can target evolution pieces
+    advanceEngines(state, rng, log); // bench + evolve ability engines (Genesect, Bibarel, Lunatone+Solrock…)
     useAbilities(state, line, "draw", rng, log); // dig with draw abilities
     playSupporter(state, line, rng, log);
     playItems(state, line, rng, log);
-    benchEngineBasics(state, line, rng, log); // engines drawn this turn
+    advanceEngines(state, rng, log); // engines drawn this turn
     useAbilities(state, line, "any", rng, log); // search abilities grab the needed piece
     doEvolutions(state, line, log);
     benchLineBasic(state, line, log); // bench anything searched up this turn
@@ -674,8 +754,9 @@ export function runSetupSim(opts: SetupSimOptions): SetupSimResult {
   let successN = 0;
 
   if (deckSize > 0) {
+    const ctx = buildSimContext(deck, line); // classify the deck + pick engine lines once
     for (let i = 0; i < iterations; i++) {
-      const { setupTurn, wasMulligan } = simulateOneGame(deck, line, rng, maxTurns, order, maxMulligans);
+      const { setupTurn, wasMulligan } = simulateOneGame(deck, line, rng, maxTurns, order, maxMulligans, ctx);
       if (wasMulligan) mulligans++;
       if (setupTurn === null) never++;
       else {

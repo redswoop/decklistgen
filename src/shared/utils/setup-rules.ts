@@ -198,11 +198,11 @@ function nameFallbackRule(card: Card): SetupRule | null {
 // --- Pokémon abilities -------------------------------------------------------
 
 /**
- * A Basic Pokémon's setup-relevant ability. Modeled only for Basics (which the
- * bot can bench turn 1); evolution-stage abilities (e.g. Dudunsparce draw-3,
- * Delphox draw-7) aren't modeled yet since they require setting up that line.
- * Situational abilities (triggered by a Knock Out / opponent action) are skipped
- * — they don't fire during the setup turns.
+ * A Pokémon's setup-relevant ability (draw / search), on any stage. Basic-stage
+ * bearers are benched directly; evolution-stage bearers (Bibarel, Dudunsparce,
+ * Delphox) are reached by setting up that engine line. Situational abilities
+ * (triggered by a Knock Out / opponent action) and passive/static ones are
+ * skipped — they don't act during the setup turns.
  */
 export interface AbilityRule {
   cap: Capability;
@@ -216,8 +216,6 @@ export interface AbilityRule {
 
 export function classifyAbility(card: Card & { abilities?: Array<{ name: string; effect: string }> }): AbilityRule | null {
   if (card.category !== "Pokemon") return null;
-  const stage = (card.stage ?? "").toLowerCase();
-  if (!(stage === "" || stage === "basic")) return null; // Basics only (v1)
 
   for (const ab of card.abilities ?? []) {
     const t = ab.effect.toLowerCase().replace(/\s+/g, " ");

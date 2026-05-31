@@ -87,9 +87,10 @@ const groups = computed(() => {
 
     <p v-if="rows.length" class="ssp-fineprint">
       Monte Carlo over {{ rows[0].result.iterations.toLocaleString() }} games per line. A greedy bot draws, searches, and
-      evolves (incl. Rare Candy) toward each line as fast as legal — 6 prizes set aside, evolution timing respected.
-      Energy, Pokémon Abilities, and opponent interaction are not modeled, so ability-driven decks set up a bit faster
-      than shown.
+      evolves (incl. Rare Candy) toward each line as fast as legal — 6 prizes set aside, evolution timing respected. It
+      also sets up the deck's draw/search Ability engines (e.g. Bibarel, Genesect, Lunatone+Solrock). Energy costs and
+      opponent interaction aren't modeled, and the bot only sets up engine pieces it draws or Poffins (it won't hard-search
+      for them), so a few ability-heavy decks may still read slightly low.
     </p>
   </div>
 </template>

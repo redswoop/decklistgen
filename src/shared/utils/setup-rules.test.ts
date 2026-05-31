@@ -170,9 +170,19 @@ describe("classifyAbility", () => {
       effect: "Once during your turn, if any of your Pokémon were Knocked Out during your opponent's last turn, you may draw 3 cards." }]))).toBeNull();
   });
 
-  it("skips evolution-stage abilities (v1 models Basics only)", () => {
-    expect(classifyAbility(pokemon("Dudunsparce", "Stage1", [{ name: "Run Away Draw",
-      effect: "Once during your turn, you may draw 3 cards. If you drew any cards in this way, shuffle this Pokémon and all attached cards into your deck." }]))).toBeNull();
+  it("classifies evolution-stage draw engines", () => {
+    expect(cap(classifyAbility(pokemon("Dudunsparce", "Stage1", [{ name: "Run Away Draw",
+      effect: "Once during your turn, you may draw 3 cards. If you drew any cards in this way, shuffle this Pokémon and all attached cards into your deck." }]))))
+      .toEqual({ type: "draw", amount: 3, shuffleHand: false });
+
+    expect(cap(classifyAbility(pokemon("Bibarel", "Stage1", [{ name: "Industrious Incisors",
+      effect: "Once during your turn, you may draw cards until you have 5 cards in your hand." }]))))
+      .toEqual({ type: "draw-to", size: 5 });
+
+    const delphox = classifyAbility(pokemon("Delphox", "Stage2", [{ name: "Flare Magic",
+      effect: "Once during your turn, you may discard a Basic Fire Energy card from your hand in order to use this Ability. Draw cards until you have 7 cards in your hand." }]));
+    expect(cap(delphox)).toEqual({ type: "draw-to", size: 7 });
+    expect(delphox?.requiresEnergy).toBe(true);
   });
 
   it("skips passive/static abilities", () => {
