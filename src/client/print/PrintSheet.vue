@@ -14,7 +14,7 @@
  *   ?paper=super-b    — paper size; default "letter".
  *   ?orientation=…    — "portrait" (default) or "landscape".
  *   ?exclude=a,b      — comma-separated category exclusions
- *                       (pokemon|supporters|items|tools|stadiums).
+ *                       (pokemon|supporters|items|tools|stadiums|specialenergy).
  *   ?noBasicEnergy=1  — drop basic energies (Energy cards with no effect).
  *   ?auto=1           — fire window.print() automatically after fonts settle.
  */
@@ -29,6 +29,7 @@ import {
   type PrintOrientation,
 } from "../../shared/utils/print-grid.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
+import { shouldPrintCard } from "../../shared/utils/print-filter.js";
 import CssCardRenderer from "../components/CssCardRenderer.vue";
 
 interface PrintEntry {
@@ -83,16 +84,6 @@ async function resolveArtUrl(card: Card): Promise<string> {
   return cardImageUrl(card.imageBase, "high") || "";
 }
 
-function shouldInclude(card: Card, detail: CardDetail | undefined): boolean {
-  if (excludeSet.has("pokemon") && card.category === "Pokemon") return false;
-  if (card.category === "Trainer" && card.trainerType) {
-    const key = card.trainerType.toLowerCase() + "s";
-    if (excludeSet.has(key)) return false;
-  }
-  if (noBasicEnergy && card.category === "Energy" && !detail?.effect) return false;
-  return true;
-}
-
 async function buildEntry(card: Card, count: number): Promise<PrintEntry[]> {
   let detail: CardDetail | undefined;
   try {
@@ -100,7 +91,7 @@ async function buildEntry(card: Card, count: number): Promise<PrintEntry[]> {
   } catch {
     detail = undefined;
   }
-  if (!shouldInclude(card, detail)) return [];
+  if (!shouldPrintCard(card, detail, { exclude: excludeSet, noBasicEnergy })) return [];
   const artUrl = await resolveArtUrl(card);
   const repeats = qtyOneEach ? 1 : Math.max(1, count);
   const out: PrintEntry[] = [];

@@ -23,6 +23,7 @@ type StoredOptions = {
   includeTools: boolean;
   includeStadiums: boolean;
   includeBasicEnergy: boolean;
+  includeSpecialEnergy: boolean;
 };
 
 function loadStored(): Partial<StoredOptions> {
@@ -46,6 +47,7 @@ const includeItems = ref(stored.includeItems ?? true);
 const includeTools = ref(stored.includeTools ?? true);
 const includeStadiums = ref(stored.includeStadiums ?? true);
 const includeBasicEnergy = ref(stored.includeBasicEnergy ?? true);
+const includeSpecialEnergy = ref(stored.includeSpecialEnergy ?? true);
 
 watchEffect(() => {
   const opts: StoredOptions = {
@@ -59,6 +61,7 @@ watchEffect(() => {
     includeTools: includeTools.value,
     includeStadiums: includeStadiums.value,
     includeBasicEnergy: includeBasicEnergy.value,
+    includeSpecialEnergy: includeSpecialEnergy.value,
   };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(opts));
@@ -84,6 +87,7 @@ function handlePrint() {
   if (!includeItems.value) excluded.push("items");
   if (!includeTools.value) excluded.push("tools");
   if (!includeStadiums.value) excluded.push("stadiums");
+  if (!includeSpecialEnergy.value) excluded.push("specialenergy");
   if (excluded.length) params.set("exclude", excluded.join(","));
 
   window.open(`/print.html?${params.toString()}`, "_blank");
@@ -168,6 +172,10 @@ function handlePrint() {
         <label class="print-checkbox">
           <input type="checkbox" v-model="includeBasicEnergy" />
           Basic Energy
+        </label>
+        <label class="print-checkbox">
+          <input type="checkbox" v-model="includeSpecialEnergy" />
+          Special Energy
         </label>
       </div>
 
