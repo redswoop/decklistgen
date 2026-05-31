@@ -17,6 +17,11 @@ jobs:
 
       - run: bun run test
 
+      # Validate the client bundle here (fast) so import/resolve errors fail before
+      # the slow Docker build — that class of error isn't caught by `bun test`.
+      - name: Build client
+        run: npx vite build src/client
+
   build:
     needs: test
     runs-on: ubuntu-latest
