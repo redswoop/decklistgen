@@ -40,13 +40,24 @@ function startRename() {
   });
 }
 
-function confirmRename() {
+async function confirmRename() {
   const trimmed = renameValue.value.trim();
-  if (trimmed && currentDeckId.value) {
-    updateDeck({ id: currentDeckId.value, data: { name: trimmed } });
-    markSaved(currentDeckId.value, trimmed);
-  }
   renaming.value = false;
+  if (!trimmed || !currentDeckId.value || trimmed === currentDeckName.value) return;
+  const prev = currentDeckName.value;
+  markSaved(currentDeckId.value, trimmed); // optimistic; revert below if the server rejects
+  try {
+    await updateDeck({ id: currentDeckId.value, data: { name: trimmed } });
+  } catch (e) {
+    currentDeckName.value = prev;
+    const toast = useToast();
+    if (e instanceof ApiError && e.isAuthError) {
+      toast.error(e.status === 401 ? "Sign in to rename decks" : "Not authorized to rename decks");
+    } else {
+      toast.error("Failed to rename deck");
+    }
+    console.error("Rename failed:", e);
+  }
 }
 
 async function handleSave() {
