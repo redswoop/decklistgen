@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { gridForPaper } from "./print-grid.js";
+import { gridForPaper, CARD_DIMS_IN } from "./print-grid.js";
 
 describe("gridForPaper", () => {
   test("letter portrait fits 3x3", () => {
@@ -28,6 +28,18 @@ describe("gridForPaper", () => {
     expect(g.cols).toBe(7);
     expect(g.rows).toBe(3);
     expect(g.cardsPerSheet).toBe(21);
+  });
+
+  test("jumbo cards print one per letter page (portrait)", () => {
+    const g = gridForPaper("letter", "portrait", "jumbo");
+    expect(g.cols).toBe(1);
+    expect(g.rows).toBe(1);
+    expect(g.cardsPerSheet).toBe(1);
+  });
+
+  test("jumbo dimensions are 132mm x 185mm", () => {
+    expect(CARD_DIMS_IN.jumbo.w).toBeCloseTo(132 / 25.4, 5);
+    expect(CARD_DIMS_IN.jumbo.h).toBeCloseTo(185 / 25.4, 5);
   });
 
   test("returns page and usable dimensions", () => {

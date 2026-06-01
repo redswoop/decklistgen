@@ -83,9 +83,11 @@ export function cropMarkLayout(
   pageW: number,
   pageH: number,
   cardGap: number = CARD_GAP_IN,
+  cardW: number = CARD_W_IN,
+  cardH: number = CARD_H_IN,
 ): CropMarkLayout {
-  const gridW = cols * CARD_W_IN + (cols - 1) * cardGap;
-  const gridH = rows * CARD_H_IN + (rows - 1) * cardGap;
+  const gridW = cols * cardW + (cols - 1) * cardGap;
+  const gridH = rows * cardH + (rows - 1) * cardGap;
   const { markLen, markGap } = markDimsForGrid(gridW, gridH, pageW, pageH);
   const pad = markLen + markGap;
 
@@ -107,13 +109,13 @@ export function cropMarkLayout(
 
   // Internal ticks centered in each inter-card gap, on the top/bottom edges.
   for (let c = 1; c < cols; c++) {
-    const x = c * CARD_W_IN + (c - 0.5) * cardGap;
+    const x = c * cardW + (c - 0.5) * cardGap;
     line(x, -markGap, x, -pad);
     line(x, gridH + markGap, x, gridH + pad);
   }
   // …and on the left/right edges.
   for (let r = 1; r < rows; r++) {
-    const y = r * CARD_H_IN + (r - 0.5) * cardGap;
+    const y = r * cardH + (r - 0.5) * cardGap;
     line(-markGap, y, -pad, y);
     line(gridW + markGap, y, gridW + pad, y);
   }

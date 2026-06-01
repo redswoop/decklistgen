@@ -22,6 +22,7 @@ import CardZoom from "./lightbox/CardZoom.vue";
 import LightboxDevTools from "./lightbox/LightboxDevTools.vue";
 import CardThumb from "./CardThumb.vue";
 import CssCardRenderer from "./CssCardRenderer.vue";
+import JumboPrintDialog from "./JumboPrintDialog.vue";
 import type { DeckMembership } from "../../shared/types/customized-card.js";
 import type { DeckCard } from "../../shared/types/deck.js";
 import { consolidateDeckCards } from "../../shared/utils/consolidate-deck.js";
@@ -421,6 +422,14 @@ function navigateToDeck(deckId: string) {
   window.location.hash = `#/decks/${deckId}`;
   emit("close");
 }
+
+// Jumbo print (132mm × 185mm). Opens the pair-picker dialog so the user can
+// print this card alone (portrait) or alongside a second card (2-up landscape).
+// The dialog prints in the version selected here (Original / Cleaned / Proxy).
+const showJumboDialog = ref(false);
+function handlePrintJumbo() {
+  showJumboDialog.value = true;
+}
 </script>
 
 <template>
@@ -537,6 +546,18 @@ function navigateToDeck(deckId: string) {
         <!-- Right: scrolling stack — variants, card stats, actions -->
         <div class="lb-right">
           <div class="lb-info-scroll">
+            <!-- Quick actions — always available regardless of grid/deck context -->
+            <div class="lb-tools-row">
+              <button
+                class="lb-print-jumbo-btn"
+                @click="handlePrintJumbo"
+                title="Print at jumbo promo size (132 × 185 mm) — one card, or two side-by-side"
+              >
+                🖨 Print Jumbo
+                <span class="lb-print-jumbo-sub">132 × 185 mm</span>
+              </button>
+            </div>
+
             <!-- Variant grid with controls -->
             <div v-if="hasMultipleVariants" class="lb-variants-section">
               <div class="lb-variants-header">
@@ -718,5 +739,47 @@ function navigateToDeck(deckId: string) {
         @close="showZoom = false"
       />
     </div>
+
+    <!-- Jumbo print pair-picker -->
+    <div v-if="showJumboDialog" @click.stop>
+      <JumboPrintDialog
+        :current-card="currentCard"
+        :version="selectedVersion"
+        :recent-cards="searchCards"
+        @close="showJumboDialog = false"
+      />
+    </div>
   </div>
 </template>
+
+<style scoped>
+.lb-tools-row {
+  display: flex;
+  margin-bottom: 14px;
+}
+
+.lb-print-jumbo-btn {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.lb-print-jumbo-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.lb-print-jumbo-sub {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.6;
+}
+</style>
