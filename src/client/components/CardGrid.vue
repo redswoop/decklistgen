@@ -2,12 +2,14 @@
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useVirtualizer } from "@tanstack/vue-virtual";
 import { useFilters } from "../composables/useFilters.js";
-import { useCards, useUniverseCount } from "../composables/useCards.js";
+import { useUniverseCount } from "../composables/useCards.js";
+import { useCardCollection } from "../composables/useCardCollection.js";
+import { SAME_ART, type CardStackGroup } from "../../shared/utils/fold-cards.js";
 import { formatCardCountLabel } from "../../shared/utils/card-count-label.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { usePokeproxy, usePokeproxyBatch, type ImageMode } from "../composables/usePokeproxy.js";
 import { useEraLoader } from "../composables/useEraLoader.js";
-import CardThumb from "./CardThumb.vue";
+import CardStack from "./CardStack.vue";
 import { api } from "../lib/client.js";
 import type { Card } from "../../shared/types/card.js";
 import { getRarityRank } from "../../shared/utils/rarity-rank.js";
@@ -55,7 +57,6 @@ const { loadingEra } = useEraLoader();
 
 // Only query API when no external cards provided
 const localPage = ref(1);
-const { data, isLoading } = useCards(filters, localPage, 99999);
 const { data: universeTotal } = useUniverseCount(filters);
 
 // Sort & Group — persisted to localStorage
@@ -69,9 +70,10 @@ interface SortGroupState {
   groupBy: GroupBy;
   sortBy: SortBy;
   sortDir: SortDir;
+  stackReprints: boolean;
 }
 
-const sortGroupDefaults: SortGroupState = { groupBy: "none", sortBy: "alpha", sortDir: "asc" };
+const sortGroupDefaults: SortGroupState = { groupBy: "none", sortBy: "alpha", sortDir: "asc", stackReprints: true };
 
 function loadSortGroup(): SortGroupState {
   try {
@@ -86,6 +88,7 @@ function saveSortGroup() {
     groupBy: groupBy.value,
     sortBy: sortBy.value,
     sortDir: sortDir.value,
+    stackReprints: stackReprints.value,
   }));
 }
 
@@ -93,9 +96,17 @@ const saved = loadSortGroup();
 const groupBy = ref<GroupBy>(saved.groupBy);
 const sortBy = ref<SortBy>(saved.sortBy);
 const sortDir = ref<SortDir>(saved.sortDir);
+const stackReprints = ref<boolean>(saved.stackReprints);
 const showSortGroupPopup = ref(false);
 
-watch([groupBy, sortBy, sortDir], saveSortGroup);
+watch([groupBy, sortBy, sortDir, stackReprints], saveSortGroup);
+
+// Fold same-art reprints into stacks only in the browse grid. Other contexts
+// (deck/working-deck/cards via external `cards`) keep one tile per printing.
+const foldStrategy = computed(() =>
+  stackReprints.value && props.context === "browse" ? SAME_ART : null,
+);
+const { data, isLoading, groupsFrom } = useCardCollection(filters, localPage, 99999, foldStrategy);
 
 const groupByOptions: { value: GroupBy; label: string }[] = [
   { value: "none", label: "No grouping" },
@@ -253,8 +264,23 @@ function chunkCards(cards: Card[], perRow: number): VirtualRow[] {
   return rows;
 }
 
+// Fold the (locally-filtered) cards into display groups, then drive sorting /
+// grouping / virtualization off the representatives. When folding is off every
+// group is a singleton, so the rest of the pipeline is unchanged.
+const displayGroups = computed(() => groupsFrom(allCards.value));
+const groupByRepId = computed(() => {
+  const m = new Map<string, CardStackGroup>();
+  for (const g of displayGroups.value) m.set(g.representative.id, g);
+  return m;
+});
+const displayCards = computed(() => displayGroups.value.map((g) => g.representative));
+
+function groupFor(card: Card): CardStackGroup {
+  return groupByRepId.value.get(card.id) ?? { representative: card, members: [card] };
+}
+
 const virtualRows = computed(() => {
-  const cards = sortCards(allCards.value, sortBy.value, sortDir.value, props.cardCounts);
+  const cards = sortCards(displayCards.value, sortBy.value, sortDir.value, props.cardCounts);
   const perRow = cardsPerRow.value;
 
   if (groupBy.value === "none") {
@@ -501,6 +527,14 @@ defineExpose({
             </div>
           </div>
         </div>
+        <button
+          v-if="context === 'browse'"
+          :class="['stack-toggle-btn', { active: stackReprints }]"
+          :title="stackReprints
+            ? 'Same-art reprints are folded into one tile — click to show every printing'
+            : 'Showing every printing — click to fold same-art reprints into one tile'"
+          @click="stackReprints = !stackReprints"
+        >&#x29C9; Stack reprints</button>
         <div class="image-mode-toggle">
           <button
             v-for="opt in modeOptions"
@@ -573,10 +607,10 @@ defineExpose({
             class="card-row"
             :style="{ padding: `0 ${PADDING}px`, gap: `${GAP}px` }"
           >
-            <CardThumb
+            <CardStack
               v-for="card in (virtualRows[vItem.index] as any).cards"
               :key="card.id"
-              :card="card"
+              :group="groupFor(card)"
               :image-mode="imageMode"
               :count="getCount(card)"
               :show-add="tileShowAdd"

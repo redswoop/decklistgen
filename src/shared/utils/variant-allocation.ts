@@ -39,7 +39,7 @@ export function useForAll(variantIds: string[], selectedId: string, total: numbe
  * Ranks 0–3 (Common through Rare/Holo) share the same "regular" artwork.
  * Each premium rank (4+) gets unique art treatments.
  */
-function artTier(rarity: string): number {
+export function artTier(rarity: string): number {
   const rank = getRarityRank(rarity);
   return rank <= 3 ? 0 : rank;
 }
