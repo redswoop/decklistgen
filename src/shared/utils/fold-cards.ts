@@ -76,3 +76,16 @@ export const SAME_ART: FoldStrategy = {
     return `${card.name}\0${card.mechanicsHash}\0${artTier(card.rarity)}`;
   },
 };
+
+/**
+ * Fold all printings of the same *card identity* regardless of artwork: same
+ * name + mechanics. Art-agnostic (no art tier) and with no basic-energy
+ * exemption — every printing/art variant of a card collapses to one unit (and
+ * "Grass Energy" sums across sets). Used in the deck's "by card" fold mode to
+ * answer "how many of this card do I have", re-collapsing beautify's art spread.
+ * This is the same identity key as `getVariantGroups` in the card store.
+ */
+export const SAME_CARD: FoldStrategy = {
+  name: "same-card",
+  keyOf: (card) => `${card.name}\0${card.mechanicsHash}`,
+};

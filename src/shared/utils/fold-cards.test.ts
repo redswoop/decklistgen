@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { foldCards, SAME_ART, type FoldStrategy } from "./fold-cards.js";
+import { foldCards, SAME_ART, SAME_CARD, type FoldStrategy } from "./fold-cards.js";
 import type { Card } from "../types/card.js";
 
 function card(over: Partial<Card>): Card {
@@ -107,5 +107,40 @@ describe("SAME_ART folding", () => {
     const a = card({ id: "1", name: "X", illustrator: "A" });
     const b = card({ id: "2", name: "X", illustrator: "B" });
     expect(foldCards([a, b], byName)).toHaveLength(1);
+  });
+});
+
+describe("SAME_CARD folding", () => {
+  test("folds different-art printings of the same card into one group", () => {
+    // Beautify spreads copies across visually-distinct printings (different
+    // rarity tiers); SAME_CARD collapses them by identity regardless of art.
+    const holo = card({ id: "sv01-100", setId: "sv01", name: "Pikachu ex", rarity: "Double Rare" });
+    const fullart = card({ id: "sv02-098", setId: "sv02", name: "Pikachu ex", rarity: "Special Illustration Rare" });
+    const groups = foldCards([fullart, holo], SAME_CARD);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].members).toHaveLength(2);
+    expect(groups[0].representative.id).toBe("sv01-100"); // earliest printing
+  });
+
+  test("keeps cards with different mechanics separate", () => {
+    const a = card({ id: "sv01-001", name: "Pikachu V", mechanicsHash: "aaa" });
+    const b = card({ id: "sv02-001", name: "Pikachu V", mechanicsHash: "bbb" });
+    expect(foldCards([a, b], SAME_CARD)).toHaveLength(2);
+  });
+
+  test("folds basic energy across sets by name (unlike SAME_ART)", () => {
+    const e1 = card({ id: "swsh1-160", name: "Grass Energy", category: "Energy", illustrator: "", mechanicsHash: "basic", rarity: "Common" });
+    const e2 = card({ id: "swsh9-160", name: "Grass Energy", category: "Energy", illustrator: "Art B", mechanicsHash: "basic", rarity: "Common", setId: "swsh9" });
+    expect(foldCards([e1, e2], SAME_CARD)).toHaveLength(1);
+    // SAME_ART keeps them separate.
+    expect(foldCards([e1, e2], SAME_ART)).toHaveLength(2);
+  });
+
+  test("is order-preserving by first occurrence", () => {
+    const pikaA = card({ id: "sv01-100", setId: "sv01", name: "Pikachu ex" });
+    const pikaB = card({ id: "sv02-098", setId: "sv02", name: "Pikachu ex" });
+    const eevee = card({ id: "sv01-050", setId: "sv01", name: "Eevee" });
+    const groups = foldCards([pikaA, eevee, pikaB], SAME_CARD);
+    expect(groups.map((g) => g.representative.name)).toEqual(["Pikachu ex", "Eevee"]);
   });
 });

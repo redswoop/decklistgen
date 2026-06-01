@@ -4,7 +4,7 @@ import { useVirtualizer } from "@tanstack/vue-virtual";
 import { useFilters } from "../composables/useFilters.js";
 import { useUniverseCount } from "../composables/useCards.js";
 import { useCardCollection } from "../composables/useCardCollection.js";
-import { SAME_ART, type CardStackGroup } from "../../shared/utils/fold-cards.js";
+import { SAME_ART, SAME_CARD, type CardStackGroup } from "../../shared/utils/fold-cards.js";
 import { formatCardCountLabel } from "../../shared/utils/card-count-label.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { usePokeproxy, usePokeproxyBatch, type ImageMode } from "../composables/usePokeproxy.js";
@@ -66,14 +66,19 @@ type SortDir = "asc" | "desc";
 
 const SORT_GROUP_KEY = "decklistgen-sort-group";
 
+type DeckFoldMode = "off" | "same-art" | "by-card";
+
 interface SortGroupState {
   groupBy: GroupBy;
   sortBy: SortBy;
   sortDir: SortDir;
   stackReprints: boolean;
+  deckFoldMode: DeckFoldMode;
 }
 
-const sortGroupDefaults: SortGroupState = { groupBy: "none", sortBy: "alpha", sortDir: "asc", stackReprints: true };
+const sortGroupDefaults: SortGroupState = {
+  groupBy: "none", sortBy: "alpha", sortDir: "asc", stackReprints: true, deckFoldMode: "same-art",
+};
 
 function loadSortGroup(): SortGroupState {
   try {
@@ -89,6 +94,7 @@ function saveSortGroup() {
     sortBy: sortBy.value,
     sortDir: sortDir.value,
     stackReprints: stackReprints.value,
+    deckFoldMode: deckFoldMode.value,
   }));
 }
 
@@ -97,16 +103,30 @@ const groupBy = ref<GroupBy>(saved.groupBy);
 const sortBy = ref<SortBy>(saved.sortBy);
 const sortDir = ref<SortDir>(saved.sortDir);
 const stackReprints = ref<boolean>(saved.stackReprints);
+const deckFoldMode = ref<DeckFoldMode>(saved.deckFoldMode);
 const showSortGroupPopup = ref(false);
 
-watch([groupBy, sortBy, sortDir, stackReprints], saveSortGroup);
+watch([groupBy, sortBy, sortDir, stackReprints, deckFoldMode], saveSortGroup);
 
-// Fold same-art reprints into stacks only in the browse grid. Other contexts
-// (deck/working-deck/cards via external `cards`) keep one tile per printing.
-const foldStrategy = computed(() =>
-  stackReprints.value && props.context === "browse" ? SAME_ART : null,
-);
+// Folding strategy by context: same-art reprints in the browse grid; a
+// selectable Off / Same art / By card mode in the deck grid. Other contexts
+// (cards) never fold.
+const foldStrategy = computed(() => {
+  if (props.context === "browse") return stackReprints.value ? SAME_ART : null;
+  if (props.context === "deck") {
+    return deckFoldMode.value === "same-art" ? SAME_ART
+      : deckFoldMode.value === "by-card" ? SAME_CARD
+      : null;
+  }
+  return null;
+});
 const { data, isLoading, groupsFrom } = useCardCollection(filters, localPage, 99999, foldStrategy);
+
+const deckFoldOptions: { value: DeckFoldMode; label: string }[] = [
+  { value: "off", label: "No fold" },
+  { value: "same-art", label: "Same art" },
+  { value: "by-card", label: "By card" },
+];
 
 const groupByOptions: { value: GroupBy; label: string }[] = [
   { value: "none", label: "No grouping" },
@@ -275,12 +295,26 @@ const groupByRepId = computed(() => {
 });
 const displayCards = computed(() => displayGroups.value.map((g) => g.representative));
 
+// Counts keyed by representative id, summed across the group's members. When
+// folding is off (singleton groups) this equals the per-card counts; in browse
+// (`cardCounts` undefined) it stays undefined — so neither path changes.
+const repCounts = computed<Record<string, number> | undefined>(() => {
+  if (!props.cardCounts) return undefined;
+  const m: Record<string, number> = {};
+  for (const g of displayGroups.value) {
+    let sum = 0;
+    for (const member of g.members) sum += props.cardCounts[member.id] ?? 0;
+    m[g.representative.id] = sum;
+  }
+  return m;
+});
+
 function groupFor(card: Card): CardStackGroup {
   return groupByRepId.value.get(card.id) ?? { representative: card, members: [card] };
 }
 
 const virtualRows = computed(() => {
-  const cards = sortCards(displayCards.value, sortBy.value, sortDir.value, props.cardCounts);
+  const cards = sortCards(displayCards.value, sortBy.value, sortDir.value, repCounts.value);
   const perRow = cardsPerRow.value;
 
   if (groupBy.value === "none") {
@@ -427,7 +461,8 @@ function handleAdd(card: Card) {
 }
 
 function getCount(card: Card): number | undefined {
-  return props.cardCounts?.[card.id];
+  // card is a group representative; repCounts holds the summed group total.
+  return repCounts.value?.[card.id];
 }
 
 function handleTilePreview(card: Card) {
@@ -535,6 +570,14 @@ defineExpose({
             : 'Showing every printing — click to fold same-art reprints into one tile'"
           @click="stackReprints = !stackReprints"
         >&#x29C9; Stack reprints</button>
+        <div v-if="context === 'deck'" class="fold-mode-toggle" title="How to fold duplicate cards in the deck">
+          <button
+            v-for="opt in deckFoldOptions"
+            :key="opt.value"
+            :class="['mode-btn', { active: deckFoldMode === opt.value }]"
+            @click="deckFoldMode = opt.value"
+          >{{ opt.label }}</button>
+        </div>
         <div class="image-mode-toggle">
           <button
             v-for="opt in modeOptions"

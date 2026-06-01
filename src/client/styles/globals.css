@@ -1533,7 +1533,8 @@ body {
 }
 
 /* Image mode toggle */
-.image-mode-toggle {
+.image-mode-toggle,
+.fold-mode-toggle {
   display: flex;
   gap: 0;
   border-radius: 4px;
