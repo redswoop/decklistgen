@@ -3,6 +3,7 @@ import { VueQueryPlugin } from "@tanstack/vue-query";
 import App from "./App.vue";
 import "./styles/globals.css";
 import "./styles/admin.css";
+import "./styles/sync.css";
 // CSS card renderer (lab) — font faces and the default theme's CSS variable
 // block. Scoped to .theme-default-fullart so it only applies where a consumer
 // opts in (currently CssCardRenderer.vue).

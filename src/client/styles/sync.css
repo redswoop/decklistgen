@@ -1,0 +1,291 @@
+/*
+ * Deck-sync wizard styles. Extracted from SyncDecksPanel.vue's scoped block when
+ * the connect / pick / result phases became separate components (Vue scoped
+ * styles don't reach child component internals). Every rule is namespaced under
+ * .sync-panel so the generic class names (.section-title, .form-input,
+ * .form-submit, .admin-table, .user-name, .empty-state, …) can't leak.
+ */
+
+.sync-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sync-panel .section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e0e0e0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 6px 0;
+}
+
+.sync-panel .hint {
+  color: #7f8fa6;
+  font-size: 12px;
+  margin: 0 0 14px 0;
+  line-height: 1.5;
+}
+
+.sync-panel .hint.subtle {
+  margin: 2px 0 0 0;
+}
+
+.sync-panel .form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 480px;
+}
+
+.sync-panel .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sync-panel .field-label {
+  font-size: 11px;
+  color: #7f8fa6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.sync-panel .form-input {
+  padding: 8px 10px;
+  background: #1a1a2e;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 13px;
+  outline: none;
+}
+
+.sync-panel .form-input:focus {
+  border-color: #e94560;
+}
+
+.sync-panel .form-submit {
+  align-self: flex-start;
+  padding: 8px 18px;
+  background: #e94560;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.sync-panel .form-submit:hover:not(:disabled) {
+  background: #d13553;
+}
+
+.sync-panel .form-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sync-panel .form-error {
+  margin-top: 4px;
+  background: rgba(233, 69, 96, 0.15);
+  color: #e94560;
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.sync-panel .pick-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.sync-panel .src-url {
+  font-family: monospace;
+  font-size: 11px;
+  color: #7fb3d3;
+  background: #1a1a2e;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.sync-panel .link-btn {
+  background: none;
+  border: none;
+  color: #7fb3d3;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 3px;
+}
+
+.sync-panel .link-btn:hover:not(:disabled) {
+  background: rgba(127, 179, 211, 0.1);
+}
+
+.sync-panel .link-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sync-panel .select-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #7f8fa6;
+  margin-bottom: 10px;
+}
+
+.sync-panel .dot {
+  color: #0f3460;
+}
+
+.sync-panel .count {
+  margin-left: auto;
+}
+
+.sync-panel .admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.sync-panel .admin-table th {
+  text-align: left;
+  padding: 6px 10px;
+  color: #7f8fa6;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  border-bottom: 1px solid #0f3460;
+}
+
+.sync-panel .admin-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(15, 52, 96, 0.4);
+  vertical-align: middle;
+}
+
+.sync-panel .admin-table tbody tr {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.sync-panel .admin-table tbody tr:hover {
+  background: rgba(15, 52, 96, 0.4);
+}
+
+.sync-panel .admin-table tbody tr.row-selected {
+  background: rgba(233, 69, 96, 0.12);
+}
+
+.sync-panel .col-check {
+  width: 32px;
+}
+
+.sync-panel .col-check input {
+  accent-color: #e94560;
+  cursor: pointer;
+}
+
+.sync-panel .user-name {
+  color: #e0e0e0;
+  font-weight: 500;
+}
+
+.sync-panel .date-cell {
+  color: #7f8fa6;
+  white-space: nowrap;
+}
+
+.sync-panel .strategy-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  margin-top: 8px;
+  border-top: 1px solid rgba(15, 52, 96, 0.6);
+}
+
+.sync-panel .radio {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #e0e0e0;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sync-panel .radio input[type="radio"] {
+  accent-color: #e94560;
+}
+
+.sync-panel .action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.sync-panel .empty-state {
+  color: #7f8fa6;
+  font-size: 13px;
+  text-align: center;
+  padding: 24px;
+}
+
+.sync-panel .result-stats {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 13px;
+  color: #e0e0e0;
+}
+
+.sync-panel .result-stats strong {
+  color: #e94560;
+  font-size: 16px;
+  margin-right: 4px;
+}
+
+.sync-panel .error-list {
+  background: rgba(233, 69, 96, 0.08);
+  border: 1px solid rgba(233, 69, 96, 0.3);
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+
+.sync-panel .error-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e94560;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 6px 0;
+}
+
+.sync-panel .error-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 12px;
+  color: #e0e0e0;
+}
+
+.sync-panel .error-list li {
+  padding: 3px 0;
+}
