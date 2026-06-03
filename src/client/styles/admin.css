@@ -1,0 +1,457 @@
+/*
+ * Admin panel styles. Extracted from AdminPanel.vue's scoped block when the
+ * Users / Invite Codes / Magic Links sections became separate components — Vue
+ * scoped styles don't reach child component internals. Every rule is namespaced
+ * under .admin-overlay so the generic class names (.badge, .tab, .form-input,
+ * .action-btn, .section-title, …) can't leak onto the many other components
+ * that reuse those names with their own scoped styles.
+ */
+
+.admin-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 20, 0.85);
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 48px;
+  overflow-y: auto;
+}
+
+.admin-overlay .admin-panel {
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 8px;
+  width: 900px;
+  max-width: calc(100vw - 32px);
+  margin-bottom: 48px;
+  overflow: hidden;
+}
+
+/* Mobile: card layout instead of table */
+@media (max-width: 767px) {
+  .admin-overlay {
+    padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  }
+
+  .admin-overlay .admin-panel {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    margin-bottom: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .admin-overlay .admin-table {
+    display: block;
+  }
+
+  .admin-overlay .admin-table thead {
+    display: none;
+  }
+
+  .admin-overlay .admin-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .admin-overlay .admin-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 10px;
+    background: #1a1a2e;
+    border-radius: 6px;
+    border-bottom: none !important;
+  }
+
+  .admin-overlay .admin-table td {
+    padding: 0;
+    border-bottom: none;
+  }
+
+  /* User name+email takes full width */
+  .admin-overlay .admin-table td:first-child {
+    flex: 1 1 100%;
+  }
+
+  .admin-overlay .date-cell {
+    font-size: 11px;
+  }
+
+  .admin-overlay .action-btns {
+    margin-left: auto;
+  }
+
+  .admin-overlay .action-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .admin-overlay .close-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 24px;
+  }
+
+  /* Invite form: stack vertically */
+  .admin-overlay .form-row {
+    flex-direction: column;
+  }
+
+  .admin-overlay .form-input {
+    width: 100%;
+  }
+
+  .admin-overlay .form-submit {
+    width: 100%;
+    padding: 10px;
+  }
+
+  .admin-overlay .row-muted {
+    opacity: 0.5;
+  }
+}
+
+.admin-overlay .admin-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #0f3460;
+  background: #131b30;
+}
+
+.admin-overlay .admin-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e94560;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin: 0;
+}
+
+.admin-overlay .admin-tabs {
+  display: flex;
+  gap: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #0f3460;
+}
+
+.admin-overlay .tab {
+  padding: 4px 14px;
+  background: #1a1a2e;
+  border: none;
+  color: #7f8fa6;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.admin-overlay .tab:not(:last-child) {
+  border-right: 1px solid #0f3460;
+}
+
+.admin-overlay .tab.active {
+  background: #e94560;
+  color: white;
+}
+
+.admin-overlay .header-spacer {
+  flex: 1;
+}
+
+.admin-overlay .close-btn {
+  background: none;
+  border: none;
+  color: #7f8fa6;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.admin-overlay .close-btn:hover {
+  color: #e94560;
+}
+
+.admin-overlay .admin-body {
+  padding: 16px;
+}
+
+.admin-overlay .loading,
+.admin-overlay .empty-state {
+  color: #7f8fa6;
+  font-size: 13px;
+  text-align: center;
+  padding: 24px;
+}
+
+.admin-overlay .admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.admin-overlay .admin-table th {
+  text-align: left;
+  padding: 6px 10px;
+  color: #7f8fa6;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  border-bottom: 1px solid #0f3460;
+}
+
+.admin-overlay .admin-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(15, 52, 96, 0.4);
+  vertical-align: middle;
+}
+
+.admin-overlay .admin-table tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-overlay .row-muted {
+  opacity: 0.5;
+}
+
+.admin-overlay .user-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.admin-overlay .user-name {
+  color: #e0e0e0;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.admin-overlay .user-email {
+  color: #7f8fa6;
+  font-size: 11px;
+}
+
+.admin-overlay .role-badges {
+  display: flex;
+  gap: 4px;
+}
+
+.admin-overlay .badge {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.admin-overlay .badge-admin {
+  background: #e94560;
+  color: white;
+}
+
+.admin-overlay .badge-auth {
+  background: #2ecc71;
+  color: white;
+}
+
+.admin-overlay .badge-free {
+  background: #7f8fa6;
+  color: white;
+}
+
+.admin-overlay .badge-pending {
+  background: #f39c12;
+  color: white;
+}
+
+.admin-overlay .badge-used {
+  background: #2ecc71;
+  color: white;
+}
+
+.admin-overlay .badge-expired {
+  background: #7f8fa6;
+  color: white;
+}
+
+.admin-overlay .pw-status {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.admin-overlay .pw-set {
+  color: #2ecc71;
+}
+
+.admin-overlay .pw-none {
+  color: #7f8fa6;
+}
+
+.admin-overlay .date-cell {
+  color: #7f8fa6;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.admin-overlay .action-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.admin-overlay .action-btn {
+  padding: 2px 8px;
+  background: #1a1a2e;
+  border: 1px solid #0f3460;
+  border-radius: 3px;
+  color: #7f8fa6;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.admin-overlay .action-btn:hover {
+  color: #e0e0e0;
+  border-color: #7f8fa6;
+}
+
+.admin-overlay .action-btn.toggled {
+  background: #0f3460;
+  color: #e0e0e0;
+  border-color: #7fb3d3;
+}
+
+.admin-overlay .action-delete {
+  color: #e94560;
+  border-color: rgba(233, 69, 96, 0.3);
+}
+
+.admin-overlay .action-delete:hover {
+  background: rgba(233, 69, 96, 0.15);
+  color: #e94560;
+  border-color: #e94560;
+}
+
+.admin-overlay .action-confirm {
+  color: #e94560;
+  border-color: #e94560;
+  background: rgba(233, 69, 96, 0.15);
+}
+
+.admin-overlay .action-copied {
+  color: #2ecc71;
+  border-color: #2ecc71;
+}
+
+.admin-overlay .code-value {
+  font-family: monospace;
+  font-size: 13px;
+  color: #7fb3d3;
+  background: #1a1a2e;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.admin-overlay .use-count {
+  font-size: 12px;
+  color: #e0e0e0;
+}
+
+.admin-overlay .form-input-sm {
+  max-width: 180px;
+}
+
+/* Invite form */
+.admin-overlay .invite-form {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #0f3460;
+}
+
+.admin-overlay .section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7f8fa6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 10px 0;
+}
+
+.admin-overlay .form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-overlay .form-input {
+  padding: 6px 10px;
+  background: #1a1a2e;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 13px;
+  outline: none;
+  flex: 1;
+}
+
+.admin-overlay .form-input:focus {
+  border-color: #e94560;
+}
+
+.admin-overlay .form-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #7f8fa6;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.admin-overlay .form-checkbox input[type="checkbox"] {
+  accent-color: #e94560;
+}
+
+.admin-overlay .form-submit {
+  padding: 6px 16px;
+  background: #e94560;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.admin-overlay .form-submit:hover:not(:disabled) {
+  background: #d13553;
+}
+
+.admin-overlay .form-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-overlay .form-error {
+  margin-top: 8px;
+  background: rgba(233, 69, 96, 0.15);
+  color: #e94560;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+}
