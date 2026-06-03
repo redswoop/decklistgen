@@ -5,6 +5,7 @@ Pokemon TCG proxy tool: browse cards, build decklists, generate cleaned artwork,
 **See also:**
 - [CARD_STYLE.md](./CARD_STYLE.md) — visual conventions for rendered cards (aesthetic priorities, template alignment rules).
 - [CARD_LAB.md](./CARD_LAB.md) — CSS/Vue card renderer at `src/client/lab/`. It now powers every card surface (lightbox, grid thumbs, gallery, print sheet); the lab page is the live sandbox for theme/component work.
+- [PRINT_SHEET.md](./PRINT_SHEET.md) — the `/print.html` print sheet: URL grammar for all three data paths (deck / cardId / gallery), and the `data-print-state` readiness contract to wait on instead of timers or `window.print()` when driving it headless.
 - [SETUP_SIM.md](./SETUP_SIM.md) — the Setup Simulator (Deck → "Setup Sim"): Monte-Carlo "turns to set up" engine, the card-effect inference pipeline (rules from printed text), chain resolution, and the calibration/confidence model.
 
 ## Tech Stack

@@ -269,7 +269,22 @@ async function loadGallery(): Promise<void> {
   entries.value = out;
 }
 
+// Deterministic readiness contract for tests and headless screenshots. The
+// print sheet is a separate Vite entry reached only by hand-built URLs, and the
+// real output is window.print() — which hangs headless Chromium. Rather than
+// race timers, anything driving this page should wait on
+// `document.documentElement[data-print-state]` reaching a terminal value:
+//   "loading"  — mount in progress
+//   "ready"    — sheet rendered, fonts settled, layout committed (safe snapshot)
+//   "empty"    — loaded successfully but nothing to print (filters/empty deck)
+//   "error"    — load failed; the message is shown in .status-error
+// See PRINT_SHEET.md for the URL grammar and the wait-on-state recipe.
+function setPrintState(state: "loading" | "ready" | "empty" | "error") {
+  document.documentElement.dataset.printState = state;
+}
+
 onMounted(async () => {
+  setPrintState("loading");
   installPageRule();
   try {
     if (cardIds.length) {
@@ -280,22 +295,28 @@ onMounted(async () => {
       await loadGallery();
     } else {
       error.value = "No cardId, deckId or gallery=1 parameter supplied.";
+      setPrintState("error");
       return;
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
+    setPrintState("error");
     return;
   }
   // Block render until fonts settle. Print snapshots would otherwise use
   // fallback metrics and produce wrong glyph widths.
   await document.fonts.ready;
   ready.value = true;
-  if (autoPrint && entries.value.length > 0) {
-    // Two frames after layout so the print sheet is fully committed to the DOM.
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => window.print()),
-    );
-  }
+  // Publish the terminal state two frames out — the same commit point auto-print
+  // trusts — so the attribute only flips once the sheet is fully laid out.
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      setPrintState(entries.value.length > 0 ? "ready" : "empty");
+      if (autoPrint && entries.value.length > 0) {
+        window.print();
+      }
+    }),
+  );
 });
 
 const printScalerStyle = {

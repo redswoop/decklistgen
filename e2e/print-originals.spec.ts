@@ -19,7 +19,13 @@ async function seedGalleryAndOpen(page: Page, query: string) {
     id,
   );
   await page.goto(`/print.html?gallery=1&${query}`);
-  await page.locator(".print-sheet").waitFor({ timeout: 15000 });
+  // Wait on the print sheet's readiness contract (see PRINT_SHEET.md), not on a
+  // raw selector — ".print-sheet" is Lab.vue's surface; /print.html renders
+  // ".print-page-sheet".
+  await page.waitForFunction(
+    () => document.documentElement.dataset.printState === "ready",
+    { timeout: 15000 },
+  );
 }
 
 test("originals print as a plain image, no CSS overlay", async ({ page }) => {

@@ -21,10 +21,14 @@ test.describe("/print.html", () => {
 
     await page.goto("/print.html?gallery=1&auto=0");
 
-    // Block on font readiness before assertions — same gate the page uses.
-    await page.evaluate(() => document.fonts.ready);
+    // Deterministic readiness contract: wait for the terminal state instead of
+    // racing timers or touching window.print(). See PRINT_SHEET.md.
+    await page.waitForFunction(
+      () => document.documentElement.dataset.printState === "ready",
+      { timeout: 15000 },
+    );
 
-    const sheet = page.locator(".print-sheet");
+    const sheet = page.locator(".print-page-sheet");
     await expect(sheet).toBeVisible({ timeout: 10000 });
 
     // Three input ids → three cells in the grid.
@@ -42,5 +46,9 @@ test.describe("/print.html", () => {
   test("shows an error when neither deckId nor gallery= is supplied", async ({ page }) => {
     await page.goto("/print.html");
     await expect(page.locator(".status-error")).toBeVisible({ timeout: 5000 });
+    // Terminal error state is published for headless drivers to wait on.
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.dataset.printState))
+      .toBe("error");
   });
 });

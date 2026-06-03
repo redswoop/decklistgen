@@ -16,8 +16,15 @@ async function openPrint(page: Page, query: string) {
     SPECIAL_ENERGY_ID,
   );
   await page.goto(`/print.html?gallery=1&${query}`);
-  // Wait until the sheet renders or the "nothing to print" status shows.
-  await page.locator(".print-sheet, .status").first().waitFor({ timeout: 15000 });
+  // Wait for a terminal readiness state (see PRINT_SHEET.md): "ready" when cards
+  // print, "empty" when the filter removed everything.
+  await page.waitForFunction(
+    () => {
+      const s = document.documentElement.dataset.printState;
+      return s === "ready" || s === "empty";
+    },
+    { timeout: 15000 },
+  );
 }
 
 test("special energy survives the Pokemon exclusion", async ({ page }) => {
