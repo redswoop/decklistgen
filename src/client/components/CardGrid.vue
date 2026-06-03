@@ -4,15 +4,21 @@ import { useVirtualizer } from "@tanstack/vue-virtual";
 import { useFilters } from "../composables/useFilters.js";
 import { useUniverseCount } from "../composables/useCards.js";
 import { useCardCollection } from "../composables/useCardCollection.js";
-import { SAME_ART, SAME_CARD, type CardStackGroup } from "../../shared/utils/fold-cards.js";
+import { type CardStackGroup } from "../../shared/utils/fold-cards.js";
 import { formatCardCountLabel } from "../../shared/utils/card-count-label.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { usePokeproxy, usePokeproxyBatch, type ImageMode } from "../composables/usePokeproxy.js";
 import { useEraLoader } from "../composables/useEraLoader.js";
 import CardStack from "./CardStack.vue";
-import { api } from "../lib/client.js";
 import type { Card } from "../../shared/types/card.js";
-import { getRarityRank } from "../../shared/utils/rarity-rank.js";
+import {
+  sortCards,
+  groupCards,
+  chunkCards,
+  type VirtualRow,
+} from "../../shared/utils/card-sort-group.js";
+import { useSortGroup } from "../composables/useSortGroup.js";
+import { useCardSearch } from "../composables/useCardSearch.js";
 
 const props = withDefaults(defineProps<{
   /** External card array — skips API query when provided */
@@ -59,110 +65,17 @@ const { loadingEra } = useEraLoader();
 const localPage = ref(1);
 const { data: universeTotal } = useUniverseCount(filters);
 
-// Sort & Group — persisted to localStorage
-type GroupBy = "none" | "set" | "energyType" | "rarity" | "category";
-type SortBy = "alpha" | "rarity" | "type" | "set" | "count";
-type SortDir = "asc" | "desc";
+// Sort / group / fold controls + persistence (see useSortGroup). foldStrategy
+// drives the collection query below.
+const context = computed(() => props.context);
+const {
+  groupBy, sortBy, sortDir, stackReprints, deckFoldMode, showSortGroupPopup,
+  groupByOptions, sortByOptions, deckFoldOptions,
+  foldStrategy, sortGroupLabel,
+  toggleSortGroupPopup, closeSortGroupPopup, toggleSortDir,
+} = useSortGroup(context);
 
-const SORT_GROUP_KEY = "decklistgen-sort-group";
-
-type DeckFoldMode = "off" | "same-art" | "by-card";
-
-interface SortGroupState {
-  groupBy: GroupBy;
-  sortBy: SortBy;
-  sortDir: SortDir;
-  stackReprints: boolean;
-  deckFoldMode: DeckFoldMode;
-}
-
-const sortGroupDefaults: SortGroupState = {
-  groupBy: "none", sortBy: "alpha", sortDir: "asc", stackReprints: true, deckFoldMode: "same-art",
-};
-
-function loadSortGroup(): SortGroupState {
-  try {
-    const raw = localStorage.getItem(SORT_GROUP_KEY);
-    if (raw) return { ...sortGroupDefaults, ...JSON.parse(raw) };
-  } catch {}
-  return { ...sortGroupDefaults };
-}
-
-function saveSortGroup() {
-  localStorage.setItem(SORT_GROUP_KEY, JSON.stringify({
-    groupBy: groupBy.value,
-    sortBy: sortBy.value,
-    sortDir: sortDir.value,
-    stackReprints: stackReprints.value,
-    deckFoldMode: deckFoldMode.value,
-  }));
-}
-
-const saved = loadSortGroup();
-const groupBy = ref<GroupBy>(saved.groupBy);
-const sortBy = ref<SortBy>(saved.sortBy);
-const sortDir = ref<SortDir>(saved.sortDir);
-const stackReprints = ref<boolean>(saved.stackReprints);
-const deckFoldMode = ref<DeckFoldMode>(saved.deckFoldMode);
-const showSortGroupPopup = ref(false);
-
-watch([groupBy, sortBy, sortDir, stackReprints, deckFoldMode], saveSortGroup);
-
-// Folding strategy by context: same-art reprints in the browse grid; a
-// selectable Off / Same art / By card mode in the deck grid. Other contexts
-// (cards) never fold.
-const foldStrategy = computed(() => {
-  if (props.context === "browse") return stackReprints.value ? SAME_ART : null;
-  if (props.context === "deck") {
-    return deckFoldMode.value === "same-art" ? SAME_ART
-      : deckFoldMode.value === "by-card" ? SAME_CARD
-      : null;
-  }
-  return null;
-});
 const { data, isLoading, groupsFrom } = useCardCollection(filters, localPage, 99999, foldStrategy);
-
-const deckFoldOptions: { value: DeckFoldMode; label: string }[] = [
-  { value: "off", label: "No fold" },
-  { value: "same-art", label: "Same art" },
-  { value: "by-card", label: "By card" },
-];
-
-const groupByOptions: { value: GroupBy; label: string }[] = [
-  { value: "none", label: "No grouping" },
-  { value: "set", label: "Set" },
-  { value: "energyType", label: "Energy Type" },
-  { value: "rarity", label: "Rarity" },
-  { value: "category", label: "Category" },
-];
-
-const sortByOptions: { value: SortBy; label: string }[] = [
-  { value: "alpha", label: "Alphabetical" },
-  { value: "rarity", label: "Rarity" },
-  { value: "type", label: "Type" },
-  { value: "set", label: "Set" },
-  { value: "count", label: "Count" },
-];
-
-function toggleSortGroupPopup() {
-  showSortGroupPopup.value = !showSortGroupPopup.value;
-}
-
-function closeSortGroupPopup() {
-  showSortGroupPopup.value = false;
-}
-
-function toggleSortDir() {
-  sortDir.value = sortDir.value === "asc" ? "desc" : "asc";
-}
-
-const sortGroupLabel = computed(() => {
-  const group = groupByOptions.find((o) => o.value === groupBy.value)?.label ?? "";
-  const sort = sortByOptions.find((o) => o.value === sortBy.value)?.label ?? "";
-  const dir = sortDir.value === "asc" ? "\u2191" : "\u2193";
-  if (groupBy.value === "none") return `${sort} ${dir}`;
-  return `${group} / ${sort} ${dir}`;
-});
 
 // Container sizing
 const scrollRef = ref<HTMLElement | null>(null);
@@ -222,67 +135,7 @@ const hasAnyFilter = computed(() => {
     || filters.nameSearch || filters.trainerType || filters.isFullArt || filters.hasFoil);
 });
 
-// Sorting
-const CATEGORY_ORDER: Record<string, number> = { Pokemon: 0, Trainer: 1, Energy: 2 };
-
-function sortCards(cards: Card[], by: SortBy, dir: SortDir, counts?: Record<string, number>): Card[] {
-  const sorted = [...cards].sort((a, b) => {
-    switch (by) {
-      case "alpha": return a.name.localeCompare(b.name);
-      case "rarity": return getRarityRank(b.rarity) - getRarityRank(a.rarity);
-      case "type": {
-        const ca = CATEGORY_ORDER[a.category] ?? 9;
-        const cb = CATEGORY_ORDER[b.category] ?? 9;
-        if (ca !== cb) return ca - cb;
-        return a.name.localeCompare(b.name);
-      }
-      case "set": {
-        if (a.setCode !== b.setCode) return a.setCode.localeCompare(b.setCode);
-        return (parseInt(a.localId) || 0) - (parseInt(b.localId) || 0);
-      }
-      case "count": {
-        const ca = counts?.[a.id] ?? 0;
-        const cb = counts?.[b.id] ?? 0;
-        if (cb !== ca) return cb - ca;
-        return a.name.localeCompare(b.name);
-      }
-      default: return 0;
-    }
-  });
-  return dir === "desc" ? sorted.reverse() : sorted;
-}
-
-// Grouping
-type VirtualRow =
-  | { type: "header"; label: string; count: number }
-  | { type: "cards"; cards: Card[] };
-
-function groupCards(cards: Card[], by: GroupBy): [string, Card[]][] {
-  const map = new Map<string, Card[]>();
-  for (const card of cards) {
-    let key: string;
-    switch (by) {
-      case "set": key = `${card.setName} (${card.setCode})`; break;
-      case "energyType": key = card.energyTypes[0] ?? "Colorless"; break;
-      case "rarity": key = card.rarity; break;
-      case "category": key = card.trainerType ?? card.category; break;
-      default: key = "";
-    }
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(card);
-  }
-  const entries = Array.from(map.entries());
-  if (by !== "set") entries.sort((a, b) => a[0].localeCompare(b[0]));
-  return entries;
-}
-
-function chunkCards(cards: Card[], perRow: number): VirtualRow[] {
-  const rows: VirtualRow[] = [];
-  for (let i = 0; i < cards.length; i += perRow) {
-    rows.push({ type: "cards", cards: cards.slice(i, i + perRow) });
-  }
-  return rows;
-}
+// Sorting / grouping / chunking helpers live in shared/utils/card-sort-group.
 
 // Fold the (locally-filtered) cards into display groups, then drive sorting /
 // grouping / virtualization off the representatives. When folding is off every
@@ -371,44 +224,21 @@ const modeOptions: { value: ImageMode; label: string }[] = [
   { value: "proxy", label: "Proxy" },
 ];
 
-// Deck context API search
+// Deck context API search (see useCardSearch). Aliased to the names the template
+// and search glue already use.
 const isDeckContext = computed(() => props.context === "deck");
-const apiSearchQuery = ref("");
-const apiSearchResults = ref<Card[]>([]);
-const apiSearchLoading = ref(false);
-const showApiDropdown = ref(false);
-let apiSearchTimer: ReturnType<typeof setTimeout> | null = null;
-
-watch(apiSearchQuery, (q) => {
-  if (apiSearchTimer) clearTimeout(apiSearchTimer);
-  if (!q || q.length < 2) {
-    apiSearchResults.value = [];
-    showApiDropdown.value = false;
-    return;
-  }
-  apiSearchLoading.value = true;
-  apiSearchTimer = setTimeout(async () => {
-    try {
-      const { cards } = await api.getCards({ nameSearch: q }, 1, 20);
-      apiSearchResults.value = cards;
-      showApiDropdown.value = cards.length > 0;
-    } catch {
-      apiSearchResults.value = [];
-    } finally {
-      apiSearchLoading.value = false;
-    }
-  }, 250);
-});
+const {
+  query: apiSearchQuery,
+  results: apiSearchResults,
+  loading: apiSearchLoading,
+  showDropdown: showApiDropdown,
+  clear: clearApiSearch,
+  handleBlur: handleApiSearchBlur,
+} = useCardSearch();
 
 function selectApiResult(card: Card) {
-  apiSearchQuery.value = "";
-  apiSearchResults.value = [];
-  showApiDropdown.value = false;
+  clearApiSearch();
   handleAdd(card);
-}
-
-function handleApiSearchBlur() {
-  setTimeout(() => { showApiDropdown.value = false; }, 200);
 }
 
 // Search input handler
@@ -425,9 +255,7 @@ function handleSearchInput(e: Event) {
 
 function clearSearch() {
   if (isDeckContext.value) {
-    apiSearchQuery.value = "";
-    apiSearchResults.value = [];
-    showApiDropdown.value = false;
+    clearApiSearch();
   } else if (isExternalMode.value) {
     localSearch.value = "";
   } else {
