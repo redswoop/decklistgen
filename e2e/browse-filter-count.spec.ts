@@ -18,6 +18,29 @@ async function gotoBrowse(page: Page) {
   await page.locator(".inline-filter-bar").waitFor({ timeout: 10000 });
 }
 
+// Read the plain "N cards" universe count once it has STABILIZED. Under load the
+// label can briefly show an in-flight count from the prior filter state, so a
+// single read after the first "\d+ card" match can capture a stale number. Wait
+// until the value holds steady across several polls before trusting it.
+async function readStableCount(page: Page): Promise<number> {
+  let last = -1;
+  let stable = 0;
+  for (let i = 0; i < 75; i++) {
+    const txt = (await header(page).textContent())?.trim() ?? "";
+    // Only the plain "N cards" label (not "showing X of Y") is the universe.
+    const m = !txt.startsWith("showing") ? txt.match(/(\d+)\s+card/) : null;
+    const n = m ? Number(m[1]) : -1;
+    if (n > 0 && n === last) {
+      if (++stable >= 3) return n;
+    } else {
+      stable = 0;
+    }
+    last = n;
+    await page.waitForTimeout(200);
+  }
+  throw new Error(`universe count never stabilized (last=${last})`);
+}
+
 test("filter chips are always visible, no More/Less button", async ({ page }) => {
   await gotoBrowse(page);
 
@@ -42,12 +65,9 @@ test("header shows 'showing X of Y' once a refinement filter narrows the set", a
   const categorySelect = page.locator(".ifb-select").nth(2); // era, set(wide), category
   await categorySelect.selectOption("Pokemon");
 
-  // Wait for the universe to load and the count to settle on a real number.
-  await expect(header(page)).toHaveText(/\d+ card/, { timeout: 15000 });
-
-  // With no refinement yet, the label is a plain "N cards" — capture N = universe.
-  const plain = await header(page).textContent();
-  const universe = Number(plain!.match(/(\d+)\s+card/)![1]);
+  // With no refinement yet the label is a plain "N cards"; capture N = universe
+  // only once the set+category query has settled (see readStableCount).
+  const universe = await readStableCount(page);
   expect(universe).toBeGreaterThan(0);
 
   // Apply a refinement filter (first real rarity) — it must shrink the visible set.

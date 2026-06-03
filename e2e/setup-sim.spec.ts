@@ -76,6 +76,10 @@ async function buildSeed(): Promise<unknown[]> {
 }
 
 test("Setup Sim: target dropdown + results table react to controls", async ({ page }) => {
+  // Heavy test: buildSeed makes sequential API calls and the panel runs a
+  // client-side Monte-Carlo sim. Both slow down under full-suite parallel load,
+  // so give it headroom over the 30s default.
+  test.setTimeout(90_000);
   const seed = await buildSeed();
   expect((seed as { count: number }[]).reduce((s, d) => s + d.count, 0)).toBe(60);
 
@@ -105,7 +109,7 @@ test("Setup Sim: target dropdown + results table react to controls", async ({ pa
 
   // The report runs every line in the deck (one row each), grouped by kind.
   const lineRows = page.locator(".ssp-table tr.ssp-row");
-  await expect(lineRows.first()).toBeVisible({ timeout: 15000 });
+  await expect(lineRows.first()).toBeVisible({ timeout: 30000 });
   const count = await lineRows.count();
   expect(count).toBeGreaterThanOrEqual(1);
 
