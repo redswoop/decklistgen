@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+// Root controller. Owns routing (view tabs + deck sub-view), the global dialogs
+// and auth gate, and composes the app-shell behaviours:
+//   useLayoutControl — sidebar widths/collapse + mobile slide-overs
+//   useCardPreview   — lightbox preview state machine + deep-link sync
+//   useBrowseGenerate— browse multi-select + bulk generate
+//   useUndoRedo      — global Cmd/Ctrl-Z shortcuts
+import { ref, computed, watch, onMounted } from "vue";
 import InlineFilterBar from "./components/InlineFilterBar.vue";
 import CardGrid from "./components/CardGrid.vue";
 import DeckContextPanel from "./components/DeckContextPanel.vue";
@@ -28,18 +34,16 @@ import { useDecklist } from "./composables/useDecklist.js";
 import { useDecks } from "./composables/useDecks.js";
 import { useAuth } from "./composables/useAuth.js";
 import { useAuthDialog } from "./composables/useAuthDialog.js";
-import { useRoute, setCardParam } from "./composables/useRoute.js";
+import { useRoute } from "./composables/useRoute.js";
 import { useIsMobile } from "./composables/useIsMobile.js";
 import { useEraLoader } from "./composables/useEraLoader.js";
-import { api } from "./lib/client.js";
 import { useQueue, useQueueBadge } from "./composables/useQueue.js";
 import { generateCleanImage } from "./composables/usePokeproxy.js";
-import { useToast } from "./composables/useToast.js";
-import { MAX_GENERATE_BATCH_NON_ADMIN } from "../shared/constants/generate-limits.js";
-import { clampForAdmin } from "./components/browse-generate-gating.js";
+import { useLayoutControl } from "./composables/useLayoutControl.js";
+import { useBrowseGenerate } from "./composables/useBrowseGenerate.js";
+import { useCardPreview } from "./composables/useCardPreview.js";
+import { useUndoRedo } from "./composables/useUndoRedo.js";
 import type { Card } from "../shared/types/card.js";
-import type { DeckCard } from "../shared/types/deck.js";
-import type { DeckMembership } from "../shared/types/customized-card.js";
 
 const { isLoggedIn, loading: authLoading, checkAuth, isAdmin, needsSetup } = useAuth();
 const { activeJobCount } = useQueueBadge();
@@ -55,36 +59,10 @@ const queueIsActive = computed(() => currentView.value === 'queue');
 useQueue(queueIsActive);
 const showAdmin = ref(false);
 
-// Layout persistence
-const LAYOUT_KEY = "decklistgen-layout";
-
-interface LayoutState {
-  left: number;
-  right: number;
-  leftCollapsed: boolean;
-  rightCollapsed: boolean;
-}
-
-const defaults: LayoutState = { left: 15, right: 15, leftCollapsed: false, rightCollapsed: false };
-
-function loadLayout(): LayoutState {
-  try {
-    const raw = localStorage.getItem(LAYOUT_KEY);
-    if (raw) return { ...defaults, ...JSON.parse(raw) };
-  } catch {}
-  return { ...defaults };
-}
-
-function saveLayout(partial: Partial<LayoutState>) {
-  const current = loadLayout();
-  Object.assign(current, partial);
-  localStorage.setItem(LAYOUT_KEY, JSON.stringify(current));
-}
-
-const saved = loadLayout();
-
 const { items, totalCards, toText, currentDeckName, currentDeckId, isDirty, toDeckCards, markSaved, importSource, importedAt, undo, redo } = useDecklist();
 const { createDeck, updateDeck } = useDecks();
+
+const isMobile = useIsMobile();
 
 // Deck sub-view: gallery (home) vs build (working deck) vs test (hand simulator) vs setup (setup simulator)
 const deckSubView = ref<'gallery' | 'build' | 'test' | 'setup'>(currentDeckId.value ? 'build' : 'gallery');
@@ -93,270 +71,39 @@ const showExport = ref(false);
 const showImport = ref(false);
 const showSaveDeck = ref(false);
 
-// Browse: multi-select + generate dialog
-const browseSelectedIds = ref(new Set<string>());
+// Browse multi-select + bulk generate.
 const browseGridRef = ref<InstanceType<typeof CardGrid> | null>(null);
-const showBrowseGenerate = ref(false);
-const browseGenerating = ref(false);
-
-function toggleBrowseSelect(cardId: string) {
-  const next = new Set(browseSelectedIds.value);
-  if (next.has(cardId)) next.delete(cardId);
-  else next.add(cardId);
-  browseSelectedIds.value = next;
-}
-
 function getBrowseVisibleCards(): Card[] {
   const exposed = browseGridRef.value as unknown as { visibleCards?: Card[] } | null;
   return exposed?.visibleCards ?? [];
 }
+const {
+  browseSelectedIds, showBrowseGenerate, browseGenerating,
+  toggleBrowseSelect, browseVisibleCount, browseActualCount, browseEffectiveCount,
+  openBrowseGenerate, handleBrowseGenerate,
+} = useBrowseGenerate(isAdmin, getBrowseVisibleCards);
 
-const browseVisibleCount = computed(() => getBrowseVisibleCards().length);
+// App-shell layout (sidebar widths/collapse + mobile slide-overs).
+const {
+  mobileLeftOpen, mobileRightOpen, leftPanelLabel, rightPanelLabel,
+  leftCollapsed, rightCollapsed, leftPct, rightPct, dragging,
+  startDrag, collapseLeft, collapseRight, expandLeft, expandRight,
+  toggleMobileLeft, toggleMobileRight,
+} = useLayoutControl(currentView, isMobile);
 
-const browseActualCount = computed(() =>
-  browseSelectedIds.value.size > 0
-    ? browseSelectedIds.value.size
-    : browseVisibleCount.value,
-);
+// Lightbox preview state machine + deep-link sync.
+const {
+  previewCard, previewSource, previewDeckMembership, previewDeckName,
+  previewSavedDeckId, previewSavedDeckCards, effectiveSearchCards,
+  handlePreview, handleDeckPreview, handleCardsPreview, closeLightbox, handleCardChange,
+  hydrate: hydratePreview,
+} = useCardPreview({ previewCardId, deckItems: items, currentDeckName });
 
-const browseEffectiveCount = computed(() =>
-  clampForAdmin(isAdmin.value, browseActualCount.value),
-);
-
-function openBrowseGenerate() {
-  showBrowseGenerate.value = true;
-}
-
-async function handleBrowseGenerate({ force }: { force: boolean }) {
-  if (browseGenerating.value) return;
-  browseGenerating.value = true;
-  showBrowseGenerate.value = false;
-  const toast = useToast();
-  try {
-    const sourceIds = browseSelectedIds.value.size > 0
-      ? Array.from(browseSelectedIds.value)
-      : getBrowseVisibleCards().map((c) => c.id);
-    const limit = isAdmin.value ? sourceIds.length : MAX_GENERATE_BATCH_NON_ADMIN;
-    const ids = sourceIds.slice(0, limit);
-    let queued = 0;
-    for (const id of ids) {
-      try {
-        await generateCleanImage(id, force);
-        queued++;
-      } catch {}
-    }
-    toast.info(`${queued} card${queued !== 1 ? "s" : ""} queued for generation`);
-  } finally {
-    browseGenerating.value = false;
-  }
-}
-const previewCard = ref<Card | null>(null);
-const previewSource = ref<'grid' | 'deck'>('grid');
-const gridSearchCards = ref<Card[]>([]);
-const previewDeckMembership = ref<DeckMembership[] | undefined>(undefined);
-const previewDeckName = ref<string | undefined>(undefined);
-const previewSavedDeckId = ref<string | undefined>(undefined);
-const previewSavedDeckCards = ref<DeckCard[] | undefined>(undefined);
-
-// Close mobile panels on tab switch
-watch(currentView, () => {
-  if (isMobile.value) {
-    mobileLeftOpen.value = false;
-    mobileRightOpen.value = false;
-  }
-});
-
-
-const effectiveSearchCards = computed(() => {
-  if (previewSource.value === 'deck') {
-    return items.value.map(i => i.card);
-  }
-  return gridSearchCards.value;
-});
-
-const isMobile = useIsMobile();
-const mobileLeftOpen = ref(false);
-const mobileRightOpen = ref(false);
-
-const leftPanelLabel = computed(() => 'Filters');
-const rightPanelLabel = computed(() => currentView.value === 'browse' ? 'Deck' : 'Filters');
-
-// Lock body scroll when a mobile panel is open
-watch([mobileLeftOpen, mobileRightOpen], ([left, right]) => {
-  document.body.style.overflow = (left || right) ? 'hidden' : '';
-});
-
-// Views that take the full center pane (no sidebars)
-const fullWidthView = computed(() =>
-  currentView.value === 'queue' || currentView.value === 'public' ||
-  currentView.value === 'gallery' || currentView.value === 'variants'
-);
+// Global undo/redo shortcuts.
+useUndoRedo(undo, redo);
 
 // Is the Deck tab showing the gallery? (full width, no sidebars)
 const isDeckGallery = computed(() => currentView.value === 'build' && deckSubView.value === 'gallery');
-
-// Left sidebar: only 'cards' view has one (CardsFilterSidebar)
-const savedLeftCollapsed = ref(saved.leftCollapsed);
-const savedRightCollapsed = ref(saved.rightCollapsed);
-const leftCollapsed = computed(() =>
-  isMobile.value || savedLeftCollapsed.value || currentView.value !== 'cards'
-);
-// Right sidebar: only 'browse' view has one (DeckContextPanel)
-const rightCollapsed = computed(() =>
-  isMobile.value || savedRightCollapsed.value || currentView.value !== 'browse'
-);
-const leftPct = ref(saved.left);
-const rightPct = ref(saved.right);
-
-// --- Drag-to-resize ---
-const dragging = ref<'left' | 'right' | null>(null);
-let dragStartX = 0;
-let dragStartPct = 0;
-
-function startDrag(side: 'left' | 'right', e: MouseEvent) {
-  if (isMobile.value) return;
-  e.preventDefault();
-  dragging.value = side;
-  dragStartX = e.clientX;
-  dragStartPct = side === 'left' ? leftPct.value : rightPct.value;
-  document.addEventListener('mousemove', onDragMove);
-  document.addEventListener('mouseup', onDragEnd);
-  document.body.style.cursor = 'col-resize';
-  document.body.style.userSelect = 'none';
-}
-
-function onDragMove(e: MouseEvent) {
-  const container = document.querySelector('.layout') as HTMLElement | null;
-  if (!container) return;
-  const totalWidth = container.clientWidth;
-  const dx = e.clientX - dragStartX;
-  const dPct = (dx / totalWidth) * 100;
-
-  if (dragging.value === 'left') {
-    leftPct.value = Math.max(10, Math.min(40, dragStartPct + dPct));
-  } else {
-    rightPct.value = Math.max(10, Math.min(40, dragStartPct - dPct));
-  }
-}
-
-function onDragEnd() {
-  dragging.value = null;
-  document.removeEventListener('mousemove', onDragMove);
-  document.removeEventListener('mouseup', onDragEnd);
-  document.body.style.cursor = '';
-  document.body.style.userSelect = '';
-  saveLayout({ left: leftPct.value, right: rightPct.value });
-}
-
-onUnmounted(() => {
-  document.removeEventListener('mousemove', onDragMove);
-  document.removeEventListener('mouseup', onDragEnd);
-  document.removeEventListener('keydown', handleUndoRedo);
-});
-
-function collapseLeft() {
-  if (isMobile.value) { mobileLeftOpen.value = false; return; }
-  savedLeftCollapsed.value = true;
-  saveLayout({ leftCollapsed: true });
-}
-
-function collapseRight() {
-  if (isMobile.value) { mobileRightOpen.value = false; return; }
-  savedRightCollapsed.value = true;
-  saveLayout({ rightCollapsed: true });
-}
-
-function expandLeft() {
-  savedLeftCollapsed.value = false;
-  saveLayout({ leftCollapsed: false });
-}
-
-function expandRight() {
-  savedRightCollapsed.value = false;
-  saveLayout({ rightCollapsed: false });
-}
-
-function toggleMobileLeft() {
-  mobileRightOpen.value = false;
-  mobileLeftOpen.value = !mobileLeftOpen.value;
-}
-
-function toggleMobileRight() {
-  mobileLeftOpen.value = false;
-  mobileRightOpen.value = !mobileRightOpen.value;
-}
-
-function handlePreview(card: Card, cards: Card[]) {
-  previewCard.value = card;
-  gridSearchCards.value = cards;
-  previewSource.value = 'grid';
-  previewDeckMembership.value = undefined;
-  previewDeckName.value = undefined;
-  previewSavedDeckId.value = undefined;
-  previewSavedDeckCards.value = undefined;
-  setCardParam(card.id);
-}
-
-function handleDeckPreview(card: Card) {
-  previewCard.value = card;
-  previewSource.value = 'deck';
-  previewDeckMembership.value = undefined;
-  previewDeckName.value = currentDeckName.value || undefined;
-  previewSavedDeckId.value = undefined;
-  previewSavedDeckCards.value = undefined;
-  setCardParam(card.id);
-}
-
-function handleCardsPreview(card: Card, cards: Card[], membership?: DeckMembership[]) {
-  previewCard.value = card;
-  gridSearchCards.value = cards;
-  previewSource.value = 'grid';
-  previewDeckMembership.value = membership;
-  setCardParam(card.id);
-}
-
-function closeLightbox() {
-  previewCard.value = null;
-  setCardParam(null);
-}
-
-function handleCardChange(cardId: string) {
-  setCardParam(cardId, true); // replaceState — don't pollute back stack
-}
-
-// React to back/forward changing the card param
-watch(previewCardId, async (id) => {
-  if (!id) {
-    // Back button closed the lightbox
-    previewCard.value = null;
-    return;
-  }
-  // Forward button or popstate re-opened — only fetch if lightbox isn't showing this card
-  if (!previewCard.value || previewCard.value.id !== id) {
-    try {
-      const card = await api.getCard(id);
-      previewCard.value = card;
-      gridSearchCards.value = [card];
-      previewSource.value = 'grid';
-      previewDeckMembership.value = undefined;
-    } catch {
-      // Card not found — clear param
-      setCardParam(null, true);
-    }
-  }
-});
-
-function handleUndoRedo(e: KeyboardEvent) {
-  const tag = (e.target as HTMLElement)?.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-  if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
-    e.preventDefault();
-    undo();
-  } else if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
-    e.preventDefault();
-    redo();
-  }
-}
 
 // Redirect anonymous users away from auth-required views
 watch([currentView, isLoggedIn], ([view, loggedIn]) => {
@@ -367,22 +114,12 @@ watch([currentView, isLoggedIn], ([view, loggedIn]) => {
 
 // Check auth + deep-link hydration on mount
 onMounted(async () => {
-  document.addEventListener('keydown', handleUndoRedo);
   await checkAuth();
   // Eager-load every era so the in-memory card index is complete by the time
   // variant lookups (and any cross-era reprints) are queried. Fast no-op on a
   // warm server because loadSet is idempotent.
   loadAllEras();
-  if (previewCardId.value && !previewCard.value) {
-    try {
-      const card = await api.getCard(previewCardId.value);
-      previewCard.value = card;
-      gridSearchCards.value = [card];
-      previewSource.value = 'grid';
-    } catch {
-      setCardParam(null, true);
-    }
-  }
+  await hydratePreview();
 });
 
 async function handleSaveDeck(name: string) {
