@@ -1,0 +1,199 @@
+/*
+ * Jumbo print pair-picker styles. Extracted from JumboPrintDialog.vue's scoped
+ * block when the card slots and search became separate components (Vue scoped
+ * styles don't reach child component internals). The .jumbo- prefix is unique to
+ * this dialog, so these live global without leaking. The base .dialog / .btn-*
+ * styles remain in globals.css.
+ */
+
+.jumbo-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-width: min(560px, calc(100vw - 32px));
+  /* The base .dialog has no height cap; this dialog (slots + search + recents +
+     layout + actions) can exceed the viewport, so scroll within it to keep the
+     Print button reachable. */
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.jumbo-sub {
+  margin: 0 0 16px;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.jumbo-slots {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.jumbo-slot {
+  flex: 1;
+  min-width: 0;
+}
+
+.jumbo-slot-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.jumbo-slot-label span {
+  font-weight: 400;
+  opacity: 0.55;
+}
+
+.jumbo-clear {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.7;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.jumbo-clear:hover { opacity: 1; }
+
+/* Slot preview — a single fixed-ratio card image (or CSS proxy render). */
+.jumbo-preview {
+  aspect-ratio: 5 / 7;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.25);
+}
+.jumbo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.jumbo-preview-css {
+  width: 100%;
+  height: 100%;
+}
+.jumbo-preview-css .card {
+  width: 100%;
+  height: 100%;
+}
+
+.jumbo-slot-empty {
+  aspect-ratio: 5 / 7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  font-size: 12px;
+  opacity: 0.5;
+}
+
+/* Per-card version segmented control. */
+.jumbo-versions {
+  display: flex;
+  margin-top: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.jumbo-version-btn {
+  flex: 1;
+  padding: 5px 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  color: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.jumbo-version-btn:first-child {
+  border-left: none;
+}
+.jumbo-version-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.jumbo-version-btn.active {
+  background: var(--accent, #4a8cff);
+  color: #fff;
+}
+
+.jumbo-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+  margin: 16px 0 8px;
+}
+
+.jumbo-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  font-size: 14px;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  outline: none;
+}
+.jumbo-search::placeholder {
+  color: inherit;
+  opacity: 0.45;
+}
+.jumbo-search:focus {
+  border-color: var(--accent, #4a8cff);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.jumbo-hint {
+  font-size: 13px;
+  opacity: 0.6;
+  margin-top: 8px;
+}
+
+.jumbo-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.jumbo-pick {
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  overflow: hidden;
+  aspect-ratio: 5 / 7;
+}
+.jumbo-pick:hover {
+  border-color: var(--accent, #4a8cff);
+}
+.jumbo-pick img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.jumbo-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.jumbo-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.jumbo-radio input:disabled + * {
+  opacity: 0.4;
+}
