@@ -1,0 +1,214 @@
+/*
+ * Test-hand panel styles. Extracted from TestHandPanel.vue's scoped block when
+ * the header / hand / stats became separate components (Vue scoped styles don't
+ * reach child component internals). The .thp- prefix is unique to this panel, so
+ * these can live global without leaking. The zoom-overlay rules moved with their
+ * markup into components/lightbox/CardZoomOverlay.vue.
+ */
+
+.thp {
+  flex: 1;
+  min-height: 0;
+  padding: 1rem 1.25rem;
+  overflow-y: auto;
+  color: #e0e0e0;
+}
+
+.thp-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.thp-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-right: auto;
+}
+
+.thp-order {
+  display: inline-flex;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.thp-seg {
+  padding: 0.4rem 0.8rem;
+  background: #16213e;
+  color: #b0b0c0;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.thp-seg.active {
+  background: #e94560;
+  color: #fff;
+}
+
+.thp-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+.thp-btn {
+  padding: 0.45rem 0.9rem;
+  background: #0f3460;
+  color: #e0e0e0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: filter 0.15s;
+}
+.thp-btn.primary {
+  background: #e94560;
+  color: #fff;
+}
+.thp-btn:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+.thp-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.thp-note {
+  font-size: 0.85rem;
+  color: #b0b0c0;
+  margin-bottom: 0.5rem;
+}
+.thp-note.warn { color: #d29922; }
+.thp-note.danger { color: #e94560; }
+
+.thp-hand-section {
+  margin: 0.5rem 0 1.25rem;
+}
+.thp-hand-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: #b0b0c0;
+}
+.thp-turn { font-weight: 600; color: #e0e0e0; }
+.thp-mulligan-flag {
+  color: #fff;
+  background: #e94560;
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.thp-hand {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.thp-card {
+  position: relative;
+  width: 96px;
+  aspect-ratio: 2.5 / 3.5;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #16213e;
+  border: 1px solid #0f3460;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-in;
+  transition: transform 0.12s, border-color 0.12s;
+}
+.thp-card:hover {
+  transform: translateY(-3px);
+  border-color: #e94560;
+}
+.thp-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.thp-card-zoom {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: rgba(15, 52, 96, 0.85);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.thp-card:hover .thp-card-zoom {
+  opacity: 1;
+}
+.thp-card-fallback {
+  font-size: 0.7rem;
+  text-align: center;
+  padding: 0.25rem;
+  color: #b0b0c0;
+}
+
+.thp-stats { margin-top: 0.5rem; }
+.thp-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.thp-kpi {
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.thp-kpi-val {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fff;
+}
+.thp-kpi-label {
+  font-size: 0.78rem;
+  color: #b0b0c0;
+}
+
+.thp-subhead {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0.5rem 0;
+}
+.thp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.thp-table th,
+.thp-table td {
+  padding: 0.3rem 0.5rem;
+  text-align: right;
+  border-bottom: 1px solid #0f3460;
+  white-space: nowrap;
+}
+.thp-th-name, .thp-td-name {
+  text-align: left;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.thp-th-n, .thp-td-n { text-align: center; color: #b0b0c0; }
+.thp-cat-row {
+  color: #f0c674;
+  font-weight: 600;
+}
+.thp-cat-row td { border-bottom: 1px solid #20407a; }
+.thp-fineprint {
+  margin-top: 0.6rem;
+  font-size: 0.72rem;
+  color: #8a8aa0;
+}

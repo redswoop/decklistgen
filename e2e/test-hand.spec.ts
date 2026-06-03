@@ -111,12 +111,12 @@ test("Test Hand simulator: deal, mulligan, draw, stats, play order", async ({ pa
 
   // Click-to-zoom: clicking a hand card opens the overlay; arrows navigate; Esc closes.
   await page.locator(".thp-card").first().click();
-  const zoom = page.locator(".thp-zoom-backdrop");
+  const zoom = page.locator(".card-zoom-backdrop");
   await expect(zoom).toBeVisible();
-  await expect(page.locator(".thp-zoom-pos")).toContainText("/");
-  const firstPos = await page.locator(".thp-zoom-pos").textContent();
+  await expect(page.locator(".card-zoom-pos")).toContainText("/");
+  const firstPos = await page.locator(".card-zoom-pos").textContent();
   await page.keyboard.press("ArrowRight");
-  await expect(page.locator(".thp-zoom-pos")).not.toHaveText(firstPos ?? "");
+  await expect(page.locator(".card-zoom-pos")).not.toHaveText(firstPos ?? "");
   await page.keyboard.press("Escape");
   await expect(zoom).toBeHidden();
 
