@@ -19,7 +19,9 @@ import { useAuth } from "../composables/useAuth.js";
 import { useToast } from "../composables/useToast.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import CardZoom from "./lightbox/CardZoom.vue";
+import VersionThumb from "./lightbox/VersionThumb.vue";
 import LightboxDevTools from "./lightbox/LightboxDevTools.vue";
+import { useCardVersion } from "../composables/useCardVersion.js";
 import CardThumb from "./CardThumb.vue";
 import CssCardRenderer from "./CssCardRenderer.vue";
 import JumboPrintDialog from "./JumboPrintDialog.vue";
@@ -37,17 +39,8 @@ function artTier(rarity: string): number {
 useGenerationQueryClient();
 const { imageMode } = usePokeproxy();
 
-// Version selection (sticky via localStorage)
-type CardVersion = "original" | "cleaned" | "proxy";
-const VERSION_LS_KEY = "decklistgen-card-version";
-const selectedVersion = ref<CardVersion>(
-  (localStorage.getItem(VERSION_LS_KEY) as CardVersion) || "proxy",
-);
-
-function selectVersion(v: CardVersion) {
-  selectedVersion.value = v;
-  localStorage.setItem(VERSION_LS_KEY, v);
-}
+// Version selection (sticky via localStorage) — see useCardVersion.
+const { selectedVersion, selectVersion } = useCardVersion();
 
 const ENERGY_COLORS: Record<string, string> = {
   Grass: "#439837", Fire: "#e4613e", Water: "#3099e1",
@@ -512,34 +505,37 @@ function handlePrintJumbo() {
           </div>
 
           <div class="lb-versions">
-            <div :class="['lb-version', { active: selectedVersion === 'original' }]">
-              <div class="lb-version-thumb" @click="selectVersion('original')">
-                <img v-if="currentCard.imageBase" :src="cardImageUrl(currentCard.imageBase, 'low')" class="lb-version-img" />
-                <div v-else class="lb-version-placeholder">?</div>
-              </div>
-              <span class="lb-version-label">Original</span>
-            </div>
-            <div :class="['lb-version', { active: selectedVersion === 'cleaned' }]">
-              <div class="lb-version-thumb" @click="selectVersion('cleaned')">
-                <div v-if="generating" class="lb-version-placeholder"><div class="generate-spinner small"></div></div>
-                <img v-else-if="cleanedImageUrl" :src="cleanedImageUrl" class="lb-version-img" />
-                <div v-else class="lb-version-placeholder">--</div>
-              </div>
-              <span class="lb-version-label">Cleaned</span>
-            </div>
-            <div :class="['lb-version', { active: selectedVersion === 'proxy' }]">
-              <div class="lb-version-thumb" @click="selectVersion('proxy')">
-                <CssCardRenderer
-                  v-if="cleanedImageUrl"
-                  :card="currentCard"
-                  :detail="cardDetail"
-                  :art-url="cleanedImageUrl"
-                  class="lb-version-css"
-                />
-                <div v-else class="lb-version-placeholder">--</div>
-              </div>
-              <span class="lb-version-label">Proxy</span>
-            </div>
+            <VersionThumb
+              label="Original"
+              :active="selectedVersion === 'original'"
+              @select="selectVersion('original')"
+            >
+              <img v-if="currentCard.imageBase" :src="cardImageUrl(currentCard.imageBase, 'low')" class="lb-version-img" />
+              <div v-else class="lb-version-placeholder">?</div>
+            </VersionThumb>
+            <VersionThumb
+              label="Cleaned"
+              :active="selectedVersion === 'cleaned'"
+              @select="selectVersion('cleaned')"
+            >
+              <div v-if="generating" class="lb-version-placeholder"><div class="generate-spinner small"></div></div>
+              <img v-else-if="cleanedImageUrl" :src="cleanedImageUrl" class="lb-version-img" />
+              <div v-else class="lb-version-placeholder">--</div>
+            </VersionThumb>
+            <VersionThumb
+              label="Proxy"
+              :active="selectedVersion === 'proxy'"
+              @select="selectVersion('proxy')"
+            >
+              <CssCardRenderer
+                v-if="cleanedImageUrl"
+                :card="currentCard"
+                :detail="cardDetail"
+                :art-url="cleanedImageUrl"
+                class="lb-version-css"
+              />
+              <div v-else class="lb-version-placeholder">--</div>
+            </VersionThumb>
           </div>
         </div>
 
