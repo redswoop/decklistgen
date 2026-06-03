@@ -1,53 +1,41 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+// Lightbox controller. Composes:
+//   useCardNavigation     — search-set prev/next + the stable activeCard
+//   useCardVariants       — same-name variant set + selected currentCard
+//   useVariantDeckControl — add/remove/swap into the working or saved deck
+//   useCardImageResolution— background/main/zoom images + generation state
+//   useVariantBulkGeneration — "generate all variants"
+//   useCardVersion        — Original/Cleaned/Proxy selection (pilot)
+// and lays out the header, image + version picker, variants grid, stats panel,
+// and the zoom / jumbo dialogs. Emit contract to App: close / cardChange /
+// deckUpdated (unchanged).
+import { ref, computed, watch, onMounted, onUnmounted, toRef } from "vue";
 import type { Card } from "../../shared/types/card.js";
-import {
-  useVariants,
-  usePokeproxy,
-  usePokeproxyStatus,
-  isGenerating,
-  generateCleanImage,
-  useGenerationQueryClient,
-  getGenerationVersion,
-  getCardImageUrl,
-} from "../composables/usePokeproxy.js";
-import { useCardDetail } from "../composables/useCardDetail.js";
-import { api } from "../lib/client.js";
+import { usePokeproxy, useGenerationQueryClient } from "../composables/usePokeproxy.js";
 import { useDecklist } from "../composables/useDecklist.js";
-import { useDecks } from "../composables/useDecks.js";
 import { useAuth } from "../composables/useAuth.js";
-import { useToast } from "../composables/useToast.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import CardZoom from "./lightbox/CardZoom.vue";
 import VersionThumb from "./lightbox/VersionThumb.vue";
 import LightboxDevTools from "./lightbox/LightboxDevTools.vue";
+import CardStatsPanel from "./lightbox/CardStatsPanel.vue";
 import { useCardVersion } from "../composables/useCardVersion.js";
 import CardThumb from "./CardThumb.vue";
 import CssCardRenderer from "./CssCardRenderer.vue";
 import JumboPrintDialog from "./JumboPrintDialog.vue";
 import type { DeckMembership } from "../../shared/types/customized-card.js";
 import type { DeckCard } from "../../shared/types/deck.js";
-import { consolidateDeckCards } from "../../shared/utils/consolidate-deck.js";
-import { deduplicateByArt } from "../../shared/utils/variant-allocation.js";
-import { getRarityRank } from "../../shared/utils/rarity-rank.js";
-
-function artTier(rarity: string): number {
-  const rank = getRarityRank(rarity);
-  return rank <= 3 ? 0 : rank;
-}
+import { useCardNavigation } from "../composables/useCardNavigation.js";
+import { useCardVariants } from "../composables/useCardVariants.js";
+import { useVariantDeckControl } from "../composables/useVariantDeckControl.js";
+import { useCardImageResolution } from "../composables/useCardImageResolution.js";
+import { useVariantBulkGeneration } from "../composables/useVariantBulkGeneration.js";
 
 useGenerationQueryClient();
 const { imageMode } = usePokeproxy();
 
 // Version selection (sticky via localStorage) — see useCardVersion.
 const { selectedVersion, selectVersion } = useCardVersion();
-
-const ENERGY_COLORS: Record<string, string> = {
-  Grass: "#439837", Fire: "#e4613e", Water: "#3099e1",
-  Lightning: "#dfbc28", Psychic: "#e96c8c", Fighting: "#e49021",
-  Darkness: "#4f4747", Metal: "#74b0cb", Fairy: "#e18ce1",
-  Dragon: "#576fbc", Colorless: "#828282",
-};
 
 const props = defineProps<{
   card: Card;
@@ -65,254 +53,41 @@ const emit = defineEmits<{
   deckUpdated: [];
 }>();
 
-const { addCard, removeCard, getDeckCount, items: deckItems, swapCard, sweepZeroCount } = useDecklist();
 const { isAuthorized, isLoggedIn } = useAuth();
-// Search set navigation. activeCard is the source of truth and stays
-// stable across searchCards mutations (e.g. deck decrements that remove
-// an item). searchIndex is derived from activeCard's id, so the lightbox
-// no longer shifts to a neighboring item when the list shrinks.
-const activeCard = ref<Card>(props.card);
+const { sweepZeroCount } = useDecklist();
 
-watch(() => props.card.id, () => {
-  activeCard.value = props.card;
+// Search-set navigation (activeCard is the stable source of truth).
+const { activeCard, searchIndex, prevCard, nextCard } =
+  useCardNavigation(toRef(props, "card"), toRef(props, "searchCards"));
+
+const isDeckContext = computed(() => props.source === "deck");
+
+// Same-name variant set + the selected printing.
+const { variants, variantIndex, currentCard, sameArtPrintings, hasMultipleVariants } =
+  useCardVariants(activeCard);
+
+// Variant-picker deck operations (working deck or saved deck).
+const {
+  activeDeckEntry, getVariantDeckCount, totalNameCount,
+  handleVariantAdd, handleVariantRemove, handleVariantSwap,
+} = useVariantDeckControl({
+  isDeckContext,
+  savedDeckId: toRef(props, "savedDeckId"),
+  savedDeckCards: toRef(props, "savedDeckCards"),
+  activeCard,
+  variants,
+  onDeckUpdated: () => emit("deckUpdated"),
 });
 
-const searchIndex = computed(() =>
-  props.searchCards.findIndex((c) => c.id === activeCard.value.id),
-);
-
-function prevCard() {
-  const idx = searchIndex.value;
-  if (idx > 0) activeCard.value = props.searchCards[idx - 1];
-}
-function nextCard() {
-  const idx = searchIndex.value;
-  if (idx >= 0 && idx < props.searchCards.length - 1) {
-    activeCard.value = props.searchCards[idx + 1];
-  }
-}
-
-// Variant navigation — always fetch all same-name variants, deduplicate same-art reprints
-const activeCardId = computed(() => activeCard.value.id);
-const alwaysByName = ref(true);
-const { data: rawVariants } = useVariants(activeCardId, alwaysByName);
-const variants = computed(() => rawVariants.value ? deduplicateByArt(rawVariants.value) : undefined);
-
-// Same-art printings of the current card (same illustrator + same art tier, different set)
-const sameArtPrintings = computed(() => {
-  if (!rawVariants.value) return [];
-  const current = currentCard.value;
-  if (!current.illustrator) return [];
-  const currentTier = artTier(current.rarity);
-  return rawVariants.value.filter(
-    (v) => v.id !== current.id && v.illustrator === current.illustrator && artTier(v.rarity) === currentTier,
-  );
-});
-const variantIndex = ref(0);
-
-watch([variants, activeCardId], () => {
-  if (!variants.value) return;
-  const idx = variants.value.findIndex((c) => c.id === activeCard.value.id);
-  variantIndex.value = idx >= 0 ? idx : 0;
-}, { immediate: true });
-
-const isDeckContext = computed(() => props.source === 'deck');
-
-const currentCard = computed(() => {
-  if (!variants.value?.length) return activeCard.value;
-  return variants.value[variantIndex.value] ?? activeCard.value;
-});
-
-const hasMultipleVariants = computed(() => (variants.value?.length ?? 1) > 1);
-const { updateDeck } = useDecks();
-
-// Deck-stack entry for the lightbox's anchor card. Used by the per-printing
-// swap action to know whether there's anything to swap from.
-const activeDeckEntry = computed(() => {
-  if (!isDeckContext.value) return undefined;
-  if (props.savedDeckCards) {
-    return props.savedDeckCards.find(
-      (dc) => dc.card.setCode === activeCard.value.setCode && dc.card.localId === activeCard.value.localId,
-    );
-  }
-  return deckItems.value.find(
-    (i) => i.setCode === activeCard.value.setCode && i.localId === activeCard.value.localId,
-  );
-});
-
-const variantCounts = computed(() => {
-  const counts = new Map<string, number>();
-  if (!variants.value) return counts;
-  for (const v of variants.value) {
-    const count = props.savedDeckCards
-      ? props.savedDeckCards.find(
-          (dc) => dc.card.setCode === v.setCode && dc.card.localId === v.localId,
-        )?.count ?? 0
-      : getDeckCount(v.setCode, v.localId);
-    counts.set(v.id, count);
-  }
-  return counts;
-});
-
-function getVariantDeckCount(v: Card): number {
-  return variantCounts.value.get(v.id) ?? 0;
-}
-
-// Total count of this card name in the deck
-const totalNameCount = computed(() => {
-  let sum = 0;
-  for (const c of variantCounts.value.values()) sum += c;
-  return sum;
-});
-
-async function handleVariantAdd(v: Card) {
-  if (props.savedDeckId && props.savedDeckCards) {
-    const newCards = props.savedDeckCards.map((dc) => ({ ...dc }));
-    const existingIdx = newCards.findIndex(
-      (dc) => dc.card.setCode === v.setCode && dc.card.localId === v.localId,
-    );
-    if (existingIdx !== -1) {
-      newCards[existingIdx].count++;
-    } else {
-      newCards.push({ count: 1, card: v });
-    }
-    await updateDeck({ id: props.savedDeckId, data: { cards: consolidateDeckCards(newCards) } });
-    emit("deckUpdated");
-  } else {
-    addCard(v);
-  }
-}
-
-async function handleVariantRemove(v: Card) {
-  if (props.savedDeckCards && props.savedDeckId) {
-    const newCards: DeckCard[] = [];
-    let removed = false;
-    for (const dc of props.savedDeckCards) {
-      const isMatch = dc.card.setCode === v.setCode && dc.card.localId === v.localId;
-      if (isMatch && !removed) {
-        removed = true;
-        if (dc.count > 1) newCards.push({ ...dc, count: dc.count - 1 });
-      } else {
-        newCards.push(dc);
-      }
-    }
-    await updateDeck({ id: props.savedDeckId, data: { cards: consolidateDeckCards(newCards) } });
-    emit("deckUpdated");
-  } else {
-    removeCard(v.setCode, v.localId);
-  }
-}
-
-// Swap-to-this-printing: replace all copies of activeCard in the deck with N
-// copies of `v`. Single undo step (working deck); single update call (saved).
-// After swap, the lightbox stays anchored on activeCard whose count is now 0;
-// the onUnmounted sweep cleans it up when the user closes.
-async function handleVariantSwap(v: Card) {
-  if (!isDeckContext.value || v.id === activeCard.value.id) return;
-  const entryCount = activeDeckEntry.value?.count ?? 0;
-  if (entryCount <= 0) return;
-  if (props.savedDeckId && props.savedDeckCards) {
-    const out: DeckCard[] = [];
-    let captured = 0;
-    for (const dc of props.savedDeckCards) {
-      const isFrom =
-        dc.card.setCode === activeCard.value.setCode &&
-        dc.card.localId === activeCard.value.localId;
-      if (isFrom) {
-        captured += dc.count;
-        // drop the from-entry entirely
-      } else {
-        out.push(dc);
-      }
-    }
-    const targetIdx = out.findIndex(
-      (dc) => dc.card.setCode === v.setCode && dc.card.localId === v.localId,
-    );
-    if (targetIdx !== -1) {
-      out[targetIdx] = { ...out[targetIdx], count: out[targetIdx].count + captured };
-    } else {
-      out.push({ count: captured, card: v });
-    }
-    await updateDeck({ id: props.savedDeckId, data: { cards: out } });
-    emit("deckUpdated");
-  } else {
-    swapCard(activeCard.value.setCode, activeCard.value.localId, v);
-  }
-}
-
-// Card detail (attacks, abilities, weakness/resistance)
+// Emit card changes for URL sync (App.vue already knows the initial value).
 const currentCardId = computed(() => currentCard.value.id);
+watch(currentCardId, (id) => emit("cardChange", id));
 
-// Emit card changes for URL sync (skip the initial value — App.vue already knows)
-watch(currentCardId, (id) => {
-  emit("cardChange", id);
-});
-const lightboxOpen = ref(true);
-const { data: cardDetail } = useCardDetail(currentCardId, lightboxOpen);
-
-const { data: ppStatus } = usePokeproxyStatus(currentCardId);
-
-const hasCleanedImage = computed(() =>
-  ppStatus.value?.hasClean || ppStatus.value?.hasComposite
-);
-
-const localBust = ref(0);
-
-const cacheBust = computed(() =>
-  getGenerationVersion(currentCard.value.id) + localBust.value
-);
-
-const cleanedImageUrl = computed(() => {
-  if (!ppStatus.value) return null;
-  const v = cacheBust.value;
-  if (ppStatus.value.hasComposite) return api.pokeproxyImageUrl(currentCard.value.id, "composite", v);
-  if (ppStatus.value.hasClean) return api.pokeproxyImageUrl(currentCard.value.id, "clean", v);
-  return null;
-});
-
-const bgImageUrl = computed(() => cleanedImageUrl.value ?? (cardImageUrl(currentCard.value.imageBase, "low") || null));
-
-const mainImageUrl = computed(() => {
-  if (selectedVersion.value === "cleaned" && cleanedImageUrl.value) {
-    return cleanedImageUrl.value;
-  }
-  if (selectedVersion.value === "cleaned" && !cleanedImageUrl.value) {
-    return currentCard.value.imageBase
-      ? cardImageUrl(currentCard.value.imageBase, "high")
-      : null;
-  }
-  if (selectedVersion.value === "proxy" && !hasCleanedImage.value) {
-    return null;
-  }
-  return currentCard.value.imageBase
-    ? cardImageUrl(currentCard.value.imageBase, "high")
-    : null;
-});
-
-const generating = computed(() => isGenerating(currentCard.value.id));
-
-function handleGenerate() {
-  generateCleanImage(currentCard.value.id);
-}
-
-function handleRegenerate() {
-  generateCleanImage(currentCard.value.id, true);
-}
-
-// Whether the current version needs a cleaned image that doesn't exist yet
-const needsGeneration = computed(() => {
-  if (generating.value) return false;
-  if (selectedVersion.value === "cleaned" && !cleanedImageUrl.value) return true;
-  if (selectedVersion.value === "proxy" && !hasCleanedImage.value) return true;
-  return false;
-});
-
-// Show regenerate button when a cleaned image exists and we're in cleaned/proxy view
-const canRegenerate = computed(() => {
-  if (generating.value) return false;
-  if (selectedVersion.value === "original") return false;
-  return !!hasCleanedImage.value && isAuthorized.value;
-});
+// Images (background / main / zoom) + generation state for the current version.
+const {
+  cardDetail, hasCleanedImage, cleanedImageUrl, bgImageUrl, mainImageUrl, zoomImageUrl,
+  generating, needsGeneration, canRegenerate, handleGenerate, handleRegenerate,
+} = useCardImageResolution(currentCard, selectedVersion, isAuthorized);
 
 function handleMainImageClick() {
   if (needsGeneration.value) {
@@ -327,12 +102,6 @@ const showZoom = ref(false);
 const zoomMode = computed<"proxy" | "image">(() =>
   selectedVersion.value === "proxy" ? "proxy" : "image",
 );
-const zoomImageUrl = computed(() => {
-  if (selectedVersion.value === "cleaned" && cleanedImageUrl.value) {
-    return cleanedImageUrl.value;
-  }
-  return cardImageUrl(currentCard.value.imageBase, "high");
-});
 
 // Keyboard: Escape/arrows
 function onKeydown(e: KeyboardEvent) {
@@ -359,38 +128,9 @@ function setVariantZoom(step: number) {
   localStorage.setItem(VARIANT_ZOOM_KEY, String(step));
 }
 
-// Generate all same-name variants in one click. Reuses generateCleanImage,
-// which dedupes in-flight requests and short-circuits already-generated cards
-// unless force=true. Auth gating mirrors BrowseGenerateButton.
-const generatingAllVariants = ref(false);
-
-const generateAllVariantsDisabledReason = computed(() => {
-  if (!isLoggedIn.value) return "Sign in to generate";
-  if (!isAuthorized.value) return "Your account is not authorized to generate images";
-  if (!variants.value?.length) return "No variants to generate";
-  if (generatingAllVariants.value) return "Generating...";
-  return null;
-});
-
-async function handleGenerateAllVariants() {
-  if (generateAllVariantsDisabledReason.value !== null) return;
-  const list = variants.value;
-  if (!list?.length) return;
-  generatingAllVariants.value = true;
-  const toast = useToast();
-  try {
-    let queued = 0;
-    for (const v of list) {
-      try {
-        await generateCleanImage(v.id, false);
-        queued++;
-      } catch {}
-    }
-    toast.info(`${queued} variant${queued !== 1 ? "s" : ""} queued for generation`);
-  } finally {
-    generatingAllVariants.value = false;
-  }
-}
+// "Generate all same-name variants" in one click.
+const { generatingAllVariants, generateAllVariantsDisabledReason, handleGenerateAllVariants } =
+  useVariantBulkGeneration(variants, isLoggedIn, isAuthorized);
 
 // Tags
 const tags = computed(() =>
@@ -406,10 +146,6 @@ const tags = computed(() =>
     currentCard.value.hasFoil && "Foil",
   ].filter(Boolean) as string[]
 );
-
-function energyColor(type: string): string {
-  return ENERGY_COLORS[type] ?? "#828282";
-}
 
 function navigateToDeck(deckId: string) {
   window.location.hash = `#/decks/${deckId}`;
@@ -597,98 +333,8 @@ function handlePrintJumbo() {
               </div>
             </div>
 
-            <!-- Card metadata -->
-            <div v-if="currentCard.category === 'Pokemon'" class="lb-card-meta-block">
-              <div class="lb-stage-line">
-                <span>{{ currentCard.stage ?? 'Basic' }}</span>
-                <template v-if="cardDetail?.evolveFrom">
-                  <span class="meta-sep"> · </span>
-                  <span class="lb-evolve">Evolves from {{ cardDetail.evolveFrom }}</span>
-                </template>
-                <template v-if="currentCard.energyTypes?.length">
-                  <span class="meta-sep"> · </span>
-                  <span v-for="t in currentCard.energyTypes" :key="t"
-                    class="lb-energy-dot"
-                    :style="{ background: energyColor(t) }"
-                    :title="t"
-                  ></span>
-                </template>
-              </div>
-            </div>
-
-            <!-- Description (flavor text) -->
-            <p v-if="cardDetail?.description" class="lb-description">
-              {{ cardDetail.description }}
-            </p>
-
-            <!-- Abilities -->
-            <div v-if="cardDetail?.abilities?.length" class="lb-section">
-              <div
-                v-for="ab in cardDetail.abilities"
-                :key="ab.name"
-                class="lb-ability"
-              >
-                <div class="lb-ability-header">
-                  <span class="lb-ability-type">{{ ab.type }}</span>
-                  <span class="lb-ability-name">{{ ab.name }}</span>
-                </div>
-                <p class="lb-effect-text">{{ ab.effect }}</p>
-              </div>
-            </div>
-
-            <!-- Attacks -->
-            <div v-if="cardDetail?.attacks?.length" class="lb-section">
-              <div
-                v-for="atk in cardDetail.attacks"
-                :key="atk.name"
-                class="lb-attack"
-              >
-                <div class="lb-attack-header">
-                  <span class="lb-attack-cost">
-                    <span
-                      v-for="(c, ci) in atk.cost"
-                      :key="ci"
-                      class="lb-energy-dot"
-                      :style="{ background: energyColor(c) }"
-                      :title="c"
-                    ></span>
-                  </span>
-                  <span class="lb-attack-name">{{ atk.name }}</span>
-                  <span v-if="atk.damage" class="lb-attack-damage">{{ atk.damage }}</span>
-                </div>
-                <p v-if="atk.effect" class="lb-effect-text">{{ atk.effect }}</p>
-              </div>
-            </div>
-
-            <!-- Trainer / Energy effect -->
-            <div v-if="!cardDetail?.attacks?.length && !cardDetail?.abilities?.length && currentCard.category !== 'Pokemon'" class="lb-section">
-              <p v-if="cardDetail?.description" class="lb-effect-text">{{ cardDetail.description }}</p>
-            </div>
-
-            <!-- Weakness / Resistance / Retreat -->
-            <div v-if="cardDetail && currentCard.category === 'Pokemon'" class="lb-wrr">
-              <div v-if="cardDetail.weaknesses?.length" class="lb-wrr-item">
-                <span class="lb-wrr-label">Weakness</span>
-                <span v-for="w in cardDetail.weaknesses" :key="w.type" class="lb-wrr-value">
-                  <span class="lb-energy-dot sm" :style="{ background: energyColor(w.type) }" :title="w.type"></span>
-                  {{ w.value }}
-                </span>
-              </div>
-              <div v-if="cardDetail.resistances?.length" class="lb-wrr-item">
-                <span class="lb-wrr-label">Resistance</span>
-                <span v-for="r in cardDetail.resistances" :key="r.type" class="lb-wrr-value">
-                  <span class="lb-energy-dot sm" :style="{ background: energyColor(r.type) }" :title="r.type"></span>
-                  {{ r.value }}
-                </span>
-              </div>
-              <div v-if="currentCard.retreat !== undefined" class="lb-wrr-item">
-                <span class="lb-wrr-label">Retreat</span>
-                <span class="lb-wrr-value">
-                  <span v-for="i in currentCard.retreat" :key="i" class="lb-energy-dot sm" :style="{ background: energyColor('Colorless') }"></span>
-                  <span v-if="currentCard.retreat === 0" class="lb-wrr-none">None</span>
-                </span>
-              </div>
-            </div>
+            <!-- Card stats: metadata, abilities, attacks, weakness/resist/retreat -->
+            <CardStatsPanel :card="currentCard" :detail="cardDetail" />
 
             <!-- Single-variant controls (when no variant grid shown) -->
             <div v-if="!hasMultipleVariants" class="lb-deck-controls">
