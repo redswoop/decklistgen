@@ -1,5 +1,5 @@
 import { ref, computed, watch, type Ref } from "vue";
-import { generateCleanImage, getGenerationVersion } from "./usePokeproxy.js";
+import { bulkGenerateClean, getGenerationVersion } from "./usePokeproxy.js";
 import { useToast } from "./useToast.js";
 import type { GalleryCardWithSource } from "./useGalleryCardSource.js";
 
@@ -30,13 +30,7 @@ export function useGalleryBulkGeneration(
         toast.info("Nothing to do — every card already has artwork");
         return;
       }
-      let queued = 0;
-      for (const c of targets) {
-        try {
-          await generateCleanImage(c.cardId, false);
-          queued++;
-        } catch { /* per-card errors surfaced via toast inside generateCleanImage */ }
-      }
+      const queued = await bulkGenerateClean(targets.map((c) => c.cardId), false);
       toast.info(`${queued} card${queued !== 1 ? "s" : ""} queued for generation`);
     } finally {
       bulkBusy.value = false;
@@ -47,13 +41,7 @@ export function useGalleryBulkGeneration(
     if (bulkBusy.value || !cards.value) return;
     bulkBusy.value = true;
     try {
-      let queued = 0;
-      for (const c of cards.value) {
-        try {
-          await generateCleanImage(c.cardId, true);
-          queued++;
-        } catch { /* ignored — toast already shown */ }
-      }
+      const queued = await bulkGenerateClean(cards.value.map((c) => c.cardId), true);
       toast.info(`${queued} card${queued !== 1 ? "s" : ""} queued for force-regeneration`);
     } finally {
       bulkBusy.value = false;

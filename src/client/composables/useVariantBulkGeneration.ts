@@ -1,10 +1,10 @@
 import { ref, computed, type Ref } from "vue";
 import type { Card } from "../../shared/types/card.js";
-import { generateCleanImage } from "./usePokeproxy.js";
+import { bulkGenerateClean } from "./usePokeproxy.js";
 import { useToast } from "./useToast.js";
 
 /**
- * "Generate all same-name variants" in one click. Reuses generateCleanImage,
+ * "Generate all same-name variants" in one click. Queues via bulkGenerateClean,
  * which dedupes in-flight requests and skips already-generated cards. Auth gating
  * mirrors BrowseGenerateButton.
  */
@@ -30,13 +30,7 @@ export function useVariantBulkGeneration(
     generatingAllVariants.value = true;
     const toast = useToast();
     try {
-      let queued = 0;
-      for (const v of list) {
-        try {
-          await generateCleanImage(v.id, false);
-          queued++;
-        } catch {}
-      }
+      const queued = await bulkGenerateClean(list.map((v) => v.id), false);
       toast.info(`${queued} variant${queued !== 1 ? "s" : ""} queued for generation`);
     } finally {
       generatingAllVariants.value = false;

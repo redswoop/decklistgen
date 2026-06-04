@@ -1,6 +1,6 @@
 import { ref, computed, type Ref } from "vue";
 import type { Card } from "../../shared/types/card.js";
-import { generateCleanImage } from "./usePokeproxy.js";
+import { bulkGenerateClean } from "./usePokeproxy.js";
 import { useToast } from "./useToast.js";
 import { MAX_GENERATE_BATCH_NON_ADMIN } from "../../shared/constants/generate-limits.js";
 import { clampForAdmin } from "../components/browse-generate-gating.js";
@@ -47,13 +47,7 @@ export function useBrowseGenerate(isAdmin: Ref<boolean>, getVisibleCards: () => 
         : getVisibleCards().map((c) => c.id);
       const limit = isAdmin.value ? sourceIds.length : MAX_GENERATE_BATCH_NON_ADMIN;
       const ids = sourceIds.slice(0, limit);
-      let queued = 0;
-      for (const id of ids) {
-        try {
-          await generateCleanImage(id, force);
-          queued++;
-        } catch {}
-      }
+      const queued = await bulkGenerateClean(ids, force);
       toast.info(`${queued} card${queued !== 1 ? "s" : ""} queued for generation`);
     } finally {
       browseGenerating.value = false;

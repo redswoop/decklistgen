@@ -179,6 +179,23 @@ export async function generateCleanImage(cardId: string, force = false) {
   }
 }
 
+/**
+ * Queue clean-art generation for a list of cards, one after another. Returns the
+ * number processed. Per-card failures are swallowed (generateCleanImage surfaces
+ * its own error toast), so a single bad card never aborts the batch. Callers own
+ * the summary toast since the noun/verb differ (cards/variants, generate/regen).
+ */
+export async function bulkGenerateClean(cardIds: string[], force: boolean): Promise<number> {
+  let queued = 0;
+  for (const id of cardIds) {
+    try {
+      await generateCleanImage(id, force);
+      queued++;
+    } catch { /* per-card errors already surfaced by generateCleanImage */ }
+  }
+  return queued;
+}
+
 /** Must be called from a component setup to capture the query client */
 export function useGenerationQueryClient() {
   _queryClient = useQueryClient();
