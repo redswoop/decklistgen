@@ -294,50 +294,6 @@ export const api = {
     }>>(resp);
   },
 
-  // Font sizes (mounted at /gallery, not /api/gallery)
-  getFontSizes: async () => {
-    const resp = await fetch("/gallery/font-sizes", { credentials: "include" });
-    return handleResponse<{ current: Record<string, number>; defaults: Record<string, number> }>(resp);
-  },
-  saveFontSizes: async (overrides: Record<string, number>) => {
-    const resp = await fetch("/gallery/font-sizes", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(overrides),
-      credentials: "include",
-    });
-    return handleResponse<{ status: string }>(resp);
-  },
-  resetFontSizes: async () => {
-    const resp = await fetch("/gallery/font-sizes", { method: "DELETE", credentials: "include" });
-    return handleResponse<{ status: string }>(resp);
-  },
-
-  // Font family selection (mounted at /gallery, not /api/gallery)
-  getFontFamily: async () => {
-    const resp = await fetch("/gallery/font-family", { credentials: "include" });
-    return handleResponse<{
-      current: Record<string, string>;
-      overrides: Record<string, string>;
-      defaults: Record<string, string>;
-      available: Array<{ id: string; displayName: string; license: string; titleOnly: boolean; weights: number[] }>;
-      presets: Array<{ id: string; displayName: string; description: string; selection: Record<string, string> }>;
-    }>(resp);
-  },
-  saveFontFamily: async (selection: Record<string, string>) => {
-    const resp = await fetch("/gallery/font-family", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(selection),
-      credentials: "include",
-    });
-    return handleResponse<{ status: string; current: Record<string, string> }>(resp);
-  },
-  resetFontFamily: async () => {
-    const resp = await fetch("/gallery/font-family", { method: "DELETE", credentials: "include" });
-    return handleResponse<{ status: string; current: Record<string, string> }>(resp);
-  },
-
   // Queue endpoints
   queueList: () =>
     get<{ jobs: QueueJob[] }>("/pokeproxy/queue"),
