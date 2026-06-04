@@ -3,7 +3,6 @@ import {
   adaptPokemon,
   adaptTrainer,
   adaptBasicEnergy,
-  isSpecialEnergyCard,
 } from "./card-to-lab.js";
 import type { Card, CardDetail } from "../../shared/types/card.js";
 
@@ -195,29 +194,5 @@ describe("adaptBasicEnergy", () => {
       artUrl: "/fire.png",
       footer: "Scarlet & Violet • 230",
     });
-  });
-});
-
-describe("isSpecialEnergyCard", () => {
-  it("is true for category=Energy with effect text", () => {
-    const card = baseCard({ category: "Energy" });
-    const detail = baseDetail(card, { effect: "Anything here" });
-    expect(isSpecialEnergyCard(card, detail)).toBe(true);
-  });
-
-  it("is false for category=Energy without effect (basic energy)", () => {
-    const card = baseCard({ category: "Energy" });
-    const detail = baseDetail(card);
-    expect(isSpecialEnergyCard(card, detail)).toBe(false);
-  });
-
-  it("is false without detail loaded (caller defaults to basic until detail arrives)", () => {
-    const card = baseCard({ category: "Energy" });
-    expect(isSpecialEnergyCard(card, undefined)).toBe(false);
-  });
-
-  it("is false for Pokemon and Trainer cards", () => {
-    expect(isSpecialEnergyCard(baseCard({ category: "Pokemon" }), undefined)).toBe(false);
-    expect(isSpecialEnergyCard(baseCard({ category: "Trainer" }), undefined)).toBe(false);
   });
 });

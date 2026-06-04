@@ -1,20 +1,5 @@
 import type { Card, CardDetail } from "../types/card.js";
-
-/**
- * Energy cards split into two kinds, distinguished by rule text:
- *   - basic energy  → no `effect` (Grass Energy, Basic Lightning Energy …)
- *   - special energy → has `effect` (Jet Energy, Luminous Energy …)
- * Both carry `category: "Energy"` and no `trainerType`, so they are NEITHER
- * Pokémon nor Trainers — special energy gets its own print filter rather than
- * leaking into the Pokémon/Trainer exclusions.
- */
-export function isSpecialEnergy(card: Card, detail?: CardDetail): boolean {
-  return card.category === "Energy" && !!detail?.effect;
-}
-
-export function isBasicEnergy(card: Card, detail?: CardDetail): boolean {
-  return card.category === "Energy" && !detail?.effect;
-}
+import { isSpecialEnergy } from "./energy.js";
 
 export interface PrintFilterOptions {
   /** Exclusion keys from the `exclude` URL param: pokemon, supporters, items,

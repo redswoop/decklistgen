@@ -8,7 +8,6 @@ import {
   isSupporter,
   isItem,
   isEnergy,
-  isBasicEnergy,
   isMulliganHand,
   hasNoSupporterOrItem,
   extraDrawsByTurn,
@@ -18,6 +17,7 @@ import {
   oddsToSeeByTurn,
   runMonteCarlo,
 } from "./hand-sim.js";
+import { isBasicEnergy } from "./energy.js";
 
 // --- Card factories ---------------------------------------------------------
 

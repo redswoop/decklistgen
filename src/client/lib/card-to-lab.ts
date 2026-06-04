@@ -88,16 +88,6 @@ const TRAINER_TYPE_MAP: Partial<Record<string, TrainerType>> = {
   Stadium: "Stadium",
 };
 
-/**
- * Special Energy detection. Energy cards with effect text get routed to the
- * trainer renderer; effect-less ones render as basic energy. Matches the SVG
- * pipeline's enrich-card-data.ts logic (category=Energy + effect → trainerType
- * "Special Energy").
- */
-export function isSpecialEnergyCard(card: Card, detail?: CardDetail): boolean {
-  return card.category === "Energy" && !!detail?.effect;
-}
-
 export function adaptPokemon(card: Card, detail: CardDetail | undefined, artUrl: string): LabCard {
   if (detail && detail.abilities.length > 1) {
     // Lab only renders the first ability for now; flag the gap so we notice.

@@ -8,8 +8,8 @@ import {
   adaptPokemon,
   adaptTrainer,
   adaptBasicEnergy,
-  isSpecialEnergyCard,
 } from "../lib/card-to-lab.js";
+import { isSpecialEnergy } from "../../shared/utils/energy.js";
 
 /*
  * Top-level CSS card renderer. Picks the lab component variant by category
@@ -38,7 +38,7 @@ type Variant = "fullart" | "trainer" | "basic-energy";
 const variant = computed<Variant>(() => {
   if (props.card.category === "Pokemon") return "fullart";
   if (props.card.category === "Energy") {
-    return isSpecialEnergyCard(props.card, props.detail) ? "trainer" : "basic-energy";
+    return isSpecialEnergy(props.card, props.detail) ? "trainer" : "basic-energy";
   }
   return "trainer";
 });

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { shouldPrintCard, isSpecialEnergy, isBasicEnergy } from "./print-filter.js";
+import { shouldPrintCard } from "./print-filter.js";
 import type { Card, CardDetail } from "../types/card.js";
 
 function card(partial: Partial<Card>): Card {
@@ -12,19 +12,6 @@ function card(partial: Partial<Card>): Card {
 
 const NONE = { exclude: new Set<string>(), noBasicEnergy: false };
 const withEffect: CardDetail = { ...card({ category: "Energy" }), effect: "does a thing" } as CardDetail;
-const noEffect = undefined;
-
-describe("energy classification", () => {
-  test("special energy = Energy with effect text", () => {
-    expect(isSpecialEnergy(card({ category: "Energy" }), withEffect)).toBe(true);
-    expect(isSpecialEnergy(card({ category: "Energy" }), noEffect)).toBe(false);
-    expect(isSpecialEnergy(card({ category: "Pokemon" }), withEffect)).toBe(false);
-  });
-  test("basic energy = Energy without effect text", () => {
-    expect(isBasicEnergy(card({ category: "Energy" }), noEffect)).toBe(true);
-    expect(isBasicEnergy(card({ category: "Energy" }), withEffect)).toBe(false);
-  });
-});
 
 describe("shouldPrintCard — special energy is its own bucket", () => {
   const special = card({ category: "Energy", name: "Jet Energy" });

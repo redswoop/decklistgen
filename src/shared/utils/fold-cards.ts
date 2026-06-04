@@ -1,5 +1,6 @@
 import type { Card } from "../types/card.js";
 import { artTier } from "./variant-allocation.js";
+import { isBasicEnergy } from "./energy.js";
 
 /**
  * A group of cards folded into a single display unit.
@@ -72,7 +73,7 @@ export function foldCards(cards: Card[], strategy: FoldStrategy): CardStackGroup
 export const SAME_ART: FoldStrategy = {
   name: "same-art",
   keyOf(card) {
-    if (card.category === "Energy" && card.mechanicsHash === "basic") return card.id;
+    if (isBasicEnergy(card)) return card.id;
     return `${card.name}\0${card.mechanicsHash}\0${artTier(card.rarity)}`;
   },
 };

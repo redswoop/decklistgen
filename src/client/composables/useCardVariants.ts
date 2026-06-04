@@ -1,14 +1,7 @@
 import { ref, computed, watch, type Ref } from "vue";
 import type { Card } from "../../shared/types/card.js";
 import { useVariants } from "./usePokeproxy.js";
-import { deduplicateByArt } from "../../shared/utils/variant-allocation.js";
-import { getRarityRank } from "../../shared/utils/rarity-rank.js";
-
-/** Rarity collapsed to an "art tier": commons share tier 0, the rest by rank. */
-function artTier(rarity: string): number {
-  const rank = getRarityRank(rarity);
-  return rank <= 3 ? 0 : rank;
-}
+import { deduplicateByArt, artTier } from "../../shared/utils/variant-allocation.js";
 
 /**
  * Same-name variant set for the lightbox: fetches every printing, dedupes

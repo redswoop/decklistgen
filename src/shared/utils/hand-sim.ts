@@ -1,4 +1,5 @@
 import type { Card } from "../types/card.js";
+import { isBasicEnergy } from "./energy.js";
 
 /**
  * Pokémon TCG opening-hand / consistency simulation.
@@ -72,11 +73,6 @@ export function isItem(c: Card): boolean {
 
 export function isEnergy(c: Card): boolean {
   return c.category === "Energy";
-}
-
-/** Basic (non-special) energy — keyed off the mechanics hash, not the name. */
-export function isBasicEnergy(c: Card): boolean {
-  return c.category === "Energy" && c.mechanicsHash === "basic";
 }
 
 /** A hand is a mulligan iff it contains zero Basic Pokémon. */
