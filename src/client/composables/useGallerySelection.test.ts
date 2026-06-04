@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { ref } from "vue";
+import { ref, nextTick } from "vue";
 
 const store: Record<string, string> = {};
 globalThis.localStorage = {
@@ -21,12 +21,13 @@ function card(id: string): GalleryCardWithSource {
 describe("useGallerySelection", () => {
   beforeEach(() => localStorage.clear());
 
-  it("selects a card, exposes activeCard, and persists the id", () => {
+  it("selects a card, exposes activeCard, and persists the id", async () => {
     const cards = ref([card("a"), card("b")]);
     const s = useGallerySelection(cards);
     s.selectCard(cards.value[1]);
     expect(s.selectedCardId.value).toBe("b");
     expect(s.activeCard.value?.cardId).toBe("b");
+    await nextTick();
     expect(store["decklistgen-gallery-selected"]).toBe("b");
   });
 
@@ -46,12 +47,15 @@ describe("useGallerySelection", () => {
     expect(s.selectedCardId.value).toBe("a");
   });
 
-  it("deselect clears the id and storage", () => {
+  it("deselect clears the id and storage", async () => {
     const cards = ref([card("a")]);
     const s = useGallerySelection(cards);
     s.selectCard(cards.value[0]);
+    await nextTick();
+    expect(store["decklistgen-gallery-selected"]).toBe("a");
     s.deselectCard();
     expect(s.selectedCardId.value).toBeNull();
+    await nextTick();
     expect(store["decklistgen-gallery-selected"]).toBeUndefined();
   });
 

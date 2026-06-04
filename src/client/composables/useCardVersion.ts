@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { usePersistentRef } from "./usePersistentRef.js";
 
 /**
  * Which rendering of a card to show/print:
@@ -16,13 +16,10 @@ const VERSION_LS_KEY = "decklistgen-card-version";
  * open at a time); initializes from storage and writes through on every change.
  */
 export function useCardVersion() {
-  const selectedVersion = ref<CardVersion>(
-    (localStorage.getItem(VERSION_LS_KEY) as CardVersion) || "proxy",
-  );
+  const selectedVersion = usePersistentRef<CardVersion>(VERSION_LS_KEY, "proxy");
 
   function selectVersion(v: CardVersion) {
     selectedVersion.value = v;
-    localStorage.setItem(VERSION_LS_KEY, v);
   }
 
   return { selectedVersion, selectVersion };

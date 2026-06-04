@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test";
+import { nextTick } from "vue";
 
 // Mock localStorage before importing the composable (module reads it at call time).
 const store: Record<string, string> = {};
@@ -27,10 +28,11 @@ describe("useCardVersion", () => {
     expect(selectedVersion.value).toBe("cleaned");
   });
 
-  it("selectVersion updates the ref and writes through to localStorage", () => {
+  it("selectVersion updates the ref and writes through to localStorage", async () => {
     const { selectedVersion, selectVersion } = useCardVersion();
     selectVersion("original");
     expect(selectedVersion.value).toBe("original");
+    await nextTick();
     expect(store["decklistgen-card-version"]).toBe("original");
   });
 });

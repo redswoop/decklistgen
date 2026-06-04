@@ -1,5 +1,6 @@
-import { ref, computed, type Ref } from "vue";
+import { computed, type Ref } from "vue";
 import type { GalleryCardWithSource } from "./useGalleryCardSource.js";
+import { usePersistentRef } from "./usePersistentRef.js";
 
 const SELECTED_LS_KEY = "decklistgen-gallery-selected";
 
@@ -12,7 +13,7 @@ export function useGallerySelection(
   cards: Ref<GalleryCardWithSource[] | undefined>,
   opts: { onChange?: () => void } = {},
 ) {
-  const selectedCardId = ref<string | null>(localStorage.getItem(SELECTED_LS_KEY));
+  const selectedCardId = usePersistentRef<string | null>(SELECTED_LS_KEY, null);
 
   const activeCard = computed<GalleryCardWithSource | null>(() => {
     if (!selectedCardId.value || !cards.value) return null;
@@ -21,7 +22,6 @@ export function useGallerySelection(
 
   function selectCard(card: GalleryCardWithSource) {
     selectedCardId.value = card.cardId;
-    localStorage.setItem(SELECTED_LS_KEY, card.cardId);
     opts.onChange?.();
   }
 
@@ -32,7 +32,6 @@ export function useGallerySelection(
 
   function deselectCard() {
     selectedCardId.value = null;
-    localStorage.removeItem(SELECTED_LS_KEY);
     opts.onChange?.();
   }
 

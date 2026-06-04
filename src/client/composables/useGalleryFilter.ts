@@ -1,4 +1,4 @@
-import { ref, computed, watch, type Ref } from "vue";
+import { ref, computed, type Ref } from "vue";
 import {
   templateForGalleryCard,
   type GalleryCardWithSource,
@@ -8,6 +8,7 @@ import {
   countByTemplate,
   type TemplateFilter,
 } from "../lib/gallery-filter.js";
+import { usePersistentRef } from "./usePersistentRef.js";
 
 const FILTER_KEY = "decklistgen-gallery-filter";
 
@@ -17,10 +18,7 @@ const FILTER_KEY = "decklistgen-gallery-filter";
  * and the filtered list via the pure gallery-filter helpers.
  */
 export function useGalleryFilter(cards: Ref<GalleryCardWithSource[] | undefined>) {
-  const templateFilter = ref<TemplateFilter>(
-    (localStorage.getItem(FILTER_KEY) as TemplateFilter) || "all",
-  );
-  watch(templateFilter, (t) => localStorage.setItem(FILTER_KEY, t));
+  const templateFilter = usePersistentRef<TemplateFilter>(FILTER_KEY, "all");
 
   const search = ref("");
 

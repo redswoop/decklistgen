@@ -1,4 +1,5 @@
-import { ref, computed, watch, type Ref } from "vue";
+import { computed, type Ref } from "vue";
+import { usePersistentRef, numberSerde } from "./usePersistentRef.js";
 
 export type PreviewMode = "editing" | "physical";
 
@@ -12,15 +13,8 @@ const EDITING_ZOOM_KEY = "decklistgen-gallery-zoom";
  * useDisplayCalibration.
  */
 export function useGalleryPreview(physicalCardPx: Ref<{ w: number; h: number }>) {
-  const previewMode = ref<PreviewMode>(
-    (localStorage.getItem(PREVIEW_MODE_KEY) as PreviewMode) || "editing",
-  );
-  watch(previewMode, (m) => localStorage.setItem(PREVIEW_MODE_KEY, m));
-
-  const editingThumbWidth = ref<number>(
-    Number(localStorage.getItem(EDITING_ZOOM_KEY)) || 180,
-  );
-  watch(editingThumbWidth, (w) => localStorage.setItem(EDITING_ZOOM_KEY, String(w)));
+  const previewMode = usePersistentRef<PreviewMode>(PREVIEW_MODE_KEY, "editing");
+  const editingThumbWidth = usePersistentRef(EDITING_ZOOM_KEY, 180, numberSerde);
 
   const previewThumbWidth = computed(() =>
     previewMode.value === "physical"
