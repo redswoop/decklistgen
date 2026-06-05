@@ -584,8 +584,10 @@ function useAbilities(state: GameState, line: EvolutionLine, mode: "draw" | "any
 }
 
 /** Play the single most useful Supporter in hand (one per turn). */
-function playSupporter(state: GameState, line: EvolutionLine, rng: Rng, log: string[]): void {
+export function playSupporter(state: GameState, line: EvolutionLine, rng: Rng, log: string[]): void {
   if (state.supporterUsed) return;
+  // The player going first may not play a Supporter on their first turn.
+  if (state.turn === 1 && state.order === "first") return;
   let best: { card: SimCard; rule: SetupRule; score: number } | null = null;
   for (const card of state.hand) {
     const rule = ruleFor(state, card);

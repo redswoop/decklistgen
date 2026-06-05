@@ -6,6 +6,7 @@ import {
   pickDiscards,
   doEvolutions,
   benchLineBasic,
+  playSupporter,
   type GameState,
 } from "./setup-sim.js";
 import { buildEvolutionLines, type SimCard, type EvolutionLine } from "./evolution-lines.js";
@@ -111,6 +112,31 @@ describe("doEvolutions — timing", () => {
     });
     doEvolutions(state, line, []);
     expect(state.bench[0].name).toBe("Charmeleon");
+  });
+});
+
+describe("playSupporter — first-turn restriction", () => {
+  const research = () => mk({ name: "Professor's Research", category: "Trainer", trainerType: "Supporter",
+    effect: "Discard your hand and draw 7 cards." });
+  const deck = [...copies(charmander(), 4), ...copies(charizard(), 3), ...copies(research(), 6)];
+  const line = lineFor(deck);
+
+  it("does NOT play a Supporter on turn 1 going first", () => {
+    const state = emptyState({ turn: 1, order: "first", hand: [research(), filler(), filler()] });
+    playSupporter(state, line, makeRng(1), []);
+    expect(state.supporterUsed).toBe(false);
+  });
+
+  it("plays a Supporter on turn 1 going second", () => {
+    const state = emptyState({ turn: 1, order: "second", hand: [research(), filler(), filler()] });
+    playSupporter(state, line, makeRng(1), []);
+    expect(state.supporterUsed).toBe(true);
+  });
+
+  it("plays a Supporter on turn 2 going first", () => {
+    const state = emptyState({ turn: 2, order: "first", hand: [research(), filler(), filler()] });
+    playSupporter(state, line, makeRng(1), []);
+    expect(state.supporterUsed).toBe(true);
   });
 });
 
