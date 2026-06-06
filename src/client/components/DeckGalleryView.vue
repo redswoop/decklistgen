@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import DeleteDeckDialog from "./DeleteDeckDialog.vue";
 import { useDecks } from "../composables/useDecks.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useAuth } from "../composables/useAuth.js";
+import { useActingAs } from "../composables/useActingAs.js";
+import { api } from "../lib/client.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import type { DeckSummary } from "../../shared/types/deck.js";
+import type { AdminUser } from "../../shared/types/user.js";
 
 const emit = defineEmits<{
   "open-deck": [id: string];
@@ -16,7 +19,8 @@ const emit = defineEmits<{
 
 const { decks, isLoading, fetchDeck, deleteDeck, copyDeck, updateDeck } = useDecks();
 const { loadSavedDeck, isDirty, currentDeckId, clear } = useDecklist();
-const { isLoggedIn } = useAuth();
+const { isLoggedIn, isAdmin, currentUser } = useAuth();
+const { actingAsUserId, actingAsUser, setActingAs, clearActingAs } = useActingAs();
 
 const search = ref("");
 const menuOpenId = ref<string | null>(null);
@@ -25,6 +29,47 @@ const renamingId = ref<string | null>(null);
 const renameValue = ref("");
 const dirtyGuardTarget = ref<string | null>(null);
 const dirtyGuardNewDeck = ref(false);
+
+// --- Admin "act as user" chooser ---
+const allUsers = ref<AdminUser[]>([]);
+// "self" sentinel selects the admin's own decks; otherwise a target user id.
+const pendingActAs = ref<AdminUser | "self" | null>(null);
+
+onMounted(async () => {
+  if (isAdmin.value) {
+    try {
+      allUsers.value = await api.listUsers();
+    } catch {
+      allUsers.value = [];
+    }
+  }
+});
+
+const selectedUserId = computed(() => actingAsUserId.value ?? currentUser.value?.id ?? "");
+
+function onSelectUser(e: Event) {
+  const id = (e.target as HTMLSelectElement).value;
+  const target: AdminUser | "self" =
+    !id || id === currentUser.value?.id ? "self" : allUsers.value.find((u) => u.id === id) ?? "self";
+  if (isDirty.value && currentDeckId.value) {
+    pendingActAs.value = target;
+    dirtyGuardTarget.value = "__actas__";
+    return;
+  }
+  applyActAs(target);
+}
+
+function applyActAs(target: AdminUser | "self") {
+  clear();
+  if (target === "self") clearActingAs();
+  else setActingAs(target);
+}
+
+const galleryTitle = computed(() => {
+  if (!isLoggedIn.value) return "Decks";
+  if (actingAsUser.value) return `${actingAsUser.value.displayName}'s Decks`;
+  return "Your Decks";
+});
 
 const filteredDecks = computed(() => {
   if (!search.value) return decks.value;
@@ -52,6 +97,13 @@ async function doOpen(id: string) {
 }
 
 function confirmDirtySwitch() {
+  if (pendingActAs.value) {
+    const target = pendingActAs.value;
+    pendingActAs.value = null;
+    dirtyGuardTarget.value = null;
+    applyActAs(target);
+    return;
+  }
   if (dirtyGuardNewDeck.value) {
     dirtyGuardNewDeck.value = false;
     dirtyGuardTarget.value = null;
@@ -119,8 +171,24 @@ async function confirmDelete() {
 <template>
   <div class="deck-gallery">
     <div class="deck-gallery-header">
-      <h2 class="deck-gallery-title">{{ isLoggedIn ? 'Your Decks' : 'Decks' }}</h2>
+      <h2 class="deck-gallery-title">{{ galleryTitle }}</h2>
       <div class="deck-gallery-actions">
+        <select
+          v-if="isAdmin"
+          class="deck-gallery-user-select"
+          :value="selectedUserId"
+          title="View and manage another user's decks"
+          @change="onSelectUser"
+        >
+          <option :value="currentUser?.id">Myself ({{ currentUser?.displayName }})</option>
+          <option
+            v-for="u in allUsers.filter((u) => u.id !== currentUser?.id)"
+            :key="u.id"
+            :value="u.id"
+          >
+            {{ u.displayName }} — {{ u.email }}
+          </option>
+        </select>
         <input
           v-if="isLoggedIn"
           v-model="search"
@@ -201,7 +269,7 @@ async function confirmDelete() {
       confirm-label="Discard"
       :confirm-danger="false"
       @confirm="confirmDirtySwitch"
-      @close="dirtyGuardTarget = null; dirtyGuardNewDeck = false"
+      @close="dirtyGuardTarget = null; dirtyGuardNewDeck = false; pendingActAs = null"
     />
   </div>
 </template>

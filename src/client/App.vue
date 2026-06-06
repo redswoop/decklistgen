@@ -28,11 +28,13 @@ import BrowseGenerateButton from "./components/BrowseGenerateButton.vue";
 import BrowseGenerateDialog from "./components/BrowseGenerateDialog.vue";
 import AuthPage from "./components/AuthPage.vue";
 import UserMenu from "./components/UserMenu.vue";
+import ActingAsBanner from "./components/ActingAsBanner.vue";
 import AdminPanel from "./components/AdminPanel.vue";
 import ToastContainer from "./components/ToastContainer.vue";
 import { useDecklist } from "./composables/useDecklist.js";
 import { useDecks } from "./composables/useDecks.js";
 import { useAuth } from "./composables/useAuth.js";
+import { useActingAs } from "./composables/useActingAs.js";
 import { useAuthDialog } from "./composables/useAuthDialog.js";
 import { useRoute } from "./composables/useRoute.js";
 import { useIsMobile } from "./composables/useIsMobile.js";
@@ -46,6 +48,7 @@ import { useUndoRedo } from "./composables/useUndoRedo.js";
 import type { Card } from "../shared/types/card.js";
 
 const { isLoggedIn, loading: authLoading, checkAuth, isAdmin, needsSetup } = useAuth();
+const { isActingAs } = useActingAs();
 const { activeJobCount } = useQueueBadge();
 const { loadAllEras } = useEraLoader();
 const { showAuthDialog } = useAuthDialog();
@@ -253,6 +256,9 @@ function handleTabClick(tab: string) {
       <button v-if="!isLoggedIn" class="sign-in-btn" @click="showAuthDialog = true">Sign In</button>
       <UserMenu v-else @open-admin="showAdmin = true" />
     </div>
+
+    <!-- Admin "acting as another user" banner (whole deck tab) -->
+    <ActingAsBanner v-if="currentView === 'build' && isActingAs" />
 
     <!-- Deck context bar (visible when not on gallery sub-view) -->
     <div v-if="!isDeckGallery" class="dcb-wrapper">

@@ -4154,6 +4154,19 @@ body {
   outline: none;
   border-color: #e94560;
 }
+.deck-gallery-user-select {
+  padding: 6px 10px;
+  background: #16213e;
+  border: 1px solid #e94560;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 13px;
+  max-width: 220px;
+}
+.deck-gallery-user-select:focus {
+  outline: none;
+  border-color: #e94560;
+}
 
 .deck-gallery-btn {
   padding: 6px 14px;

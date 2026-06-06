@@ -10,6 +10,26 @@ import type { QueueJob } from "../../shared/types/queue.js";
 
 const BASE = "/api";
 
+/**
+ * When an admin is "acting as" another user, deck requests carry an
+ * X-Act-As-User header so the server scopes them to that user's decks. The
+ * header is attached ONLY to deck calls — never to public-deck, pokeproxy, or
+ * admin endpoints — so generate/print/public flows stay un-impersonated.
+ */
+let actingAsUserId: string | null = null;
+
+export function setActingAsHeader(id: string | null): void {
+  actingAsUserId = id;
+}
+
+function buildHeaders(path: string, base?: Record<string, string>): Headers {
+  const headers = new Headers(base);
+  if (actingAsUserId && path.startsWith("/decks")) {
+    headers.set("X-Act-As-User", actingAsUserId);
+  }
+  return headers;
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -45,14 +65,14 @@ async function get<T>(path: string, params?: Record<string, string>): Promise<T>
       if (v) url.searchParams.set(k, v);
     }
   }
-  const resp = await fetch(url.toString(), { credentials: "include" });
+  const resp = await fetch(url.toString(), { credentials: "include", headers: buildHeaders(path) });
   return handleResponse<T>(resp);
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   const resp = await fetch(BASE + path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: buildHeaders(path, { "Content-Type": "application/json" }),
     body: JSON.stringify(body),
     credentials: "include",
   });
@@ -62,7 +82,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 async function put<T>(path: string, body: unknown): Promise<T> {
   const resp = await fetch(BASE + path, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: buildHeaders(path, { "Content-Type": "application/json" }),
     body: JSON.stringify(body),
     credentials: "include",
   });
@@ -70,14 +90,14 @@ async function put<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function del<T>(path: string): Promise<T> {
-  const resp = await fetch(BASE + path, { method: "DELETE", credentials: "include" });
+  const resp = await fetch(BASE + path, { method: "DELETE", credentials: "include", headers: buildHeaders(path) });
   return handleResponse<T>(resp);
 }
 
 async function patch<T>(path: string, body: unknown): Promise<T> {
   const resp = await fetch(BASE + path, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: buildHeaders(path, { "Content-Type": "application/json" }),
     body: JSON.stringify(body),
     credentials: "include",
   });
