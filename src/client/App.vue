@@ -28,11 +28,13 @@ import BrowseGenerateButton from "./components/BrowseGenerateButton.vue";
 import BrowseGenerateDialog from "./components/BrowseGenerateDialog.vue";
 import AuthPage from "./components/AuthPage.vue";
 import UserMenu from "./components/UserMenu.vue";
+import ActingAsBanner from "./components/ActingAsBanner.vue";
 import AdminPanel from "./components/AdminPanel.vue";
 import ToastContainer from "./components/ToastContainer.vue";
 import { useDecklist } from "./composables/useDecklist.js";
 import { useDecks } from "./composables/useDecks.js";
 import { useAuth } from "./composables/useAuth.js";
+import { useActingAs } from "./composables/useActingAs.js";
 import { useAuthDialog } from "./composables/useAuthDialog.js";
 import { useRoute } from "./composables/useRoute.js";
 import { useIsMobile } from "./composables/useIsMobile.js";
@@ -43,9 +45,24 @@ import { useLayoutControl } from "./composables/useLayoutControl.js";
 import { useBrowseGenerate } from "./composables/useBrowseGenerate.js";
 import { useCardPreview } from "./composables/useCardPreview.js";
 import { useUndoRedo } from "./composables/useUndoRedo.js";
+import { useQueryClient } from "@tanstack/vue-query";
 import type { Card } from "../shared/types/card.js";
 
-const { isLoggedIn, loading: authLoading, checkAuth, isAdmin, needsSetup } = useAuth();
+const { isLoggedIn, loading: authLoading, checkAuth, isAdmin, needsSetup, currentUser } = useAuth();
+const { isActingAs, clearActingAs } = useActingAs();
+
+// When the logged-in account changes (login, logout, or switching users),
+// drop any admin act-as state and refresh cached server data so we never show
+// the previous user's decks/queue/etc. until a manual page refresh.
+const queryClient = useQueryClient();
+watch(
+  () => currentUser.value?.id ?? null,
+  (id, prev) => {
+    if (id === prev) return;
+    clearActingAs();
+    queryClient.invalidateQueries();
+  },
+);
 const { activeJobCount } = useQueueBadge();
 const { loadAllEras } = useEraLoader();
 const { showAuthDialog } = useAuthDialog();
@@ -253,6 +270,9 @@ function handleTabClick(tab: string) {
       <button v-if="!isLoggedIn" class="sign-in-btn" @click="showAuthDialog = true">Sign In</button>
       <UserMenu v-else @open-admin="showAdmin = true" />
     </div>
+
+    <!-- Admin "acting as another user" banner (whole deck tab) -->
+    <ActingAsBanner v-if="currentView === 'build' && isActingAs" />
 
     <!-- Deck context bar (visible when not on gallery sub-view) -->
     <div v-if="!isDeckGallery" class="dcb-wrapper">

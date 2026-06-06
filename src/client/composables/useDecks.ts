@@ -2,6 +2,7 @@ import { computed } from "vue";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/vue-query";
 import { api } from "../lib/client.js";
 import { useAuth } from "./useAuth.js";
+import { useActingAs } from "./useActingAs.js";
 import type { SavedDeck, DeckCard } from "../../shared/types/deck.js";
 import type { BeautifyOptions } from "../../shared/types/beautify.js";
 
@@ -9,14 +10,19 @@ const DECKS_KEY = ["decks"] as const;
 
 export function useDecks() {
   const queryClient = useQueryClient();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, currentUser } = useAuth();
+  const { actingAsUserId } = useActingAs();
 
+  // Scope the cache by both the logged-in user and the acting-as user, so
+  // switching accounts (or an admin switching targets) gets a distinct cache
+  // entry and never shows another user's decks. null acting-as = own decks.
   const { data: decks, isLoading } = useQuery({
-    queryKey: DECKS_KEY,
+    queryKey: computed(() => [...DECKS_KEY, currentUser.value?.id ?? null, actingAsUserId.value]),
     queryFn: () => api.listDecks(),
     enabled: isLoggedIn,
   });
 
+  // Prefix-invalidate every scope so a switch + mutation can't leave a stale sibling.
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: DECKS_KEY });
   }
