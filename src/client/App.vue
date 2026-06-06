@@ -45,10 +45,24 @@ import { useLayoutControl } from "./composables/useLayoutControl.js";
 import { useBrowseGenerate } from "./composables/useBrowseGenerate.js";
 import { useCardPreview } from "./composables/useCardPreview.js";
 import { useUndoRedo } from "./composables/useUndoRedo.js";
+import { useQueryClient } from "@tanstack/vue-query";
 import type { Card } from "../shared/types/card.js";
 
-const { isLoggedIn, loading: authLoading, checkAuth, isAdmin, needsSetup } = useAuth();
-const { isActingAs } = useActingAs();
+const { isLoggedIn, loading: authLoading, checkAuth, isAdmin, needsSetup, currentUser } = useAuth();
+const { isActingAs, clearActingAs } = useActingAs();
+
+// When the logged-in account changes (login, logout, or switching users),
+// drop any admin act-as state and refresh cached server data so we never show
+// the previous user's decks/queue/etc. until a manual page refresh.
+const queryClient = useQueryClient();
+watch(
+  () => currentUser.value?.id ?? null,
+  (id, prev) => {
+    if (id === prev) return;
+    clearActingAs();
+    queryClient.invalidateQueries();
+  },
+);
 const { activeJobCount } = useQueueBadge();
 const { loadAllEras } = useEraLoader();
 const { showAuthDialog } = useAuthDialog();

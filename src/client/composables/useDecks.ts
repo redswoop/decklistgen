@@ -10,13 +10,14 @@ const DECKS_KEY = ["decks"] as const;
 
 export function useDecks() {
   const queryClient = useQueryClient();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, currentUser } = useAuth();
   const { actingAsUserId } = useActingAs();
 
-  // Scope the cache by the acting-as user so an admin switching users refetches
-  // and never sees one user's decks cached under another. null = own decks.
+  // Scope the cache by both the logged-in user and the acting-as user, so
+  // switching accounts (or an admin switching targets) gets a distinct cache
+  // entry and never shows another user's decks. null acting-as = own decks.
   const { data: decks, isLoading } = useQuery({
-    queryKey: computed(() => [...DECKS_KEY, actingAsUserId.value]),
+    queryKey: computed(() => [...DECKS_KEY, currentUser.value?.id ?? null, actingAsUserId.value]),
     queryFn: () => api.listDecks(),
     enabled: isLoggedIn,
   });
