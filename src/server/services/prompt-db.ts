@@ -12,7 +12,8 @@ export const EXPAND_PROMPT =
   "Expand the illustration from the reference image into a large, detailed scene. " +
   "Remove all text, headers, and other non-illustrative elements.";
 
-const CARD_PROMPTS_PATH = join(import.meta.dir, "../../../data/card-prompts.json");
+const CARD_PROMPTS_PATH = process.env.CARD_PROMPTS_STORE_PATH
+  ?? join(import.meta.dir, "../../../data/card-prompts.json");
 
 export interface PromptResult {
   ruleName: string;

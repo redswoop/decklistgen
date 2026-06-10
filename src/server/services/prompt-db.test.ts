@@ -1,29 +1,8 @@
-import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { readFileSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
-import { join } from "node:path";
+import { describe, test, expect } from "bun:test";
 
-const CARD_PROMPTS_PATH = join(import.meta.dir, "../../../data/card-prompts.json");
-const CARD_PROMPTS_BACKUP = CARD_PROMPTS_PATH + ".bak";
-
-let getPromptForCard: typeof import("./prompt-db.js").getPromptForCard;
-let saveCardPrompt: typeof import("./prompt-db.js").saveCardPrompt;
-let EXPAND_PROMPT: string;
-
-beforeAll(async () => {
-  if (existsSync(CARD_PROMPTS_PATH)) {
-    copyFileSync(CARD_PROMPTS_PATH, CARD_PROMPTS_BACKUP);
-  }
-  const mod = await import("./prompt-db.js");
-  getPromptForCard = mod.getPromptForCard;
-  saveCardPrompt = mod.saveCardPrompt;
-  EXPAND_PROMPT = mod.EXPAND_PROMPT;
-});
-
-afterAll(() => {
-  if (existsSync(CARD_PROMPTS_BACKUP)) {
-    copyFileSync(CARD_PROMPTS_BACKUP, CARD_PROMPTS_PATH);
-  }
-});
+// The store path is redirected to a temp file by tests/setup-test-env.ts
+// (CARD_PROMPTS_STORE_PATH), so writes here never touch data/card-prompts.json.
+import { getPromptForCard, saveCardPrompt, EXPAND_PROMPT } from "./prompt-db.js";
 
 const CARDS = {
   standardPokemon: {

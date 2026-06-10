@@ -4,15 +4,20 @@
  *
  * Wired via bunfig.toml's [test] preload.
  *
- * No stores require redirection right now (the SVG renderer's override stores
- * were retired). When you add a new file-backed store, register its
- * STORE_PATH env var here — otherwise `bun test` may unlink the user's real
- * data/*.json on every run.
+ * When you add a new file-backed store, register its STORE_PATH env var here —
+ * otherwise `bun test` may unlink the user's real data/*.json on every run.
  *
  * Also provides a minimal in-memory `localStorage` so client composables that
  * persist to it (e.g. useDecklist's `watch(items)` writer) don't throw under
  * Bun, which has no DOM `localStorage`.
  */
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+const dir = mkdtempSync(join(tmpdir(), "decklistgen-test-"));
+process.env.CARD_PROMPTS_STORE_PATH ??= join(dir, "card-prompts.json");
+
 if (typeof (globalThis as { localStorage?: unknown }).localStorage === "undefined") {
   const store = new Map<string, string>();
   (globalThis as { localStorage: Storage }).localStorage = {
