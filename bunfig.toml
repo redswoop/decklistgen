@@ -1,2 +1,3 @@
 [test]
+root = "src"
 preload = ["./tests/setup-test-env.ts"]
