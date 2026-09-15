@@ -6,6 +6,8 @@ import BatchGenerateDialog from "./BatchGenerateDialog.vue";
 import PrintDialog from "./PrintDialog.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import DeleteDeckDialog from "./DeleteDeckDialog.vue";
+import DeckLegalityPill from "./DeckLegalityPill.vue";
+import { checkDeckLegality } from "../../shared/utils/deck-legality.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
 import { useAuth } from "../composables/useAuth.js";
@@ -55,6 +57,10 @@ const cardCounts = computed(() => {
 const headerLabel = computed(() => {
   return `${visibleItems.value.length} unique · ${totalCards.value}/60 total`;
 });
+
+const legalityIssues = computed(() =>
+  checkDeckLegality(visibleItems.value.map((i) => ({ card: i.card, count: i.count })))
+);
 
 const showBeautify = ref(false);
 const showBatchGenerate = ref(false);
@@ -140,6 +146,7 @@ async function handleBeautifyUpdated() {
     >
       <template #toolbar>
         <div class="dm-view-actions">
+          <DeckLegalityPill :issues="legalityIssues" :card-count="totalCards" />
           <button class="dm-action-btn" @click="showBeautify = true" :disabled="items.length === 0">Beautify</button>
           <button class="dm-action-btn" @click="showBatchGenerate = true" :disabled="items.length === 0 || !isLoggedIn" :title="!isLoggedIn ? 'Sign in to generate card images' : undefined">Generate</button>
           <button class="dm-action-btn" :disabled="!currentDeckId" :title="!isLoggedIn ? 'Sign in to save and print decks' : (!currentDeckId ? 'Save the deck first to print' : 'Open printable proxy sheet')" @click="handlePrint">Print</button>
