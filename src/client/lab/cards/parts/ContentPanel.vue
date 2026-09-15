@@ -4,14 +4,18 @@ import AbilityBlock from "./AbilityBlock.vue";
 import AttackBlock  from "./AttackBlock.vue";
 
 defineProps<{
-  ability?: LabAbility;
+  abilities: LabAbility[];
   attacks: LabAttack[];
 }>();
 </script>
 
 <template>
   <section class="content-panel">
-    <AbilityBlock v-if="ability" :ability="ability" />
+    <AbilityBlock
+      v-for="(ability, i) in abilities"
+      :key="`ability-${i}`"
+      :ability="ability"
+    />
 
     <AttackBlock
       v-for="(atk, i) in attacks"

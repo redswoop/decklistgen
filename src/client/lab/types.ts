@@ -36,6 +36,13 @@ export interface LabAttack {
 export interface LabAbility {
   name: string;
   effect: string;
+  /**
+   * Display label for the pill — "Ability" (default), "Poké-BODY",
+   * "Poké-POWER", "Pokémon Power", "Ancient Trait", etc. Set by the
+   * adapter from the card's ability type; falls back to "Ability" when
+   * unset (hand-authored lab fixtures).
+   */
+  kind?: string;
 }
 
 export interface LabCard {
@@ -46,7 +53,8 @@ export interface LabCard {
   type: EnergyType;
   hp: number;
   artUrl: string;
-  ability?: LabAbility;
+  /** Every ability on the card, in printed order. Empty when none. */
+  abilities: LabAbility[];
   attacks: LabAttack[];
   weakness?: { type: EnergyType; value: string };
   resistance?: { type: EnergyType; value: string };

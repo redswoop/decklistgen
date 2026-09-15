@@ -10,7 +10,7 @@ defineProps<{
 <template>
   <div class="ability">
     <div class="ability-header">
-      <span class="ability-label">Ability</span>
+      <span class="ability-label">{{ ability.kind ?? "Ability" }}</span>
       <h3 class="ability-name">{{ ability.name }}</h3>
     </div>
     <p class="ability-effect">

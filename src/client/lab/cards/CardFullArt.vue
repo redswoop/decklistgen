@@ -69,7 +69,7 @@ const bigLogoSrc = computed(() => props.card.suffix ? BIG_LOGO_FILES[props.card.
 
     <div class="content-anchor">
       <ContentPanel
-        :ability="card.ability"
+        :abilities="card.abilities"
         :attacks="card.attacks"
       />
     </div>

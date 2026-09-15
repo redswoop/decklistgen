@@ -88,13 +88,24 @@ const TRAINER_TYPE_MAP: Partial<Record<string, TrainerType>> = {
   Stadium: "Stadium",
 };
 
-export function adaptPokemon(card: Card, detail: CardDetail | undefined, artUrl: string): LabCard {
-  if (detail && detail.abilities.length > 1) {
-    // Lab only renders the first ability for now; flag the gap so we notice.
-    // eslint-disable-next-line no-console
-    console.warn(`[card-to-lab] ${card.id} has ${detail.abilities.length} abilities; only the first will render.`);
+/**
+ * Map a TCGdex ability `type` to the label shown on the pill. Known legacy
+ * spellings get their official accented form; "Ability" and any unrecognized
+ * type (e.g. "Ancient Trait", "Talent", or a future variant) pass through
+ * verbatim so we never silently relabel an ability as a plain "Ability".
+ */
+function abilityLabel(type: string | undefined): string {
+  switch (type) {
+    case "Poke-BODY": return "Poké-BODY";
+    case "Poke-POWER": return "Poké-POWER";
+    case "Pokemon Power": return "Pokémon Power";
+    case undefined:
+    case "": return "Ability";
+    default: return type;
   }
-  const ability = detail?.abilities?.[0];
+}
+
+export function adaptPokemon(card: Card, detail: CardDetail | undefined, artUrl: string): LabCard {
   const suffix = pickSuffix(card);
   return {
     name: stripSuffix(card.name, suffix),
@@ -104,7 +115,11 @@ export function adaptPokemon(card: Card, detail: CardDetail | undefined, artUrl:
     type: toEnergyType(card.energyTypes[0]),
     hp: card.hp ?? 0,
     artUrl,
-    ability: ability ? { name: ability.name, effect: ability.effect } : undefined,
+    abilities: (detail?.abilities ?? []).map((a) => ({
+      name: a.name,
+      effect: a.effect,
+      kind: abilityLabel(a.type),
+    })),
     attacks: (detail?.attacks ?? []).map(mapAttack),
     weakness: mapMatchup(detail?.weaknesses?.[0]),
     resistance: mapMatchup(detail?.resistances?.[0]),

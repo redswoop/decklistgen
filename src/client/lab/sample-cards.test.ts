@@ -9,9 +9,9 @@ const VALID_TYPES: ReadonlySet<EnergyType> = new Set([
 
 describe("sample lab cards", () => {
   it("has at least one card per stage variant the lab should exercise", () => {
-    expect(SAMPLE_CARDS.some(c => c.evolvesFrom)).toBe(true);    // evolution
-    expect(SAMPLE_CARDS.some(c => c.ability)).toBe(true);         // ability slot
-    expect(SAMPLE_CARDS.some(c => c.suffix)).toBe(true);          // suffix logo
+    expect(SAMPLE_CARDS.some(c => c.evolvesFrom)).toBe(true);          // evolution
+    expect(SAMPLE_CARDS.some(c => c.abilities.length > 0)).toBe(true); // ability slot
+    expect(SAMPLE_CARDS.some(c => c.suffix)).toBe(true);               // suffix logo
   });
 
   it("every attack cost uses a valid energy type", () => {

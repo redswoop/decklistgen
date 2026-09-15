@@ -105,6 +105,7 @@ export const SAMPLE_CARDS: LabCard[] = [
     hp: 160,
     artUrl: "/api/pokeproxy/image/cel25-15/clean",
     illustrator: "kirisAki",
+    abilities: [],
     attacks: [
       {
         name: "Lunar Pain",
@@ -128,6 +129,7 @@ export const SAMPLE_CARDS: LabCard[] = [
     hp: 130,
     artUrl: "/api/pokeproxy/image/cel25-10/clean",
     illustrator: "Aya Kusube",
+    abilities: [],
     attacks: [
       {
         name: "Field Crush",
@@ -155,10 +157,12 @@ export const SAMPLE_CARDS: LabCard[] = [
     hp: 310,
     artUrl: "/api/pokeproxy/image/sv02-256/clean",
     illustrator: "Kouki Saitou",
-    ability: {
-      name: "Bouquet Magic",
-      effect: "You must discard a Basic Grass Energy card from your hand in order to use this Ability. Once during your turn, you may put 3 damage counters on 1 of your opponent's Benched Pokémon.",
-    },
+    abilities: [
+      {
+        name: "Bouquet Magic",
+        effect: "You must discard a Basic Grass Energy card from your hand in order to use this Ability. Once during your turn, you may put 3 damage counters on 1 of your opponent's Benched Pokémon.",
+      },
+    ],
     attacks: [
       {
         name: "Scratching Nails",
@@ -178,6 +182,7 @@ export const SAMPLE_CARDS: LabCard[] = [
     hp: 370,
     artUrl: "/api/pokeproxy/image/me02.5-274/clean",
     illustrator: "Souichirou Gunjima",
+    abilities: [],
     attacks: [
       {
         name: "Mortal Crunch",
@@ -196,6 +201,7 @@ export const SAMPLE_CARDS: LabCard[] = [
     type: "Fire",
     hp: 360,
     artUrl: "/api/pokeproxy/image/me02-125/clean",
+    abilities: [],
     attacks: [
       {
         name: "Inferno X",
@@ -215,6 +221,7 @@ export const SAMPLE_CARDS: LabCard[] = [
     hp: 360,
     artUrl: "/api/pokeproxy/image/me02.5-294/clean",
     illustrator: "aky CG Works",
+    abilities: [],
     attacks: [
       {
         name: "Explosion Y",
@@ -233,6 +240,7 @@ export const SAMPLE_CARDS: LabCard[] = [
     hp: 310,
     artUrl: "/api/pokeproxy/image/cel25-7/clean",
     illustrator: "aky CG Works",
+    abilities: [],
     attacks: [
       {
         name: "Max Balloon",
@@ -257,6 +265,7 @@ export const SAMPLE_CARDS: LabCard[] = [
     hp: 200,
     artUrl: "/api/pokeproxy/image/cel25-8/clean",
     illustrator: "aky CG Works",
+    abilities: [],
     attacks: [
       {
         name: "Surf",
@@ -280,6 +289,7 @@ export const SAMPLE_CARDS: LabCard[] = [
     hp: 280,
     artUrl: "/api/pokeproxy/image/swsh12.5-019/clean",
     illustrator: "5ban Graphics",
+    abilities: [],
     attacks: [
       {
         name: "Explosive Fire",
@@ -311,6 +321,7 @@ export const SAMPLE_CARDS: LabCard[] = [
     hp: 130,
     artUrl: "/api/pokeproxy/image/me01-025/clean",
     illustrator: "GIDORA",
+    abilities: [],
     attacks: [
       {
         name: "Singe",

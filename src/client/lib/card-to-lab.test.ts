@@ -66,7 +66,7 @@ describe("adaptPokemon", () => {
       type: "Grass",
       hp: 70,
       artUrl: "/art.png",
-      ability: undefined,
+      abilities: [],
       attacks: [{ name: "Scratch", cost: ["Colorless"], damage: "10", effect: undefined }],
       weakness: { type: "Fire", value: "×2" },
       resistance: undefined,
@@ -125,7 +125,7 @@ describe("adaptPokemon", () => {
     expect(adaptPokemon(baseCard({ stage: undefined }), undefined, "/x").stage).toBeUndefined();
   });
 
-  it("picks the first ability when multiple are present", () => {
+  it("keeps every ability, in printed order (no silent drop)", () => {
     const card = baseCard();
     const detail = baseDetail(card, {
       abilities: [
@@ -134,13 +134,35 @@ describe("adaptPokemon", () => {
       ],
     });
     const lab = adaptPokemon(card, detail, "/x");
-    expect(lab.ability).toEqual({ name: "First", effect: "do thing" });
+    expect(lab.abilities).toEqual([
+      { name: "First", effect: "do thing", kind: "Ability" },
+      { name: "Second", effect: "do other thing", kind: "Ability" },
+    ]);
+  });
+
+  it("labels legacy ability types with their official accented form", () => {
+    const card = baseCard();
+    const detail = baseDetail(card, {
+      abilities: [
+        { name: "Energy Burn", type: "Poke-POWER", effect: "power text" },
+        { name: "Buzzap", type: "Poke-BODY", effect: "body text" },
+        { name: "Old Power", type: "Pokemon Power", effect: "old text" },
+        { name: "Δ Evolution", type: "Ancient Trait", effect: "trait text" },
+      ],
+    });
+    const lab = adaptPokemon(card, detail, "/x");
+    expect(lab.abilities.map((a) => a.kind)).toEqual([
+      "Poké-POWER",
+      "Poké-BODY",
+      "Pokémon Power",
+      "Ancient Trait",
+    ]);
   });
 
   it("works without detail (still renders, no attacks/abilities)", () => {
     const lab = adaptPokemon(baseCard(), undefined, "/x");
     expect(lab.attacks).toEqual([]);
-    expect(lab.ability).toBeUndefined();
+    expect(lab.abilities).toEqual([]);
     expect(lab.weakness).toBeUndefined();
     expect(lab.resistance).toBeUndefined();
   });
