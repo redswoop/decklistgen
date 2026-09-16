@@ -18,70 +18,72 @@ interface WorkflowNode {
 
 type Workflow = Record<string, WorkflowNode>;
 
-function buildKleinWorkflow(
+/**
+ * Klein 9B image-edit graph matching the live ComfyUI Klein setup
+ * (comfy-grok `deck/bridge/workflows/klein.json`).
+ *
+ * The old graph used ResolutionMaster for the empty latent. That node has since
+ * grown a pile of required widget fields; Comfy accepts the prompt with
+ * node_errors and then SaveImage never fires ("No output image from ComfyUI").
+ * EmptyFlux2LatentImage sized from GetImageSize is what the working Klein
+ * graphs use now.
+ */
+export function buildKleinWorkflow(
   prompt: string,
   seed: number,
-  width: number,
-  height: number,
   imageBase64: string,
 ): Workflow {
   const workflow: Workflow = {};
 
-  // Output
   workflow["9"] = {
     inputs: { filename_prefix: "Klein_Compose", images: ["75:65", 0] },
     class_type: "SaveImage",
     _meta: { title: "Save Image" },
   };
 
-  // Seed
   workflow["99"] = {
     inputs: { seed },
     class_type: "Seed (rgthree)",
     _meta: { title: "Seed" },
   };
 
-  // Resolution
-  workflow["100"] = {
+  workflow["img1"] = {
     inputs: {
-      mode: "Manual",
-      latent_type: "latent_128x16",
-      width,
-      height,
-      auto_detect: false,
-      rescale_mode: "resolution",
-      rescale_value: 1.40625,
+      base64_data: imageBase64,
+      image_output: "Hide",
+      save_prefix: "Klein_input_1",
+    },
+    class_type: "easy loadImageBase64",
+  };
+
+  // ~1MP, multiple-of-16 — keeps card art in Klein's comfort zone without
+  // ResolutionMaster.
+  workflow["75:99"] = {
+    inputs: {
+      image: ["img1", 0],
+      megapixels: 1,
+      multiple_of: 16,
+      resize_mode: "crop",
+      upscale_method: "lanczos",
+    },
+    class_type: "ImageScaleToTotalPixelsX",
+  };
+
+  workflow["75:81"] = {
+    inputs: { image: ["75:99", 0] },
+    class_type: "GetImageSize",
+  };
+
+  workflow["75:66"] = {
+    inputs: {
+      width: ["75:81", 0],
+      height: ["75:81", 1],
       batch_size: 1,
     },
-    class_type: "ResolutionMaster",
-    _meta: { title: "Resolution Master" },
+    class_type: "EmptyFlux2LatentImage",
+    _meta: { title: "Empty Flux 2 Latent" },
   };
 
-  // Sampler select
-  workflow["75:61"] = {
-    inputs: { sampler_name: "euler" },
-    class_type: "KSamplerSelect",
-  };
-
-  // Scheduler
-  workflow["75:62"] = {
-    inputs: { steps: 4, width: ["75:81", 0], height: ["75:81", 1] },
-    class_type: "Flux2Scheduler",
-  };
-
-  // VAE Decode (output)
-  workflow["75:65"] = {
-    inputs: { samples: ["75:64", 0], vae: ["75:72", 0] },
-    class_type: "VAEDecode",
-  };
-
-  // Random noise
-  workflow["75:73"] = {
-    inputs: { noise_seed: ["99", 0] },
-    class_type: "RandomNoise",
-  };
-
-  // Model loaders
   workflow["75:70"] = {
     inputs: { unet_name: "flux-2-klein-9b-fp8.safetensors", weight_dtype: "default" },
     class_type: "UNETLoader",
@@ -95,77 +97,28 @@ function buildKleinWorkflow(
     class_type: "VAELoader",
   };
 
-  // Text encoding
   workflow["75:74"] = {
     inputs: { text: prompt, clip: ["75:71", 0] },
     class_type: "CLIPTextEncode",
   };
-
-  // Negative conditioning
   workflow["75:82"] = {
     inputs: { conditioning: ["75:74", 0] },
     class_type: "ConditioningZeroOut",
   };
 
-  // Main sampler
-  workflow["75:64"] = {
-    inputs: {
-      noise: ["75:73", 0],
-      guider: ["75:63", 0],
-      sampler: ["75:61", 0],
-      sigmas: ["75:62", 0],
-      latent_image: ["100", 4],
-    },
-    class_type: "SamplerCustomAdvanced",
-  };
-
-  // Load image (base64)
-  workflow["img1"] = {
-    inputs: {
-      base64_data: imageBase64,
-      image_output: "Hide",
-      save_prefix: "Klein_input_1",
-    },
-    class_type: "easy loadImageBase64",
-  };
-
-  // Scale image
-  workflow["75:99"] = {
-    inputs: {
-      image: ["img1", 0],
-      megapixels: 1,
-      multiple_of: 16,
-      resize_mode: "crop",
-      upscale_method: "lanczos",
-    },
-    class_type: "ImageScaleToTotalPixelsX",
-  };
-
-  // Get image size
-  workflow["75:81"] = {
-    inputs: { image: ["75:99", 0] },
-    class_type: "GetImageSize",
-  };
-
-  // VAE Encode
   workflow["75:79:78"] = {
     inputs: { pixels: ["75:99", 0], vae: ["75:72", 0] },
     class_type: "VAEEncode",
   };
-
-  // Reference latent (positive)
   workflow["75:79:77"] = {
     inputs: { conditioning: ["75:74", 0], latent: ["75:79:78", 0] },
     class_type: "ReferenceLatent",
   };
-
-  // Reference latent (negative)
   workflow["75:79:76"] = {
     inputs: { conditioning: ["75:82", 0], latent: ["75:79:78", 0] },
     class_type: "ReferenceLatent",
   };
 
-  // CFG Guider
   workflow["75:63"] = {
     inputs: {
       cfg: 1,
@@ -174,6 +127,35 @@ function buildKleinWorkflow(
       negative: ["75:79:76", 0],
     },
     class_type: "CFGGuider",
+  };
+
+  workflow["75:61"] = {
+    inputs: { sampler_name: "euler" },
+    class_type: "KSamplerSelect",
+  };
+  workflow["75:62"] = {
+    inputs: { steps: 4, width: ["75:81", 0], height: ["75:81", 1] },
+    class_type: "Flux2Scheduler",
+  };
+  workflow["75:73"] = {
+    inputs: { noise_seed: ["99", 0] },
+    class_type: "RandomNoise",
+  };
+
+  workflow["75:64"] = {
+    inputs: {
+      noise: ["75:73", 0],
+      guider: ["75:63", 0],
+      sampler: ["75:61", 0],
+      sigmas: ["75:62", 0],
+      latent_image: ["75:66", 0],
+    },
+    class_type: "SamplerCustomAdvanced",
+  };
+
+  workflow["75:65"] = {
+    inputs: { samples: ["75:64", 0], vae: ["75:72", 0] },
+    class_type: "VAEDecode",
   };
 
   return workflow;
@@ -197,7 +179,22 @@ async function submitPrompt(workflow: Workflow, clientId: string): Promise<strin
     throw new Error(`ComfyUI prompt failed: ${resp.status} ${text}`);
   }
 
-  const result = (await resp.json()) as { prompt_id: string };
+  const result = (await resp.json()) as {
+    prompt_id?: string;
+    node_errors?: Record<string, { errors?: Array<{ message?: string; details?: string }> }>;
+  };
+  const errors = result.node_errors ?? {};
+  const errorKeys = Object.keys(errors);
+  if (errorKeys.length > 0) {
+    const summary = errorKeys
+      .map((id) => {
+        const msgs = (errors[id].errors ?? []).map((e) => e.details ?? e.message ?? "?").join(", ");
+        return `${id}: ${msgs}`;
+      })
+      .join("; ");
+    throw new Error(`ComfyUI rejected workflow: ${summary}`);
+  }
+  if (!result.prompt_id) throw new Error("ComfyUI prompt returned no prompt_id");
   return result.prompt_id;
 }
 
@@ -227,13 +224,7 @@ export async function cleanCardImage(
   seed = 42,
   prompt: string,
 ): Promise<string> {
-  const workflow = buildKleinWorkflow(
-    prompt,
-    seed,
-    FLUX_W,
-    FLUX_H,
-    imageBase64,
-  );
+  const workflow = buildKleinWorkflow(prompt, seed, imageBase64);
 
   const clientId = `dlg-${crypto.randomUUID()}`;
   const wsUrl = COMFYUI_URL.replace(/^http/, "ws");
