@@ -14,6 +14,7 @@ describe("getRarityRank", () => {
     expect(getRarityRank("Special Art Rare")).toBeLessThan(getRarityRank("Special Illustration Rare"));
     expect(getRarityRank("Special Illustration Rare")).toBeLessThan(getRarityRank("Hyper Rare"));
     expect(getRarityRank("Hyper Rare")).toBeLessThan(getRarityRank("Secret Rare"));
+    expect(getRarityRank("Promo")).toBe(getRarityRank("Rare"));
   });
 
   it("is case-insensitive", () => {

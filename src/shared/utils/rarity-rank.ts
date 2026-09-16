@@ -2,6 +2,7 @@ import type { Card } from "../types/card.js";
 
 const RARITY_RANK: Record<string, number> = {
   "none": 0,
+  "promo": 3,
   "common": 1,
   "uncommon": 2,
   "holo rare": 3,

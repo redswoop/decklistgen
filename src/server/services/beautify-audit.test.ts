@@ -87,7 +87,7 @@ describe("Beautify with isPrintUnfriendly filter", () => {
       for (const v of variants) {
         const rank = getRarityRank(v.rarity);
         if (v.rarity !== "Unknown" && v.rarity !== "None") {
-          expect(rank).toBeGreaterThan(0);
+          expect(rank, `${v.id} rarity=${JSON.stringify(v.rarity)}`).toBeGreaterThan(0);
         }
       }
     }
