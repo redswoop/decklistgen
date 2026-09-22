@@ -43,6 +43,44 @@ test.describe("/print.html", () => {
     expect(box?.height).toBeLessThan(338);
   });
 
+  test("grid pins 0.25in from the sheet top-left, not centered", async ({ page }) => {
+    await page.addInitScript(() => {
+      sessionStorage.setItem(
+        "gallery-print-ids",
+        JSON.stringify(["sv01-001", "sv01-006", "sv01-172"]),
+      );
+    });
+
+    await page.goto("/print.html?gallery=1&art=original&auto=0");
+    await page.waitForFunction(
+      () => document.documentElement.dataset.printState === "ready",
+      { timeout: 15000 },
+    );
+
+    const sheet = page.locator(".print-page-sheet");
+    const cell = sheet.locator(".print-cell").first();
+    const sheetBox = await sheet.boundingBox();
+    const cellBox = await cell.boundingBox();
+    expect(sheetBox).not.toBeNull();
+    expect(cellBox).not.toBeNull();
+
+    // 0.25in at 96 CSS dpi = 24px. Centered 3-across on letter would be ~46px.
+    const dx = cellBox!.x - sheetBox!.x;
+    const dy = cellBox!.y - sheetBox!.y;
+    expect(dx).toBeGreaterThanOrEqual(23);
+    expect(dx).toBeLessThanOrEqual(25);
+    expect(dy).toBeGreaterThanOrEqual(23);
+    expect(dy).toBeLessThanOrEqual(25);
+
+    await page.emulateMedia({ media: "print" });
+    const printSheet = await sheet.boundingBox();
+    const printCell = await cell.boundingBox();
+    expect(printCell!.x - printSheet!.x).toBeGreaterThanOrEqual(23);
+    expect(printCell!.x - printSheet!.x).toBeLessThanOrEqual(25);
+    expect(printCell!.y - printSheet!.y).toBeGreaterThanOrEqual(23);
+    expect(printCell!.y - printSheet!.y).toBeLessThanOrEqual(25);
+  });
+
   test("shows an error when neither deckId nor gallery= is supplied", async ({ page }) => {
     await page.goto("/print.html");
     await expect(page.locator(".status-error")).toBeVisible({ timeout: 5000 });

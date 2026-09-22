@@ -43,7 +43,7 @@ await page.screenshot({ path: "print.png", fullPage: true });
 
 ## URL parameters
 
-(source of truth: `PrintSheet.vue:74-111`)
+(source of truth: `src/shared/utils/print-params.ts`)
 
 | param          | values                                                      | default    | notes |
 |----------------|-------------------------------------------------------------|------------|-------|
@@ -57,7 +57,7 @@ await page.screenshot({ path: "print.png", fullPage: true });
 | `exclude`      | csv of `pokemon,supporters,items,tools,stadiums,specialenergy` | —      | category filters |
 | `noBasicEnergy`| `1`                                                         | off        | drop basic energy |
 | `art`          | `proxy` \| `cleaned` \| `original` (csv, 1:1 with `cardId`) | `proxy`    | `cleaned`/`original` print as plain `<img>` |
-| `crop`         | `0` to disable                                              | on         | crop marks + 0.5mm gap |
+| `crop`         | `0` to disable                                              | on         | crop marks in the 0.25in gutter + 0.5mm gap |
 | `auto`         | `1` to auto-print on load                                   | off        | **keep off for headless** |
 
 ### Canonical examples
@@ -81,10 +81,25 @@ await page.screenshot({ path: "print.png", fullPage: true });
 
 ## Shared layout utils (don't duplicate)
 
-- `src/shared/utils/print-grid.ts` — `gridForPaper()`; paper/card dims, 0.25in margin.
+- `src/shared/utils/print-grid.ts` — `gridForPaper()`; paper/card dims, 0.25in origin.
 - `src/shared/utils/print-filter.ts` — `shouldPrintCard()`; the `exclude`/energy rules.
 - `src/shared/utils/print-summary.ts` — `countPrintCards()`, `summarizePrint()`.
 - `src/shared/utils/print-crop-marks.ts` — `cropMarkLayout()`; 0.5mm gap, corner marks.
+
+## Page origin (Cricut)
+
+The card grid **pins 0.25in from the top-left of the sheet**, not centered. That
+matches a Cricut cut mat's 1/4″ no-cut zone: load the printed letter page onto
+the mat and the first card starts where the machine can cut.
+
+Leftover paper falls on the right and bottom. Partial last pages use the same
+origin, so every sheet registers the same way.
+
+Crop marks (on by default) sit in that 0.25in gutter and add a 0.5mm gap
+between cards. Turn them off (`crop=0`) for flush 2.5in × 3.5in spacing.
+
+**Print dialog:** Margins **None**, scale **100% / Actual size**. "Fit to
+printable area" will shift the origin and miss the mat.
 
 Cards render through the shared `CssCardRenderer.vue` (→ lab card components), same as
 every other surface — print does not have its own renderer.

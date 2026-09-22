@@ -19,6 +19,7 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    allowedHosts: ["stormer.tail93d23c.ts.net", ".tail93d23c.ts.net"],
     proxy: {
       "/api": "http://localhost:3001",
       "/gallery": "http://localhost:3001",

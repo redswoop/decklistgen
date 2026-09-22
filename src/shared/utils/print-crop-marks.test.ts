@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { CARD_W_IN, CARD_H_IN } from "./print-grid.js";
+import { CARD_W_IN, CARD_H_IN, PAGE_MARGIN_IN } from "./print-grid.js";
 import {
   CARD_GAP_IN,
   cropMarkLayout,
@@ -45,6 +45,12 @@ describe("markDimsForGrid", () => {
     expect(markGap).toBeLessThan(0.05);
     // Length:gap ratio is preserved by the shared scale factor.
     expect(markLen / markGap).toBeCloseTo(0.18 / 0.05, 5);
+  });
+
+  test("a flush letter 3×3 keeps full-size marks in the 0.25in origin gutter", () => {
+    const { markLen, markGap } = markDimsForGrid(7.5, 10.5, 8.5, 11);
+    expect(markLen).toBeCloseTo(0.18, 5);
+    expect(markGap).toBeCloseTo(0.05, 5);
   });
 });
 
@@ -94,5 +100,15 @@ describe("cropMarkLayout", () => {
       (ln) => ln.y1 < 0 && Math.abs(ln.x1 - CARD_W_IN) < 1e-9,
     );
     expect(tick).toBeDefined();
+  });
+
+  test("mark pad never overflows the 0.25in origin gutter on a letter 3×3", () => {
+    const withGap = cropMarkLayout(3, 3, 8.5, 11, CARD_GAP_IN);
+    expect(withGap.pad).toBeLessThanOrEqual(PAGE_MARGIN_IN);
+    expect(withGap.pad).toBeLessThanOrEqual(11 - PAGE_MARGIN_IN - withGap.gridH);
+
+    const flush = cropMarkLayout(3, 3, 8.5, 11, 0);
+    expect(flush.pad).toBeLessThanOrEqual(PAGE_MARGIN_IN);
+    expect(flush.pad).toBeCloseTo(0.18 + 0.05, 5);
   });
 });

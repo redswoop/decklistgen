@@ -5,7 +5,7 @@ import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 
 const {
   order, deckSize, isEmpty, isComplete,
-  warnings, rows, isLoading, setOrder, reroll, TURNS,
+  warnings, rows, isLoading, evoError, setOrder, reroll, TURNS,
 } = useSetupSim();
 
 const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
@@ -52,6 +52,7 @@ const groups = computed(() => {
     <!-- Notices -->
     <p v-if="isEmpty" class="ssp-note">Add cards to your deck to simulate setup speed.</p>
     <p v-else-if="isLoading" class="ssp-note">Loading card data…</p>
+    <p v-else-if="evoError" class="ssp-note warn">Couldn't load evolution data: {{ evoError }}</p>
     <template v-else>
       <p v-if="!isComplete" class="ssp-note warn">
         Simulating with {{ deckSize }} cards — a legal deck is 60.
@@ -59,8 +60,9 @@ const groups = computed(() => {
       <p v-for="(w, i) in warnings" :key="i" class="ssp-note warn">{{ w.detail }}</p>
     </template>
 
-    <!-- All lines, grouped by kind -->
-    <table v-if="rows.length" class="ssp-table">
+    <!-- All lines, grouped by kind. Hidden while chains are still loading so
+         Stage 2s don't flash "missing a piece" before their Basic is resolved. -->
+    <table v-if="!isLoading && rows.length" class="ssp-table">
       <thead>
         <tr>
           <th class="ssp-th-name">Pokémon</th>
@@ -77,7 +79,7 @@ const groups = computed(() => {
               <span class="ssp-name">{{ r.line.finalName }}</span>
             </td>
             <template v-if="r.result.unsatisfiable">
-              <td :colspan="TURNS" class="ssp-cant">can't be set up (missing a piece)</td>
+              <td :colspan="TURNS" class="ssp-cant">{{ r.cantReason ?? "can't be set up (missing a piece)" }}</td>
               <td>—</td>
             </template>
             <template v-else>

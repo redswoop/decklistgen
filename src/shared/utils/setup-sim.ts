@@ -753,6 +753,52 @@ function computeUnsatisfiable(deck: SimCard[], line: EvolutionLine): boolean {
   return false;
 }
 
+/** Human-readable why a line can't ever set up. Null if it can. */
+export function unsatisfiableReason(deck: SimCard[], line: EvolutionLine): string | null {
+  if (!line.basicName) {
+    return `couldn't resolve what ${line.finalName} evolves from`;
+  }
+  if (line.basicCopies === 0) {
+    return `no ${line.basicName} in the deck`;
+  }
+  if (line.finalStage !== "Basic" && line.finalCopies === 0) {
+    return `no ${line.finalName} in the deck`;
+  }
+  if (line.finalStage === "Stage2" && line.stage1Copies === 0) {
+    const rules = buildRuleMap(deck);
+    const hasCandy = deck.some((c) => rules.get(c.name)?.cap.type === "rare-candy");
+    if (!hasCandy) return `needs Rare Candy (no Stage 1 in the deck)`;
+  }
+  return null;
+}
+
+function emptyUnsatisfiableResult(
+  deckSize: number,
+  order: PlayOrder,
+  maxTurns: number,
+  line: EvolutionLine,
+): SetupSimResult {
+  const zeros = new Array(maxTurns).fill(0);
+  return {
+    iterations: 0,
+    deckSize,
+    order,
+    maxTurns,
+    lineId: line.id,
+    lineLabel: line.label,
+    perTurnSetup: zeros,
+    cumulativeSetup: [...zeros],
+    avgSetupTurn: 0,
+    neverSetUpRate: 1,
+    mulliganRate: 0,
+    unsatisfiable: true,
+    cumulativeCI: [...zeros],
+    avgSetupTurnCI: 0,
+    neverSetUpCI: 0,
+    mulliganCI: 0,
+  };
+}
+
 export function runSetupSim(opts: SetupSimOptions): SetupSimResult {
   const minIters = opts.iterations ?? DEFAULT_SETUP_ITERATIONS;
   const maxTurns = opts.maxTurns ?? DEFAULT_SETUP_TURNS;
@@ -764,6 +810,11 @@ export function runSetupSim(opts: SetupSimOptions): SetupSimResult {
   const deck = opts.deck;
   const line = opts.line;
   const deckSize = deck.length;
+
+  // Don't burn thousands of goldfish games on a line that can never assemble.
+  if (computeUnsatisfiable(deck, line)) {
+    return emptyUnsatisfiableResult(deckSize, order, maxTurns, line);
+  }
 
   const perTurnCounts = new Array<number>(maxTurns).fill(0);
   let never = 0;
@@ -820,7 +871,7 @@ export function runSetupSim(opts: SetupSimOptions): SetupSimResult {
     avgSetupTurn,
     neverSetUpRate: total > 0 ? never / total : 1,
     mulliganRate: total > 0 ? mulligans / total : 0,
-    unsatisfiable: computeUnsatisfiable(deck, line),
+    unsatisfiable: false,
     cumulativeCI,
     avgSetupTurnCI: meanCIHalfWidth(avgSetupTurn, successSqSum, successN),
     neverSetUpCI: total > 0 ? ciHalfWidth(never, total) : 0,

@@ -21,7 +21,8 @@ const PAPER_SIZES_IN: Record<PrintPaper, { w: number; h: number }> = {
   "super-b": { w: 13, h: 19 },
 };
 
-const PAGE_MARGIN_IN = 0.25;
+/** Top-left origin and packing gutter, in inches. Matches the Cricut 1/4″ no-cut zone. */
+export const PAGE_MARGIN_IN = 0.25;
 
 export interface PrintGrid {
   cols: number;

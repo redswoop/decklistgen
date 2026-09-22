@@ -1,4 +1,4 @@
-import { CARD_W_IN, CARD_H_IN } from "./print-grid.js";
+import { CARD_W_IN, CARD_H_IN, PAGE_MARGIN_IN } from "./print-grid.js";
 
 /**
  * Crop / registration marks for the print sheet.
@@ -17,7 +17,9 @@ const MARK_LEN_IN = 0.18;
 const MARK_GAP_IN = 0.05;
 /** Stroke width of the mark lines, in inches. */
 export const MARK_STROKE_IN = 0.005;
-const MARK_SAFETY_IN = 0.08;
+/** Keep mark tips this far inside the sheet edge. Sized so a full-length mark
+ *  (markLen + markGap = 0.23in) still fits in the 0.25in origin gutter. */
+const MARK_SAFETY_IN = 0.02;
 const MARK_MIN_PAD_IN = 0.05;
 
 export interface CropLine {
@@ -56,18 +58,22 @@ export function pageGridShape(
 }
 
 /**
- * Scale the marks down when the centered grid leaves little page slack, so the
- * marks always sit inside the printable area rather than off the sheet edge.
+ * Scale the marks down when the top-left-pinned grid leaves little page slack,
+ * so the marks always sit inside the sheet rather than off the edge. Slack on
+ * the origin sides is the 0.25in gutter; leftover paper falls on the right and
+ * bottom.
  */
 export function markDimsForGrid(
   gridW: number,
   gridH: number,
   pageW: number,
   pageH: number,
+  originIn: number = PAGE_MARGIN_IN,
 ): { markLen: number; markGap: number } {
-  const slackX = (pageW - gridW) / 2;
-  const slackY = (pageH - gridH) / 2;
-  const maxPad = Math.max(MARK_MIN_PAD_IN, Math.min(slackX, slackY) - MARK_SAFETY_IN);
+  const slackRight = pageW - originIn - gridW;
+  const slackBottom = pageH - originIn - gridH;
+  const minSlack = Math.min(originIn, slackRight, slackBottom);
+  const maxPad = Math.max(MARK_MIN_PAD_IN, minSlack - MARK_SAFETY_IN);
   const desiredPad = MARK_LEN_IN + MARK_GAP_IN;
   const scale = Math.min(1, maxPad / desiredPad);
   return { markLen: MARK_LEN_IN * scale, markGap: MARK_GAP_IN * scale };

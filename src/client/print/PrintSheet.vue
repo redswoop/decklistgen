@@ -36,6 +36,7 @@ import { ref, computed, onMounted } from "vue";
 import {
   gridForPaper,
   CARD_DIMS_IN,
+  PAGE_MARGIN_IN,
 } from "../../shared/utils/print-grid.js";
 import {
   cropMarkLayout,
@@ -159,10 +160,23 @@ const cellStyle = {
 
 const cardGapCss = `${cardGapIn}in`;
 
+const originStyle = {
+  top: `${PAGE_MARGIN_IN}in`,
+  left: `${PAGE_MARGIN_IN}in`,
+};
+
+function cropMarkStyle(pad: number) {
+  return {
+    top: `-${pad}in`,
+    left: `-${pad}in`,
+  };
+}
+
 // @page is set imperatively because the size depends on URL params and Vue's
 // template <style> blocks are static. Inject one rule into <head> at mount.
-// Margin is 0: each .print-page-sheet is sized to the full paper and centers
-// its own grid, leaving the white margin region where crop marks live.
+// Margin is 0: each .print-page-sheet is sized to the full paper. The grid
+// pins to a 0.25in top-left origin (Cricut no-cut zone); crop marks sit in
+// that gutter.
 function installPageRule() {
   const size = paper === "super-b" ? "13in 19in" : "letter";
   const style = document.createElement("style");
@@ -185,51 +199,54 @@ function installPageRule() {
         class="print-page-sheet"
         :style="{ width: `${grid.pageW}in`, height: `${grid.pageH}in` }"
       >
-        <div class="print-grid" :style="{
-          'grid-template-columns': `repeat(${page.cols}, ${cardDims.w}in)`,
-          'grid-template-rows': `repeat(${page.rows}, ${cardDims.h}in)`,
-          gap: cardGapCss,
-        }">
-          <div
-            v-for="(e, i) in page.cells"
-            :key="`${e.card.id}-${i}`"
-            class="print-cell"
-            :style="cellStyle"
-          >
-            <!-- Original / cleaned print as a plain image; no CSS chrome overlay. -->
-            <img v-if="e.plain" class="print-original" :src="e.artUrl" alt="" />
-            <div v-else class="print-scaler" :style="printScalerStyle">
-              <CssCardRenderer
-                :card="e.card"
-                :detail="e.detail"
-                :art-url="e.artUrl"
-              />
+        <div class="print-origin" :style="originStyle">
+          <div class="print-grid" :style="{
+            'grid-template-columns': `repeat(${page.cols}, ${cardDims.w}in)`,
+            'grid-template-rows': `repeat(${page.rows}, ${cardDims.h}in)`,
+            gap: cardGapCss,
+          }">
+            <div
+              v-for="(e, i) in page.cells"
+              :key="`${e.card.id}-${i}`"
+              class="print-cell"
+              :style="cellStyle"
+            >
+              <!-- Original / cleaned print as a plain image; no CSS chrome overlay. -->
+              <img v-if="e.plain" class="print-original" :src="e.artUrl" alt="" />
+              <div v-else class="print-scaler" :style="printScalerStyle">
+                <CssCardRenderer
+                  :card="e.card"
+                  :detail="e.detail"
+                  :art-url="e.artUrl"
+                />
+              </div>
             </div>
           </div>
-        </div>
-        <svg
-          v-if="page.marks"
-          class="crop-marks"
-          :width="`${page.marks.svgW}in`"
-          :height="`${page.marks.svgH}in`"
-          :viewBox="`${-page.marks.pad} ${-page.marks.pad} ${page.marks.svgW} ${page.marks.svgH}`"
-        >
-          <g
-            stroke="#000"
-            fill="none"
-            :stroke-width="page.marks.strokeIn"
-            shape-rendering="crispEdges"
+          <svg
+            v-if="page.marks"
+            class="crop-marks"
+            :style="cropMarkStyle(page.marks.pad)"
+            :width="`${page.marks.svgW}in`"
+            :height="`${page.marks.svgH}in`"
+            :viewBox="`${-page.marks.pad} ${-page.marks.pad} ${page.marks.svgW} ${page.marks.svgH}`"
           >
-            <line
-              v-for="(ln, li) in page.marks.lines"
-              :key="li"
-              :x1="ln.x1"
-              :y1="ln.y1"
-              :x2="ln.x2"
-              :y2="ln.y2"
-            />
-          </g>
-        </svg>
+            <g
+              stroke="#000"
+              fill="none"
+              :stroke-width="page.marks.strokeIn"
+              shape-rendering="crispEdges"
+            >
+              <line
+                v-for="(ln, li) in page.marks.lines"
+                :key="li"
+                :x1="ln.x1"
+                :y1="ln.y1"
+                :x2="ln.x2"
+                :y2="ln.y2"
+              />
+            </g>
+          </svg>
+        </div>
       </section>
     </template>
   </main>
@@ -272,18 +289,20 @@ html, body {
 }
 .status-error { color: #e57373; }
 
-/* One sheet of paper: full page size, centering its grid so the surrounding
-   white margin is where crop marks sit. */
+/* One sheet of paper: full page size. Grid pins 0.25in from the top-left so
+   a Cricut mat's no-cut zone lines up; leftover paper falls right/bottom.
+   Crop marks live in that 0.25in gutter. */
 .print-page-sheet {
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background: white;
   box-shadow: 0 2px 24px rgba(0, 0, 0, 0.4);
   overflow: hidden;
   page-break-after: always;
   break-after: page;
+}
+
+.print-origin {
+  position: absolute;
 }
 .print-page-sheet:last-child {
   page-break-after: auto;
@@ -316,9 +335,6 @@ html, body {
 
 .crop-marks {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   pointer-events: none;
 }
 

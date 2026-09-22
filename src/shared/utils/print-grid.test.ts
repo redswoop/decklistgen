@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { gridForPaper, CARD_DIMS_IN } from "./print-grid.js";
+import { gridForPaper, CARD_DIMS_IN, PAGE_MARGIN_IN } from "./print-grid.js";
 
 describe("gridForPaper", () => {
   test("letter portrait fits 3x3", () => {
@@ -48,5 +48,12 @@ describe("gridForPaper", () => {
     expect(g.pageH).toBe(11);
     expect(g.usableW).toBe(8);
     expect(g.usableH).toBe(10.5);
+  });
+
+  test("usable area is the page minus a 0.25in gutter on every side", () => {
+    expect(PAGE_MARGIN_IN).toBe(0.25);
+    const g = gridForPaper("letter", "portrait");
+    expect(g.usableW).toBe(g.pageW - PAGE_MARGIN_IN * 2);
+    expect(g.usableH).toBe(g.pageH - PAGE_MARGIN_IN * 2);
   });
 });

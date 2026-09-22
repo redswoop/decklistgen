@@ -257,6 +257,11 @@ function handlePrint() {
         </label>
       </div>
 
+      <p class="print-origin-hint">
+        Cards start 0.25″ from the top-left (Cricut no-cut zone). Print at 100% with margins set to None.
+        Uncheck crop marks for flush 2.5″×3.5″ spacing.
+      </p>
+
       <div class="print-summary">
         <template v-if="loadingCount">
           <span class="print-summary-muted">Calculating…</span>

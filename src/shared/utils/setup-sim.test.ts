@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import {
   runSetupSim,
+  unsatisfiableReason,
   simulateOneGame,
   nextNeededPiece,
   pickDiscards,
@@ -394,12 +395,13 @@ describe("calibration & confidence intervals", () => {
     if (r.iterations < 12000) expect(headlineCI).toBeLessThanOrEqual(0.015 + 1e-6);
   });
 
-  it("an unsatisfiable line stops fast (CI at p=0 is tiny)", () => {
+  it("an unsatisfiable line skips the Monte Carlo entirely", () => {
     const broken = [...copies(mk({ name: "Big ex", stage: "Stage2", isEx: true, chain: ["Big ex"] }), 3), ...copies(otherBasic(), 20), ...copies(filler(), 37)];
     const line = lineFor(broken, "Big ex");
     const r = runSetupSim({ deck: broken, line, maxTurns: 5, rng: makeRng(1) });
     expect(r.unsatisfiable).toBe(true);
-    expect(r.iterations).toBeLessThan(12000); // p=0 → CI tiny → stops at the first chunk
+    expect(r.iterations).toBe(0);
+    expect(r.neverSetUpRate).toBe(1);
   });
 });
 
@@ -436,6 +438,15 @@ describe("runSetupSim — aggregate", () => {
     expect(last(second)).toBeGreaterThanOrEqual(last(first) - 0.03);
   });
 
+  it("explains a missing Basic vs a missing Rare Candy", () => {
+    const noBasic = [...copies(charizard(), 6), ...copies(filler(), 54)];
+    const noCandy = [...copies(charmander(), 8), ...copies(charizard(), 6), ...copies(filler(), 46)];
+    expect(unsatisfiableReason(noBasic, lineFor(noBasic))).toMatch(/no Charmander in the deck/);
+    expect(unsatisfiableReason(noCandy, lineFor(noCandy))).toMatch(/needs Rare Candy/);
+    const ok = [...copies(charmander(), 8), ...copies(charmeleon(), 3), ...copies(charizard(), 6), ...copies(filler(), 43)];
+    expect(unsatisfiableReason(ok, lineFor(ok))).toBeNull();
+  });
+
   it("flags an unsatisfiable line (Stage 2, no Stage 1, no Rare Candy)", () => {
     const broken = [...copies(charmander(), 8), ...copies(charizard(), 6), ...copies(filler(), 46)];
     const bl = lineFor(broken);
@@ -444,11 +455,12 @@ describe("runSetupSim — aggregate", () => {
     expect(r.neverSetUpRate).toBe(1);
   });
 
-  it("a zero-Basic deck never sets up and the mulligan loop terminates", () => {
+  it("a zero-Basic deck is unsatisfiable and does not spin the mulligan loop", () => {
     const noBasic = [...copies(charizard(), 10), ...copies(filler(), 50)];
     const bl = lineFor(noBasic);
     const r = runSetupSim({ deck: noBasic, line: bl, iterations: 200, maxTurns: 5, rng: makeRng(3) });
+    expect(r.unsatisfiable).toBe(true);
     expect(r.neverSetUpRate).toBe(1);
-    expect(r.mulliganRate).toBe(1);
+    expect(r.iterations).toBe(0);
   });
 });

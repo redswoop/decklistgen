@@ -9,7 +9,7 @@ import {
   type EvolutionLine,
   type EvolutionAnalysis,
 } from "../../shared/utils/evolution-lines.js";
-import { runSetupSim, type SetupSimResult } from "../../shared/utils/setup-sim.js";
+import { runSetupSim, unsatisfiableReason, type SetupSimResult } from "../../shared/utils/setup-sim.js";
 import { makeRng, type PlayOrder } from "../../shared/utils/hand-sim.js";
 
 /**
@@ -25,6 +25,8 @@ export const SETUP_ITERATIONS = 3000;
 export interface SetupRow {
   line: EvolutionLine;
   result: SetupSimResult;
+  /** Set when the line can never assemble (missing Basic / Stage 1 / Candy). */
+  cantReason: string | null;
 }
 
 interface EvoInfo {
@@ -91,13 +93,26 @@ export function useSetupSim() {
     () => cardIds.value.length > 0 && (evolutionsQuery.isLoading.value || evolutionsQuery.isFetching.value),
   );
 
+  // True once the evolutions query has a result (or failed) for the current ids.
+  // Until then Stage 2s have no chain and look unsatisfiable — don't goldfish yet.
+  const evoReady = computed(() => {
+    if (cardIds.value.length === 0) return true;
+    const status = evolutionsQuery.status.value;
+    return status === "success" || status === "error";
+  });
+  const evoError = computed(() => {
+    if (!evolutionsQuery.isError.value) return null;
+    const err = evolutionsQuery.error.value;
+    return err instanceof Error ? err.message : String(err ?? "Failed to load evolution data");
+  });
+
   // Debounced Monte Carlo run for EVERY line in the deck (sorted by kind), so the
   // report covers all Pokémon at once rather than one target at a time.
   const rows = ref<SetupRow[]>([]);
   let debounce: ReturnType<typeof setTimeout> | null = null;
 
   function recompute() {
-    if (isEmpty.value) {
+    if (isEmpty.value || !evoReady.value) {
       rows.value = [];
       return;
     }
@@ -112,11 +127,12 @@ export function useSetupSim() {
         order: order.value,
         rng: makeRng(seed.value),
       }),
+      cantReason: unsatisfiableReason(deck, line),
     }));
   }
 
   watch(
-    [lines, order, seed, simCards],
+    [lines, order, seed, simCards, evoReady],
     () => {
       if (debounce) clearTimeout(debounce);
       debounce = setTimeout(recompute, 150);
@@ -143,6 +159,7 @@ export function useSetupSim() {
     warnings,
     rows,
     isLoading,
+    evoError,
     // actions
     setOrder,
     reroll,
