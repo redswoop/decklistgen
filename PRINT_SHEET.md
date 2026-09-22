@@ -50,7 +50,7 @@ await page.screenshot({ path: "print.png", fullPage: true });
 | `deckId`       | deck id                                                     | —          | path 1 |
 | `cardId`       | comma-separated card ids                                    | —          | path 2 |
 | `gallery`      | `1`                                                         | —          | path 3 |
-| `size`         | `standard` \| `jumbo`                                       | `standard` | 2.5×3.5in vs jumbo |
+| `size`         | `standard` \| `jumbo`                                       | `standard` | 63×87mm (measured real card) vs jumbo |
 | `qty`          | `one-each`                                                  | repeat by deck count | one copy each |
 | `paper`        | `letter` \| `super-b`                                       | `letter`   | 8.5×11 vs 13×19in |
 | `orientation`  | `portrait` \| `landscape`                                   | `portrait` | |
@@ -82,6 +82,10 @@ await page.screenshot({ path: "print.png", fullPage: true });
 ## Shared layout utils (don't duplicate)
 
 - `src/shared/utils/print-grid.ts` — `gridForPaper()`; paper/card dims, 0.25in origin.
+  Standard card is **63×87mm** — a real Pokémon card measured with calipers (62.9×87.03).
+  The nominal 2.5″×3.5″ poker size is 0.5mm wider and ~1.9mm taller than the real thing
+  and jams perfect-fit sleeves. The renderer's 750×1050 canvas is a hair narrower in
+  ratio, so the print scaler stretches ~1% on one axis to fill the cell exactly.
 - `src/shared/utils/print-filter.ts` — `shouldPrintCard()`; the `exclude`/energy rules.
 - `src/shared/utils/print-summary.ts` — `countPrintCards()`, `summarizePrint()`.
 - `src/shared/utils/print-crop-marks.ts` — `cropMarkLayout()`; 0.5mm gap, corner marks.
@@ -96,7 +100,7 @@ Leftover paper falls on the right and bottom. Partial last pages use the same
 origin, so every sheet registers the same way.
 
 Crop marks (on by default) sit in that 0.25in gutter and add a 0.5mm gap
-between cards. Turn them off (`crop=0`) for flush 2.5in × 3.5in spacing.
+between cards. Turn them off (`crop=0`) for flush 63mm × 87mm spacing.
 
 **Print dialog:** Margins **None**, scale **100% / Actual size**. "Fit to
 printable area" will shift the origin and miss the mat.

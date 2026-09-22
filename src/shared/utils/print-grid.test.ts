@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { gridForPaper, CARD_DIMS_IN, PAGE_MARGIN_IN } from "./print-grid.js";
+import { gridForPaper, CARD_DIMS_IN, CARD_DIMS_MM, PAGE_MARGIN_IN } from "./print-grid.js";
 
 describe("gridForPaper", () => {
   test("letter portrait fits 3x3", () => {
@@ -55,5 +55,23 @@ describe("gridForPaper", () => {
     const g = gridForPaper("letter", "portrait");
     expect(g.usableW).toBe(g.pageW - PAGE_MARGIN_IN * 2);
     expect(g.usableH).toBe(g.pageH - PAGE_MARGIN_IN * 2);
+  });
+});
+
+describe("card dims", () => {
+  test("standard is a measured real Pokémon card (63×87mm), not 2.5×3.5in", () => {
+    expect(CARD_DIMS_MM.standard).toEqual({ w: 63, h: 87 });
+    expect(CARD_DIMS_IN.standard.w).toBeCloseTo(2.4803, 4);
+    expect(CARD_DIMS_IN.standard.h).toBeCloseTo(3.4252, 4);
+    // Strictly smaller than poker size on both axes so it sleeves.
+    expect(CARD_DIMS_IN.standard.w).toBeLessThan(2.5);
+    expect(CARD_DIMS_IN.standard.h).toBeLessThan(3.5);
+  });
+
+  test("the real-card size keeps the same sheet counts as poker size", () => {
+    expect(gridForPaper("letter", "portrait").cardsPerSheet).toBe(9);
+    expect(gridForPaper("letter", "landscape").cardsPerSheet).toBe(8);
+    expect(gridForPaper("super-b", "portrait").cardsPerSheet).toBe(25);
+    expect(gridForPaper("super-b", "landscape").cardsPerSheet).toBe(21);
   });
 });

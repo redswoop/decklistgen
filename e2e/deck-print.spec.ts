@@ -1,6 +1,6 @@
 /**
  * /print.html smoke — confirms the client-only print route boots, fetches a
- * card list, and lays out a 2.5"×3.5" CSS grid before printing.
+ * card list, and lays out a 63×87mm CSS grid before printing.
  *
  * Uses ?gallery=1 with sessionStorage so we don't need to create a saved deck
  * (which would require auth). The Gallery-print path is the same code path
@@ -9,7 +9,7 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("/print.html", () => {
-  test("renders a 2.5×3.5in print grid for gallery card IDs", async ({ page }) => {
+  test("renders a 63×87mm print grid for gallery card IDs", async ({ page }) => {
     // Seed sessionStorage with a card the Gallery TEST_CARDS list already
     // exposes; the server-side card store always has SV01 loaded.
     await page.addInitScript(() => {
@@ -35,12 +35,12 @@ test.describe("/print.html", () => {
     const cells = sheet.locator(".print-cell");
     await expect(cells).toHaveCount(3);
 
-    // Each cell sized to 2.5"×3.5" → at 96dpi that's 240×336 CSS px.
+    // Each cell sized to 63×87mm → at 96dpi that's 238.1×328.8 CSS px.
     const box = await cells.first().boundingBox();
-    expect(box?.width).toBeGreaterThan(238);
-    expect(box?.width).toBeLessThan(242);
-    expect(box?.height).toBeGreaterThan(334);
-    expect(box?.height).toBeLessThan(338);
+    expect(box?.width).toBeGreaterThan(237);
+    expect(box?.width).toBeLessThan(239.5);
+    expect(box?.height).toBeGreaterThan(327.5);
+    expect(box?.height).toBeLessThan(330);
   });
 
   test("grid pins 0.25in from the sheet top-left, not centered", async ({ page }) => {

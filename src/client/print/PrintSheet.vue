@@ -2,7 +2,7 @@
 /**
  * Print sheet — replaces the server-side `/api/pokeproxy/print/:deckId` HTML
  * generator. Boots into a Vue app at /print.html, fetches the deck (or a
- * gallery card-ID list from sessionStorage), and renders the same 2.5"×3.5"
+ * gallery card-ID list from sessionStorage), and renders the same 63×87mm
  * grid the lab pioneered (see src/client/lab/Lab.vue for the reference).
  *
  * URL params:
@@ -13,7 +13,7 @@
  *                       the user picked these cards.
  *   ?size=jumbo       — print at the oversized promo size (132mm × 185mm).
  *                       One per page portrait; two per page landscape.
- *                       Default "standard" (2.5"×3.5").
+ *                       Default "standard" (63×87mm, a measured real card).
  *   ?gallery=1        — read card IDs from sessionStorage key
  *                       `gallery-print-ids` (set by GalleryView.openPrint).
  *   ?qty=one-each     — print exactly 1 of each card; default repeats by deck count.
@@ -55,14 +55,19 @@ interface PrintPage {
   marks: CropMarkLayout | null;
 }
 
+// Native canvas of the lab card renderer (750×1050 = 2.5:3.5). A real card is
+// 63×87mm, a slightly wider ratio, so the scaler stretches ~1% on one axis to
+// fill the cell exactly rather than clipping the bottom or leaving side gaps.
 const CARD_W = 750;
+const CARD_H = 1050;
 const CSS_PX_PER_IN = 96;
 
 // Parsed URL grammar (see print-params.ts / PRINT_SHEET.md).
 const params = parsePrintParams(window.location.search);
 const { cardSize, paper, orientation, cropMarks, autoPrint } = params;
 const cardDims = CARD_DIMS_IN[cardSize];
-const PRINT_SCALE = (cardDims.w * CSS_PX_PER_IN) / CARD_W;
+const PRINT_SCALE_X = (cardDims.w * CSS_PX_PER_IN) / CARD_W;
+const PRINT_SCALE_Y = (cardDims.h * CSS_PX_PER_IN) / CARD_H;
 
 // With crop marks on, cards sit in a 0.5mm gap so a single cut lands between
 // two cards; with marks off they print flush.
@@ -149,7 +154,7 @@ onMounted(async () => {
 });
 
 const printScalerStyle = {
-  transform: `scale(${PRINT_SCALE})`,
+  transform: `scale(${PRINT_SCALE_X}, ${PRINT_SCALE_Y})`,
   transformOrigin: "top left",
 };
 

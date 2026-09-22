@@ -1,15 +1,22 @@
 export type PrintPaper = "letter" | "super-b";
 export type PrintOrientation = "portrait" | "landscape";
 
-/** Printable card sizes. "standard" is the regulation 2.5"×3.5"; "jumbo" is the
- *  oversized promo size (132mm × 185mm), printed one-per-page. */
+/** Printable card sizes. "standard" is a real Pokémon card as measured with
+ *  calipers (63mm × 87mm) — NOT the nominal 2.5"×3.5" poker size, which runs
+ *  ~2mm too tall and jams perfect-fit sleeves. "jumbo" is the oversized promo
+ *  size (132mm × 185mm), printed one-per-page. */
 export type CardSize = "standard" | "jumbo";
 
 const MM_PER_IN = 25.4;
 
+export const CARD_DIMS_MM: Record<CardSize, { w: number; h: number }> = {
+  standard: { w: 63, h: 87 },
+  jumbo: { w: 132, h: 185 },
+};
+
 export const CARD_DIMS_IN: Record<CardSize, { w: number; h: number }> = {
-  standard: { w: 2.5, h: 3.5 },
-  jumbo: { w: 132 / MM_PER_IN, h: 185 / MM_PER_IN },
+  standard: { w: CARD_DIMS_MM.standard.w / MM_PER_IN, h: CARD_DIMS_MM.standard.h / MM_PER_IN },
+  jumbo: { w: CARD_DIMS_MM.jumbo.w / MM_PER_IN, h: CARD_DIMS_MM.jumbo.h / MM_PER_IN },
 };
 
 // Back-compat aliases for the regulation card size (most callers).

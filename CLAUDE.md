@@ -103,7 +103,7 @@ The card renderer is **client-side CSS/Vue** — `CssCardRenderer.vue` adapts a 
 
 ### Print sheet
 
-Deck-print and gallery-print both open `/print.html?…` in a new tab — a dedicated Vite entry (`src/client/print/PrintSheet.vue`) that fetches the deck (or reads card IDs from `sessionStorage`), waits for `document.fonts.ready`, and lays out a 2.5″×3.5″ grid sized to the requested paper. Triggered from `PrintDialog.vue`; on the Gallery side, `openPrint()` stashes IDs in `sessionStorage["gallery-print-ids"]`.
+Deck-print and gallery-print both open `/print.html?…` in a new tab — a dedicated Vite entry (`src/client/print/PrintSheet.vue`) that fetches the deck (or reads card IDs from `sessionStorage`), waits for `document.fonts.ready`, and lays out a 63×87mm card grid (measured real-card size, see PRINT_SHEET.md) sized to the requested paper. Triggered from `PrintDialog.vue`; on the Gallery side, `openPrint()` stashes IDs in `sessionStorage["gallery-print-ids"]`.
 
 ## Client Architecture
 
