@@ -81,6 +81,36 @@ test.describe("/print.html", () => {
     expect(printCell!.y - printSheet!.y).toBeLessThanOrEqual(25);
   });
 
+  test("downloads a Cricut cut SVG matching the on-screen grid", async ({ page }) => {
+    await page.addInitScript(() => {
+      sessionStorage.setItem("gallery-print-ids", JSON.stringify(["sv01-001"]));
+    });
+    await page.goto("/print.html?gallery=1&art=original&auto=0&crop=0");
+    await page.waitForFunction(
+      () => document.documentElement.dataset.printState === "ready",
+      { timeout: 15000 },
+    );
+
+    const bar = page.getByTestId("cut-file-bar");
+    await expect(bar).toContainText("189 × 261 mm");
+    await expect(bar).toContainText("6.35 mm");
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByTestId("cut-file-download").click(),
+    ]);
+    expect(download.suggestedFilename()).toBe("cut-letter-portrait-3x3-63x87mm-flush.svg");
+    const path = await download.path();
+    const svg = await (await import("node:fs/promises")).readFile(path!, "utf8");
+    expect(svg).toContain('width="189mm"');
+    expect(svg.match(/<path/g)?.length).toBe(1);
+    expect(svg.match(/Z/g)?.length).toBe(9);
+
+    // The bar is screen chrome only — it must not print.
+    await page.emulateMedia({ media: "print" });
+    await expect(bar).toBeHidden();
+  });
+
   test("shows an error when neither deckId nor gallery= is supplied", async ({ page }) => {
     await page.goto("/print.html");
     await expect(page.locator(".status-error")).toBeVisible({ timeout: 5000 });

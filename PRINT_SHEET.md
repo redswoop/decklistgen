@@ -89,6 +89,7 @@ await page.screenshot({ path: "print.png", fullPage: true });
 - `src/shared/utils/print-filter.ts` — `shouldPrintCard()`; the `exclude`/energy rules.
 - `src/shared/utils/print-summary.ts` — `countPrintCards()`, `summarizePrint()`.
 - `src/shared/utils/print-crop-marks.ts` — `cropMarkLayout()`; 0.5mm gap, corner marks.
+- `src/shared/utils/print-cut-svg.ts` — `cutSvgForGrid()`; the Cricut cut SVG (see below).
 
 ## Page origin (Cricut)
 
@@ -104,6 +105,30 @@ between cards. Turn them off (`crop=0`) for flush 63mm × 87mm spacing.
 
 **Print dialog:** Margins **None**, scale **100% / Actual size**. "Fit to
 printable area" will shift the origin and miss the mat.
+
+### Cut file
+
+The print page (screen only, hidden when printing) has **Download Cricut cut
+file**: an SVG built by `src/shared/utils/print-cut-svg.ts` from the *same*
+cols/rows/card dims/gap the sheet on screen uses, so print and cut can't drift.
+
+- **One compound `<path>`**, one rounded-rect subpath per cell (3 mm corners,
+  like a real card). Design Space auto-arranges loose shapes on the mat but keeps
+  a compound path together and cuts every subpath.
+- **Canvas = grid bbox, not the page.** Design Space sizes an import by its
+  path bbox and drops page space. Flush letter 3×3 is 189 × 261 mm. After import,
+  check that size, then set the group's position to **X 6.35 mm, Y 6.35 mm** on
+  the mat with the paper in the mat corner.
+- It follows the sheet's crop-mark setting. For the Cricut, print with `crop=0`
+  so the file is a flush grid; with marks on it bakes in the 0.5 mm gap instead.
+- A partial last page uses the same file; the empty cells just cut blank paper.
+
+**Error budget.** The machine is the precise part (sub-¼ mm repeatable). What
+eats accuracy is the printer's placement offset and skew (~0.5–1 mm on office
+inkjets/lasers) and hand-placing the paper on the mat. Calibrate once: print a
+flush sheet, measure the first card's top-left from the paper corner with
+calipers, and correct in the print driver or by nudging the group in Design
+Space. Rounded corners cover the rest of a small misalignment.
 
 Cards render through the shared `CssCardRenderer.vue` (→ lab card components), same as
 every other surface — print does not have its own renderer.

@@ -38,6 +38,7 @@ import {
   CARD_DIMS_IN,
   PAGE_MARGIN_IN,
 } from "../../shared/utils/print-grid.js";
+import { cutSvgForGrid, cutSvgFilename } from "../../shared/utils/print-cut-svg.js";
 import {
   cropMarkLayout,
   pageGridShape,
@@ -177,6 +178,47 @@ function cropMarkStyle(pad: number) {
   };
 }
 
+// Cricut cut file for a full sheet — same cols/rows/card dims/gap as the grid
+// on screen, so the download can only ever describe what's printed. Screen-only
+// (hidden under @media print). A partial last page just cuts some empty paper.
+const cutFile = computed(() => {
+  const g = grid.value;
+  const cut = cutSvgForGrid({
+    cols: g.cols,
+    rows: g.rows,
+    gap: cardGapIn,
+    originIn: PAGE_MARGIN_IN,
+    cardW: cardDims.w,
+    cardH: cardDims.h,
+  });
+  const filename = cutSvgFilename({
+    paper,
+    orientation,
+    cols: g.cols,
+    rows: g.rows,
+    gap: cardGapIn,
+    cardW: cardDims.w,
+    cardH: cardDims.h,
+  });
+  const mm = (v: number) => v.toFixed(2).replace(/\.?0+$/, "");
+  return {
+    ...cut,
+    filename,
+    sizeLabel: `${mm(cut.widthMm)} × ${mm(cut.heightMm)} mm`,
+    originLabel: `${mm(cut.originMm)} mm`,
+  };
+});
+
+function downloadCutFile() {
+  const blob = new Blob([cutFile.value.svg], { type: "image/svg+xml" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = cutFile.value.filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // @page is set imperatively because the size depends on URL params and Vue's
 // template <style> blocks are static. Inject one rule into <head> at mount.
 // Margin is 0: each .print-page-sheet is sized to the full paper. The grid
@@ -198,6 +240,22 @@ function installPageRule() {
       Nothing to print — every card was filtered out.
     </div>
     <template v-else>
+      <aside class="cut-file-bar" data-testid="cut-file-bar">
+        <button
+          type="button"
+          class="cut-file-btn"
+          data-testid="cut-file-download"
+          :title="`One compound path, ${cutFile.cutCount} cuts, 3 mm corners. Import into Design Space, then place the group's top-left at X ${cutFile.originLabel}, Y ${cutFile.originLabel} on the mat with the paper in the mat corner.`"
+          @click="downloadCutFile"
+        >
+          Download Cricut cut file
+        </button>
+        <span class="cut-file-meta">
+          {{ cutFile.sizeLabel }} · place at {{ cutFile.originLabel }} from the mat corner
+          <template v-if="cardGapIn > 0"> · matches the crop-mark gap</template>
+          <template v-else> · flush</template>
+        </span>
+      </aside>
       <section
         v-for="(page, p) in pages"
         :key="p"
@@ -294,6 +352,30 @@ html, body {
 }
 .status-error { color: #e57373; }
 
+/* Screen-only chrome for the Cricut workflow; never printed. */
+.cut-file-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  align-self: stretch;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #1c2230;
+  color: #9aa5b8;
+  font-size: 13px;
+}
+.cut-file-btn {
+  padding: 6px 12px;
+  border: 1px solid #3b4658;
+  border-radius: 6px;
+  background: #2a3242;
+  color: #e6ebf3;
+  font: inherit;
+  cursor: pointer;
+}
+.cut-file-btn:hover { background: #354057; }
+.cut-file-meta { white-space: nowrap; }
+
 /* One sheet of paper: full page size. Grid pins 0.25in from the top-left so
    a Cricut mat's no-cut zone lines up; leftover paper falls right/bottom.
    Crop marks live in that 0.25in gutter. */
@@ -344,6 +426,9 @@ html, body {
 }
 
 @media print {
+  .cut-file-bar {
+    display: none;
+  }
   .print-page {
     padding: 0;
     gap: 0;
