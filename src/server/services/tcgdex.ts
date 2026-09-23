@@ -3,24 +3,71 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { TcgdexCard, TcgdexSet } from "../../shared/types/card.js";
 
-const CACHE_DIR = join(import.meta.dir, "../../../cache");
+const DEFAULT_CACHE_DIR = join(import.meta.dir, "../../../cache");
 const BASE_URL = "https://api.tcgdex.net/v2/en";
 const UA = "DecklistGen/1.0";
 
-async function ensureCache() {
-  if (!existsSync(CACHE_DIR)) await mkdir(CACHE_DIR, { recursive: true });
+// Read per call (not at import) so tests can point the fetcher at a temp dir.
+function cacheDir(): string {
+  return process.env.TCGDEX_CACHE_DIR ?? DEFAULT_CACHE_DIR;
 }
 
-async function cachedFetch<T>(cacheKey: string, url: string): Promise<T> {
-  await ensureCache();
-  const cacheFile = join(CACHE_DIR, `${cacheKey}.json`);
-  if (existsSync(cacheFile)) {
-    return JSON.parse(await readFile(cacheFile, "utf-8"));
-  }
+async function ensureCache() {
+  const dir = cacheDir();
+  if (!existsSync(dir)) await mkdir(dir, { recursive: true });
+}
+
+async function fetchJson<T>(url: string): Promise<T> {
   console.log(`  Fetching: ${url}`);
   const resp = await fetch(url, { headers: { "User-Agent": UA } });
   if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${url}`);
-  const data = await resp.json() as T;
+  return await resp.json() as T;
+}
+
+/**
+ * TCGdex publishes new sets half-populated and backfills fields (notably
+ * `evolveFrom`) over the following weeks. A cached card JSON that is missing
+ * data a Stage 1/2 Pokémon must have is treated as stale and re-fetched — once
+ * per process, so an upstream that still hasn't backfilled doesn't turn every
+ * set load into a network storm. The stale copy is kept if the network fails.
+ */
+export function isIncompleteCard(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object") return false;
+  const c = raw as { category?: unknown; stage?: unknown; evolveFrom?: unknown };
+  if (c.category !== "Pokemon") return false;
+  const stage = typeof c.stage === "string" ? c.stage.toLowerCase() : "";
+  if (stage !== "stage1" && stage !== "stage2") return false;
+  return typeof c.evolveFrom !== "string" || c.evolveFrom === "";
+}
+
+const refreshAttempted = new Set<string>();
+
+/** Test hook: forget which stale entries were already retried this process. */
+export function resetStaleRefreshTracking(): void {
+  refreshAttempted.clear();
+}
+
+async function cachedFetch<T>(
+  cacheKey: string,
+  url: string,
+  isStale?: (data: T) => boolean,
+): Promise<T> {
+  await ensureCache();
+  const cacheFile = join(cacheDir(), `${cacheKey}.json`);
+  if (existsSync(cacheFile)) {
+    const cached = JSON.parse(await readFile(cacheFile, "utf-8")) as T;
+    if (!isStale?.(cached) || refreshAttempted.has(cacheKey)) return cached;
+    refreshAttempted.add(cacheKey);
+    try {
+      const fresh = await fetchJson<T>(url);
+      await writeFile(cacheFile, JSON.stringify(fresh, null, 2));
+      return fresh;
+    } catch (e) {
+      console.warn(`  Refresh of stale ${cacheKey} failed, keeping cached copy: ${(e as Error).message}`);
+      return cached;
+    }
+  }
+  const data = await fetchJson<T>(url);
   await writeFile(cacheFile, JSON.stringify(data, null, 2));
   return data;
 }
@@ -40,7 +87,7 @@ export async function fetchCard(tcgdexId: string, localId: string): Promise<Tcgd
   for (const num of candidates) {
     const cardId = `${tcgdexId}-${num}`;
     try {
-      return await cachedFetch<TcgdexCard>(cardId, `${BASE_URL}/cards/${cardId}`);
+      return await cachedFetch<TcgdexCard>(cardId, `${BASE_URL}/cards/${cardId}`, isIncompleteCard);
     } catch (e) {
       if (num !== candidates[candidates.length - 1]) continue;
       throw e;
@@ -63,7 +110,7 @@ export async function fetchCardEvolveFromByName(name: string): Promise<string | 
   );
   const match = list.find((c) => c.name.toLowerCase() === name.toLowerCase()) ?? list[0];
   if (!match) return undefined;
-  const full = await cachedFetch<TcgdexCard>(match.id, `${BASE_URL}/cards/${match.id}`);
+  const full = await cachedFetch<TcgdexCard>(match.id, `${BASE_URL}/cards/${match.id}`, isIncompleteCard);
   return (full.evolveFrom as string) ?? undefined;
 }
 

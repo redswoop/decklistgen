@@ -1,7 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { getCard, findCardByName } from "./card-store.js";
-import { ensureCardLoaded } from "./card-detail.js";
+import { getCard, findCardByName, ensureCardLoaded } from "./card-store.js";
 import { fetchCardEvolveFromByName } from "./tcgdex.js";
 
 /**
@@ -20,7 +19,7 @@ import { fetchCardEvolveFromByName } from "./tcgdex.js";
  * are "the mega evolved form of X", so their pre-evolution is X's pre-evolution.
  */
 
-const CACHE_DIR = join(import.meta.dir, "../../../cache");
+const CACHE_DIR = process.env.TCGDEX_CACHE_DIR ?? join(import.meta.dir, "../../../cache");
 
 interface CachedCardFields {
   evolveFrom?: string;
@@ -127,6 +126,22 @@ async function deriveStartEvolveFrom(name: string): Promise<string | undefined> 
   const species = megaBaseSpecies(name);
   if (species) return lookupEvolveFromByName(species);
   return undefined;
+}
+
+/**
+ * Best-effort `evolveFrom` for a Stage 1/2 whose own JSON lacks it: another
+ * cached printing of the same name, the Mega base-species rule, and finally a
+ * TCGdex name lookup. Used by the card face (print sheet, lightbox) so a
+ * half-populated set still renders "Evolves from …".
+ */
+export async function inferEvolveFrom(name: string): Promise<string | undefined> {
+  const derived = await deriveStartEvolveFrom(name);
+  if (derived) return derived;
+  try {
+    return await fetchCardEvolveFromByName(name);
+  } catch {
+    return undefined;
+  }
 }
 
 export interface EvolutionInfo {

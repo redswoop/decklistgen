@@ -117,6 +117,19 @@ export async function loadSet(setCode: string): Promise<number> {
   return count;
 }
 
+/**
+ * Make sure the set a card belongs to is in the in-memory index, loading it
+ * (cache-first) if needed. Cheap no-op when the card is already indexed.
+ */
+export async function ensureCardLoaded(cardId: string): Promise<void> {
+  if (getCard(cardId)) return;
+  const setId = cardId.replace(/-[^-]+$/, "");
+  const setCode = REVERSE_SET_MAP[setId];
+  if (setCode && !isSetLoaded(setCode)) {
+    await loadSet(setCode);
+  }
+}
+
 export function getCard(id: string): Card | undefined {
   return cardIndex.get(id);
 }

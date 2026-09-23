@@ -1,18 +1,24 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { getCard, loadSet, isSetLoaded } from "./card-store.js";
-import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
+import { getCard, ensureCardLoaded } from "./card-store.js";
+import { inferEvolveFrom } from "./evolution-chain.js";
 import type { CardDetail } from "../../shared/types/card.js";
 
-const CACHE_DIR = join(import.meta.dir, "../../../cache");
+// Re-exported for existing callers (routes, MCP tools); the implementation
+// lives in card-store so evolution-chain can import it without a cycle.
+export { ensureCardLoaded };
 
-export async function ensureCardLoaded(cardId: string): Promise<void> {
-  if (getCard(cardId)) return;
-  const setId = cardId.replace(/-[^-]+$/, "");
-  const setCode = REVERSE_SET_MAP[setId];
-  if (setCode && !isSetLoaded(setCode)) {
-    await loadSet(setCode);
-  }
+const CACHE_DIR = process.env.TCGDEX_CACHE_DIR ?? join(import.meta.dir, "../../../cache");
+
+/**
+ * A Stage 1/2 Pokémon must print "Evolves from …". When its own TCGdex JSON
+ * lacks the field (new sets are published half-populated and backfilled later,
+ * and our cache is write-once), we need to infer it from elsewhere.
+ */
+export function needsEvolveFromFallback(stage: string | undefined, evolveFrom: string | undefined): boolean {
+  if (evolveFrom) return false;
+  const s = (stage ?? "").toLowerCase();
+  return s === "stage1" || s === "stage2";
 }
 
 /** Enrich a Card with attacks/abilities/weaknesses/resistances from cached TCGdex JSON. */
@@ -42,6 +48,11 @@ export async function getCardDetail(cardId: string): Promise<CardDetail | null> 
     effect: (ab.effect as string) ?? "",
   }));
 
+  let evolveFrom = (raw.evolveFrom as string) ?? undefined;
+  if (needsEvolveFromFallback(card.stage, evolveFrom)) {
+    evolveFrom = await inferEvolveFrom(card.name);
+  }
+
   const weaknesses = (raw.weaknesses as Array<{ type: string; value: string }>) ?? [];
   const resistances = (raw.resistances as Array<{ type: string; value: string }>) ?? [];
 
@@ -52,7 +63,7 @@ export async function getCardDetail(cardId: string): Promise<CardDetail | null> 
     weaknesses,
     resistances,
     description: (raw.description as string) ?? undefined,
-    evolveFrom: (raw.evolveFrom as string) ?? undefined,
+    evolveFrom,
     effect: (raw.effect as string) ?? undefined,
   };
 }
