@@ -80,3 +80,43 @@ describe("GET /pokeproxy/image/:cardId/:type with ?w= thumbnail", () => {
     expect(meta.width).toBe(16); // clamped to min 16
   });
 });
+
+describe("GET /pokeproxy/image/:cardId/source fetches the original on a miss", () => {
+  // cel25-2, not cel25-1: cards.test.ts overwrites cel25-1.json with a fixture
+  // that has no image URL, and we need a real imageBase to resolve.
+  const CARD_ID = "cel25-2";
+  const srcPath = join(CACHE_DIR, `${CARD_ID}.png`);
+
+  test("downloads from tcgdex once, caches, and serves same-origin", async () => {
+    if (existsSync(srcPath)) unlinkSync(srcPath);
+    const png = await sharp({
+      create: { width: 20, height: 28, channels: 3, background: { r: 200, g: 10, b: 10 } },
+    }).png().toBuffer();
+
+    const realFetch = globalThis.fetch;
+    let hits = 0;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/high.png")) {
+        hits++;
+        return new Response(png, { status: 200, headers: { "Content-Type": "image/png" } });
+      }
+      return realFetch(input, init);
+    }) as typeof fetch;
+    try {
+      const res = await app.request(`/pokeproxy/image/${CARD_ID}/source`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toBe("image/png");
+      const meta = await sharp(Buffer.from(await res.arrayBuffer())).metadata();
+      expect(meta.width).toBe(20);
+      expect(existsSync(srcPath)).toBe(true);
+
+      const again = await app.request(`/pokeproxy/image/${CARD_ID}/source`);
+      expect(again.status).toBe(200);
+      expect(hits).toBe(1);
+    } finally {
+      globalThis.fetch = realFetch;
+      if (existsSync(srcPath)) unlinkSync(srcPath);
+    }
+  });
+});

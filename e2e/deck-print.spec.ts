@@ -158,6 +158,42 @@ test.describe("/print.html", () => {
     await expect(page.getByTestId("cut-file-bar")).not.toContainText("calibrated");
   });
 
+  test("downloads a 300 dpi page PNG for Bambu Print Then Cut", async ({ page }) => {
+    await page.addInitScript(() => {
+      sessionStorage.setItem("gallery-print-ids", JSON.stringify(["sv01-001", "sv01-006"]));
+    });
+    await page.goto("/print.html?gallery=1&auto=0&crop=0");
+    await page.waitForFunction(
+      () => document.documentElement.dataset.printState === "ready",
+      { timeout: 15000 },
+    );
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByTestId("page-png-download").click(),
+    ]);
+    expect(download.suggestedFilename()).toBe("print-page-1-of-1-3x3-300dpi.png");
+    const bytes = new Uint8Array(await (await import("node:fs/promises")).readFile((await download.path())!));
+
+    // PNG signature, then IHDR: width/height at 16..24, colour type at 25 (6 = RGBA).
+    expect(Array.from(bytes.subarray(0, 8))).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const dv = new DataView(bytes.buffer);
+    // The grid shrinks to the cells it uses: two cards → 2 cols × 1 row →
+    // 126 × 87 mm → 1488 × 1028 px at 300 dpi. A full page would be 2232 × 3083.
+    expect(dv.getUint32(16)).toBe(1488);
+    expect(dv.getUint32(20)).toBe(1028);
+    expect(bytes[25]).toBe(6);
+
+    // pHYs chunk right after IHDR, 11811 px/m both axes, unit = metre.
+    const physOff = 8 + 25;
+    expect(String.fromCharCode(...bytes.subarray(physOff + 4, physOff + 8))).toBe("pHYs");
+    expect(dv.getUint32(physOff + 8)).toBe(11811);
+    expect(dv.getUint32(physOff + 12)).toBe(11811);
+    expect(bytes[physOff + 16]).toBe(1);
+
+    await expect(page.getByTestId("page-png-error")).toHaveCount(0);
+  });
+
   test("shows an error when neither deckId nor gallery= is supplied", async ({ page }) => {
     await page.goto("/print.html");
     await expect(page.locator(".status-error")).toBeVisible({ timeout: 5000 });

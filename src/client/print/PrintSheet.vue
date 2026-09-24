@@ -42,8 +42,10 @@ import {
   cutSvgForGrid,
   cutSvgFilename,
   solveCutCorrection,
+  CARD_CORNER_RADIUS_MM,
   type CutCalibration,
 } from "../../shared/utils/print-cut-svg.js";
+import { rasterizePage, pagePngFilename } from "./rasterize-page.js";
 import {
   cropMarkLayout,
   pageGridShape,
@@ -285,6 +287,53 @@ const cutFile = computed(() => {
   };
 });
 
+// Bambu Suite Print Then Cut: one PNG per page, cards on transparent gutters,
+// stamped 300 dpi. Suite prints it via the paper printer with its own markers
+// and cuts along the alpha edge, so print and cut are literally the same file.
+const PNG_DPI = 300;
+const pngExport = ref<{ page: number; pages: number } | null>(null);
+const pngError = ref<string | null>(null);
+const pngLabel = computed(() => {
+  const g = grid.value;
+  const wPx = Math.round(((g.cols * cardDims.w + (g.cols - 1) * cardGapIn) * PNG_DPI));
+  const hPx = Math.round(((g.rows * cardDims.h + (g.rows - 1) * cardGapIn) * PNG_DPI));
+  return `${wPx} × ${hPx} px @ ${PNG_DPI} dpi`;
+});
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadPagePngs() {
+  if (pngExport.value) return;
+  pngError.value = null;
+  const grids = Array.from(document.querySelectorAll<HTMLElement>(".print-page-sheet .print-grid"));
+  const g = grid.value;
+  try {
+    for (let i = 0; i < grids.length; i++) {
+      pngExport.value = { page: i + 1, pages: grids.length };
+      const { blob } = await rasterizePage(grids[i], { dpi: PNG_DPI, cornerMm: CARD_CORNER_RADIUS_MM });
+      saveBlob(blob, pagePngFilename(i + 1, grids.length, g.cols, g.rows, PNG_DPI));
+      // Give the browser a beat between downloads so it doesn't coalesce them.
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  } catch (e) {
+    // html-to-image rejects with the raw image `error` Event when an <img>
+    // can't be fetched (almost always cross-origin without CORS).
+    pngError.value =
+      e instanceof Error ? e.message
+      : typeof Event !== "undefined" && e instanceof Event ? "An image failed to load for rasterizing (cross-origin art?)"
+      : String(e);
+  } finally {
+    pngExport.value = null;
+  }
+}
+
 function downloadCutFile() {
   const blob = new Blob([cutFile.value.svg], { type: "image/svg+xml" });
   const url = URL.createObjectURL(blob);
@@ -332,6 +381,18 @@ function installPageRule() {
           <template v-else> · flush</template>
           <template v-if="cutFile.correctionLabel"> · <strong>calibrated</strong></template>
         </span>
+        <button
+          type="button"
+          class="cut-file-btn"
+          data-testid="page-png-download"
+          :disabled="pngExport !== null"
+          :title="`Bambu Suite Print Then Cut: one PNG per page, cards on a transparent background with 3 mm corners, ${pngLabel}. Import into Bambu Suite, set the process to Print Then Cut, and Make — Suite prints it with its own registration markers and cuts along the card edges.`"
+          @click="downloadPagePngs"
+        >
+          <template v-if="pngExport">Rendering page {{ pngExport.page }} of {{ pngExport.pages }}…</template>
+          <template v-else>Download page PNGs</template>
+        </button>
+        <span v-if="pngError" class="cut-file-error" data-testid="page-png-error">{{ pngError }}</span>
         <button
           type="button"
           class="cut-file-btn cut-file-btn-quiet"
@@ -494,6 +555,7 @@ html, body {
 .cut-file-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .cut-file-btn-quiet { background: transparent; }
 .cut-file-meta { white-space: nowrap; }
+.cut-file-error { color: #f0b26b; }
 
 .cut-cal {
   align-self: stretch;

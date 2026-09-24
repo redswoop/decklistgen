@@ -236,7 +236,7 @@ export const api = {
       hasClean: boolean; hasComposite: boolean; mtime?: number;
       skip?: boolean; isStale?: boolean; staleSummary?: string;
     }>>("/pokeproxy/status/batch", { cardIds, includeGenInfo: true }),
-  pokeproxyImageUrl: (cardId: string, type: "clean" | "composite" = "composite", version?: number, width?: number) => {
+  pokeproxyImageUrl: (cardId: string, type: "clean" | "composite" | "source" = "composite", version?: number, width?: number) => {
     const base = `/api/pokeproxy/image/${cardId}/${type}`;
     const params = new URLSearchParams();
     if (version) params.set("v", String(version));

@@ -135,6 +135,26 @@ cards ride the offset from it. Stored in `localStorage["cricut-cut-calibration"]
 the import at the right size, yet the blade landed 2.85 mm up/left and cut
 every card 1.25 % small — hence a model rather than a diagnosis.
 
+### Bambu Suite Print Then Cut (H2 series cutting kit)
+
+**Download page PNGs** on the same bar emits one PNG per page:
+`src/client/print/rasterize-page.ts` serialises the live grid with
+`html-to-image` at 300 dpi, clips every cell to a 3 mm rounded rect so gutters
+and corners are transparent, and stamps a `pHYs` chunk
+(`src/shared/utils/png-dpi.ts`) so Suite imports it at true size. Flush letter
+3×3 is 2232 × 3083 px.
+
+Workflow: import the PNG into Bambu Suite → process type **Print Then Cut** →
+Make. Suite sends the 2D job to the paper printer (print at 100 %, no fit-to-
+page) with its own four registration markers, the toolhead camera finds them
+(placement tolerance ±10 mm X / ±5 mm Y), auto-cuts two reference lines to
+measure the blade offset, then cuts along the alpha edge. Turn on Suite's bleed
+(~0.15 mm) so a hair of misregistration never shows white. Print and cut are
+the same file, so nothing can drift.
+
+Open question (needs a Suite session): whether a 189 × 261 mm 9-up fits inside
+Suite's marker frame on letter, or drops to 6-up.
+
 **Error budget.** The machine is the precise part (sub-¼ mm repeatable). What
 eats accuracy is the printer's placement offset and skew (~0.5–1 mm on office
 inkjets/lasers) and hand-placing the paper on the mat. Calibrate once: print a

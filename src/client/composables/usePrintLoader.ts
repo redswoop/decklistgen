@@ -1,7 +1,6 @@
 import { ref } from "vue";
 import { api, ApiError } from "../lib/client.js";
 import type { Card, CardDetail } from "../../shared/types/card.js";
-import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 import { shouldPrintCard } from "../../shared/utils/print-filter.js";
 import type { PrintParams, ArtMode } from "../../shared/utils/print-params.js";
 
@@ -28,9 +27,14 @@ export function usePrintLoader(params: PrintParams) {
    * card scan (printed plainly). Otherwise prefer the cached `clean` PNG, falling
    * back to original if none exists so a fresh deck still prints something.
    */
+  // Originals are served same-origin via /api/pokeproxy/image/:id/source (the
+  // server fetches from tcgdex on a miss). tcgdex itself sends a doubled CORS
+  // header that browsers reject, which would break the page-PNG rasterizer.
+  const originalUrl = (card: Card) => (card.imageBase ? api.pokeproxyImageUrl(card.id, "source") : "");
+
   async function resolveArtUrl(card: Card, artMode: ArtMode): Promise<string> {
     if (artMode === "original") {
-      return cardImageUrl(card.imageBase, "high") || "";
+      return originalUrl(card);
     }
     try {
       const status = await api.pokeproxyStatus(card.id);
@@ -40,7 +44,7 @@ export function usePrintLoader(params: PrintParams) {
     } catch {
       // Status endpoint is best-effort; fall through to the original art.
     }
-    return cardImageUrl(card.imageBase, "high") || "";
+    return originalUrl(card);
   }
 
   async function buildEntry(card: Card, count: number, artMode: ArtMode): Promise<PrintEntry[]> {

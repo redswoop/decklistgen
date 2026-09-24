@@ -10,6 +10,7 @@ import { getCustomizedCards, deleteCardArtifacts } from "../services/customized-
 import {
   cachePath,
   ensureCardLoaded,
+  ensureSourceImage,
   loadCardData,
 } from "../services/pokeproxy/cache.js";
 import { requireAuth, requireAuthorized } from "../middleware/auth.js";
@@ -120,6 +121,11 @@ app.get("/image/:cardId/:type", async (c) => {
 
   const suffix = type === "source" ? ".png" : `_${type}.png`;
   const filePath = cachePath(cardId, suffix);
+  if (!existsSync(filePath) && type === "source") {
+    // Originals are fetched on demand so the print page can load them
+    // same-origin (needed to rasterize page PNGs in the browser).
+    await ensureSourceImage(cardId);
+  }
   if (!existsSync(filePath)) {
     return c.json({ error: "Not found" }, 404);
   }
