@@ -123,6 +123,18 @@ cols/rows/card dims/gap the sheet on screen uses, so print and cut can't drift.
   so the file is a flush grid; with marks on it bakes in the 0.5 mm gap instead.
 - A partial last page uses the same file; the empty cells just cut blank paper.
 
+**Calibration.** The bar's **Calibrate** opens four fields: where the blade
+actually landed on a test cut (card 1 left/top, last column right, last row
+bottom; mm from the paper edges). `solveCutCorrection()` turns those into a
+per-axis scale plus the spot the cutter really drops the group's corner, and
+`cutSvgForGrid()` pre-distorts the file so the next cut lands on the ink. When
+the corner lands short of the origin the file gains a 1.5 mm **anchor square**
+in the waste margin: it becomes the bbox corner Design Space positions, and the
+cards ride the offset from it. Stored in `localStorage["cricut-cut-calibration"]`
+(per printer+cutter, not per deck). Observed 2026-09-23: Design Space reported
+the import at the right size, yet the blade landed 2.85 mm up/left and cut
+every card 1.25 % small — hence a model rather than a diagnosis.
+
 **Error budget.** The machine is the precise part (sub-¼ mm repeatable). What
 eats accuracy is the printer's placement offset and skew (~0.5–1 mm on office
 inkjets/lasers) and hand-placing the paper on the mat. Calibrate once: print a

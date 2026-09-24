@@ -32,13 +32,18 @@
  *                       a single value applies to all cards.
  *   ?auto=1           — fire window.print() automatically after fonts settle.
  */
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import {
   gridForPaper,
   CARD_DIMS_IN,
   PAGE_MARGIN_IN,
 } from "../../shared/utils/print-grid.js";
-import { cutSvgForGrid, cutSvgFilename } from "../../shared/utils/print-cut-svg.js";
+import {
+  cutSvgForGrid,
+  cutSvgFilename,
+  solveCutCorrection,
+  type CutCalibration,
+} from "../../shared/utils/print-cut-svg.js";
 import {
   cropMarkLayout,
   pageGridShape,
@@ -178,11 +183,71 @@ function cropMarkStyle(pad: number) {
   };
 }
 
+// Cricut calibration: where the blade actually landed on a test cut, mm from
+// the paper edges. Per printer+cutter+mat, not per deck, so it lives in
+// localStorage on the app origin rather than the URL. Empty = uncorrected.
+const CAL_KEY = "cricut-cut-calibration";
+const calFields = ["firstLeft", "firstTop", "lastRight", "lastBottom"] as const;
+type CalDraft = Record<(typeof calFields)[number], string>;
+const emptyCal = (): CalDraft => ({ firstLeft: "", firstTop: "", lastRight: "", lastBottom: "" });
+
+function loadCal(): CalDraft {
+  try {
+    const raw = localStorage.getItem(CAL_KEY);
+    if (!raw) return emptyCal();
+    // Vue casts type="number" inputs to numbers before v-model stores them,
+    // so accept either and normalise to the string the inputs bind to.
+    const parsed = JSON.parse(raw) as Partial<Record<keyof CalDraft, string | number>>;
+    const out = emptyCal();
+    for (const k of calFields) {
+      const v = parsed[k];
+      if (typeof v === "string" || typeof v === "number") out[k] = String(v);
+    }
+    return out;
+  } catch {
+    return emptyCal();
+  }
+}
+const cal = ref<CalDraft>(loadCal());
+const showCal = ref(false);
+
+watch(
+  cal,
+  (v) => {
+    try {
+      localStorage.setItem(CAL_KEY, JSON.stringify(v));
+    } catch {
+      /* private mode etc. — calibration just won't persist */
+    }
+  },
+  { deep: true },
+);
+
+function clearCal() {
+  cal.value = emptyCal();
+}
+
+/** All four numbers present and sane → a CutCalibration; otherwise null. */
+const calibration = computed<CutCalibration | null>(() => {
+  const n = (k: keyof CalDraft) => Number.parseFloat(cal.value[k]);
+  const v = { firstLeft: n("firstLeft"), firstTop: n("firstTop"), lastRight: n("lastRight"), lastBottom: n("lastBottom") };
+  if (Object.values(v).some((x) => !Number.isFinite(x))) return null;
+  if (v.lastRight <= v.firstLeft || v.lastBottom <= v.firstTop) return null;
+  return v;
+});
+
 // Cricut cut file for a full sheet — same cols/rows/card dims/gap as the grid
 // on screen, so the download can only ever describe what's printed. Screen-only
 // (hidden under @media print). A partial last page just cuts some empty paper.
 const cutFile = computed(() => {
   const g = grid.value;
+  const originMm = PAGE_MARGIN_IN * 25.4;
+  const ink = {
+    originMm,
+    widthMm: (g.cols * cardDims.w + (g.cols - 1) * cardGapIn) * 25.4,
+    heightMm: (g.rows * cardDims.h + (g.rows - 1) * cardGapIn) * 25.4,
+  };
+  const correction = calibration.value ? solveCutCorrection(calibration.value, ink) : undefined;
   const cut = cutSvgForGrid({
     cols: g.cols,
     rows: g.rows,
@@ -190,6 +255,7 @@ const cutFile = computed(() => {
     originIn: PAGE_MARGIN_IN,
     cardW: cardDims.w,
     cardH: cardDims.h,
+    correction,
   });
   const filename = cutSvgFilename({
     paper,
@@ -203,9 +269,19 @@ const cutFile = computed(() => {
   const mm = (v: number) => v.toFixed(2).replace(/\.?0+$/, "");
   return {
     ...cut,
-    filename,
+    filename: correction ? filename.replace(/\.svg$/, "-calibrated.svg") : filename,
     sizeLabel: `${mm(cut.widthMm)} × ${mm(cut.heightMm)} mm`,
     originLabel: `${mm(cut.originMm)} mm`,
+    // Expected edges for the calibration placeholders: where the ink is.
+    expected: {
+      firstLeft: mm(ink.originMm),
+      firstTop: mm(ink.originMm),
+      lastRight: mm(ink.originMm + ink.widthMm),
+      lastBottom: mm(ink.originMm + ink.heightMm),
+    },
+    correctionLabel: correction
+      ? `scale ${correction.scaleX.toFixed(4)} × ${correction.scaleY.toFixed(4)}, corner lands at ${mm(correction.cornerX)}, ${mm(correction.cornerY)} mm`
+      : null,
   };
 });
 
@@ -254,7 +330,48 @@ function installPageRule() {
           {{ cutFile.sizeLabel }} · place at {{ cutFile.originLabel }} from the mat corner
           <template v-if="cardGapIn > 0"> · matches the crop-mark gap</template>
           <template v-else> · flush</template>
+          <template v-if="cutFile.correctionLabel"> · <strong>calibrated</strong></template>
         </span>
+        <button
+          type="button"
+          class="cut-file-btn cut-file-btn-quiet"
+          data-testid="cut-cal-toggle"
+          :aria-expanded="showCal"
+          @click="showCal = !showCal"
+        >
+          {{ showCal ? "Hide calibration" : "Calibrate" }}
+        </button>
+      </aside>
+      <aside v-if="showCal" class="cut-cal" data-testid="cut-cal">
+        <p class="cut-cal-help">
+          Cut one uncalibrated sheet, then caliper where the blade actually went, in mm from the paper edges.
+          Placeholders show where the ink is. The cut file will pre-distort so the next cut lands on it, as long as you seat the paper and place the group exactly as you did for the test cut.
+        </p>
+        <div class="cut-cal-grid">
+          <label>Card 1 left edge
+            <input v-model.trim="cal.firstLeft" type="number" step="0.01" inputmode="decimal" :placeholder="cutFile.expected.firstLeft" data-testid="cal-firstLeft" /></label>
+          <label>Card 1 top edge
+            <input v-model.trim="cal.firstTop" type="number" step="0.01" inputmode="decimal" :placeholder="cutFile.expected.firstTop" data-testid="cal-firstTop" /></label>
+          <label>Last column right edge
+            <input v-model.trim="cal.lastRight" type="number" step="0.01" inputmode="decimal" :placeholder="cutFile.expected.lastRight" data-testid="cal-lastRight" /></label>
+          <label>Last row bottom edge
+            <input v-model.trim="cal.lastBottom" type="number" step="0.01" inputmode="decimal" :placeholder="cutFile.expected.lastBottom" data-testid="cal-lastBottom" /></label>
+        </div>
+        <p v-if="cutFile.warning" class="cut-cal-warn" data-testid="cut-cal-warning">{{ cutFile.warning }}</p>
+        <p v-else-if="cutFile.correctionLabel" class="cut-cal-result" data-testid="cut-cal-result">
+          {{ cutFile.correctionLabel }}<template v-if="cutFile.anchored">. The file gains a 1.5 mm anchor square in the margin; discard it after cutting.</template>
+        </p>
+        <p v-else class="cut-cal-result">Fill all four to apply.</p>
+        <button
+          type="button"
+          class="cut-file-btn cut-file-btn-quiet"
+          data-testid="cut-cal-clear"
+          :disabled="!calFields.some((k) => cal[k] !== '')"
+          title="Forget the measurements and go back to the uncorrected file"
+          @click="clearCal"
+        >
+          Clear
+        </button>
       </aside>
       <section
         v-for="(page, p) in pages"
@@ -374,7 +491,41 @@ html, body {
   cursor: pointer;
 }
 .cut-file-btn:hover { background: #354057; }
+.cut-file-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.cut-file-btn-quiet { background: transparent; }
 .cut-file-meta { white-space: nowrap; }
+
+.cut-cal {
+  align-self: stretch;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #1c2230;
+  color: #9aa5b8;
+  font-size: 13px;
+  display: grid;
+  gap: 8px;
+}
+.cut-cal-help { margin: 0; }
+.cut-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+.cut-cal-grid label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+.cut-cal-grid input {
+  padding: 4px 8px;
+  border: 1px solid #3b4658;
+  border-radius: 6px;
+  background: #0f131b;
+  color: #e6ebf3;
+  font: inherit;
+}
+.cut-cal-result { margin: 0; color: #cfd6e2; }
+.cut-cal-warn { margin: 0; color: #f0b26b; }
 
 /* One sheet of paper: full page size. Grid pins 0.25in from the top-left so
    a Cricut mat's no-cut zone lines up; leftover paper falls right/bottom.
@@ -426,7 +577,8 @@ html, body {
 }
 
 @media print {
-  .cut-file-bar {
+  .cut-file-bar,
+  .cut-cal {
     display: none;
   }
   .print-page {

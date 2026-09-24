@@ -111,6 +111,53 @@ test.describe("/print.html", () => {
     await expect(bar).toBeHidden();
   });
 
+  test("cut-file calibration pre-distorts the SVG and persists across reloads", async ({ page }) => {
+    await page.addInitScript(() => {
+      sessionStorage.setItem("gallery-print-ids", JSON.stringify(["sv01-001"]));
+    });
+    // Start from a clean calibration (same origin, before the page under test).
+    await page.goto("/print.html");
+    await page.evaluate(() => localStorage.removeItem("cricut-cut-calibration"));
+    await page.goto("/print.html?gallery=1&art=original&auto=0&crop=0");
+    await page.waitForFunction(
+      () => document.documentElement.dataset.printState === "ready",
+      { timeout: 15000 },
+    );
+
+    await page.getByTestId("cut-cal-toggle").click();
+    // Placeholders show the ink positions for a flush letter 3x3.
+    await expect(page.getByTestId("cal-lastRight")).toHaveAttribute("placeholder", "195.35");
+
+    // A cutter that shrinks 1.25% and drops the corner at 3.5mm.
+    await page.getByTestId("cal-firstLeft").fill("3.5");
+    await page.getByTestId("cal-firstTop").fill("3.5");
+    await page.getByTestId("cal-lastRight").fill((3.5 + 189 * 0.9875).toFixed(3));
+    await page.getByTestId("cal-lastBottom").fill((3.5 + 261 * 0.9875).toFixed(3));
+    await expect(page.getByTestId("cut-cal-result")).toContainText("scale 0.9875 × 0.9875");
+    await expect(page.getByTestId("cut-file-bar")).toContainText("calibrated");
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByTestId("cut-file-download").click(),
+    ]);
+    expect(download.suggestedFilename()).toBe("cut-letter-portrait-3x3-63x87mm-flush-calibrated.svg");
+    const svg = await (await import("node:fs/promises")).readFile((await download.path())!, "utf8");
+    // 9 cards + the anchor square.
+    expect(svg.match(/Z/g)?.length).toBe(10);
+    expect(svg).toContain("alignment anchor");
+
+    // Survives a reload (localStorage), and Clear returns to the plain file.
+    await page.reload();
+    await page.waitForFunction(
+      () => document.documentElement.dataset.printState === "ready",
+      { timeout: 15000 },
+    );
+    await expect(page.getByTestId("cut-file-bar")).toContainText("calibrated");
+    await page.getByTestId("cut-cal-toggle").click();
+    await page.getByTestId("cut-cal-clear").click();
+    await expect(page.getByTestId("cut-file-bar")).not.toContainText("calibrated");
+  });
+
   test("shows an error when neither deckId nor gallery= is supplied", async ({ page }) => {
     await page.goto("/print.html");
     await expect(page.locator(".status-error")).toBeVisible({ timeout: 5000 });
