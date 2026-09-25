@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { parsePrintParams, normalizeArtMode, buildJumboPrintUrl } from "./print-params.js";
+import { parsePrintParams, normalizeArtMode, buildJumboPrintUrl, buildDeckPrintUrl } from "./print-params.js";
 
 describe("normalizeArtMode", () => {
   it("recognizes the three modes and defaults to proxy", () => {
@@ -24,6 +24,7 @@ describe("parsePrintParams", () => {
     expect(p.orientation).toBe("portrait");
     expect(p.excludeSet.size).toBe(0);
     expect(p.noBasicEnergy).toBe(false);
+    expect(p.counts).toEqual({});
     expect(p.artModes).toEqual(["proxy"]);
     expect(p.defaultArtMode).toBe("proxy");
     expect(p.cropMarks).toBe(true); // on unless crop=0
@@ -89,5 +90,36 @@ describe("buildJumboPrintUrl", () => {
     expect(p.cardSize).toBe("jumbo");
     expect(p.orientation).toBe("landscape");
     expect(p.autoPrint).toBe(true);
+  });
+});
+
+describe("counts param", () => {
+  it("parses per-card print-count overrides for the deck path", () => {
+    const p = parsePrintParams("deckId=d1&counts=sv01-001:2,sv06.5-036:0");
+    expect(p.deckId).toBe("d1");
+    expect(p.counts).toEqual({ "sv01-001": 2, "sv06.5-036": 0 });
+  });
+});
+
+describe("buildDeckPrintUrl", () => {
+  const base = { deckId: "d1", counts: "", art: "proxy" as const, paper: "letter" as const, orientation: "portrait" as const, cropMarks: true };
+
+  it("omits every default so the common URL stays short", () => {
+    expect(buildDeckPrintUrl(base)).toBe("/print.html?deckId=d1&auto=1");
+  });
+
+  it("emits the non-default knobs and the sparse counts, and round-trips", () => {
+    const url = buildDeckPrintUrl({
+      ...base, counts: "sv01-001:2,sv01-006:0", art: "original", paper: "super-b", orientation: "landscape", cropMarks: false, autoPrint: false,
+    });
+    expect(url.startsWith("/print.html?")).toBe(true);
+    const p = parsePrintParams(url.slice(url.indexOf("?") + 1));
+    expect(p.deckId).toBe("d1");
+    expect(p.autoPrint).toBe(false);
+    expect(p.defaultArtMode).toBe("original");
+    expect(p.paper).toBe("super-b");
+    expect(p.orientation).toBe("landscape");
+    expect(p.cropMarks).toBe(false);
+    expect(p.counts).toEqual({ "sv01-001": 2, "sv01-006": 0 });
   });
 });

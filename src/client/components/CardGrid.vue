@@ -19,14 +19,22 @@ import {
 } from "../../shared/utils/card-sort-group.js";
 import { useSortGroup } from "../composables/useSortGroup.js";
 import { useCardSearch } from "../composables/useCardSearch.js";
+import { printGroupState, type PrintGroupState } from "../../shared/utils/print-plan.js";
 
 const props = withDefaults(defineProps<{
   /** External card array — skips API query when provided */
   cards?: Card[];
   /** Count map (cardId → count) to show on tiles instead of deck counts */
   cardCounts?: Record<string, number>;
-  /** Tile context — controls which overlays/actions appear */
-  context?: "browse" | "deck" | "working-deck" | "cards";
+  /** Print mode: ceiling per card (deck count) for the + control and group state. */
+  maxCounts?: Record<string, number>;
+  /**
+   * Tile context — controls which overlays/actions appear. "print" is the deck
+   * grid's print mode: tiles edit `cardCounts` (a print plan) capped by
+   * `maxCounts` (the deck), grouping is forced to print category, and each
+   * group header carries a three-state checkbox.
+   */
+  context?: "browse" | "deck" | "working-deck" | "cards" | "print";
   /** Header label override (replaces "X cards") */
   headerLabel?: string;
   /** Enable selection checkboxes on tiles */
@@ -40,6 +48,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   cards: undefined,
   cardCounts: undefined,
+  maxCounts: undefined,
   context: "browse",
   headerLabel: undefined,
   selectable: false,
@@ -54,6 +63,8 @@ const emit = defineEmits<{
   "add-card": [card: Card];
   "remove-card": [card: Card];
   "regenerate-card": [card: Card];
+  /** Print mode: a group header checkbox set every card in the group to full (true) or zero (false). */
+  "set-group-count": [cards: Card[], on: boolean];
 }>();
 
 const { filters, setNameSearch } = useFilters();
@@ -76,6 +87,25 @@ const {
 } = useSortGroup(context);
 
 const { data, isLoading, groupsFrom } = useCardCollection(filters, localPage, 99999, foldStrategy);
+
+// Print mode pins grouping to print category so the header checkboxes line up
+// with the print filters; the user's persisted groupBy is left untouched.
+const isPrintContext = computed(() => props.context === "print");
+const effectiveGroupBy = computed(() => (isPrintContext.value ? "printCategory" : groupBy.value));
+
+const planEntries = computed(() =>
+  Object.entries(props.maxCounts ?? {}).map(([id, deckCount]) => ({ id, deckCount })),
+);
+
+/** Three-state summary for a print-mode group header. */
+function groupState(cards: Card[]): PrintGroupState {
+  return printGroupState(props.cardCounts ?? {}, planEntries.value, cards.map((c) => c.id));
+}
+
+function toggleGroup(cards: Card[]) {
+  // Mixed or none → everything on; all → everything off (native checkbox feel).
+  emit("set-group-count", cards, groupState(cards) !== "all");
+}
 
 // Container sizing
 const scrollRef = ref<HTMLElement | null>(null);
@@ -170,14 +200,14 @@ const virtualRows = computed(() => {
   const cards = sortCards(displayCards.value, sortBy.value, sortDir.value, repCounts.value);
   const perRow = cardsPerRow.value;
 
-  if (groupBy.value === "none") {
+  if (effectiveGroupBy.value === "none") {
     return chunkCards(cards, perRow);
   }
 
-  const groups = groupCards(cards, groupBy.value);
+  const groups = groupCards(cards, effectiveGroupBy.value);
   const rows: VirtualRow[] = [];
   for (const [label, gc] of groups) {
-    rows.push({ type: "header", label, count: gc.length });
+    rows.push({ type: "header", label, count: gc.length, cards: gc });
     rows.push(...chunkCards(gc, perRow));
   }
   return rows;
@@ -281,7 +311,7 @@ const skeletonCount = computed(() => cardsPerRow.value * 2);
 
 function handleAdd(card: Card) {
   if (props.context === "cards") return;
-  if (props.context === "deck") {
+  if (props.context === "deck" || props.context === "print") {
     emit("add-card", card);
     return;
   }
@@ -299,8 +329,8 @@ function handleTilePreview(card: Card) {
 
 // Map context to CardThumb props
 const tileShowAdd = computed(() => props.context !== "cards");
-const tileShowRemove = computed(() => props.context === "working-deck" || props.context === "deck");
-const tileShowRegen = computed(() => props.context !== "cards");
+const tileShowRemove = computed(() => props.context === "working-deck" || props.context === "deck" || props.context === "print");
+const tileShowRegen = computed(() => props.context !== "cards" && props.context !== "print");
 
 defineExpose({
   visibleCards: orderedCards,
@@ -309,7 +339,7 @@ defineExpose({
 
 <template>
   <!-- Normal flow: header always rendered, content switches below -->
-  <div class="card-grid-wrapper">
+  <div :class="['card-grid-wrapper', { 'card-grid-print-mode': isPrintContext }]">
     <div class="card-grid-header">
       <span class="card-count">{{ isLoading && !hasAnyFilter ? '' : displayLabel }}</span>
       <slot name="toolbar" />
@@ -318,7 +348,7 @@ defineExpose({
           <input
             type="text"
             class="grid-search"
-            :placeholder="isDeckContext ? 'Search cards to add...' : 'Search cards...'"
+            :placeholder="isDeckContext ? 'Search cards to add...' : (isPrintContext ? 'Filter cards...' : 'Search cards...')"
             :value="searchValue"
             @input="handleSearchInput"
             @focus="isDeckContext && apiSearchResults.length > 0 && (showApiDropdown = true)"
@@ -382,7 +412,9 @@ defineExpose({
                   <button
                     v-for="opt in groupByOptions"
                     :key="opt.value"
-                    :class="['sort-group-option', { active: groupBy === opt.value }]"
+                    :class="['sort-group-option', { active: effectiveGroupBy === opt.value }]"
+                    :disabled="isPrintContext"
+                    :title="isPrintContext ? 'Print mode groups by print category' : undefined"
                     @click="groupBy = opt.value"
                   >{{ opt.label }}</button>
                 </div>
@@ -465,6 +497,20 @@ defineExpose({
             v-if="virtualRows[vItem.index].type === 'header'"
             class="group-header"
           >
+            <label
+              v-if="isPrintContext"
+              class="group-header-check"
+              :data-state="groupState((virtualRows[vItem.index] as any).cards)"
+              title="Print all / none of this group"
+              @click.stop
+            >
+              <input
+                type="checkbox"
+                :checked="groupState((virtualRows[vItem.index] as any).cards) === 'all'"
+                :indeterminate="groupState((virtualRows[vItem.index] as any).cards) === 'mixed'"
+                @change="toggleGroup((virtualRows[vItem.index] as any).cards)"
+              />
+            </label>
             <span class="group-header-label">
               {{ (virtualRows[vItem.index] as any).label }}
             </span>
@@ -486,6 +532,7 @@ defineExpose({
               :count="getCount(card)"
               :show-add="tileShowAdd"
               :show-remove="tileShowRemove"
+              :max-count="maxCounts?.[card.id]"
               :show-regen="tileShowRegen"
               :show-name="true"
               :selectable="selectable"

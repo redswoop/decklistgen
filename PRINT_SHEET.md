@@ -36,7 +36,8 @@ await page.screenshot({ path: "print.png", fullPage: true });
 ## Three ways data reaches the page
 
 1. **Deck** — `?deckId=<id>`. Fetches `/api/decks/<id>`, silently falling back to
-   `/api/public/decks/<id>` on 401/403/404.
+   `/api/public/decks/<id>` on 401/403/404. An optional `counts=` override (from the
+   deck grid's print mode) sets per-card copies; unlisted cards print at deck count.
 2. **Explicit cards** — `?cardId=<id>[,<id>…]`. Single-card or the 2-up jumbo pair.
 3. **Gallery** — `?gallery=1`. Reads card IDs from `sessionStorage["gallery-print-ids"]`
    (set by `GalleryView.openPrint()`). For headless, seed it via `addInitScript`.
@@ -56,6 +57,7 @@ await page.screenshot({ path: "print.png", fullPage: true });
 | `orientation`  | `portrait` \| `landscape`                                   | `portrait` | |
 | `exclude`      | csv of `pokemon,supporters,items,tools,stadiums,specialenergy` | —      | category filters |
 | `noBasicEnergy`| `1`                                                         | off        | drop basic energy |
+| `counts`       | `<cardId>:<n>[,…]` (base card id of the deck entry)         | —          | deck path only: per-card copy overrides from print mode; `0` drops the card, unlisted cards follow the deck (or `qty`). Encoded sparsely by `encodePrintCounts` in `print-plan.ts` |
 | `art`          | `proxy` \| `cleaned` \| `original` (csv, 1:1 with `cardId`) | `proxy`    | `cleaned`/`original` print as plain `<img>` |
 | `crop`         | `0` to disable                                              | on         | crop marks in the 0.25in gutter + 0.5mm gap |
 | `auto`         | `1` to auto-print on load                                   | off        | **keep off for headless** |
@@ -77,6 +79,9 @@ await page.screenshot({ path: "print.png", fullPage: true });
 
 # deck, one copy each, exclude basic energy + items, on super-b
 /print.html?deckId=abc123&qty=one-each&noBasicEnergy=1&exclude=items&paper=super-b&auto=0
+
+# deck via print mode: 2 of one card, none of another, everything else at deck count
+/print.html?deckId=abc123&counts=sv01-001:2,sv02-190:0&auto=0
 ```
 
 ## Shared layout utils (don't duplicate)

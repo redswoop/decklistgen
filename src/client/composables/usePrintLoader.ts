@@ -47,7 +47,13 @@ export function usePrintLoader(params: PrintParams) {
     return originalUrl(card);
   }
 
-  async function buildEntry(card: Card, count: number, artMode: ArtMode): Promise<PrintEntry[]> {
+  /**
+   * Build `repeats` print cells for a card. Callers decide the repeat count
+   * (deck count, a `counts=` override, or 1); zero short-circuits before any
+   * detail/art fetch so dropped cards cost nothing.
+   */
+  async function buildEntry(card: Card, repeats: number, artMode: ArtMode): Promise<PrintEntry[]> {
+    if (repeats <= 0) return [];
     let detail: CardDetail | undefined;
     try {
       detail = await api.getCardDetail(card.id);
@@ -59,7 +65,6 @@ export function usePrintLoader(params: PrintParams) {
     }
     const artUrl = await resolveArtUrl(card, artMode);
     const plain = artMode !== "proxy";
-    const repeats = params.qtyOneEach ? 1 : Math.max(1, count);
     const out: PrintEntry[] = [];
     for (let i = 0; i < repeats; i++) out.push({ card, detail, artUrl, plain });
     return out;
@@ -80,7 +85,13 @@ export function usePrintLoader(params: PrintParams) {
     const out: PrintEntry[] = [];
     for (const dc of deck.cards) {
       const card = dc.artCard ?? dc.card;
-      out.push(...(await buildEntry(card, dc.count, params.defaultArtMode)));
+      // A `counts=` override (keyed by the base card id, the deck entry's
+      // identity) wins outright; otherwise repeat by deck count or 1-each.
+      const override = params.counts[dc.card.id];
+      const repeats = override !== undefined
+        ? override
+        : params.qtyOneEach ? 1 : Math.max(1, dc.count);
+      out.push(...(await buildEntry(card, repeats, params.defaultArtMode)));
     }
     entries.value = out;
   }

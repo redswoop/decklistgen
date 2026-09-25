@@ -11,6 +11,7 @@ const props = withDefaults(defineProps<{
   count?: number;
   showAdd?: boolean;
   showRemove?: boolean;
+  maxCount?: number;
   showRegen?: boolean;
   active?: boolean;
   showSwap?: boolean;
@@ -25,6 +26,7 @@ const props = withDefaults(defineProps<{
   count: undefined,
   showAdd: false,
   showRemove: false,
+  maxCount: undefined,
   showRegen: false,
   active: false,
   showSwap: false,
@@ -64,6 +66,7 @@ const isStacked = computed(() => printingCount.value > 1);
       :count="count"
       :show-add="showAdd"
       :show-remove="showRemove"
+      :max-count="maxCount"
       :show-regen="showRegen"
       :active="active"
       :show-swap="showSwap"

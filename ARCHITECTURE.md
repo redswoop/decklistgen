@@ -78,7 +78,17 @@ See also: [CLAUDE.md](./CLAUDE.md) (commands, conventions), [CARD_LAB.md](./CARD
   leaves `components/print/{JumboCardSlot,PrintCardSearch}.vue`.
 - **`shared/utils/print-params.ts`** — the URL grammar as a tested unit:
   `parsePrintParams` (PrintSheet consumes) + `buildJumboPrintUrl`
-  (JumboPrintDialog produces). See PRINT_SHEET.md.
+  (JumboPrintDialog produces) + `buildDeckPrintUrl` (PrintDialog produces).
+  See PRINT_SHEET.md.
+- **Deck print mode** — `WorkingDeckView.vue` flips `CardGrid` to
+  `context="print"`: the grid becomes a print plan (tile −/+ edit print counts
+  capped by the deck, group headers carry an all/none/mixed checkbox, grouping
+  is pinned to print category). `usePrintPlan` holds the per-deck plan +
+  last-printed record in localStorage; every rule is pure in
+  `shared/utils/print-plan.ts` (categories, clamping, group state, "since last
+  print" delta, the sparse `counts=` encoding). `PrintDialog.vue` is just the
+  layout step (paper / orientation / art / crop, remembered via
+  `lib/print-options.ts`) and opens the sheet.
 
 ## Test hand
 

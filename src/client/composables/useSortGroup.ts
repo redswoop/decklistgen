@@ -3,7 +3,7 @@ import { SAME_ART, SAME_CARD, type FoldStrategy } from "../../shared/utils/fold-
 import type { GroupBy, SortBy, SortDir } from "../../shared/utils/card-sort-group.js";
 
 export type DeckFoldMode = "off" | "same-art" | "by-card";
-type GridContext = "browse" | "deck" | "working-deck" | "cards";
+type GridContext = "browse" | "deck" | "working-deck" | "cards" | "print";
 
 const SORT_GROUP_KEY = "decklistgen-sort-group";
 
@@ -53,6 +53,7 @@ export const deckFoldOptions: { value: DeckFoldMode; label: string }[] = [
  * Sort / group / fold controls for the card grid, persisted to localStorage.
  * `context` decides the folding strategy: same-art reprints in browse (toggled by
  * stackReprints); an Off/Same-art/By-card mode in the deck grid; never elsewhere.
+ * Print mode never folds — every printing is its own print unit.
  */
 export function useSortGroup(context: Ref<GridContext>) {
   const saved = loadSortGroup();

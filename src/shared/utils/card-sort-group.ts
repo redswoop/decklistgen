@@ -1,13 +1,15 @@
 import type { Card } from "../types/card.js";
 import { getRarityRank } from "./rarity-rank.js";
+import { printCategoryOf, printCategoryLabel, PRINT_CATEGORY_ORDER } from "./print-plan.js";
 
-export type GroupBy = "none" | "set" | "energyType" | "rarity" | "category";
+/** `printCategory` is the deck grid's print-mode grouping: one bucket per print filter. */
+export type GroupBy = "none" | "set" | "energyType" | "rarity" | "category" | "printCategory";
 export type SortBy = "alpha" | "rarity" | "type" | "set" | "count";
 export type SortDir = "asc" | "desc";
 
 /** A virtualized grid row: a group header, or a chunk of cards forming one row. */
 export type VirtualRow =
-  | { type: "header"; label: string; count: number }
+  | { type: "header"; label: string; count: number; cards: Card[] }
   | { type: "cards"; cards: Card[] };
 
 const CATEGORY_ORDER: Record<string, number> = { Pokemon: 0, Trainer: 1, Energy: 2 };
@@ -45,10 +47,13 @@ export function sortCards(
   return dir === "desc" ? sorted.reverse() : sorted;
 }
 
+const PRINT_CATEGORY_RANK = new Map(PRINT_CATEGORY_ORDER.map((c, i) => [printCategoryLabel(c), i]));
+
 /**
  * Bucket cards by the chosen grouping key, returning [label, cards] entries.
  * Entries are sorted alphabetically by label except for "set", which keeps the
- * input (set-code) ordering.
+ * input (set-code) ordering, and "printCategory", which follows
+ * PRINT_CATEGORY_ORDER (Pokémon first, basic energy last).
  */
 export function groupCards(cards: Card[], by: GroupBy): [string, Card[]][] {
   const map = new Map<string, Card[]>();
@@ -59,13 +64,18 @@ export function groupCards(cards: Card[], by: GroupBy): [string, Card[]][] {
       case "energyType": key = card.energyTypes[0] ?? "Colorless"; break;
       case "rarity": key = card.rarity; break;
       case "category": key = card.trainerType ?? card.category; break;
+      case "printCategory": key = printCategoryLabel(printCategoryOf(card)); break;
       default: key = "";
     }
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(card);
   }
   const entries = Array.from(map.entries());
-  if (by !== "set") entries.sort((a, b) => a[0].localeCompare(b[0]));
+  if (by === "printCategory") {
+    entries.sort((a, b) => (PRINT_CATEGORY_RANK.get(a[0]) ?? 99) - (PRINT_CATEGORY_RANK.get(b[0]) ?? 99));
+  } else if (by !== "set") {
+    entries.sort((a, b) => a[0].localeCompare(b[0]));
+  }
   return entries;
 }
 

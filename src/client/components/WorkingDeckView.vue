@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import CardGrid from "./CardGrid.vue";
 import BeautifyDialog from "./BeautifyDialog.vue";
 import BatchGenerateDialog from "./BatchGenerateDialog.vue";
@@ -8,10 +8,14 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 import DeleteDeckDialog from "./DeleteDeckDialog.vue";
 import DeckLegalityPill from "./DeckLegalityPill.vue";
 import { checkDeckLegality } from "../../shared/utils/deck-legality.js";
+import { gridForPaper } from "../../shared/utils/print-grid.js";
+import { summarizePrint } from "../../shared/utils/print-summary.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
 import { useAuth } from "../composables/useAuth.js";
+import { usePrintPlan } from "../composables/usePrintPlan.js";
 import { generateCleanImage } from "../composables/usePokeproxy.js";
+import { loadPrintOptions } from "../lib/print-options.js";
 import type { Card } from "../../shared/types/card.js";
 
 const emit = defineEmits<{
@@ -54,13 +58,50 @@ const cardCounts = computed(() => {
   return counts;
 });
 
-const headerLabel = computed(() => {
-  return `${visibleItems.value.length} unique · ${totalCards.value}/60 total`;
-});
-
 const legalityIssues = computed(() =>
   checkDeckLegality(visibleItems.value.map((i) => ({ card: i.card, count: i.count })))
 );
+
+// --- Print mode -------------------------------------------------------------
+// The grid flips into a print plan: tile −/+ edit print counts (capped by the
+// deck), group headers become all/none/mixed checkboxes, and the toolbar shows
+// the live sheet fit. Deck edits are off until Done. See usePrintPlan.
+const printMode = ref(false);
+const planEntries = computed(() =>
+  visibleItems.value.map((i) => ({ id: i.card.id, deckCount: i.count })),
+);
+const plan = usePrintPlan(currentDeckId, planEntries);
+
+// Paper/orientation live in the print dialog's stored options; re-read them
+// whenever the dialog closes so the bar's sheet estimate tracks the last pick.
+const optionsVersion = ref(0);
+const printSummary = computed(() => {
+  void optionsVersion.value;
+  const opts = loadPrintOptions();
+  return summarizePrint(plan.total.value, gridForPaper(opts.paper, opts.orientation).cardsPerSheet);
+});
+
+const headerLabel = computed(() => {
+  if (printMode.value) return `${plan.total.value} of ${totalCards.value} copies to print`;
+  return `${visibleItems.value.length} unique · ${totalCards.value}/60 total`;
+});
+
+function enterPrintMode() {
+  printMode.value = true;
+}
+function exitPrintMode() {
+  showPrintDialog.value = false;
+  printMode.value = false;
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape" && printMode.value && !showPrintDialog.value) exitPrintMode();
+}
+onMounted(() => window.addEventListener("keydown", onKeydown));
+onUnmounted(() => window.removeEventListener("keydown", onKeydown));
+
+// A deck switch (or clear) ends the mode — the plan is per deck.
+watch(currentDeckId, () => { printMode.value = false; });
 
 const showBeautify = ref(false);
 const showBatchGenerate = ref(false);
@@ -68,6 +109,8 @@ const showPrintDialog = ref(false);
 const showSaveBeforePrint = ref(false);
 const showSweepConfirm = ref(false);
 const showDeleteConfirm = ref(false);
+
+watch(showPrintDialog, (open) => { if (!open) optionsVersion.value++; });
 
 const deleteTooltip = computed(() => {
   if (!isLoggedIn.value) return "Sign in to delete saved decks";
@@ -89,12 +132,25 @@ function handleSweep() {
 }
 
 // --- Card grid handlers ---
+// In print mode the tile controls edit the plan, never the deck.
 function handleRemoveCard(card: Card) {
+  if (printMode.value) {
+    plan.decrement(card.id);
+    return;
+  }
   removeCard(card.setCode, card.localId);
 }
 
 function handleAddCard(card: Card) {
+  if (printMode.value) {
+    plan.increment(card.id);
+    return;
+  }
   addCard(card);
+}
+
+function handleSetGroupCount(cards: Card[], on: boolean) {
+  plan.setGroup(cards.map((c) => c.id), on);
 }
 
 function handleRegenerate(card: Card) {
@@ -105,13 +161,14 @@ function handlePreview(card: Card, cards: Card[]) {
   emit("preview-card", card, cards);
 }
 
+// The sheet prints the saved deck, so unsaved changes have to land first.
 function handlePrint() {
   if (!currentDeckId.value) return;
   if (isDirty.value) {
     showSaveBeforePrint.value = true;
     return;
   }
-  showPrintDialog.value = true;
+  enterPrintMode();
 }
 
 async function handleSaveAndPrint() {
@@ -119,7 +176,12 @@ async function handleSaveAndPrint() {
   emit("save-update");
   // Brief delay to let the save complete before opening print
   await new Promise((r) => setTimeout(r, 300));
-  showPrintDialog.value = true;
+  enterPrintMode();
+}
+
+function handlePrinted() {
+  plan.recordPrinted();
+  showPrintDialog.value = false;
 }
 
 async function handleBeautifyUpdated() {
@@ -132,24 +194,56 @@ async function handleBeautifyUpdated() {
 </script>
 
 <template>
-  <div class="dm-view">
+  <div :class="['dm-view', { 'dm-view-print-mode': printMode }]">
     <!-- Card grid (always rendered so search is available) -->
     <CardGrid
       :cards="deckCards"
-      :card-counts="cardCounts"
+      :card-counts="printMode ? plan.counts.value : cardCounts"
+      :max-counts="printMode ? cardCounts : undefined"
       :header-label="headerLabel"
-      context="deck"
+      :context="printMode ? 'print' : 'deck'"
       @preview-card="handlePreview"
       @add-card="handleAddCard"
       @remove-card="handleRemoveCard"
       @regenerate-card="handleRegenerate"
+      @set-group-count="handleSetGroupCount"
     >
       <template #toolbar>
-        <div class="dm-view-actions">
+        <div v-if="printMode" class="dm-view-actions dm-print-bar" data-testid="print-bar">
+          <span class="dm-print-mode-tag">Print mode</span>
+          <span
+            :class="['dm-print-summary', { 'dm-print-summary-warn': printSummary.incomplete }]"
+            data-testid="print-bar-summary"
+            :title="printSummary.incomplete ? `Last sheet has ${printSummary.emptySlots} empty slots — bump a count to fill it` : 'Sheets at the last-used paper size'"
+          >
+            {{ printSummary.sheets }} sheet{{ printSummary.sheets === 1 ? '' : 's' }}<template v-if="printSummary.incomplete"> · {{ printSummary.emptySlots }} empty</template>
+          </span>
+          <button
+            class="dm-action-btn"
+            :disabled="plan.isFull.value"
+            :title="plan.isFull.value ? 'Every card is already at its deck count' : 'Print every copy in the deck'"
+            @click="plan.setAll()"
+          >All</button>
+          <button class="dm-action-btn" title="Print one copy of each card (a proof sheet)" @click="plan.setOneEach()">1 each</button>
+          <button
+            class="dm-action-btn"
+            :disabled="!plan.hasLastPrinted.value"
+            :title="plan.hasLastPrinted.value ? 'Print only copies added since the last print of this deck' : 'No previous print of this deck recorded yet'"
+            @click="plan.setSinceLastPrint()"
+          >Since last print</button>
+          <button
+            class="dm-action-btn dm-action-btn-primary"
+            :disabled="plan.total.value === 0"
+            :title="plan.total.value === 0 ? 'Every card is set to 0 copies' : 'Choose paper and open the print sheet'"
+            @click="showPrintDialog = true"
+          >Print…</button>
+          <button class="dm-action-btn" title="Leave print mode (Esc)" @click="exitPrintMode">Done</button>
+        </div>
+        <div v-else class="dm-view-actions">
           <DeckLegalityPill :issues="legalityIssues" :card-count="totalCards" />
           <button class="dm-action-btn" @click="showBeautify = true" :disabled="items.length === 0">Beautify</button>
           <button class="dm-action-btn" @click="showBatchGenerate = true" :disabled="items.length === 0 || !isLoggedIn" :title="!isLoggedIn ? 'Sign in to generate card images' : undefined">Generate</button>
-          <button class="dm-action-btn" :disabled="!currentDeckId" :title="!isLoggedIn ? 'Sign in to save and print decks' : (!currentDeckId ? 'Save the deck first to print' : 'Open printable proxy sheet')" @click="handlePrint">Print</button>
+          <button class="dm-action-btn" :disabled="!currentDeckId" :title="!isLoggedIn ? 'Sign in to save and print decks' : (!currentDeckId ? 'Save the deck first to print' : 'Pick which cards to print')" @click="handlePrint">Print</button>
           <button class="dm-action-btn" @click="emit('import')">Import</button>
           <button class="dm-action-btn" @click="emit('export')" :disabled="items.length === 0">Export</button>
           <button
@@ -187,7 +281,10 @@ async function handleBeautifyUpdated() {
     <PrintDialog
       v-if="showPrintDialog && currentDeckId"
       :deck-id="currentDeckId"
+      :copies="plan.total.value"
+      :counts="plan.encoded.value"
       @close="showPrintDialog = false"
+      @printed="handlePrinted"
     />
 
     <ConfirmDialog

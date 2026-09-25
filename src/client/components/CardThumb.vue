@@ -20,6 +20,8 @@ const props = withDefaults(defineProps<{
   showAdd?: boolean;
   /** Show the - remove button (enables inline - [count] + controls) */
   showRemove?: boolean;
+  /** Ceiling for the + control (print mode: copies in the deck). Unlimited when undefined. */
+  maxCount?: number;
   /** Show regenerate button */
   showRegen?: boolean;
   /** Highlight as selected/active */
@@ -43,6 +45,7 @@ const props = withDefaults(defineProps<{
   count: undefined,
   showAdd: false,
   showRemove: false,
+  maxCount: undefined,
   showRegen: false,
   active: false,
   showSwap: false,
@@ -97,6 +100,10 @@ const cleanedArtUrl = computed(() => {
 
 const useCss = computed(() => !!cleanedArtUrl.value);
 const isZeroCount = computed(() => props.count === 0);
+const atMax = computed(() => props.maxCount !== undefined && displayCount.value >= props.maxCount);
+const plusTitle = computed(() =>
+  atMax.value ? `All ${props.maxCount} in the deck are already queued` : undefined,
+);
 </script>
 
 <template>
@@ -124,7 +131,7 @@ const isZeroCount = computed(() => props.count === 0);
     <div v-else-if="showRemove" class="card-thumb-tl card-thumb-inline-controls">
       <button class="card-thumb-ctrl card-thumb-minus" :disabled="!displayCount" @click.stop="emit('remove')">&minus;</button>
       <span class="card-thumb-badge" :class="{ 'card-thumb-badge-zero': !displayCount }">{{ displayCount }}</span>
-      <button class="card-thumb-ctrl card-thumb-plus" @click.stop="emit('add')">+</button>
+      <button class="card-thumb-ctrl card-thumb-plus" :disabled="atMax" :title="plusTitle" @click.stop="emit('add')">+</button>
     </div>
     <span v-else-if="displayCount" class="card-thumb-tl card-thumb-badge">{{ displayCount }}</span>
 

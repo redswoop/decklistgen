@@ -4817,3 +4817,74 @@ body {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ---------------------------------------------------------------------------
+ * Deck grid print mode — the grid becomes a print plan. Teal is the mode
+ * colour: header tint, count badges, + controls, group checkboxes all take it
+ * so it's unmistakable that −/+ are editing print counts, not the deck.
+ * ------------------------------------------------------------------------- */
+.card-grid-print-mode .card-grid-header {
+  background: rgba(42, 157, 143, 0.12);
+  border-bottom-color: #2a9d8f;
+}
+
+.card-grid-print-mode .card-thumb-badge {
+  background: #2a9d8f;
+}
+
+.card-grid-print-mode .card-thumb-badge-zero {
+  background: rgba(80, 80, 100, 0.7);
+}
+
+.card-grid-print-mode .card-thumb-plus {
+  background: rgba(42, 157, 143, 0.9);
+}
+
+.group-header-check {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.group-header-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #2a9d8f;
+  cursor: pointer;
+}
+
+.dm-print-bar {
+  align-items: center;
+}
+
+.dm-print-mode-tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #0b1a2a;
+  background: #2a9d8f;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.dm-print-summary {
+  font-size: 12px;
+  color: #7f8fa6;
+  white-space: nowrap;
+}
+
+.dm-print-summary-warn {
+  color: #d29922;
+}
+
+.dm-action-btn-primary {
+  background: #2a9d8f;
+  color: #0b1a2a;
+  font-weight: 600;
+}
+
+.dm-action-btn-primary:hover:not(:disabled) {
+  background: #3fb8a9;
+}

@@ -1,4 +1,5 @@
 import type { PrintPaper, PrintOrientation, CardSize } from "./print-grid.js";
+import { decodePrintCounts, type PrintCounts } from "./print-plan.js";
 
 /**
  * The /print.html URL grammar, as a tested unit. Both sides of the contract live
@@ -21,6 +22,12 @@ export interface PrintParams {
   /** Category exclusions (pokemon|supporters|items|tools|stadiums|specialenergy). */
   excludeSet: Set<string>;
   noBasicEnergy: boolean;
+  /**
+   * Per-card print-count overrides for the deck path (`counts=id:n,…`), keyed
+   * by the deck entry's base card id. Cards not listed print at their deck
+   * count; a 0 drops the card. See print-plan.ts for the encoding.
+   */
+  counts: PrintCounts;
   /** Per-card art modes, aligned 1:1 with cardIds; a single value applies to all. */
   artModes: ArtMode[];
   /** Mode for prints with no per-card list (deck/gallery): the first art entry. */
@@ -52,6 +59,7 @@ export function parsePrintParams(search: string | URLSearchParams): PrintParams 
     orientation: params.get("orientation") === "landscape" ? "landscape" : "portrait",
     excludeSet: new Set((params.get("exclude") || "").split(",").filter(Boolean)),
     noBasicEnergy: params.get("noBasicEnergy") === "1",
+    counts: decodePrintCounts(params.get("counts")),
     artModes,
     defaultArtMode: artModes[0],
     cropMarks: params.get("crop") !== "0",
@@ -79,5 +87,32 @@ export function buildJumboPrintUrl(req: JumboPrintRequest): string {
     auto: "1",
   });
   if (req.layout === "two-up") params.set("orientation", "landscape");
+  return `/print.html?${params.toString()}`;
+}
+
+export interface DeckPrintRequest {
+  deckId: string;
+  /** Sparse `counts` override string from encodePrintCounts; "" = print everything. */
+  counts: string;
+  art: "proxy" | "original";
+  paper: PrintPaper;
+  orientation: PrintOrientation;
+  cropMarks: boolean;
+  autoPrint?: boolean;
+}
+
+/**
+ * Build the /print.html URL for a deck print from the deck grid's print mode.
+ * Defaults are omitted so the common "print everything on letter" URL stays
+ * `?deckId=…&auto=1`.
+ */
+export function buildDeckPrintUrl(req: DeckPrintRequest): string {
+  const params = new URLSearchParams({ deckId: req.deckId });
+  if (req.autoPrint ?? true) params.set("auto", "1");
+  if (req.art === "original") params.set("art", "original");
+  if (req.paper !== "letter") params.set("paper", req.paper);
+  if (req.orientation !== "portrait") params.set("orientation", req.orientation);
+  if (!req.cropMarks) params.set("crop", "0");
+  if (req.counts) params.set("counts", req.counts);
   return `/print.html?${params.toString()}`;
 }

@@ -90,6 +90,23 @@ describe("groupCards", () => {
   });
 });
 
+describe("groupCards printCategory", () => {
+  it("buckets by print filter in fixed order: Pokémon … Special Energy, Basic Energy", () => {
+    const cards = [
+      card({ id: "e1", category: "Energy", mechanicsHash: "basic" }),
+      card({ id: "t1", category: "Trainer", trainerType: "Item" }),
+      card({ id: "e2", category: "Energy", mechanicsHash: "jet" }),
+      card({ id: "p1", category: "Pokemon" }),
+      card({ id: "t2", category: "Trainer", trainerType: "Supporter" }),
+    ];
+    const groups = groupCards(cards, "printCategory");
+    expect(groups.map(([label]) => label)).toEqual([
+      "Pokémon", "Supporters", "Items", "Special Energy", "Basic Energy",
+    ]);
+    expect(groups[4][1].map((c) => c.id)).toEqual(["e1"]);
+  });
+});
+
 describe("chunkCards", () => {
   it("splits cards into rows of perRow", () => {
     const cards = [card({ id: "1" }), card({ id: "2" }), card({ id: "3" })];
