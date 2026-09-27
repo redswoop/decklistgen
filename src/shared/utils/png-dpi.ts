@@ -12,7 +12,7 @@ const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const M_PER_IN = 0.0254;
 
 let crcTable: Uint32Array | null = null;
-function crc32(bytes: Uint8Array): number {
+export function crc32(bytes: Uint8Array): number {
   if (!crcTable) {
     crcTable = new Uint32Array(256);
     for (let n = 0; n < 256; n++) {

@@ -9,6 +9,14 @@ import { decodePrintCounts, type PrintCounts } from "./print-plan.js";
 
 export type ArtMode = "proxy" | "cleaned" | "original";
 
+/**
+ * "sheet" is the ordinary print sheet (paper/orientation/crop marks, printed
+ * from the browser). "cricut" is Cricut Design Space Print Then Cut without
+ * Design Space printing: Letter, six landscape cards, Design Space's own
+ * registration marks, delivered as a lossless PDF. See print-cricut-layout.ts.
+ */
+export type PrintMode = "sheet" | "cricut";
+
 export interface PrintParams {
   deckId: string | null;
   /** Explicit card IDs (comma-separated): single-card jumbo, or a 2-up pair. */
@@ -34,6 +42,9 @@ export interface PrintParams {
   defaultArtMode: ArtMode;
   cropMarks: boolean;
   autoPrint: boolean;
+  mode: PrintMode;
+  /** Cricut mode: how far the whole print raster is lifted up the page, mm. */
+  liftMm: number;
 }
 
 /** Coerce a raw `art` token to a known mode, defaulting to "proxy". */
@@ -48,6 +59,10 @@ export function parsePrintParams(search: string | URLSearchParams): PrintParams 
     .split(",")
     .map((s) => normalizeArtMode(s.trim()));
   if (artModes.length === 0) artModes.push("proxy");
+
+  const mode: PrintMode = params.get("mode") === "cricut" ? "cricut" : "sheet";
+  const liftRaw = Number(params.get("lift"));
+  const liftMm = params.has("lift") && Number.isFinite(liftRaw) && liftRaw >= 0 && liftRaw <= 30 ? liftRaw : 8;
 
   return {
     deckId: params.get("deckId"),
@@ -64,6 +79,8 @@ export function parsePrintParams(search: string | URLSearchParams): PrintParams 
     defaultArtMode: artModes[0],
     cropMarks: params.get("crop") !== "0",
     autoPrint: params.get("auto") === "1",
+    mode,
+    liftMm,
   };
 }
 
@@ -99,6 +116,8 @@ export interface DeckPrintRequest {
   orientation: PrintOrientation;
   cropMarks: boolean;
   autoPrint?: boolean;
+  /** Defaults to "sheet". Cricut mode forces Letter portrait and ignores crop marks. */
+  mode?: PrintMode;
 }
 
 /**
@@ -108,11 +127,15 @@ export interface DeckPrintRequest {
  */
 export function buildDeckPrintUrl(req: DeckPrintRequest): string {
   const params = new URLSearchParams({ deckId: req.deckId });
+  const cricut = req.mode === "cricut";
+  if (cricut) params.set("mode", "cricut");
   if (req.autoPrint ?? true) params.set("auto", "1");
   if (req.art === "original") params.set("art", "original");
-  if (req.paper !== "letter") params.set("paper", req.paper);
-  if (req.orientation !== "portrait") params.set("orientation", req.orientation);
-  if (!req.cropMarks) params.set("crop", "0");
+  if (!cricut) {
+    if (req.paper !== "letter") params.set("paper", req.paper);
+    if (req.orientation !== "portrait") params.set("orientation", req.orientation);
+    if (!req.cropMarks) params.set("crop", "0");
+  }
   if (req.counts) params.set("counts", req.counts);
   return `/print.html?${params.toString()}`;
 }

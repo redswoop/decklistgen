@@ -10,6 +10,8 @@ export interface PrintEntry {
   artUrl: string;
   /** Print as a plain <img> (original/cleaned) rather than the CSS proxy. */
   plain: boolean;
+  /** Which version this slot prints; the Cricut archive dedupes on it. */
+  artMode: ArtMode;
 }
 
 /**
@@ -21,6 +23,8 @@ export interface PrintEntry {
 export function usePrintLoader(params: PrintParams) {
   const entries = ref<PrintEntry[]>([]);
   const error = ref("");
+  /** Deck name for the deck path; null for card lists and gallery selections. */
+  const deckName = ref<string | null>(null);
 
   /**
    * Pick the art URL for a print slot. With `art=original`, use the full TCGdex
@@ -66,7 +70,7 @@ export function usePrintLoader(params: PrintParams) {
     const artUrl = await resolveArtUrl(card, artMode);
     const plain = artMode !== "proxy";
     const out: PrintEntry[] = [];
-    for (let i = 0; i < repeats; i++) out.push({ card, detail, artUrl, plain });
+    for (let i = 0; i < repeats; i++) out.push({ card, detail, artUrl, plain, artMode });
     return out;
   }
 
@@ -82,6 +86,7 @@ export function usePrintLoader(params: PrintParams) {
         throw e;
       }
     }
+    deckName.value = deck.name ?? null;
     const out: PrintEntry[] = [];
     for (const dc of deck.cards) {
       const card = dc.artCard ?? dc.card;
@@ -120,7 +125,7 @@ export function usePrintLoader(params: PrintParams) {
       }
       const artMode = params.artModes[i] ?? params.defaultArtMode;
       const artUrl = await resolveArtUrl(card, artMode);
-      out.push({ card, detail, artUrl, plain: artMode !== "proxy" });
+      out.push({ card, detail, artUrl, plain: artMode !== "proxy", artMode });
     }
     entries.value = out;
   }
@@ -174,5 +179,5 @@ export function usePrintLoader(params: PrintParams) {
     return "no-params";
   }
 
-  return { entries, error, load };
+  return { entries, error, deckName, load };
 }

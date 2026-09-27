@@ -16,6 +16,7 @@ import { useAuth } from "../composables/useAuth.js";
 import { usePrintPlan } from "../composables/usePrintPlan.js";
 import { generateCleanImage } from "../composables/usePokeproxy.js";
 import { loadPrintOptions } from "../lib/print-options.js";
+import { cricutCardsPerSheet } from "../../shared/utils/print-cricut-layout.js";
 import type { Card } from "../../shared/types/card.js";
 
 const emit = defineEmits<{
@@ -78,7 +79,8 @@ const optionsVersion = ref(0);
 const printSummary = computed(() => {
   void optionsVersion.value;
   const opts = loadPrintOptions();
-  return summarizePrint(plan.total.value, gridForPaper(opts.paper, opts.orientation).cardsPerSheet);
+  const perSheet = opts.mode === "cricut" ? cricutCardsPerSheet() : gridForPaper(opts.paper, opts.orientation).cardsPerSheet;
+  return summarizePrint(plan.total.value, perSheet);
 });
 
 const headerLabel = computed(() => {

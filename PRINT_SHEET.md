@@ -60,7 +60,9 @@ await page.screenshot({ path: "print.png", fullPage: true });
 | `counts`       | `<cardId>:<n>[,…]` (base card id of the deck entry)         | —          | deck path only: per-card copy overrides from print mode; `0` drops the card, unlisted cards follow the deck (or `qty`). Encoded sparsely by `encodePrintCounts` in `print-plan.ts` |
 | `art`          | `proxy` \| `cleaned` \| `original` (csv, 1:1 with `cardId`) | `proxy`    | `cleaned`/`original` print as plain `<img>` |
 | `crop`         | `0` to disable                                              | on         | crop marks in the 0.25in gutter + 0.5mm gap |
-| `auto`         | `1` to auto-print on load                                   | off        | **keep off for headless** |
+| `auto`         | `1` to auto-print on load (Cricut mode: auto-download the PDF) | off     | **keep off for headless** |
+| `mode`         | `cricut` — Print Then Cut without Design Space printing; pins Letter portrait | `sheet` | |
+| `lift`         | Cricut mode: mm to lift the raster up the page (0–30)       | `8`        | |
 
 ### Canonical examples
 
@@ -95,6 +97,10 @@ await page.screenshot({ path: "print.png", fullPage: true });
 - `src/shared/utils/print-summary.ts` — `countPrintCards()`, `summarizePrint()`.
 - `src/shared/utils/print-crop-marks.ts` — `cropMarkLayout()`; 0.5mm gap, corner marks.
 - `src/shared/utils/print-cut-svg.ts` — `cutSvgForGrid()`; the Cricut cut SVG (see below).
+- `src/shared/utils/print-cricut-archive.ts` — `planCricutArchive()`, `cricutManifest()`;
+  the Design Space Print Then Cut ZIP (see below). `zip-store.ts` is the store-only ZIP writer.
+- `src/shared/utils/print-cricut-layout.ts` — `CRICUT_LETTER_6UP` and the slot/raster/PDF
+  geometry for Cricut mode (see below). `pdf-image-pages.ts` writes the lossless PDF.
 
 ## Page origin (Cricut)
 
@@ -166,6 +172,89 @@ inkjets/lasers) and hand-placing the paper on the mat. Calibrate once: print a
 flush sheet, measure the first card's top-left from the paper corner with
 calipers, and correct in the print driver or by nudging the group in Design
 Space. Rounded corners cover the rest of a small misalignment.
+
+### Cricut Design Space Print Then Cut
+
+**Download Cricut PTC archive** (`data-testid="cricut-zip-download"`) is the
+third route: let Design Space print *and* cut, instead of printing the sheet
+here and importing the cut SVG. Design Space wants each element as its own
+raster upload (one file per upload, no batch), sizes it from the PNG's DPI
+metadata, traces the transparent edge for the cut contour, and auto-lays out
+the sheets for the paper you pick *in Design Space*. Standard cards pack
+**4 per Letter** (2×2 of 63×87 mm; the classic 6.75×9.25 in area and the beta
+7.44×9.94 in area both stop there, rotation included) or **16 per A3** (4×4 in
+the beta 10.64×15.44 in area, the largest Design Space offers; the ET-8550
+feeds A3 natively). Jumbo is 1 per Letter, 4 per A3. Enable the larger sizes
+under Settings → Application Experience → Beta.
+
+So the ZIP holds one PNG per **unique** card (id + art mode + art URL), deduped
+by `planCricutArchive()` with the copy count in the filename —
+`4x-charizard-ex-sv03-125.png`, `1x-pikachu-sv08-057-original.png` — plus a
+`README.txt` from `cricutManifest()` with the how-to, the physical size, and a
+file list. Design Space names the layer after the file, so "4x-…" is the
+duplicate count staring at you on the canvas. Each PNG is one `.print-cell`
+rasterized by `rasterizeCell()` (same `html-to-image` path and 3 mm rounded
+clip as the page PNG, one island instead of nine): 744 × 1028 px RGBA, `pHYs`
+at 300 dpi. The archive is `cricut-ptc-<deck-slug|cards>-63x87mm-300dpi.zip`,
+built in the browser by `buildZip()` (stored entries; PNGs are already deflated).
+
+Workflow: Upload → Image → one PNG → Complex → Print Then Cut image; insert;
+check the Edit bar reads 2.480 × 3.425 in (DS3 reads the dpi tag, but its
+reference is 72 dpi and reports differ — if it lands wrong, lock the ratio and
+type W = 2.480 once, or use the beta auto-resize); Duplicate to the count;
+repeat; Make It. Leave Design Space's bleed on. Its own Print Then Cut
+calibration applies here, not the sheet calibration above.
+
+Trade-off vs the cut-SVG route: 4 per Letter instead of 9 (A3 closes that gap
+at 16), and one upload per unique card, in exchange for zero placement/skew
+error budget — Design Space's camera finds its own marks. Verified 2026-09-25:
+its Print Then Cut calibration exposed a ~2.5 mm printer offset that had been
+wrecking the hand-placed cuts; the first four cards came out perfect.
+
+### Cricut mode: Print Then Cut without Design Space printing
+
+`?mode=cricut` (Deck → Print → Layout → **Cricut Print Then Cut**, or
+`buildDeckPrintUrl({ mode: "cricut" })`) is the fourth route and the one that
+gets **6 per Letter**: we print the page, Design Space only cuts. It works
+because Design Space's Letter Print Then Cut print is one deterministic 300 dpi
+raster, measured 2026-09-25 from a real print
+(`~/Sync/cricut-ptc/source/design-space-letter-6up-print.pdf`):
+
+| Fact | Value |
+|---|---|
+| Raster | 2209 × 3080 px @ 300 dpi, placed `530.16 0 0 739.2 36 12.8 cm` (x 36 pt, top 40 pt) |
+| Registration marks | 300 × 300 px blocks in the raster corners, ink `#121212` (TL has a corner gap + dot) |
+| Uploaded sheet | lands at raster (0, 377), pixel-exact, no resampling |
+| 6-up sheet | 2 × 3 landscape 1028 × 744 px cards, 47 px gap → 2103 × 2326 px = **17.81 × 19.69 cm** |
+| Bleed | 8–10 px ring of extended edge pixels (corners filled with border colour) |
+| Lower marks | end 4.5 mm from the paper edge — inside most printers' dead zone, hence the lift |
+
+`print-cricut-layout.ts` holds that as `CRICUT_LETTER_6UP` (a profile, so A3 can
+follow once measured). The sheet lays the same geometry out live for preview
+(`.cricut-page`, slots absolutely positioned in inches, cards turned a quarter
+turn counter-clockwise inside a landscape `.print-cell`), and **Download print
+PDF** (`cricut-pdf-download`) rasterizes each unique card once
+(`rasterizeCellCanvas`), composes each page in `cricut-export.ts` (white, Design
+Space's mark pixels from `public/cricut/ds-marks-letter.png`, cards at their
+slots with a 10 px bleed ring), zlib-deflates the RGB, and writes a lossless
+PDF (`pdf-image-pages.ts`) that places the raster exactly where Design Space
+does, lifted `lift=` mm (default 8) so the lower marks clear the printer.
+`auto=1` downloads the PDF instead of calling `window.print()`.
+
+**Download Design Space cut fixture** (`cricut-fixture-download`) is the
+one-time setup: a 2103 × 2326 px PNG with six opaque rounded islands. Upload it
+as a Print Then Cut image, set its width to 17.81 cm, never move it. Because
+every printed page has the same six outlines at the same places, the cut job is
+identical for every sheet: Make It → print to PDF and discard → paper flush in
+the mat corner → cut. A partial last page just cuts empty rectangles.
+
+Print the PDF at 100 % on Letter, fit-to-page off. Paper/orientation/crop are
+pinned in this mode even if the URL says otherwise. Cards per sheet on the deck
+bar and in the dialog follow the mode.
+
+Verified: Playwright decodes page 1 at 300 dpi and checks mark pixels, the
+corner gap, card islands and white gutters at the measured coordinates
+(`e2e/cricut-print.spec.ts`).
 
 Cards render through the shared `CssCardRenderer.vue` (→ lab card components), same as
 every other surface — print does not have its own renderer.

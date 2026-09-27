@@ -45,7 +45,37 @@ import {
   CARD_CORNER_RADIUS_MM,
   type CutCalibration,
 } from "../../shared/utils/print-cut-svg.js";
-import { rasterizePage, pagePngFilename } from "./rasterize-page.js";
+import { rasterizePage, rasterizeCell, pagePngFilename } from "./rasterize-page.js";
+import {
+  planCricutArchive,
+  cricutManifest,
+  cricutArchiveFilename,
+  cricutPixelDims,
+  cricutPagesLabel,
+  totalCricutCopies,
+} from "../../shared/utils/print-cricut-archive.js";
+import { buildZip } from "../../shared/utils/zip-store.js";
+import {
+  CRICUT_LAYOUT,
+  cricutPages,
+  cricutRasterBox,
+  cricutSlotBox,
+  cricutSheetCm,
+  cricutCardsPerSheet,
+  cricutBottomClearanceMm,
+  cricutPdfFilename,
+  cricutFixtureFilename,
+} from "../../shared/utils/print-cricut-layout.js";
+import {
+  loadMarks,
+  composeCricutPage,
+  toLandscape,
+  pageToPdfImage,
+  buildCricutPdf,
+  cricutFixturePng,
+} from "./cricut-export.js";
+import { rasterizeCellCanvas } from "./rasterize-page.js";
+import type { PdfImagePage } from "../../shared/utils/pdf-image-pages.js";
 import {
   cropMarkLayout,
   pageGridShape,
@@ -58,6 +88,8 @@ import CssCardRenderer from "../components/CssCardRenderer.vue";
 
 interface PrintPage {
   cells: PrintEntry[];
+  /** Index of the page's first cell in the flat entry list. */
+  start: number;
   cols: number;
   rows: number;
   marks: CropMarkLayout | null;
@@ -72,7 +104,12 @@ const CSS_PX_PER_IN = 96;
 
 // Parsed URL grammar (see print-params.ts / PRINT_SHEET.md).
 const params = parsePrintParams(window.location.search);
-const { cardSize, paper, orientation, cropMarks, autoPrint } = params;
+const { cardSize, cropMarks, autoPrint, liftMm } = params;
+// Cricut Print Then Cut reproduces Design Space's Letter raster, so it pins
+// the paper regardless of what the URL says.
+const isCricut = params.mode === "cricut";
+const paper = isCricut ? "letter" : params.paper;
+const orientation = isCricut ? "portrait" : params.orientation;
 const cardDims = CARD_DIMS_IN[cardSize];
 const PRINT_SCALE_X = (cardDims.w * CSS_PX_PER_IN) / CARD_W;
 const PRINT_SCALE_Y = (cardDims.h * CSS_PX_PER_IN) / CARD_H;
@@ -83,7 +120,7 @@ const cardGapIn = cropMarks ? CARD_GAP_IN : 0;
 
 const grid = computed(() => gridForPaper(paper, orientation, cardSize));
 
-const { entries, error, load } = usePrintLoader(params);
+const { entries, error, deckName, load } = usePrintLoader(params);
 const ready = ref(false);
 
 /**
@@ -100,6 +137,7 @@ const pages = computed<PrintPage[]>(() => {
     const shape = pageGridShape(cells.length, g.cols, g.rows);
     out.push({
       cells,
+      start: i,
       cols: shape.cols,
       rows: shape.rows,
       marks: cropMarks
@@ -155,7 +193,8 @@ onMounted(async () => {
     requestAnimationFrame(() => {
       setPrintState(entries.value.length > 0 ? "ready" : "empty");
       if (autoPrint && entries.value.length > 0) {
-        window.print();
+        if (isCricut) void downloadCricutPdf();
+        else window.print();
       }
     }),
   );
@@ -323,14 +362,149 @@ async function downloadPagePngs() {
       await new Promise((r) => setTimeout(r, 250));
     }
   } catch (e) {
-    // html-to-image rejects with the raw image `error` Event when an <img>
-    // can't be fetched (almost always cross-origin without CORS).
-    pngError.value =
-      e instanceof Error ? e.message
-      : typeof Event !== "undefined" && e instanceof Event ? "An image failed to load for rasterizing (cross-origin art?)"
-      : String(e);
+    pngError.value = describeRasterError(e);
   } finally {
     pngExport.value = null;
+  }
+}
+
+// html-to-image rejects with the raw image `error` Event when an <img> can't
+// be fetched (almost always cross-origin without CORS).
+function describeRasterError(e: unknown): string {
+  return e instanceof Error ? e.message
+    : typeof Event !== "undefined" && e instanceof Event ? "An image failed to load for rasterizing (cross-origin art?)"
+    : String(e);
+}
+
+// Cricut Design Space Print Then Cut: one transparent PNG per *unique* card
+// (id + art), copy count in the filename, zipped with a README. Design Space
+// takes one upload at a time and auto-lays out 4 standard cards per Letter
+// page, so dedupe + "upload once, Duplicate ×N" is the whole ergonomic play.
+const cricutPlan = computed(() => planCricutArchive(entries.value));
+const cricutExport = ref<{ card: number; cards: number } | null>(null);
+const cricutError = ref<string | null>(null);
+const cricutLabel = computed(() => {
+  const px = cricutPixelDims(cardSize, PNG_DPI);
+  const items = cricutPlan.value;
+  const copies = totalCricutCopies(items);
+  return `${items.length} PNG${items.length === 1 ? "" : "s"} for ${copies} cards, ${px.w} × ${px.h} px @ ${PNG_DPI} dpi, ${cricutPagesLabel(copies, cardSize)} in Design Space`;
+});
+
+async function downloadCricutArchive() {
+  if (cricutExport.value) return;
+  cricutError.value = null;
+  const items = cricutPlan.value;
+  try {
+    const files: { name: string; data: Uint8Array }[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      cricutExport.value = { card: i + 1, cards: items.length };
+      const cell = document.querySelector<HTMLElement>(`.print-cell[data-entry-index="${item.firstIndex}"]`);
+      if (!cell) throw new Error(`card ${item.cardId} is not on the sheet`);
+      const { blob } = await rasterizeCell(cell, { dpi: PNG_DPI, cornerMm: CARD_CORNER_RADIUS_MM });
+      files.push({ name: item.filename, data: new Uint8Array(await blob.arrayBuffer()) });
+    }
+    const readme = cricutManifest(items, {
+      cardSize,
+      dpi: PNG_DPI,
+      cornerMm: CARD_CORNER_RADIUS_MM,
+      label: deckName.value,
+    });
+    files.unshift({ name: "README.txt", data: new TextEncoder().encode(readme) });
+    const zip = buildZip(files);
+    saveBlob(new Blob([zip], { type: "application/zip" }), cricutArchiveFilename(deckName.value, cardSize, PNG_DPI));
+  } catch (e) {
+    cricutError.value = describeRasterError(e);
+  } finally {
+    cricutExport.value = null;
+  }
+}
+
+// Cricut Print Then Cut without Design Space printing. Pages are Design
+// Space's own Letter raster (its marks, its slot positions, its bleed) drawn
+// with our cards and lifted `liftMm`; the PDF places that raster where Design
+// Space would. Design Space keeps one fixture image the size of the sheet so
+// its cut job matches every page. Geometry: print-cricut-layout.ts.
+const cricutLayout = CRICUT_LAYOUT;
+const cricutPageList = computed(() => {
+  const per = cricutCardsPerSheet(cricutLayout);
+  return cricutPages(entries.value, cricutLayout).map((cells, p) => ({ cells, start: p * per }));
+});
+const cricutRaster = cricutRasterBox(liftMm, cricutLayout);
+const cricutMarksStyle = {
+  left: `${cricutRaster.leftIn}in`,
+  top: `${cricutRaster.topIn}in`,
+  width: `${cricutRaster.widthIn}in`,
+  height: `${cricutRaster.heightIn}in`,
+};
+function cricutSlotStyle(i: number) {
+  const b = cricutSlotBox(i, liftMm, cricutLayout);
+  return { left: `${b.leftIn}in`, top: `${b.topIn}in`, width: `${b.widthIn}in`, height: `${b.heightIn}in` };
+}
+// The slot is landscape; the card renders portrait and is turned a quarter
+// turn counter-clockwise (top edge to the left), as Design Space printed it.
+const cricutCardWIn = cricutLayout.cardH / cricutLayout.dpi;
+const cricutCardHIn = cricutLayout.cardW / cricutLayout.dpi;
+const cricutRotateStyle = {
+  width: `${cricutCardWIn}in`,
+  height: `${cricutCardHIn}in`,
+  transform: `translate(0, ${cricutCardWIn}in) rotate(-90deg)`,
+  transformOrigin: "top left",
+};
+// The untransformed portrait box: what the PDF exporter serialises.
+const cricutCardStyle = { width: `${cricutCardWIn}in`, height: `${cricutCardHIn}in` };
+const cricutScalerStyle = {
+  transform: `scale(${(cricutCardWIn * CSS_PX_PER_IN) / CARD_W}, ${(cricutCardHIn * CSS_PX_PER_IN) / CARD_H})`,
+  transformOrigin: "top left",
+};
+const cricutSheetSize = cricutSheetCm(cricutLayout);
+const cricutMeta = computed(() => {
+  const pages = cricutPageList.value.length;
+  return `Letter · ${cricutCardsPerSheet(cricutLayout)} per sheet · ${pages} sheet${pages === 1 ? "" : "s"} · lifted ${liftMm} mm (lower marks ${cricutBottomClearanceMm(liftMm, cricutLayout).toFixed(1)} mm from the edge) · Design Space fixture ${cricutSheetSize.w} × ${cricutSheetSize.h} cm`;
+});
+const cricutPdfExport = ref<{ label: string } | null>(null);
+const cricutPdfError = ref<string | null>(null);
+
+async function downloadCricutPdf() {
+  if (cricutPdfExport.value) return;
+  cricutPdfError.value = null;
+  try {
+    cricutPdfExport.value = { label: "Loading marks…" };
+    const marks = await loadMarks(cricutLayout);
+    // Rasterize each unique card once; pages reuse the canvases. The portrait
+    // box inside the rotated wrapper is what gets serialised (html-to-image
+    // does not survive a rotated root), then it is turned on canvas.
+    const unique = planCricutArchive(entries.value);
+    const byKey = new Map<string, HTMLCanvasElement>();
+    for (let i = 0; i < unique.length; i++) {
+      const item = unique[i];
+      cricutPdfExport.value = { label: `Rendering card ${i + 1} of ${unique.length}…` };
+      const card = document.querySelector<HTMLElement>(`.print-cell[data-entry-index="${item.firstIndex}"] .cricut-card`);
+      if (!card) throw new Error(`card ${item.cardId} is not on the sheet`);
+      const portrait = await rasterizeCellCanvas(card, { dpi: cricutLayout.dpi, cornerMm: cricutLayout.cornerMm });
+      byKey.set(item.key, toLandscape(portrait));
+    }
+    const keyOf = (e: PrintEntry) => `${e.card.id}|${e.artMode}|${e.artUrl}`;
+    const pdfPages: PdfImagePage[] = [];
+    const pages = cricutPageList.value;
+    for (let p = 0; p < pages.length; p++) {
+      cricutPdfExport.value = { label: `Encoding page ${p + 1} of ${pages.length}…` };
+      const cards = pages[p].cells.map((e) => byKey.get(keyOf(e)) ?? null);
+      pdfPages.push(await pageToPdfImage(composeCricutPage(cards, marks, cricutLayout)));
+    }
+    saveBlob(buildCricutPdf(pdfPages, liftMm, cricutLayout), cricutPdfFilename(deckName.value, liftMm, cricutLayout));
+  } catch (e) {
+    cricutPdfError.value = describeRasterError(e);
+  } finally {
+    cricutPdfExport.value = null;
+  }
+}
+
+async function downloadCricutFixture() {
+  try {
+    saveBlob(await cricutFixturePng(cricutLayout), cricutFixtureFilename(cricutLayout));
+  } catch (e) {
+    cricutPdfError.value = describeRasterError(e);
   }
 }
 
@@ -364,6 +538,60 @@ function installPageRule() {
     <div v-else-if="entries.length === 0" class="status">
       Nothing to print — every card was filtered out.
     </div>
+    <template v-else-if="isCricut">
+      <aside class="cut-file-bar" data-testid="cricut-bar">
+        <button
+          type="button"
+          class="cut-file-btn"
+          data-testid="cricut-pdf-download"
+          :disabled="cricutPdfExport !== null"
+          :title="`Lossless 300 dpi PDF of every page exactly as Design Space would print it, with its registration marks and bleed, lifted ${liftMm} mm. Print at 100% on Letter, fit-to-page off.`"
+          @click="downloadCricutPdf"
+        >
+          <template v-if="cricutPdfExport">{{ cricutPdfExport.label }}</template>
+          <template v-else>Download print PDF</template>
+        </button>
+        <span class="cut-file-meta" data-testid="cricut-meta">{{ cricutMeta }}</span>
+        <button
+          type="button"
+          class="cut-file-btn cut-file-btn-quiet"
+          data-testid="cricut-fixture-download"
+          :title="`One-time Design Space setup: upload this PNG as a Print Then Cut image, set its width to ${cricutSheetSize.w} cm (height ${cricutSheetSize.h} cm), and never move it. Its six islands are exactly where the printed cards land, so Make It → discard the print → load the sheet → cut works for every page.`"
+          @click="downloadCricutFixture"
+        >
+          Download Design Space cut fixture
+        </button>
+        <span v-if="cricutPdfError" class="cut-file-error" data-testid="cricut-pdf-error">{{ cricutPdfError }}</span>
+      </aside>
+      <section
+        v-for="(page, p) in cricutPageList"
+        :key="p"
+        class="print-page-sheet cricut-page"
+        :style="{ width: `${cricutLayout.pageWPt / 72}in`, height: `${cricutLayout.pageHPt / 72}in` }"
+      >
+        <img class="cricut-marks" :src="cricutLayout.marksAsset" :style="cricutMarksStyle" alt="" />
+        <div
+          v-for="(e, i) in page.cells"
+          :key="`${e.card.id}-${i}`"
+          class="print-cell cricut-cell"
+          :data-entry-index="page.start + i"
+          :style="cricutSlotStyle(i)"
+        >
+          <div class="cricut-rotate" :style="cricutRotateStyle">
+            <div class="cricut-card" :style="cricutCardStyle">
+              <img v-if="e.plain" class="print-original" :src="e.artUrl" alt="" />
+              <div v-else class="print-scaler" :style="cricutScalerStyle">
+                <CssCardRenderer
+                  :card="e.card"
+                  :detail="e.detail"
+                  :art-url="e.artUrl"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </template>
     <template v-else>
       <aside class="cut-file-bar" data-testid="cut-file-bar">
         <button
@@ -393,6 +621,18 @@ function installPageRule() {
           <template v-else>Download page PNGs</template>
         </button>
         <span v-if="pngError" class="cut-file-error" data-testid="page-png-error">{{ pngError }}</span>
+        <button
+          type="button"
+          class="cut-file-btn"
+          data-testid="cricut-zip-download"
+          :disabled="cricutExport !== null"
+          :title="`Cricut Design Space Print Then Cut: a ZIP with one transparent PNG per unique card (3 mm corners, ${PNG_DPI} dpi, copy count in the filename) plus a README. ${cricutLabel}. Upload each PNG in Design Space, Duplicate to its count, then Make It — Design Space prints its own registration marks and lays out the sheets (A3 for the most per page).`"
+          @click="downloadCricutArchive"
+        >
+          <template v-if="cricutExport">Rendering card {{ cricutExport.card }} of {{ cricutExport.cards }}…</template>
+          <template v-else>Download Cricut PTC archive</template>
+        </button>
+        <span v-if="cricutError" class="cut-file-error" data-testid="cricut-zip-error">{{ cricutError }}</span>
         <button
           type="button"
           class="cut-file-btn cut-file-btn-quiet"
@@ -450,6 +690,7 @@ function installPageRule() {
               v-for="(e, i) in page.cells"
               :key="`${e.card.id}-${i}`"
               class="print-cell"
+              :data-entry-index="page.start + i"
               :style="cellStyle"
             >
               <!-- Original / cleaned print as a plain image; no CSS chrome overlay. -->
@@ -636,6 +877,33 @@ html, body {
 .crop-marks {
   position: absolute;
   pointer-events: none;
+}
+
+/* Cricut Print Then Cut page: Design Space's raster geometry on a Letter sheet.
+   Marks image and card slots are absolutely positioned in inches. */
+.cricut-page {
+  background: white;
+}
+.cricut-marks {
+  position: absolute;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.cricut-cell {
+  position: absolute;
+  border-radius: 3mm;
+}
+.cricut-rotate {
+  /* size + transform set inline via cricutRotateStyle */
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.cricut-card {
+  /* size set inline via cricutCardStyle; portrait, no transform of its own */
+  position: relative;
+  overflow: hidden;
+  border-radius: 3mm;
 }
 
 @media print {

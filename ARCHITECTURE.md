@@ -89,6 +89,18 @@ See also: [CLAUDE.md](./CLAUDE.md) (commands, conventions), [CARD_LAB.md](./CARD
   print" delta, the sparse `counts=` encoding). `PrintDialog.vue` is just the
   layout step (paper / orientation / art / crop, remembered via
   `lib/print-options.ts`) and opens the sheet.
+- **Sheet downloads** — the `.cut-file-bar` on the sheet: Cricut cut SVG
+  (`shared/utils/print-cut-svg.ts` + calibration), Bambu page PNGs
+  (`print/rasterize-page.ts` `rasterizePage`, `shared/utils/png-dpi.ts`), and
+  the Cricut Design Space Print Then Cut ZIP (`rasterizeCell` per unique card,
+  planned + named by `shared/utils/print-cricut-archive.ts`, packed by
+  `shared/utils/zip-store.ts`, a store-only ZIP writer).
+- **Cricut mode** (`?mode=cricut`, PrintDialog → Layout) — the sheet reproduces
+  Design Space's own Letter Print Then Cut raster (6 landscape cards, its
+  registration marks, its bleed) and downloads a lossless PDF, so Design Space
+  only cuts. Geometry profile: `shared/utils/print-cricut-layout.ts`;
+  compositing: `print/cricut-export.ts`; PDF bytes: `shared/utils/pdf-image-pages.ts`;
+  mark pixels: `client/public/cricut/ds-marks-letter.png`. See PRINT_SHEET.md.
 
 ## Test hand
 

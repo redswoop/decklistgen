@@ -3,6 +3,7 @@ import { computed, ref, watchEffect } from "vue";
 import { gridForPaper } from "../../shared/utils/print-grid.js";
 import { summarizePrint } from "../../shared/utils/print-summary.js";
 import { buildDeckPrintUrl } from "../../shared/utils/print-params.js";
+import { cricutCardsPerSheet, cricutSheetCm, CRICUT_LAYOUT } from "../../shared/utils/print-cricut-layout.js";
 import { loadPrintOptions, savePrintOptions } from "../lib/print-options.js";
 
 /**
@@ -29,6 +30,7 @@ const artwork = ref(stored.artwork);
 const paper = ref(stored.paper);
 const orientation = ref(stored.orientation);
 const cropMarks = ref(stored.cropMarks);
+const mode = ref(stored.mode);
 
 watchEffect(() => {
   savePrintOptions({
@@ -36,10 +38,18 @@ watchEffect(() => {
     paper: paper.value,
     orientation: orientation.value,
     cropMarks: cropMarks.value,
+    mode: mode.value,
   });
 });
 
-const cardsPerSheet = computed(() => gridForPaper(paper.value, orientation.value).cardsPerSheet);
+// Cricut Print Then Cut fixes Letter portrait, six landscape cards, Design
+// Space's marks; the paper/orientation/crop knobs stay visible but inert.
+const isCricut = computed(() => mode.value === "cricut");
+const lockedTitle = "Cricut Print Then Cut fixes this: Letter, portrait, Design Space registration marks";
+const cricutSheetSize = cricutSheetCm(CRICUT_LAYOUT);
+const cardsPerSheet = computed(() =>
+  isCricut.value ? cricutCardsPerSheet() : gridForPaper(paper.value, orientation.value).cardsPerSheet,
+);
 const summary = computed(() => summarizePrint(props.copies, cardsPerSheet.value));
 
 function handlePrint() {
@@ -50,6 +60,7 @@ function handlePrint() {
     paper: paper.value,
     orientation: orientation.value,
     cropMarks: cropMarks.value,
+    mode: mode.value,
   });
   window.open(url, "_blank");
   emit("printed");
@@ -66,6 +77,18 @@ function handlePrint() {
         {{ summary.emptySlots }} empty slot{{ summary.emptySlots === 1 ? "" : "s" }}
       </div>
 
+      <div class="print-section-label">Layout</div>
+      <div class="print-radio-group">
+        <label class="print-radio">
+          <input type="radio" v-model="mode" value="sheet" data-testid="print-mode-sheet" />
+          Print sheet
+        </label>
+        <label class="print-radio" title="Six landscape cards per Letter page with Design Space's own registration marks, as a lossless PDF. Design Space only cuts.">
+          <input type="radio" v-model="mode" value="cricut" data-testid="print-mode-cricut" />
+          Cricut Print Then Cut
+        </label>
+      </div>
+
       <div class="print-section-label">Artwork</div>
       <div class="print-radio-group">
         <label class="print-radio">
@@ -79,38 +102,44 @@ function handlePrint() {
       </div>
 
       <div class="print-section-label">Paper</div>
-      <div class="print-radio-group">
+      <div class="print-radio-group" :title="isCricut ? lockedTitle : undefined">
         <label class="print-radio">
-          <input type="radio" v-model="paper" value="letter" />
+          <input type="radio" v-model="paper" value="letter" :disabled="isCricut" />
           Letter (8.5 × 11)
         </label>
         <label class="print-radio">
-          <input type="radio" v-model="paper" value="super-b" />
+          <input type="radio" v-model="paper" value="super-b" :disabled="isCricut" />
           Super-B (13 × 19)
         </label>
       </div>
 
       <div class="print-section-label">Orientation <span class="print-section-hint">— {{ cardsPerSheet }} cards/sheet</span></div>
-      <div class="print-radio-group">
+      <div class="print-radio-group" :title="isCricut ? lockedTitle : undefined">
         <label class="print-radio">
-          <input type="radio" v-model="orientation" value="portrait" />
+          <input type="radio" v-model="orientation" value="portrait" :disabled="isCricut" />
           Portrait
         </label>
         <label class="print-radio">
-          <input type="radio" v-model="orientation" value="landscape" />
+          <input type="radio" v-model="orientation" value="landscape" :disabled="isCricut" />
           Landscape
         </label>
       </div>
 
       <div class="print-section-label">Cut guides</div>
-      <div class="print-checkbox-list">
+      <div class="print-checkbox-list" :title="isCricut ? lockedTitle : undefined">
         <label class="print-checkbox">
-          <input type="checkbox" v-model="cropMarks" />
+          <input type="checkbox" v-model="cropMarks" :disabled="isCricut" />
           Crop marks
         </label>
       </div>
 
-      <p class="print-origin-hint">
+      <p v-if="isCricut" class="print-origin-hint" data-testid="print-cricut-hint">
+        Letter, six landscape cards per page, Design Space's own registration marks, lifted {{ CRICUT_LAYOUT.liftMm }} mm
+        so the lower marks clear the printer. Print the PDF at 100% on Letter with fit-to-page off.
+        In Design Space keep one project holding the cut fixture at {{ cricutSheetSize.w }} × {{ cricutSheetSize.h }} cm;
+        per sheet: Make It, discard its print, load the paper flush in the mat corner, cut.
+      </p>
+      <p v-else class="print-origin-hint">
         Cards start 0.25″ from the top-left (Cricut no-cut zone). Print at 100% with margins set to None.
         Uncheck crop marks for flush 63×87mm spacing (a real card's measured size).
         Adjust which cards print, and how many, on the deck grid behind this dialog.
@@ -133,9 +162,9 @@ function handlePrint() {
         <button
           class="btn-primary"
           :disabled="summary.cardCount === 0"
-          :title="summary.cardCount === 0 ? 'Every card is set to 0 copies' : 'Open the print sheet in a new tab'"
+          :title="summary.cardCount === 0 ? 'Every card is set to 0 copies' : isCricut ? 'Open the Cricut sheet in a new tab; it renders the pages and downloads the print PDF' : 'Open the print sheet in a new tab'"
           @click="handlePrint"
-        >Print</button>
+        >{{ isCricut ? "Cricut PDF" : "Print" }}</button>
       </div>
     </div>
   </div>

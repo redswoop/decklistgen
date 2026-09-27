@@ -194,6 +194,62 @@ test.describe("/print.html", () => {
     await expect(page.getByTestId("page-png-error")).toHaveCount(0);
   });
 
+  test("downloads a Cricut Print Then Cut ZIP: one transparent PNG per unique card", async ({ page }) => {
+    // sv01-001 twice → one file named 2x-…; sv01-006 once → 1x-….
+    await page.addInitScript(() => {
+      sessionStorage.setItem("gallery-print-ids", JSON.stringify(["sv01-001", "sv01-006", "sv01-001"]));
+    });
+    await page.goto("/print.html?gallery=1&auto=0&crop=0");
+    await page.waitForFunction(
+      () => document.documentElement.dataset.printState === "ready",
+      { timeout: 15000 },
+    );
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByTestId("cricut-zip-download").click(),
+    ]);
+    expect(download.suggestedFilename()).toBe("cricut-ptc-cards-63x87mm-300dpi.zip");
+    const zip = new Uint8Array(await (await import("node:fs/promises")).readFile((await download.path())!));
+    const { readStoredZip } = await import("../src/shared/utils/zip-store");
+    const entries = readStoredZip(zip);
+    expect(entries.map((e) => e.name)).toEqual([
+      "README.txt",
+      "2x-pineco-sv01-001.png",
+      "1x-cacturne-sv01-006.png",
+    ]);
+
+    const readme = new TextDecoder().decode(entries[0].data);
+    expect(readme).toContain("63 × 87 mm (2.480 × 3.425 in)");
+    expect(readme).toContain("2x-pineco-sv01-001.png  ×2  Pineco  sv01-001");
+
+    // Each PNG: one card, 744 × 1028 RGBA at 300 dpi, pHYs right after IHDR.
+    for (const png of entries.slice(1)) {
+      const bytes = png.data;
+      expect(Array.from(bytes.subarray(0, 8))).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+      const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      expect(dv.getUint32(16)).toBe(744);
+      expect(dv.getUint32(20)).toBe(1028);
+      expect(bytes[25]).toBe(6);
+      const physOff = 8 + 25;
+      expect(String.fromCharCode(...bytes.subarray(physOff + 4, physOff + 8))).toBe("pHYs");
+      expect(dv.getUint32(physOff + 8)).toBe(11811);
+      expect(bytes[physOff + 16]).toBe(1);
+    }
+
+    // Alpha: the corner is cut away (transparent), the card body is opaque.
+    const sharp = (await import("sharp")).default;
+    const { data, info } = await sharp(Buffer.from(entries[1].data)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const alphaAt = (x: number, y: number) => data[(y * info.width + x) * info.channels + 3];
+    expect(alphaAt(0, 0)).toBe(0);
+    expect(alphaAt(info.width - 1, info.height - 1)).toBe(0);
+    expect(alphaAt(Math.floor(info.width / 2), Math.floor(info.height / 2))).toBe(255);
+    // 3 mm ≈ 35 px in from the corner along the edge is past the arc: opaque.
+    expect(alphaAt(60, 0)).toBe(255);
+
+    await expect(page.getByTestId("cricut-zip-error")).toHaveCount(0);
+  });
+
   test("shows an error when neither deckId nor gallery= is supplied", async ({ page }) => {
     await page.goto("/print.html");
     await expect(page.locator(".status-error")).toBeVisible({ timeout: 5000 });
