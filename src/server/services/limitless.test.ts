@@ -92,6 +92,26 @@ describe("parseDecklistHtml", () => {
 });
 
 describe("parsePtcgoText", () => {
+  test("parses digit-led set codes and prefixed numbers (30th anniversary)", () => {
+    const result = parsePtcgoText(`Pokémon: 2
+3 Pikachu ex 30C 149
+1 Charizard 30C CC1`);
+    expect(result.pokemon).toEqual([
+      { count: 3, name: "Pikachu ex", set: "30C", number: "149" },
+      { count: 1, name: "Charizard", set: "30C", number: "CC1" },
+    ]);
+  });
+
+  test("parses app export lines for digit-led set codes", () => {
+    const result = parsePtcgoText("30CC 001 x1  # Charizard");
+    expect(result.pokemon).toEqual([{ count: 1, name: "Charizard", set: "30CC", number: "001" }]);
+  });
+
+  test("does not mistake an all-digit token for a set code", () => {
+    const result = parsePtcgoText("2 Mew 151 25");
+    expect(result.pokemon).toHaveLength(0);
+  });
+
   test("parses standard PTCGO format", () => {
     const text = `Pokémon: 3
 4 Charizard ex OBF 125

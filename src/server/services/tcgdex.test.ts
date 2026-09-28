@@ -11,10 +11,15 @@ describe("isIncompleteCard", () => {
     expect(isIncompleteCard({ category: "Pokemon", stage: "Stage2", evolveFrom: "" })).toBe(true);
   });
 
+  test("a Trainer with no effect text is incomplete", () => {
+    expect(isIncompleteCard({ category: "Trainer" })).toBe(true);
+    expect(isIncompleteCard({ category: "Trainer", effect: "" })).toBe(true);
+  });
+
   test("Basics, Trainers, Energy, and filled-in evolutions are complete", () => {
     expect(isIncompleteCard({ category: "Pokemon", stage: "Basic" })).toBe(false);
     expect(isIncompleteCard({ category: "Pokemon", stage: "Stage1", evolveFrom: "Dreepy" })).toBe(false);
-    expect(isIncompleteCard({ category: "Trainer" })).toBe(false);
+    expect(isIncompleteCard({ category: "Trainer", effect: "Draw 3 cards." })).toBe(false);
     expect(isIncompleteCard({ category: "Energy" })).toBe(false);
     expect(isIncompleteCard(null)).toBe(false);
   });

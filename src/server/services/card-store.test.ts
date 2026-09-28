@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll } from "bun:test";
-import { loadSet, getVariants, getCard } from "./card-store.js";
+import { loadSet, getVariants, getCard, findCardBySetAndNumber } from "./card-store.js";
 
 describe("getVariants — cross-set/era reprints", () => {
   beforeAll(async () => {
@@ -35,5 +35,29 @@ describe("getVariants — cross-set/era reprints", () => {
       expect(v.mechanicsHash).toBe(seed!.mechanicsHash);
       expect(v.name).toBe("Pikachu ex");
     }
+  });
+});
+
+describe("30th anniversary sets", () => {
+  beforeAll(async () => {
+    // Set listings + card bodies must be present in /cache to run offline.
+    await loadSet("30C");
+    await loadSet("30CC");
+  }, 120_000);
+
+  test("main set cards land in the Mega Evolution era under 30C", () => {
+    const card = findCardBySetAndNumber("30C", "149");
+    expect(card?.id).toBe("30th-149");
+    expect(card?.name).toBe("Pikachu ex");
+    expect(card?.era).toBe("me");
+    expect(card?.setCode).toBe("30C");
+  });
+
+  test("Limitless-style CC numbers resolve to the Classic Collection", () => {
+    const card = findCardBySetAndNumber("30C", "CC1");
+    expect(card?.id).toBe("30th-c-001");
+    expect(card?.name).toBe("Charizard");
+    expect(card?.setCode).toBe("30CC");
+    expect(card?.era).toBe("me");
   });
 });

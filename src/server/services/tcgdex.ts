@@ -26,14 +26,16 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 /**
  * TCGdex publishes new sets half-populated and backfills fields (notably
- * `evolveFrom`) over the following weeks. A cached card JSON that is missing
- * data a Stage 1/2 Pokémon must have is treated as stale and re-fetched — once
+ * `evolveFrom` and Trainer `effect` text) over the following weeks. A cached
+ * card JSON that is missing data a Stage 1/2 Pokémon or a Trainer must have is
+ * treated as stale and re-fetched — once
  * per process, so an upstream that still hasn't backfilled doesn't turn every
  * set load into a network storm. The stale copy is kept if the network fails.
  */
 export function isIncompleteCard(raw: unknown): boolean {
   if (!raw || typeof raw !== "object") return false;
-  const c = raw as { category?: unknown; stage?: unknown; evolveFrom?: unknown };
+  const c = raw as { category?: unknown; stage?: unknown; evolveFrom?: unknown; effect?: unknown };
+  if (c.category === "Trainer") return typeof c.effect !== "string" || c.effect === "";
   if (c.category !== "Pokemon") return false;
   const stage = typeof c.stage === "string" ? c.stage.toLowerCase() : "";
   if (stage !== "stage1" && stage !== "stage2") return false;

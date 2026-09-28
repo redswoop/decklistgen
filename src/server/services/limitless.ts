@@ -149,10 +149,14 @@ export function parseDecklistHtml(html: string): LimitlessDecklist {
 export function parsePtcgoText(text: string): LimitlessDecklist {
   const result: LimitlessDecklist = { pokemon: [], trainer: [], energy: [] };
   let currentCategory: "pokemon" | "trainer" | "energy" = "pokemon";
+  // Set codes may lead with a digit ("30C") but must contain a letter; numbers
+  // may carry a sub-set prefix ("CC12").
+  const setRe = "((?=[0-9]*[A-Z])[A-Z0-9]{2,6})";
+  const numRe = "((?:[A-Z]{1,3})?\\d+)";
   // Standard PTCGO: "4 Charizard ex OBF 125"
-  const cardLineRe = /^(\d+(?:\.\d+)?)\s+(.+?)\s+([A-Z][A-Z0-9]{1,5})\s+(\d+)\s*$/;
+  const cardLineRe = new RegExp(`^(\\d+(?:\\.\\d+)?)\\s+(.+?)\\s+${setRe}\\s+${numRe}\\s*$`);
   // App export: "PAR 089 x3  # Iron Valiant ex"
-  const exportLineRe = /^([A-Z][A-Z0-9]{1,5})\s+(\d+)\s+x(\d+)(?:\s+#\s*(.*))?$/;
+  const exportLineRe = new RegExp(`^${setRe}\\s+${numRe}\\s+x(\\d+)(?:\\s+#\\s*(.*))?$`);
 
   for (const rawLine of text.split("\n")) {
     const line = rawLine.trim();

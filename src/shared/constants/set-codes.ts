@@ -29,6 +29,11 @@ export const SET_MAP: Record<string, string> = {
   ASC: "me02.5",
   POR: "me03",
   CRI: "me04",
+  PBL: "me05",
+  // 30th anniversary. PTCGL/Limitless file both halves under 30C, with the
+  // Classic Collection numbered CC1–CC30 — see canonicalSetNumber().
+  "30C": "30th",
+  "30CC": "30th-c",
   MEE: "mee",  // Mega Evolution Energy — ME-era basic energies (8 cards)
   MEP: "mep",
   // Sword & Shield era
@@ -84,6 +89,9 @@ export const SET_NAMES: Record<string, string> = {
   ASC: "Ascended Heroes",
   POR: "Perfect Order",
   CRI: "Chaos Rising",
+  PBL: "Pitch Black",
+  "30C": "30th Celebration",
+  "30CC": "30th Classic Collection",
   MEP: "MEP Black Star Promos",
   SWSH: "Sword & Shield",
   SSH: "Sword & Shield",
@@ -117,7 +125,22 @@ for (const [code, id] of Object.entries(SET_MAP)) {
 
 /** Determine era from TCGdex set ID */
 export function getEra(tcgdexId: string): "sv" | "swsh" | "me" {
-  if (tcgdexId.startsWith("me")) return "me";
+  // 30th / 30th-c sit in TCGdex's Mega Evolution serie despite the odd IDs
+  if (tcgdexId.startsWith("me") || tcgdexId.startsWith("30th")) return "me";
   if (tcgdexId.startsWith("sv")) return "sv";
   return "swsh";
+}
+
+/** Sub-sets that decklists file under a parent code with a number prefix ("30C CC12") */
+const NUMBER_PREFIX_SUBSETS: Record<string, Record<string, string>> = {
+  "30C": { CC: "30CC" },
+};
+
+/** Route a decklist (set code, number) pair to the set that actually holds the card */
+export function canonicalSetNumber(setCode: string, number: string): { setCode: string; number: string } {
+  const code = setCode.toUpperCase();
+  const prefixed = number.toUpperCase().match(/^([A-Z]+)(\d+)$/);
+  const subset = prefixed && NUMBER_PREFIX_SUBSETS[code]?.[prefixed[1]];
+  if (subset) return { setCode: subset, number: prefixed[2] };
+  return { setCode: code, number };
 }

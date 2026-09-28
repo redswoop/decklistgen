@@ -1,6 +1,6 @@
 import type { Card } from "../../shared/types/card.js";
 import type { ImportResult } from "../../shared/types/decklist.js";
-import { SET_MAP } from "../../shared/constants/set-codes.js";
+import { SET_MAP, canonicalSetNumber } from "../../shared/constants/set-codes.js";
 import { loadSet, findCardBySetAndNumber, findCardByName } from "./card-store.js";
 import type { LimitlessDecklist, LimitlessCard } from "./limitless.js";
 
@@ -8,15 +8,15 @@ export async function resolveDecklist(decklist: LimitlessDecklist): Promise<Impo
   const setCodes = new Set<string>();
   const allCards: Array<LimitlessCard & { category: string }> = [];
   for (const card of decklist.pokemon) {
-    setCodes.add(card.set);
+    setCodes.add(canonicalSetNumber(card.set, card.number).setCode);
     allCards.push({ ...card, category: "pokemon" });
   }
   for (const card of decklist.trainer) {
-    setCodes.add(card.set);
+    setCodes.add(canonicalSetNumber(card.set, card.number).setCode);
     allCards.push({ ...card, category: "trainer" });
   }
   for (const card of decklist.energy) {
-    setCodes.add(card.set);
+    setCodes.add(canonicalSetNumber(card.set, card.number).setCode);
     allCards.push({ ...card, category: "energy" });
   }
 

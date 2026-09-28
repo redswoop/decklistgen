@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { getEra, SET_MAP } from "./set-codes.js";
+import { getEra, SET_MAP, REVERSE_SET_MAP, canonicalSetNumber } from "./set-codes.js";
 
 describe("getEra", () => {
   test("classifies Scarlet & Violet sets", () => {
@@ -16,8 +16,14 @@ describe("getEra", () => {
     expect(getEra("me02.5")).toBe("me");
     expect(getEra("me03")).toBe("me");
     expect(getEra("me04")).toBe("me");
+    expect(getEra("me05")).toBe("me");
     expect(getEra("mep")).toBe("me");
     expect(getEra("mee")).toBe("me");
+  });
+
+  test("classifies the 30th anniversary sets as Mega Evolution", () => {
+    expect(getEra("30th")).toBe("me");
+    expect(getEra("30th-c")).toBe("me");
   });
 
   test("classifies Sword & Shield (and pre-SV) sets", () => {
@@ -33,5 +39,31 @@ describe("getEra", () => {
     for (const tcgdexId of Object.values(SET_MAP)) {
       expect(known.has(getEra(tcgdexId))).toBe(true);
     }
+  });
+});
+
+describe("30th anniversary set codes", () => {
+  test("maps both halves to their TCGdex sets and back", () => {
+    expect(SET_MAP["30C"]).toBe("30th");
+    expect(SET_MAP["30CC"]).toBe("30th-c");
+    expect(REVERSE_SET_MAP["30th"]).toBe("30C");
+    expect(REVERSE_SET_MAP["30th-c"]).toBe("30CC");
+  });
+});
+
+describe("canonicalSetNumber", () => {
+  test("routes 30C CC-numbered cards to the Classic Collection", () => {
+    expect(canonicalSetNumber("30C", "CC12")).toEqual({ setCode: "30CC", number: "12" });
+    expect(canonicalSetNumber("30c", "cc1")).toEqual({ setCode: "30CC", number: "1" });
+  });
+
+  test("leaves main-set numbers alone", () => {
+    expect(canonicalSetNumber("30C", "149")).toEqual({ setCode: "30C", number: "149" });
+    expect(canonicalSetNumber("OBF", "125")).toEqual({ setCode: "OBF", number: "125" });
+  });
+
+  test("ignores prefixes the set has no sub-set for", () => {
+    expect(canonicalSetNumber("OBF", "CC12")).toEqual({ setCode: "OBF", number: "CC12" });
+    expect(canonicalSetNumber("30C", "XY12")).toEqual({ setCode: "30C", number: "XY12" });
   });
 });

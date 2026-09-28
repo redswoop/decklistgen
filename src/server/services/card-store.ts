@@ -1,6 +1,6 @@
 import type { Card, TcgdexCard } from "../../shared/types/card.js";
 import type { FilterOptions, SpecialAttribute } from "../../shared/types/filters.js";
-import { SET_MAP, REVERSE_SET_MAP, getEra } from "../../shared/constants/set-codes.js";
+import { SET_MAP, REVERSE_SET_MAP, getEra, canonicalSetNumber } from "../../shared/constants/set-codes.js";
 import { isEx, isV, isVmax, isVstar, isAncient, isFuture, isTera } from "../../shared/utils/detect-attributes.js";
 import { isFullArt } from "../../shared/utils/detect-fullart.js";
 import { fetchSetCards } from "./tcgdex.js";
@@ -178,8 +178,8 @@ export async function loadEra(era: "sv" | "swsh" | "me"): Promise<{ loaded: numb
 }
 
 /** Find a card by PTCGL set code and card number (handles zero-padding differences) */
-export function findCardBySetAndNumber(setCode: string, number: string): Card | undefined {
-  const code = setCode.toUpperCase();
+export function findCardBySetAndNumber(rawSetCode: string, rawNumber: string): Card | undefined {
+  const { setCode: code, number } = canonicalSetNumber(rawSetCode, rawNumber);
   const tcgdexId = SET_MAP[code];
   if (!tcgdexId) return undefined;
 
