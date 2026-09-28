@@ -8,8 +8,9 @@
 import WebSocket from "ws";
 
 const COMFYUI_URL = (process.env.COMFYUI_URL ?? "http://localhost:8188").replace(/\/+$/, "");
-const FLUX_W = 736;
-const FLUX_H = 1024;
+// Output canvas: portrait card aspect (63x87mm), ~1MP, multiples of 16.
+const FLUX_W = 848;
+const FLUX_H = 1168;
 interface WorkflowNode {
   inputs: Record<string, unknown>;
   class_type: string;
@@ -25,8 +26,12 @@ type Workflow = Record<string, WorkflowNode>;
  * The old graph used ResolutionMaster for the empty latent. That node has since
  * grown a pile of required widget fields; Comfy accepts the prompt with
  * node_errors and then SaveImage never fires ("No output image from ComfyUI").
- * EmptyFlux2LatentImage sized from GetImageSize is what the working Klein
- * graphs use now.
+ * EmptyFlux2LatentImage is what the working Klein graphs use now.
+ *
+ * The output canvas is always the portrait card size, NOT the input size.
+ * Standard cards send only the landscape art window as the reference; sizing
+ * the canvas from it makes Klein repaint a landscape window instead of
+ * expanding the art to fill the card.
  */
 export function buildKleinWorkflow(
   prompt: string,
@@ -69,15 +74,10 @@ export function buildKleinWorkflow(
     class_type: "ImageScaleToTotalPixelsX",
   };
 
-  workflow["75:81"] = {
-    inputs: { image: ["75:99", 0] },
-    class_type: "GetImageSize",
-  };
-
   workflow["75:66"] = {
     inputs: {
-      width: ["75:81", 0],
-      height: ["75:81", 1],
+      width: FLUX_W,
+      height: FLUX_H,
       batch_size: 1,
     },
     class_type: "EmptyFlux2LatentImage",
@@ -134,7 +134,7 @@ export function buildKleinWorkflow(
     class_type: "KSamplerSelect",
   };
   workflow["75:62"] = {
-    inputs: { steps: 4, width: ["75:81", 0], height: ["75:81", 1] },
+    inputs: { steps: 4, width: FLUX_W, height: FLUX_H },
     class_type: "Flux2Scheduler",
   };
   workflow["75:73"] = {
