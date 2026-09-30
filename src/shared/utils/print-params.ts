@@ -12,8 +12,9 @@ export type ArtMode = "proxy" | "cleaned" | "original";
 /**
  * "sheet" is the ordinary print sheet (paper/orientation/crop marks, printed
  * from the browser). "cricut" is Cricut Design Space Print Then Cut without
- * Design Space printing: Letter, six landscape cards, Design Space's own
- * registration marks, delivered as a lossless PDF. See print-cricut-layout.ts.
+ * Design Space printing: six landscape cards per Letter page (or two such
+ * regions on a Super-B sheet), Design Space's own registration marks, delivered
+ * as a lossless PDF. See print-cricut-layout.ts.
  */
 export type PrintMode = "sheet" | "cricut";
 
@@ -43,8 +44,8 @@ export interface PrintParams {
   cropMarks: boolean;
   autoPrint: boolean;
   mode: PrintMode;
-  /** Cricut mode: how far the whole print raster is lifted up the page, mm. */
-  liftMm: number;
+  /** Cricut mode: how far the print raster is lifted up its sheet, mm; null = the layout's own. */
+  liftMm: number | null;
 }
 
 /** Coerce a raw `art` token to a known mode, defaulting to "proxy". */
@@ -62,7 +63,7 @@ export function parsePrintParams(search: string | URLSearchParams): PrintParams 
 
   const mode: PrintMode = params.get("mode") === "cricut" ? "cricut" : "sheet";
   const liftRaw = Number(params.get("lift"));
-  const liftMm = params.has("lift") && Number.isFinite(liftRaw) && liftRaw >= 0 && liftRaw <= 30 ? liftRaw : 8;
+  const liftMm = params.has("lift") && Number.isFinite(liftRaw) && liftRaw >= 0 && liftRaw <= 30 ? liftRaw : null;
 
   return {
     deckId: params.get("deckId"),
@@ -94,14 +95,14 @@ export interface JumboPrintRequest {
 
 /**
  * Build the /print.html URL for the jumbo pair-picker. Two-up prints landscape;
- * one-up uses the portrait default. Always jumbo size and auto-print.
+ * one-up uses the portrait default. Always jumbo size. Never auto-prints: the
+ * sheet opens and the user presses Print there.
  */
 export function buildJumboPrintUrl(req: JumboPrintRequest): string {
   const params = new URLSearchParams({
     cardId: req.ids.join(","),
     size: "jumbo",
     art: req.arts.join(","),
-    auto: "1",
   });
   if (req.layout === "two-up") params.set("orientation", "landscape");
   return `/print.html?${params.toString()}`;
@@ -116,23 +117,24 @@ export interface DeckPrintRequest {
   orientation: PrintOrientation;
   cropMarks: boolean;
   autoPrint?: boolean;
-  /** Defaults to "sheet". Cricut mode forces Letter portrait and ignores crop marks. */
+  /** Defaults to "sheet". Cricut mode keeps the paper, forces portrait and ignores crop marks. */
   mode?: PrintMode;
 }
 
 /**
  * Build the /print.html URL for a deck print from the deck grid's print mode.
  * Defaults are omitted so the common "print everything on letter" URL stays
- * `?deckId=…&auto=1`.
+ * `?deckId=…`. The sheet only opens; printing (or downloading the Cricut PDF)
+ * is the user's click there unless `autoPrint` is asked for.
  */
 export function buildDeckPrintUrl(req: DeckPrintRequest): string {
   const params = new URLSearchParams({ deckId: req.deckId });
   const cricut = req.mode === "cricut";
   if (cricut) params.set("mode", "cricut");
-  if (req.autoPrint ?? true) params.set("auto", "1");
+  if (req.autoPrint) params.set("auto", "1");
   if (req.art === "original") params.set("art", "original");
+  if (req.paper !== "letter") params.set("paper", req.paper);
   if (!cricut) {
-    if (req.paper !== "letter") params.set("paper", req.paper);
     if (req.orientation !== "portrait") params.set("orientation", req.orientation);
     if (!req.cropMarks) params.set("crop", "0");
   }

@@ -30,15 +30,15 @@ describe("parsePrintParams", () => {
     expect(p.cropMarks).toBe(true); // on unless crop=0
     expect(p.autoPrint).toBe(false);
     expect(p.mode).toBe("sheet");
-    expect(p.liftMm).toBe(8);
+    expect(p.liftMm).toBeNull(); // the Cricut layout's own
   });
 
   it("parses cricut mode and a sane lift, ignoring nonsense lifts", () => {
     expect(parsePrintParams("deckId=d&mode=cricut").mode).toBe("cricut");
     expect(parsePrintParams("deckId=d&mode=cricut&lift=5.5").liftMm).toBe(5.5);
     expect(parsePrintParams("deckId=d&mode=cricut&lift=0").liftMm).toBe(0);
-    expect(parsePrintParams("deckId=d&mode=cricut&lift=99").liftMm).toBe(8);
-    expect(parsePrintParams("deckId=d&mode=cricut&lift=abc").liftMm).toBe(8);
+    expect(parsePrintParams("deckId=d&mode=cricut&lift=99").liftMm).toBeNull();
+    expect(parsePrintParams("deckId=d&mode=cricut&lift=abc").liftMm).toBeNull();
     expect(parsePrintParams("deckId=d&mode=bogus").mode).toBe("sheet");
   });
 
@@ -81,7 +81,7 @@ describe("buildJumboPrintUrl", () => {
     expect(q.get("cardId")).toBe("a");
     expect(q.get("size")).toBe("jumbo");
     expect(q.get("art")).toBe("proxy");
-    expect(q.get("auto")).toBe("1");
+    expect(q.get("auto")).toBeNull(); // the user presses Print on the sheet
     expect(q.get("orientation")).toBeNull();
   });
 
@@ -100,7 +100,7 @@ describe("buildJumboPrintUrl", () => {
     expect(p.artModes).toEqual(["cleaned", "proxy"]);
     expect(p.cardSize).toBe("jumbo");
     expect(p.orientation).toBe("landscape");
-    expect(p.autoPrint).toBe(true);
+    expect(p.autoPrint).toBe(false);
   });
 });
 
@@ -116,12 +116,18 @@ describe("buildDeckPrintUrl", () => {
   const base = { deckId: "d1", counts: "", art: "proxy" as const, paper: "letter" as const, orientation: "portrait" as const, cropMarks: true };
 
   it("omits every default so the common URL stays short", () => {
-    expect(buildDeckPrintUrl(base)).toBe("/print.html?deckId=d1&auto=1");
+    expect(buildDeckPrintUrl(base)).toBe("/print.html?deckId=d1");
+  });
+
+  it("never auto-prints unless asked to", () => {
+    expect(parsePrintParams(buildDeckPrintUrl(base).split("?")[1]).autoPrint).toBe(false);
+    expect(parsePrintParams(buildDeckPrintUrl({ ...base, mode: "cricut" }).split("?")[1]).autoPrint).toBe(false);
+    expect(buildDeckPrintUrl({ ...base, autoPrint: true })).toBe("/print.html?deckId=d1&auto=1");
   });
 
   it("emits the non-default knobs and the sparse counts, and round-trips", () => {
     const url = buildDeckPrintUrl({
-      ...base, counts: "sv01-001:2,sv01-006:0", art: "original", paper: "super-b", orientation: "landscape", cropMarks: false, autoPrint: false,
+      ...base, counts: "sv01-001:2,sv01-006:0", art: "original", paper: "super-b", orientation: "landscape", cropMarks: false,
     });
     expect(url.startsWith("/print.html?")).toBe(true);
     const p = parsePrintParams(url.slice(url.indexOf("?") + 1));
@@ -134,12 +140,20 @@ describe("buildDeckPrintUrl", () => {
     expect(p.counts).toEqual({ "sv01-001": 2, "sv01-006": 0 });
   });
 
-  it("cricut mode emits mode=cricut and drops the paper/orientation/crop knobs it overrides", () => {
-    const url = buildDeckPrintUrl({ ...base, mode: "cricut", paper: "super-b", orientation: "landscape", cropMarks: false, art: "original" });
-    expect(url).toBe("/print.html?deckId=d1&mode=cricut&auto=1&art=original");
+  it("cricut mode emits mode=cricut and drops the orientation/crop knobs it overrides", () => {
+    const url = buildDeckPrintUrl({ ...base, mode: "cricut", orientation: "landscape", cropMarks: false, art: "original" });
+    expect(url).toBe("/print.html?deckId=d1&mode=cricut&art=original");
     const p = parsePrintParams(url.slice(url.indexOf("?") + 1));
     expect(p.mode).toBe("cricut");
     expect(p.paper).toBe("letter");
     expect(p.orientation).toBe("portrait");
+  });
+
+  it("cricut mode keeps the paper: super-b selects the two-region sheet", () => {
+    const url = buildDeckPrintUrl({ ...base, mode: "cricut", paper: "super-b", orientation: "landscape", cropMarks: false });
+    expect(url).toBe("/print.html?deckId=d1&mode=cricut&paper=super-b");
+    const p = parsePrintParams(url.slice(url.indexOf("?") + 1));
+    expect(p.mode).toBe("cricut");
+    expect(p.paper).toBe("super-b");
   });
 });

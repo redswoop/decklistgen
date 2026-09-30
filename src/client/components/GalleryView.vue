@@ -123,7 +123,7 @@ function openPrint() {
   if (!cards.value || cards.value.length === 0) return;
   const ids = cards.value.map((c) => c.cardId);
   sessionStorage.setItem("gallery-print-ids", JSON.stringify(ids));
-  window.open("/print.html?gallery=1&auto=1", "_blank");
+  window.open("/print.html?gallery=1", "_blank");
 }
 </script>
 

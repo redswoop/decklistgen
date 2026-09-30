@@ -2,10 +2,13 @@ import {
   CRICUT_LAYOUT,
   cricutSheetPx,
   cricutSlotPx,
-  cricutPdfPlacement,
+  cricutPdfMatrix,
+  cricutCutLine,
+  cricutCardsPerRegion,
   type CricutLayout,
+  type CricutRegion,
 } from "../../shared/utils/print-cricut-layout.js";
-import { buildImagePdf, type PdfImagePage } from "../../shared/utils/pdf-image-pages.js";
+import { buildPdf, type PdfImagePage } from "../../shared/utils/pdf-image-pages.js";
 import { withPngDpi } from "../../shared/utils/png-dpi.js";
 
 /**
@@ -86,7 +89,7 @@ function drawCardWithBleed(ctx: CanvasRenderingContext2D, card: HTMLCanvasElemen
 }
 
 /**
- * One print page: white raster, Design Space's marks, up to cols×rows cards
+ * One region's raster: white, Design Space's marks, up to cols×rows cards
  * (null = empty slot). Card canvases must already be landscape `cardW × cardH`.
  */
 export function composeCricutPage(
@@ -137,8 +140,19 @@ export async function pageToPdfImage(canvas: HTMLCanvasElement): Promise<PdfImag
   return { width: canvas.width, height: canvas.height, deflated: await deflateZlib(canvasToRgb(canvas)) };
 }
 
-export function buildCricutPdf(pages: PdfImagePage[], liftMm: number, layout: CricutLayout = CRICUT_LAYOUT): Blob {
-  const bytes = buildImagePdf(pages, cricutPdfPlacement(liftMm, layout));
+/** One printed page: a raster per region that holds cards. */
+export type CricutPdfPage = { region: CricutRegion; image: PdfImagePage }[];
+
+export function buildCricutPdf(pages: CricutPdfPage[], liftMm: number, layout: CricutLayout = CRICUT_LAYOUT): Blob {
+  const cut = cricutCutLine(layout);
+  const bytes = buildPdf(
+    pages.map((rasters) => ({
+      lines: cut ? [cut] : [],
+      pageWPt: layout.pageWPt,
+      pageHPt: layout.pageHPt,
+      images: rasters.map(({ region, image }) => ({ image, matrix: cricutPdfMatrix(region, liftMm, layout) })),
+    })),
+  );
   return new Blob([bytes], { type: "application/pdf" });
 }
 
@@ -155,7 +169,7 @@ export async function cricutFixturePng(layout: CricutLayout = CRICUT_LAYOUT): Pr
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2d context unavailable");
   const r = (layout.cornerMm / MM_PER_IN) * layout.dpi;
-  const slots = layout.cols * layout.rows;
+  const slots = cricutCardsPerRegion(layout);
   for (let i = 0; i < slots; i++) {
     const { x, y } = cricutSlotPx(i, layout);
     const sx = x - layout.sheetX;

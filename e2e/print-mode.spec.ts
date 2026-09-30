@@ -138,7 +138,7 @@ test("print mode plans per-card counts, prints a sparse override URL, and never 
   const url = new URL(popup.url());
   expect(url.pathname).toBe("/print.html");
   expect(url.searchParams.get("deckId")).toBe(DECK_ID);
-  expect(url.searchParams.get("auto")).toBe("1");
+  expect(url.searchParams.get("auto")).toBeNull(); // opening the sheet never prints by itself
   expect(url.searchParams.get("counts")).toBe(`${pokemon.id}:1,${item.id}:0,${energy.id}:1`);
   await popup.close();
 
@@ -167,4 +167,45 @@ test("print mode plans per-card counts, prints a sparse override URL, and never 
   await expect(badge(page, item)).toHaveText("2");
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("decklistgen-decklist") ?? "[]") as { count: number }[]);
   expect(stored.map((i) => i.count)).toEqual([3, 2, 4]);
+});
+
+test("the print dialog's artwork follows the grid's Original/Proxy toggle, not the last print", async ({ page }) => {
+  await page.goto("/");
+  const { pokemon, item, energy } = await pickCards(page);
+  await seedDeck(page, [{ card: pokemon, count: 3 }, { card: item, count: 2 }, { card: energy, count: 4 }]);
+  // A previous print left "proxy" behind; it must not win over the toggle.
+  await page.evaluate(() => localStorage.setItem("print-options-v1", JSON.stringify({ artwork: "proxy", mode: "sheet" })));
+  await page.reload();
+  await gotoDeckBuild(page);
+  await page.evaluate(() => {
+    const w = window as unknown as { __printUrls: string[] };
+    w.__printUrls = [];
+    window.open = (u?: string | URL) => {
+      w.__printUrls.push(String(u));
+      return null;
+    };
+  });
+  const openSheet = async () => {
+    await printBar(page).getByRole("button", { name: "Print…" }).click();
+    await page.locator(".print-dialog .btn-primary").click();
+    const urls = await page.evaluate(() => (window as unknown as { __printUrls: string[] }).__printUrls);
+    return new URL(urls[urls.length - 1], "http://x");
+  };
+
+  // The app starts in Original.
+  await expect(page.getByRole("button", { name: "Original", exact: true })).toHaveClass(/active/);
+  await enterPrintMode(page);
+  await printBar(page).getByRole("button", { name: "Print…" }).click();
+  await expect(page.getByTestId("print-art-original")).toBeChecked();
+  await page.locator(".print-dialog .btn-secondary").click();
+  const original = await openSheet();
+  expect(original.searchParams.get("art")).toBe("original");
+  expect(original.searchParams.get("auto")).toBeNull();
+
+  // Flip the grid to Proxy: the next print is proxies.
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Proxy", exact: true }).click();
+  await enterPrintMode(page);
+  const proxy = await openSheet();
+  expect(proxy.searchParams.get("art")).toBeNull();
 });

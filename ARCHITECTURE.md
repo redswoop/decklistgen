@@ -98,7 +98,8 @@ See also: [CLAUDE.md](./CLAUDE.md) (commands, conventions), [CARD_LAB.md](./CARD
 - **Cricut mode** (`?mode=cricut`, PrintDialog → Layout) — the sheet reproduces
   Design Space's own Letter Print Then Cut raster (6 landscape cards, its
   registration marks, its bleed) and downloads a lossless PDF, so Design Space
-  only cuts. Geometry profile: `shared/utils/print-cricut-layout.ts`;
+  only cuts. With `paper=super-b` the page carries that raster twice, a half
+  turn apart, for a 13 × 19 sheet that is cut in half. Geometry profile: `shared/utils/print-cricut-layout.ts`;
   compositing: `print/cricut-export.ts`; PDF bytes: `shared/utils/pdf-image-pages.ts`;
   mark pixels: `client/public/cricut/ds-marks-letter.png`. See PRINT_SHEET.md.
 

@@ -73,9 +73,8 @@ test.describe("Jumbo print", () => {
     expect(box!.height).toBeCloseTo(JUMBO_H_PX, 0);
   });
 
-  // Capture the print URL by stubbing window.open. This is more robust than
-  // waitForEvent("popup") here: the real popup carries auto=1, whose
-  // window.print() can hang headless Chromium across sequential tests.
+  // Capture the print URL by stubbing window.open rather than waiting on a
+  // real popup across sequential tests.
   async function captureOpenUrl(page: import("@playwright/test").Page): Promise<string> {
     return page.evaluate(() => (window as unknown as { __jumboOpenUrl?: string }).__jumboOpenUrl ?? "");
   }

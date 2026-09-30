@@ -1,6 +1,6 @@
 /**
  * Cricut Print Then Cut mode on /print.html?mode=cricut: six landscape cards
- * per Letter page at Design Space's raster geometry, its registration marks,
+ * per Letter page (or two such regions on a Super-B sheet, see the second block) at Design Space's raster geometry, its registration marks,
  * a lossless PDF download, and the one-time Design Space cut fixture.
  *
  * The numbers asserted here were measured from a real Design Space print
@@ -157,11 +157,136 @@ test.describe("/print.html cricut mode", () => {
     expect(alpha(0, 0)).toBe(0); // rounded corner
   });
 
-  test("honours lift= and pins the paper to Letter even when the URL says otherwise", async ({ page }) => {
-    await openCricut(page, "&lift=5&paper=super-b&orientation=landscape");
+  test("honours lift= and pins the orientation even when the URL says otherwise", async ({ page }) => {
+    await openCricut(page, "&lift=5&orientation=landscape");
     await expect(page.getByTestId("cricut-meta")).toContainText("lifted 5 mm");
     const box = (await page.locator(".cricut-page").first().boundingBox())!;
     expect(box.width).toBeCloseTo(816, 0);
     expect(box.height).toBeCloseTo(1056, 0);
+  });
+});
+
+/**
+ * paper=super-b: one 13 × 19 in page carrying the Letter raster twice, a half
+ * turn apart, each with the Letter page's top-left on a factory corner of the
+ * sheet (top-right and bottom-left in the portrait feed). The sheet is cut in
+ * half and each half is cut as a Letter page.
+ */
+test.describe("/print.html cricut mode on Super-B", () => {
+  const PX = 96 / 72; // CSS px per pt
+
+  test("lays two Letter regions out in opposite corners, twelve per page", async ({ page }) => {
+    await openCricut(page, "&paper=super-b");
+    const pages = page.locator(".cricut-page");
+    await expect(pages).toHaveCount(1); // 7 cards → 6 in the top region, 1 in the bottom
+    await expect(pages.first().locator(".cricut-region")).toHaveCount(2);
+    await expect(pages.first().locator(".cricut-region").first().locator(".cricut-cell")).toHaveCount(6);
+    await expect(pages.first().locator(".cricut-region").nth(1).locator(".cricut-cell")).toHaveCount(1);
+    await expect(page.getByTestId("cricut-meta")).toContainText("Super-B (13 × 19 in) · 12 per sheet · 1 sheet · two Letter regions");
+    await expect(page.getByTestId("cricut-meta")).toContainText("17.81 × 19.69 cm");
+
+    const rel = async (loc: import("@playwright/test").Locator) => {
+      const pg = (await pages.first().boundingBox())!;
+      const b = (await loc.boundingBox())!;
+      return { x: b.x - pg.x, y: b.y - pg.y, w: b.width, h: b.height, right: pg.width - (b.x - pg.x + b.width), bottom: pg.height - (b.y - pg.y + b.height) };
+    };
+    const pg = (await pages.first().boundingBox())!;
+    expect(pg.width).toBeCloseTo(13 * 96, 0);
+    expect(pg.height).toBeCloseTo(19 * 96, 0);
+
+    // Top region: the raster turned a quarter turn clockwise. Its Letter top
+    // margin (40 pt) is now against the page's right edge, its left margin
+    // (36 pt) against the page's top edge.
+    const top = await rel(page.locator(".cricut-marks").first());
+    expect(top.w).toBeCloseTo(739.2 * PX, 0);
+    expect(top.h).toBeCloseTo(530.16 * PX, 0);
+    expect(top.right).toBeCloseTo(40 * PX, 0);
+    expect(top.y).toBeCloseTo(36 * PX, 0);
+    // Bottom region: the same, a half turn round.
+    const bottom = await rel(page.locator(".cricut-marks").nth(1));
+    expect(bottom.w).toBeCloseTo(739.2 * PX, 0);
+    expect(bottom.x).toBeCloseTo(40 * PX, 0);
+    expect(bottom.bottom).toBeCloseTo(36 * PX, 0);
+    // The cut line is drawn across the middle at print weight (1.5 pt = 2 px).
+    const cut = await rel(page.getByTestId("cricut-cut-line"));
+    expect(cut.y + cut.h / 2).toBeCloseTo(pg.height / 2, 0);
+    expect(cut.w).toBeCloseTo(pg.width, 0);
+    expect(cut.h).toBeCloseTo(2, 0);
+    // Both regions stay in their own half of the sheet.
+    expect(top.y + top.h).toBeLessThan(pg.height / 2);
+    expect(bottom.y).toBeGreaterThan(pg.height / 2);
+
+    // Slot 0 sits at raster (0, 377): 377 px @300dpi in from the mark edge that
+    // faces the Letter top, flush with the edge that faces the Letter left.
+    const s0 = await rel(page.locator('.cricut-cell[data-entry-index="0"]'));
+    expect(s0.w).toBeCloseTo((744 / 300) * 96, 0);
+    expect(s0.h).toBeCloseTo((1028 / 300) * 96, 0);
+    expect(s0.y).toBeCloseTo(top.y, 0);
+    expect(s0.right - top.right).toBeCloseTo((377 / 300) * 96, 0);
+    const s6 = await rel(page.locator('.cricut-cell[data-entry-index="6"]'));
+    expect(s6.bottom).toBeCloseTo(bottom.bottom, 0);
+    expect(s6.x - bottom.x).toBeCloseTo((377 / 300) * 96, 0);
+  });
+
+  test("downloads a 13 × 19 PDF with both rasters turned into place", async ({ page }) => {
+    test.setTimeout(120_000);
+    await openCricut(page, "&paper=super-b");
+    const [download] = await Promise.all([
+      page.waitForEvent("download", { timeout: 90_000 }),
+      page.getByTestId("cricut-pdf-download").click(),
+    ]);
+    expect(download.suggestedFilename()).toBe("cricut-ptc-super-b-12up-cards-up0mm.pdf");
+    const path = (await download.path())!;
+    const text = new TextDecoder("latin1").decode(await readFile(path));
+    expect(text).toContain("/Count 1");
+    expect(text).toContain("/MediaBox [0 0 936 1368]");
+    expect(text.match(/\/Width 2209 \/Height 3080 \/ColorSpace \/DeviceRGB/g)?.length).toBe(2);
+    expect(text).toContain("q 0 -530.16 739.2 0 156.8 1332 cm /Im Do Q");
+    expect(text).toContain("q 0 530.16 -739.2 0 779.2 36 cm /Im2 Do Q");
+    expect(text).toContain("q 0 G 1.5 w [12 6] 0 d 0 684 m 936 684 l S Q");
+    await expect(page.getByTestId("cricut-pdf-error")).toHaveCount(0);
+
+    if (!spawnSync("which", ["pdftoppm"]).status) {
+      const dir = await mkdtemp(join(tmpdir(), "cricut-e2e-"));
+      const r = spawnSync("pdftoppm", ["-r", "300", "-f", "1", "-l", "1", "-png", path, join(dir, "p")]);
+      expect(r.status).toBe(0);
+      const sharp = (await import("sharp")).default;
+      const { data, info } = await sharp(join(dir, "p-1.png")).raw().toBuffer({ resolveWithObject: true });
+      expect(info.width).toBe(3900);
+      expect(info.height).toBe(5700);
+      const at = (x: number, y: number) => {
+        const i = (Math.round(y) * info.width + Math.round(x)) * info.channels;
+        return [data[i], data[i + 1], data[i + 2]];
+      };
+      const dark = (p: [number, number]) => at(...p).every((c) => c < 80);
+      const white = (p: [number, number]) => at(...p).every((c) => c > 245);
+      // Raster px → page px at 300 dpi. Letter margins: 36 pt = 150 px, 40 pt = 166.67 px.
+      const top = (rx: number, ry: number): [number, number] => [3900 - 166.67 - ry, 150 + rx];
+      const bottom = (rx: number, ry: number): [number, number] => [166.67 + ry, 5700 - 150 - rx];
+      for (const at300 of [top, bottom]) {
+        // Same probes as the Letter test, through the region's turn.
+        expect(dark(at300(100, 8))).toBe(true);
+        expect(dark(at300(8, 100))).toBe(true);
+        expect(white(at300(26, 26))).toBe(true);
+        expect(dark(at300(2100, 3077))).toBe(true);
+        expect(white(at300(514, 749))).toBe(false); // slot 0 holds a card
+        expect(white(at300(1051, 749))).toBe(true); // gutter
+      }
+      // Top region is full; the bottom one holds a single card.
+      expect(white(top(1075 + 514, 1959 + 372))).toBe(false);
+      expect(white(bottom(1075 + 514, 749))).toBe(true);
+      // The cut line is printed across the middle: 1.5 pt (6 px) thick, 12 pt
+      // on / 6 pt off (50 px / 25 px), with blank paper either side of it.
+      expect(dark([25, 2850])).toBe(true);
+      expect(dark([3775, 2850])).toBe(true);
+      expect(white([62, 2850])).toBe(true); // in a gap
+      let inked = 0;
+      for (let x = 0; x < 3900; x++) if (dark([x, 2850])) inked++;
+      expect(inked / 3900).toBeGreaterThan(0.6);
+      for (let x = 50; x < 3900; x += 50) {
+        expect(white([x, 2850 - 40])).toBe(true);
+        expect(white([x, 2850 + 40])).toBe(true);
+      }
+    }
   });
 });

@@ -31,6 +31,8 @@
  *                       (jumbo pair-picker) to give each card its own version;
  *                       a single value applies to all cards.
  *   ?auto=1           — fire window.print() automatically after fonts settle.
+ *                       Nothing in the app sends it: the sheet opens and the
+ *                       user presses Print (or Download print PDF) in the bar.
  */
 import { ref, computed, watch, onMounted } from "vue";
 import {
@@ -56,8 +58,12 @@ import {
 } from "../../shared/utils/print-cricut-archive.js";
 import { buildZip } from "../../shared/utils/zip-store.js";
 import {
-  CRICUT_LAYOUT,
+  cricutLayoutForPaper,
+  cricutLiftMm,
   cricutPages,
+  cricutPageRegions,
+  cricutRegionTransform,
+  CRICUT_CUT_LINE,
   cricutRasterBox,
   cricutSlotBox,
   cricutSheetCm,
@@ -73,9 +79,9 @@ import {
   pageToPdfImage,
   buildCricutPdf,
   cricutFixturePng,
+  type CricutPdfPage,
 } from "./cricut-export.js";
 import { rasterizeCellCanvas } from "./rasterize-page.js";
-import type { PdfImagePage } from "../../shared/utils/pdf-image-pages.js";
 import {
   cropMarkLayout,
   pageGridShape,
@@ -104,11 +110,10 @@ const CSS_PX_PER_IN = 96;
 
 // Parsed URL grammar (see print-params.ts / PRINT_SHEET.md).
 const params = parsePrintParams(window.location.search);
-const { cardSize, cropMarks, autoPrint, liftMm } = params;
-// Cricut Print Then Cut reproduces Design Space's Letter raster, so it pins
-// the paper regardless of what the URL says.
+const { cardSize, cropMarks, autoPrint, paper } = params;
+// Cricut Print Then Cut reproduces Design Space's Letter raster (once on
+// Letter, twice on Super-B), so it pins the orientation whatever the URL says.
 const isCricut = params.mode === "cricut";
-const paper = isCricut ? "letter" : params.paper;
 const orientation = isCricut ? "portrait" : params.orientation;
 const cardDims = CARD_DIMS_IN[cardSize];
 const PRINT_SCALE_X = (cardDims.w * CSS_PX_PER_IN) / CARD_W;
@@ -424,12 +429,31 @@ async function downloadCricutArchive() {
 // Space's own Letter raster (its marks, its slot positions, its bleed) drawn
 // with our cards and lifted `liftMm`; the PDF places that raster where Design
 // Space would. Design Space keeps one fixture image the size of the sheet so
-// its cut job matches every page. Geometry: print-cricut-layout.ts.
-const cricutLayout = CRICUT_LAYOUT;
+// its cut job matches every page. On Super-B the page holds that raster twice,
+// a half turn apart, one per half of the sheet. Geometry: print-cricut-layout.ts.
+const cricutLayout = cricutLayoutForPaper(paper);
+const liftMm = cricutLiftMm(params.liftMm, cricutLayout);
 const cricutPageList = computed(() => {
   const per = cricutCardsPerSheet(cricutLayout);
-  return cricutPages(entries.value, cricutLayout).map((cells, p) => ({ cells, start: p * per }));
+  return cricutPages(entries.value, cricutLayout).map((cells, p) => ({
+    regions: cricutPageRegions(cells, cricutLayout).map((r) => ({ ...r, start: p * per + r.start })),
+  }));
 });
+const cricutHalves = cricutLayout.regions.length > 1;
+// The cut guide is part of the print: same place and weight as in the PDF.
+const cricutCutLineStyle = cricutLayout.cutLineTopPt === null ? null : {
+  top: `${cricutLayout.cutLineTopPt - CRICUT_CUT_LINE.widthPt / 2}pt`,
+  borderTopWidth: `${CRICUT_CUT_LINE.widthPt}pt`,
+};
+const cricutPaperLabel = cricutHalves ? "Super-B (13 × 19 in)" : "Letter";
+function cricutRegionStyle(region: (typeof cricutLayout.regions)[number]) {
+  return {
+    width: `${cricutLayout.sheetWPt / 72}in`,
+    height: `${cricutLayout.sheetHPt / 72}in`,
+    transform: cricutRegionTransform(region, cricutLayout),
+    transformOrigin: "top left",
+  };
+}
 const cricutRaster = cricutRasterBox(liftMm, cricutLayout);
 const cricutMarksStyle = {
   left: `${cricutRaster.leftIn}in`,
@@ -460,7 +484,10 @@ const cricutScalerStyle = {
 const cricutSheetSize = cricutSheetCm(cricutLayout);
 const cricutMeta = computed(() => {
   const pages = cricutPageList.value.length;
-  return `Letter · ${cricutCardsPerSheet(cricutLayout)} per sheet · ${pages} sheet${pages === 1 ? "" : "s"} · lifted ${liftMm} mm (lower marks ${cricutBottomClearanceMm(liftMm, cricutLayout).toFixed(1)} mm from the edge) · Design Space fixture ${cricutSheetSize.w} × ${cricutSheetSize.h} cm`;
+  const lift = cricutHalves && liftMm === 0
+    ? "two Letter regions, cut the sheet in half at 9.5 in, no lift"
+    : `lifted ${liftMm} mm (lower marks ${cricutBottomClearanceMm(liftMm, cricutLayout).toFixed(1)} mm from the edge)`;
+  return `${cricutPaperLabel} · ${cricutCardsPerSheet(cricutLayout)} per sheet · ${pages} sheet${pages === 1 ? "" : "s"} · ${lift} · Design Space fixture ${cricutSheetSize.w} × ${cricutSheetSize.h} cm`;
 });
 const cricutPdfExport = ref<{ label: string } | null>(null);
 const cricutPdfError = ref<string | null>(null);
@@ -485,12 +512,16 @@ async function downloadCricutPdf() {
       byKey.set(item.key, toLandscape(portrait));
     }
     const keyOf = (e: PrintEntry) => `${e.card.id}|${e.artMode}|${e.artUrl}`;
-    const pdfPages: PdfImagePage[] = [];
+    const pdfPages: CricutPdfPage[] = [];
     const pages = cricutPageList.value;
     for (let p = 0; p < pages.length; p++) {
       cricutPdfExport.value = { label: `Encoding page ${p + 1} of ${pages.length}…` };
-      const cards = pages[p].cells.map((e) => byKey.get(keyOf(e)) ?? null);
-      pdfPages.push(await pageToPdfImage(composeCricutPage(cards, marks, cricutLayout)));
+      const rasters: CricutPdfPage = [];
+      for (const { region, cells } of pages[p].regions) {
+        const cards = cells.map((e) => byKey.get(keyOf(e)) ?? null);
+        rasters.push({ region, image: await pageToPdfImage(composeCricutPage(cards, marks, cricutLayout)) });
+      }
+      pdfPages.push(rasters);
     }
     saveBlob(buildCricutPdf(pdfPages, liftMm, cricutLayout), cricutPdfFilename(deckName.value, liftMm, cricutLayout));
   } catch (e) {
@@ -506,6 +537,10 @@ async function downloadCricutFixture() {
   } catch (e) {
     cricutPdfError.value = describeRasterError(e);
   }
+}
+
+function printSheet() {
+  window.print();
 }
 
 function downloadCutFile() {
@@ -545,7 +580,7 @@ function installPageRule() {
           class="cut-file-btn"
           data-testid="cricut-pdf-download"
           :disabled="cricutPdfExport !== null"
-          :title="`Lossless 300 dpi PDF of every page exactly as Design Space would print it, with its registration marks and bleed, lifted ${liftMm} mm. Print at 100% on Letter, fit-to-page off.`"
+          :title="`Lossless 300 dpi PDF of every page exactly as Design Space would print it, with its registration marks and bleed, lifted ${liftMm} mm. Print at 100% on ${cricutPaperLabel}, fit-to-page off.`"
           @click="downloadCricutPdf"
         >
           <template v-if="cricutPdfExport">{{ cricutPdfExport.label }}</template>
@@ -569,27 +604,41 @@ function installPageRule() {
         class="print-page-sheet cricut-page"
         :style="{ width: `${cricutLayout.pageWPt / 72}in`, height: `${cricutLayout.pageHPt / 72}in` }"
       >
-        <img class="cricut-marks" :src="cricutLayout.marksAsset" :style="cricutMarksStyle" alt="" />
         <div
-          v-for="(e, i) in page.cells"
-          :key="`${e.card.id}-${i}`"
-          class="print-cell cricut-cell"
-          :data-entry-index="page.start + i"
-          :style="cricutSlotStyle(i)"
+          v-for="(region, r) in page.regions"
+          :key="r"
+          class="cricut-region"
+          :style="cricutRegionStyle(region.region)"
         >
-          <div class="cricut-rotate" :style="cricutRotateStyle">
-            <div class="cricut-card" :style="cricutCardStyle">
-              <img v-if="e.plain" class="print-original" :src="e.artUrl" alt="" />
-              <div v-else class="print-scaler" :style="cricutScalerStyle">
-                <CssCardRenderer
-                  :card="e.card"
-                  :detail="e.detail"
-                  :art-url="e.artUrl"
-                />
+          <img class="cricut-marks" :src="cricutLayout.marksAsset" :style="cricutMarksStyle" alt="" />
+          <div
+            v-for="(e, i) in region.cells"
+            :key="`${e.card.id}-${i}`"
+            class="print-cell cricut-cell"
+            :data-entry-index="region.start + i"
+            :style="cricutSlotStyle(i)"
+          >
+            <div class="cricut-rotate" :style="cricutRotateStyle">
+              <div class="cricut-card" :style="cricutCardStyle">
+                <img v-if="e.plain" class="print-original" :src="e.artUrl" alt="" />
+                <div v-else class="print-scaler" :style="cricutScalerStyle">
+                  <CssCardRenderer
+                    :card="e.card"
+                    :detail="e.detail"
+                    :art-url="e.artUrl"
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
+        <div
+          v-if="cricutCutLineStyle"
+          class="cricut-halfway"
+          data-testid="cricut-cut-line"
+          :style="cricutCutLineStyle"
+          title="Printed cut line: cut the sheet in half here; each half goes through the Cricut as a Letter page"
+        ></div>
       </section>
     </template>
     <template v-else>
@@ -597,6 +646,15 @@ function installPageRule() {
         <button
           type="button"
           class="cut-file-btn"
+          data-testid="sheet-print"
+          title="Open the browser's print dialog. Print at 100% with margins set to None."
+          @click="printSheet"
+        >
+          Print…
+        </button>
+        <button
+          type="button"
+          class="cut-file-btn cut-file-btn-quiet"
           data-testid="cut-file-download"
           :title="`One compound path, ${cutFile.cutCount} cuts, 3 mm corners. Import into Design Space, then place the group's top-left at X ${cutFile.originLabel}, Y ${cutFile.originLabel} on the mat with the paper in the mat corner.`"
           @click="downloadCutFile"
@@ -879,10 +937,26 @@ html, body {
   pointer-events: none;
 }
 
-/* Cricut Print Then Cut page: Design Space's raster geometry on a Letter sheet.
-   Marks image and card slots are absolutely positioned in inches. */
+/* Cricut Print Then Cut page: Design Space's Letter sheet, once per region,
+   each turned into place. Marks image and card slots are absolutely
+   positioned in inches inside their region. */
 .cricut-page {
   background: white;
+}
+.cricut-region {
+  /* size + transform set inline via cricutRegionStyle */
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+/* Printed guide for where the big sheet is cut in two; position and weight
+   set inline via cricutCutLineStyle to match the PDF. */
+.cricut-halfway {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1.5pt dashed #000;
+  pointer-events: none;
 }
 .cricut-marks {
   position: absolute;

@@ -259,3 +259,20 @@ test.describe("/print.html", () => {
       .toBe("error");
   });
 });
+
+test("/print.html waits for the user: opening the sheet prints nothing until Print… is pressed", async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem("gallery-print-ids", JSON.stringify(["sv01-001"]));
+    (window as unknown as { __prints: number }).__prints = 0;
+    window.print = () => {
+      (window as unknown as { __prints: number }).__prints++;
+    };
+  });
+  await page.goto("/print.html?gallery=1");
+  await page.waitForFunction(() => document.documentElement.dataset.printState === "ready", { timeout: 15000 });
+  await page.waitForTimeout(300);
+  const prints = () => page.evaluate(() => (window as unknown as { __prints: number }).__prints);
+  expect(await prints()).toBe(0);
+  await page.getByTestId("sheet-print").click();
+  expect(await prints()).toBe(1);
+});

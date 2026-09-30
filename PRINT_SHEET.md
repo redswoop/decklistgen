@@ -60,9 +60,9 @@ await page.screenshot({ path: "print.png", fullPage: true });
 | `counts`       | `<cardId>:<n>[,…]` (base card id of the deck entry)         | —          | deck path only: per-card copy overrides from print mode; `0` drops the card, unlisted cards follow the deck (or `qty`). Encoded sparsely by `encodePrintCounts` in `print-plan.ts` |
 | `art`          | `proxy` \| `cleaned` \| `original` (csv, 1:1 with `cardId`) | `proxy`    | `cleaned`/`original` print as plain `<img>` |
 | `crop`         | `0` to disable                                              | on         | crop marks in the 0.25in gutter + 0.5mm gap |
-| `auto`         | `1` to auto-print on load (Cricut mode: auto-download the PDF) | off     | **keep off for headless** |
-| `mode`         | `cricut` — Print Then Cut without Design Space printing; pins Letter portrait | `sheet` | |
-| `lift`         | Cricut mode: mm to lift the raster up the page (0–30)       | `8`        | |
+| `auto`         | `1` to auto-print on load (Cricut mode: auto-download the PDF) | off     | **keep off for headless**. Nothing in the app sends it: every print entry point just opens the sheet, and the user presses **Print…** (`sheet-print`) or **Download print PDF** there |
+| `mode`         | `cricut` — Print Then Cut without Design Space printing; pins portrait, no crop marks. `paper=super-b` puts two Letter regions on one 13 × 19 sheet | `sheet` | |
+| `lift`         | Cricut mode: mm to lift the raster up its Letter sheet (0–30) | `8` on Letter, `0` on Super-B | |
 
 ### Canonical examples
 
@@ -230,7 +230,7 @@ raster, measured 2026-09-25 from a real print
 | Lower marks | end 4.5 mm from the paper edge — inside most printers' dead zone, hence the lift |
 
 `print-cricut-layout.ts` holds that as `CRICUT_LETTER_6UP` (a profile, so A3 can
-follow once measured). The sheet lays the same geometry out live for preview
+follow once measured; Super-B below reuses it twice). The sheet lays the same geometry out live for preview
 (`.cricut-page`, slots absolutely positioned in inches, cards turned a quarter
 turn counter-clockwise inside a landscape `.print-cell`), and **Download print
 PDF** (`cricut-pdf-download`) rasterizes each unique card once
@@ -248,9 +248,35 @@ every printed page has the same six outlines at the same places, the cut job is
 identical for every sheet: Make It → print to PDF and discard → paper flush in
 the mat corner → cut. A partial last page just cuts empty rectangles.
 
-Print the PDF at 100 % on Letter, fit-to-page off. Paper/orientation/crop are
+Print the PDF at 100 % on Letter, fit-to-page off. Orientation/crop are
 pinned in this mode even if the URL says otherwise. Cards per sheet on the deck
-bar and in the dialog follow the mode.
+bar and in the dialog follow the mode and the paper.
+
+#### Super-B: two Letter regions on one 13 × 19 sheet
+
+`mode=cricut&paper=super-b` (`CRICUT_SUPER_B_12UP`) is not a Design Space size.
+It prints the Letter raster **twice on one 13 × 19 in page**, 12 cards, and the
+sheet is then cut in half across its length; each 13 × 9.5 in half goes through
+the Cricut as if it were a Letter page, against the same Letter cut fixture.
+
+| Fact | Value |
+|---|---|
+| Page | 936 × 1368 pt portrait (the printer feeds the 13 in edge) |
+| Top region | Letter sheet turned a quarter turn clockwise, its top-left on the page's **top-right** corner: `0 -530.16 739.2 0 156.8 1332 cm` |
+| Bottom region | the same a half turn round, Letter top-left on the page's **bottom-left** corner: `0 530.16 -739.2 0 779.2 36 cm` |
+| Seen landscape | that is top-left and bottom-right |
+| Cut line | 9.5 in (684 pt), **printed**: black, 1.5 pt, dashed 12/6 pt, edge to edge (`cricutCutLine()`); each Letter sheet ends 1 in short of it |
+| Lift | none: the marks sit 12.7 mm from the feed edges and 14.1 mm from the sides |
+
+Each region's Letter top-left is a factory corner of the big sheet, so the half
+loads into the mat corner with its registration marks exactly where Design
+Space looks for them; the hand-cut edge ends up on the far side, 1 in past where
+the Letter page would end. A region with no cards is left off the page (no
+marks), so up to six cards only ink the top half. The cut line is always
+printed and the preview shows it at the same weight. Geometry per region is a `CricutRegion` (turn + bounding
+box); `cricutRegionTransform()` places it in the preview and
+`cricutPdfMatrix()` in the PDF, which carries one raster per region
+(`buildPdf()` in `pdf-image-pages.ts`).
 
 Verified: Playwright decodes page 1 at 300 dpi and checks mark pixels, the
 corner gap, card islands and white gutters at the measured coordinates

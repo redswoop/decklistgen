@@ -3,7 +3,7 @@ import { deflateSync } from "node:zlib";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildImagePdf, type PdfImagePage } from "./pdf-image-pages";
+import { buildImagePdf, buildPdf, type PdfImagePage } from "./pdf-image-pages";
 
 const dec = new TextDecoder("latin1");
 
@@ -49,6 +49,41 @@ describe("buildImagePdf", () => {
   test("empty input yields a valid zero-page document", () => {
     const t = dec.decode(buildImagePdf([], place));
     expect(t).toContain("/Kids [] /Count 0");
+  });
+});
+
+describe("buildPdf", () => {
+  const two = buildPdf([
+    {
+      pageWPt: 936,
+      pageHPt: 1368,
+      images: [
+        { image: page(2, 3, [255, 0, 0]), matrix: [0, -530.16, 739.2, 0, 156.8, 1332] },
+        { image: page(2, 3, [0, 0, 255]), matrix: [0, 530.16, -739.2, 0, 779.2, 36] },
+      ],
+      lines: [{ x1: 0, y1: 684, x2: 936, y2: 684, widthPt: 1.5, dashPt: [12, 6] }],
+    },
+  ]);
+  const text = dec.decode(two);
+
+  test("places several turned images on one page, each under its own name", () => {
+    expect(text).toContain("/Count 1");
+    expect(text).toContain("/MediaBox [0 0 936 1368]");
+    expect(text).toContain("q 0 -530.16 739.2 0 156.8 1332 cm /Im Do Q\nq 0 530.16 -739.2 0 779.2 36 cm /Im2 Do Q");
+    expect(text).toMatch(/\/XObject << \/Im \d+ 0 R \/Im2 \d+ 0 R >>/);
+    expect(text.match(/\/Subtype \/Image/g)?.length).toBe(2);
+  });
+
+  test("strokes guide lines over the images", () => {
+    expect(text).toContain("/Im2 Do Q\nq 0 G 1.5 w [12 6] 0 d 0 684 m 936 684 l S Q");
+    const solid = dec.decode(buildPdf([{ pageWPt: 10, pageHPt: 10, images: [], lines: [{ x1: 1, y1: 2, x2: 3, y2: 4, widthPt: 0.5 }] }]));
+    expect(solid).toContain("q 0 G 0.5 w 1 2 m 3 4 l S Q");
+  });
+
+  test("a single upright image writes the same bytes as buildImagePdf", () => {
+    const img = page(2, 3, [9, 9, 9]);
+    const viaPages = buildPdf([{ pageWPt: 612, pageHPt: 792, images: [{ image: img, matrix: [530.16, 0, 0, 739.2, 36, 35.4772] }] }]);
+    expect(viaPages).toEqual(buildImagePdf([img], place));
   });
 });
 

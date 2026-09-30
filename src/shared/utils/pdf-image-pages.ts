@@ -1,6 +1,6 @@
 /**
- * Minimal PDF writer: one full-colour raster per page, placed at an exact
- * position in points, nothing else. Used for the Cricut print file, where the
+ * Minimal PDF writer: full-colour rasters, each placed at an exact position in
+ * points (quarter turns allowed), plus plain black guide lines, nothing else. Used for the Cricut print file, where the
  * page must be a pixel-exact 300 dpi image at a known offset and no viewer or
  * driver may be allowed to "help". Pages carry their image already
  * zlib-deflated (the browser's CompressionStream("deflate") produces exactly
@@ -26,6 +26,26 @@ export interface PdfImagePlacement {
   hPt: number;
 }
 
+/** A straight black stroke, pt, PDF coordinates (origin bottom-left). */
+export interface PdfLine {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  widthPt: number;
+  /** Dash pattern, on/off; solid when absent. */
+  dashPt?: [number, number];
+}
+
+/** One printed page holding any number of images, each placed by its own `cm` operands. */
+export interface PdfPage {
+  pageWPt: number;
+  pageHPt: number;
+  images: { image: PdfImagePage; matrix: [number, number, number, number, number, number] }[];
+  /** Drawn over the images. */
+  lines?: PdfLine[];
+}
+
 const enc = new TextEncoder();
 
 function bytes(s: string): Uint8Array {
@@ -45,6 +65,16 @@ function concat(parts: Uint8Array[]): Uint8Array {
 const num = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(4).replace(/\.?0+$/, ""));
 
 export function buildImagePdf(pages: PdfImagePage[], place: PdfImagePlacement): Uint8Array {
+  return buildPdf(
+    pages.map((image) => ({
+      pageWPt: place.pageWPt,
+      pageHPt: place.pageHPt,
+      images: [{ image, matrix: [place.wPt, 0, 0, place.hPt, place.xPt, place.bottomPt] }],
+    })),
+  );
+}
+
+export function buildPdf(pages: PdfPage[]): Uint8Array {
   // Object 1 is the page tree; each page adds image, content, page objects.
   const objects: Uint8Array[] = [];
   const add = (body: Uint8Array | Uint8Array[]) => {
@@ -53,22 +83,35 @@ export function buildImagePdf(pages: PdfImagePage[], place: PdfImagePlacement): 
   };
   add(bytes("")); // placeholder for /Pages, filled once the page ids are known
   const pageIds: number[] = [];
-  const content = bytes(`q ${num(place.wPt)} 0 0 ${num(place.hPt)} ${num(place.xPt)} ${num(place.bottomPt)} cm /Im Do Q`);
+  // The first image of a page is /Im, the rest /Im2, /Im3…
+  const name = (i: number) => (i === 0 ? "Im" : `Im${i + 1}`);
   for (const pg of pages) {
-    const img = add([
-      bytes(
-        `<< /Type /XObject /Subtype /Image /Width ${pg.width} /Height ${pg.height} ` +
-          `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${pg.deflated.length} >>\nstream\n`,
-      ),
-      pg.deflated,
-      bytes("\nendstream"),
-    ]);
+    const imgs = pg.images.map(({ image }) =>
+      add([
+        bytes(
+          `<< /Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} ` +
+            `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${image.deflated.length} >>\nstream\n`,
+        ),
+        image.deflated,
+        bytes("\nendstream"),
+      ]),
+    );
+    const content = bytes(
+      [
+        ...pg.images.map(({ matrix }, i) => `q ${matrix.map(num).join(" ")} cm /${name(i)} Do Q`),
+        ...(pg.lines ?? []).map(
+          (l) =>
+            `q 0 G ${num(l.widthPt)} w ${l.dashPt ? `[${l.dashPt.map(num).join(" ")}] 0 d ` : ""}` +
+            `${num(l.x1)} ${num(l.y1)} m ${num(l.x2)} ${num(l.y2)} l S Q`,
+        ),
+      ].join("\n"),
+    );
     const cs = add([bytes(`<< /Length ${content.length} >>\nstream\n`), content, bytes("\nendstream")]);
     pageIds.push(
       add(
         bytes(
-          `<< /Type /Page /Parent 1 0 R /MediaBox [0 0 ${num(place.pageWPt)} ${num(place.pageHPt)}] ` +
-            `/Resources << /XObject << /Im ${img} 0 R >> >> /Contents ${cs} 0 R >>`,
+          `<< /Type /Page /Parent 1 0 R /MediaBox [0 0 ${num(pg.pageWPt)} ${num(pg.pageHPt)}] ` +
+            `/Resources << /XObject << ${imgs.map((id, i) => `/${name(i)} ${id} 0 R`).join(" ")} >> >> /Contents ${cs} 0 R >>`,
         ),
       ),
     );
