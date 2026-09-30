@@ -155,6 +155,38 @@ describe("deduplicateByArt", () => {
     expect(deduplicateByArt([])).toEqual([]);
   });
 
+  // Regression: a by-name set can hold different cards by the same artist at
+  // the same tier. Pikachu ex PAL 063 and PRE 028 are both N-DESIGN Double
+  // rares with different attacks — the lightbox was collapsing PRE 028 into
+  // PAL 063 and then falling back to the first printing in the list.
+  test("never collapses cards with different mechanics", () => {
+    const variants = [
+      { id: "sv02-063", illustrator: "N-DESIGN Inc.", rarity: "Double rare", mechanicsHash: "a5f6c97b" },
+      { id: "sv08.5-028", illustrator: "N-DESIGN Inc.", rarity: "Double rare", mechanicsHash: "150c59ae" },
+    ];
+    expect(deduplicateByArt(variants).map((v) => v.id)).toEqual(["sv02-063", "sv08.5-028"]);
+  });
+
+  test("still collapses true reprints (same mechanics, same art)", () => {
+    const variants = [
+      { id: "sv08-057", illustrator: "aky CG Works", rarity: "Double rare", mechanicsHash: "34c2e9c0" },
+      { id: "me02.5-057", illustrator: "aky CG Works", rarity: "Double rare", mechanicsHash: "34c2e9c0" },
+    ];
+    expect(deduplicateByArt(variants).map((v) => v.id)).toEqual(["sv08-057"]);
+  });
+
+  test("preferId pins that printing as its group's representative, in place", () => {
+    const variants = [
+      card("a", "Artist A", "Common"),
+      card("sv08-057", "aky", "Common"),
+      card("me02.5-057", "aky", "Common"), // same art, later set
+      card("z", "Artist Z", "Common"),
+    ];
+    expect(deduplicateByArt(variants, "me02.5-057").map((v) => v.id)).toEqual(["a", "me02.5-057", "z"]);
+    // Unknown preferId is a no-op.
+    expect(deduplicateByArt(variants, "nope").map((v) => v.id)).toEqual(["a", "sv08-057", "z"]);
+  });
+
   test("all unique illustrators keeps all variants", () => {
     const variants = [
       card("a", "Artist A"),

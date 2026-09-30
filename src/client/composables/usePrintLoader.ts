@@ -2,6 +2,7 @@ import { ref } from "vue";
 import { api, ApiError } from "../lib/client.js";
 import type { Card, CardDetail } from "../../shared/types/card.js";
 import { shouldPrintCard } from "../../shared/utils/print-filter.js";
+import { printRepeats } from "../../shared/utils/print-plan.js";
 import type { PrintParams, ArtMode } from "../../shared/utils/print-params.js";
 
 export interface PrintEntry {
@@ -43,7 +44,9 @@ export function usePrintLoader(params: PrintParams) {
     try {
       const status = await api.pokeproxyStatus(card.id);
       if (status.hasClean || status.hasComposite) {
-        return api.pokeproxyImageUrl(card.id, "clean");
+        // The image route is served with max-age=86400; key the URL on the
+        // file mtime so a regenerate-then-print never prints yesterday's art.
+        return api.pokeproxyImageUrl(card.id, "clean", status.mtime);
       }
     } catch {
       // Status endpoint is best-effort; fall through to the original art.
@@ -90,12 +93,8 @@ export function usePrintLoader(params: PrintParams) {
     const out: PrintEntry[] = [];
     for (const dc of deck.cards) {
       const card = dc.artCard ?? dc.card;
-      // A `counts=` override (keyed by the base card id, the deck entry's
-      // identity) wins outright; otherwise repeat by deck count or 1-each.
-      const override = params.counts[dc.card.id];
-      const repeats = override !== undefined
-        ? override
-        : params.qtyOneEach ? 1 : Math.max(1, dc.count);
+      // `counts=` is keyed by the base card id (the deck entry's identity).
+      const repeats = printRepeats(dc.count, params.counts[dc.card.id], params.qtyOneEach);
       out.push(...(await buildEntry(card, repeats, params.defaultArtMode)));
     }
     entries.value = out;

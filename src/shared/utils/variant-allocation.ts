@@ -46,16 +46,26 @@ export function artTier(rarity: string): number {
 
 /**
  * Pick one representative card per unique artwork.
- * Key: illustrator + art tier — same artist at the "regular" tier (Common/Uncommon/Rare)
- * is the same art reprinted. Premium tiers each get distinct artwork.
+ * Key: mechanics + illustrator + art tier — same artist at the "regular" tier
+ * (Common/Uncommon/Rare) is the same art reprinted. Premium tiers each get
+ * distinct artwork. Mechanics are part of the key because a by-name variant
+ * set can hold different cards by the same artist (Pikachu ex PAL 063 vs
+ * PRE 028, both N-DESIGN Double rares) — those are never the same art.
+ *
+ * `preferId` pins that card as its group's representative (the lightbox
+ * passes the card it was opened on, so it can't be deduped away).
  */
-export function deduplicateByArt<T extends { illustrator: string; rarity: string; id: string }>(variants: T[]): T[] {
+export function deduplicateByArt<T extends { illustrator: string; rarity: string; id: string; mechanicsHash?: string }>(
+  variants: T[],
+  preferId?: string,
+): T[] {
   const seen = new Map<string, T>();
   for (const v of variants) {
     const tier = artTier(v.rarity);
     // No illustrator (e.g. basic energy): dedup by tier alone
-    const key = v.illustrator ? `${v.illustrator}:${tier}` : `_unknown:${tier}`;
-    if (!seen.has(key)) seen.set(key, v);
+    const art = v.illustrator ? `${v.illustrator}:${tier}` : `_unknown:${tier}`;
+    const key = `${v.mechanicsHash ?? ""}|${art}`;
+    if (!seen.has(key) || v.id === preferId) seen.set(key, v);
   }
   return [...seen.values()];
 }

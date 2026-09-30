@@ -14,6 +14,7 @@ import {
   sinceLastPrintCounts,
   encodePrintCounts,
   decodePrintCounts,
+  printRepeats,
 } from "./print-plan.js";
 
 function card(p: Partial<Card>): Card {
@@ -53,6 +54,29 @@ describe("printCategoryOf", () => {
     for (const c of PRINT_CATEGORY_ORDER) expect(printCategoryLabel(c)).toBeTruthy();
     expect(PRINT_CATEGORY_ORDER[0]).toBe("pokemon");
     expect(PRINT_CATEGORY_ORDER.indexOf("basicenergy")).toBeGreaterThan(PRINT_CATEGORY_ORDER.indexOf("specialenergy"));
+  });
+});
+
+describe("printRepeats", () => {
+  it("repeats by deck count, or once for a proof sheet", () => {
+    expect(printRepeats(3, undefined, false)).toBe(3);
+    expect(printRepeats(3, undefined, true)).toBe(1);
+  });
+
+  it("a counts= override wins, including zero", () => {
+    expect(printRepeats(3, 1, false)).toBe(1);
+    expect(printRepeats(3, 0, false)).toBe(0);
+    expect(printRepeats(0, 2, false)).toBe(2);
+    expect(printRepeats(3, -1, false)).toBe(0);
+  });
+
+  // Regression: saved decks keep count-0 entries (removed in the grid, not
+  // swept) and the sparse counts= param never lists them; the sheet used to
+  // print one copy of each. Seen live on a prod deck with three such entries.
+  it("count-0 entries print nothing, in both modes", () => {
+    expect(printRepeats(0, undefined, false)).toBe(0);
+    expect(printRepeats(0, undefined, true)).toBe(0);
+    expect(printRepeats(-2, undefined, false)).toBe(0);
   });
 });
 

@@ -85,6 +85,19 @@ export function oneEachPrintCounts(entries: PrintPlanEntry[]): PrintCounts {
 }
 
 /**
+ * How many copies of a deck entry the print sheet lays out. A `counts=`
+ * override wins outright. Otherwise a count-0 entry prints nothing — saved
+ * decks keep entries removed in the grid but not swept, and the sparse
+ * `counts=` param never mentions them, so this is the only place that
+ * drops them. Never returns a negative.
+ */
+export function printRepeats(deckCount: number, override: number | undefined, qtyOneEach: boolean): number {
+  if (override !== undefined) return Math.max(0, override);
+  if (deckCount <= 0) return 0;
+  return qtyOneEach ? 1 : deckCount;
+}
+
+/**
  * Resolve stored overrides against the current deck: unknown ids are dropped,
  * missing ids default to their deck count, everything is clamped to
  * [0, deckCount]. The result always has exactly one entry per deck card.
