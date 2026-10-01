@@ -32,7 +32,7 @@ import ActingAsBanner from "./components/ActingAsBanner.vue";
 import AdminPanel from "./components/AdminPanel.vue";
 import ToastContainer from "./components/ToastContainer.vue";
 import { useDecklist } from "./composables/useDecklist.js";
-import { useDecks } from "./composables/useDecks.js";
+import { useDeckSave } from "./composables/useDeckSave.js";
 import { useAuth } from "./composables/useAuth.js";
 import { useActingAs } from "./composables/useActingAs.js";
 import { useAuthDialog } from "./composables/useAuthDialog.js";
@@ -76,8 +76,8 @@ const queueIsActive = computed(() => currentView.value === 'queue');
 useQueue(queueIsActive);
 const showAdmin = ref(false);
 
-const { items, totalCards, toText, currentDeckName, currentDeckId, isDirty, toDeckCards, markSaved, importSource, importedAt, undo, redo } = useDecklist();
-const { createDeck, updateDeck } = useDecks();
+const { items, totalCards, toText, currentDeckName, currentDeckId, undo, redo } = useDecklist();
+const { saveAsNew } = useDeckSave();
 
 const isMobile = useIsMobile();
 
@@ -86,7 +86,14 @@ const deckSubView = ref<'gallery' | 'build' | 'test' | 'setup'>(currentDeckId.va
 
 const showExport = ref(false);
 const showImport = ref(false);
-const showSaveDeck = ref(false);
+// The name dialog serves both "save this new deck" and "duplicate the loaded
+// deck" — same POST, different heading and suggested name.
+const saveDialogMode = ref<null | "save" | "duplicate">(null);
+const saveDialogInitialName = computed(() =>
+  saveDialogMode.value === "duplicate"
+    ? `${currentDeckName.value || "Untitled Deck"} (Copy)`
+    : currentDeckName.value || "",
+);
 
 // Browse multi-select + bulk generate.
 const browseGridRef = ref<InstanceType<typeof CardGrid> | null>(null);
@@ -141,34 +148,8 @@ onMounted(async () => {
 
 async function handleSaveDeck(name: string) {
   if (!isLoggedIn.value) { showAuthDialog.value = true; return; }
-  showSaveDeck.value = false;
-  try {
-    const deck = await createDeck({
-      name,
-      cards: toDeckCards(),
-      importedAt: importedAt.value ?? undefined,
-      importSource: importSource.value ?? undefined,
-    });
-    markSaved(deck.id, deck.name);
-  } catch (e) {
-    console.error("Save deck failed:", e);
-  }
-}
-
-async function handleWorkingSaveUpdate() {
-  if (!isLoggedIn.value || !currentDeckId.value || !isDirty.value) return;
-  try {
-    await updateDeck({
-      id: currentDeckId.value,
-      data: {
-        name: currentDeckName.value,
-        cards: toDeckCards(),
-      },
-    });
-    markSaved(currentDeckId.value, currentDeckName.value);
-  } catch (e) {
-    console.error("Save failed:", e);
-  }
+  saveDialogMode.value = null;
+  await saveAsNew(name);
 }
 
 function handleDeckUpdated() {
@@ -277,8 +258,7 @@ function handleTabClick(tab: string) {
     <!-- Deck context bar (visible when not on gallery sub-view) -->
     <div v-if="!isDeckGallery" class="dcb-wrapper">
       <DeckContextBar
-        @save="showSaveDeck = true"
-        @save-update="handleWorkingSaveUpdate"
+        @save="saveDialogMode = 'save'"
         @import="showImport = true"
         @go-to-gallery="handleGoToGallery"
       />
@@ -378,8 +358,7 @@ function handleTabClick(tab: string) {
             @preview-card="handleDeckPreview"
             @export="showExport = true"
             @import="showImport = true"
-            @save="showSaveDeck = true"
-            @save-update="handleWorkingSaveUpdate"
+            @duplicate="saveDialogMode = 'duplicate'"
           />
         </div>
 
@@ -457,10 +436,11 @@ function handleTabClick(tab: string) {
       @close="showExport = false"
     />
     <SaveDeckDialog
-      v-if="showSaveDeck"
-      :initial-name="currentDeckName || ''"
+      v-if="saveDialogMode"
+      :initial-name="saveDialogInitialName"
+      :title="saveDialogMode === 'duplicate' ? 'Duplicate Deck' : 'Save Deck'"
       @save="handleSaveDeck"
-      @close="showSaveDeck = false"
+      @close="saveDialogMode = null"
     />
     <AdminPanel
       v-if="showAdmin && isAdmin"

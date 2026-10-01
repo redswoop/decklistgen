@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, nextTick } from "vue";
+import { ref, computed, nextTick } from "vue";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
+import { useDeckSave } from "../composables/useDeckSave.js";
 import { useAuth } from "../composables/useAuth.js";
 import { useAuthDialog } from "../composables/useAuthDialog.js";
 import { useToast } from "../composables/useToast.js";
@@ -9,7 +10,6 @@ import { ApiError } from "../lib/client.js";
 
 const emit = defineEmits<{
   save: [];
-  "save-update": [];
   import: [];
   "go-to-gallery": [];
 }>();
@@ -17,19 +17,18 @@ const emit = defineEmits<{
 const {
   items, totalCards, countColor, DECK_SIZE,
   currentDeckId, currentDeckName, isDirty,
-  toDeckCards, markSaved,
-  importSource, importedAt,
+  renameDeck,
   undo, redo, canUndo, canRedo,
 } = useDecklist();
 
-const { createDeck, updateDeck } = useDecks();
+const { updateDeck } = useDecks();
+const { saving, saveCurrent } = useDeckSave();
 const { isLoggedIn } = useAuth();
 const { openAuthDialog } = useAuthDialog();
 
 const renaming = ref(false);
 const renameValue = ref("");
 const renameInput = ref<HTMLInputElement | null>(null);
-const saving = ref(false);
 
 function startRename() {
   renameValue.value = currentDeckName.value || "";
@@ -45,11 +44,12 @@ async function confirmRename() {
   renaming.value = false;
   if (!trimmed || !currentDeckId.value || trimmed === currentDeckName.value) return;
   const prev = currentDeckName.value;
-  markSaved(currentDeckId.value, trimmed); // optimistic; revert below if the server rejects
+  // Rename only — the cards' dirty state is untouched (a rename is not a save).
+  renameDeck(trimmed); // optimistic; revert below if the server rejects
   try {
     await updateDeck({ id: currentDeckId.value, data: { name: trimmed } });
   } catch (e) {
-    currentDeckName.value = prev;
+    renameDeck(prev);
     const toast = useToast();
     if (e instanceof ApiError && e.isAuthError) {
       toast.error(e.status === 401 ? "Sign in to rename decks" : "Not authorized to rename decks");
@@ -60,34 +60,21 @@ async function confirmRename() {
   }
 }
 
+// Save policy: a loaded deck saves in place whenever it's dirty (even to empty);
+// an unsaved deck needs cards and a name (the dialog, via `save`).
+const saveDisabledReason = computed(() => {
+  if (!isLoggedIn.value) return "Sign in to save decks";
+  if (saving.value) return "Saving…";
+  if (currentDeckId.value) return isDirty.value ? "" : "No unsaved changes";
+  return items.value.length === 0 ? "Add cards first" : "";
+});
+
 async function handleSave() {
-  if (items.value.length === 0) return;
-  saving.value = true;
-  try {
-    if (currentDeckId.value && isDirty.value) {
-      await updateDeck({
-        id: currentDeckId.value,
-        data: {
-          name: currentDeckName.value,
-          cards: toDeckCards(),
-        },
-      });
-      markSaved(currentDeckId.value, currentDeckName.value);
-    } else if (!currentDeckId.value) {
-      emit("save");
-      saving.value = false;
-      return;
-    }
-  } catch (e) {
-    const toast = useToast();
-    if (e instanceof ApiError && e.isAuthError) {
-      toast.error(e.status === 401 ? "Sign in to save decks" : "Not authorized to save decks");
-    } else {
-      toast.error("Failed to save deck");
-    }
-    console.error("Save failed:", e);
-  } finally {
-    saving.value = false;
+  if (saveDisabledReason.value) return;
+  if (currentDeckId.value) {
+    await saveCurrent();
+  } else {
+    emit("save");
   }
 }
 
@@ -130,7 +117,7 @@ const displayName = () => {
       </span>
 
       <!-- Unsaved indicator -->
-      <span v-if="isDirty && currentDeckId" class="dcb-unsaved">Unsaved</span>
+      <span v-if="isDirty" class="dcb-unsaved">Unsaved</span>
     </div>
 
     <div class="dcb-right">
@@ -145,11 +132,11 @@ const displayName = () => {
       <!-- Save button -->
       <button
         class="dcb-btn dcb-save-btn"
-        :disabled="!isLoggedIn || saving || items.length === 0 || (currentDeckId != null && !isDirty)"
-        :title="!isLoggedIn ? 'Sign in to save decks' : (currentDeckId && !isDirty ? 'No unsaved changes' : (items.length === 0 ? 'Add cards first' : ''))"
+        :disabled="!!saveDisabledReason"
+        :title="saveDisabledReason || (currentDeckId ? 'Save changes to this deck' : 'Save as a new deck')"
         @click="handleSave"
       >
-        {{ saving ? 'Saving...' : (currentDeckId && isDirty ? 'Save' : 'Save As...') }}
+        {{ saving ? 'Saving…' : 'Save' }}
       </button>
     </div>
   </div>

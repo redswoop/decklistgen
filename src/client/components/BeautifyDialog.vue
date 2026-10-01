@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { api } from "../lib/client.js";
-import { useDecks } from "../composables/useDecks.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { getTopRarityVariants } from "../../shared/utils/rarity-rank.js";
 import type { BeautifyMode } from "../../shared/types/beautify.js";
@@ -10,7 +9,6 @@ import type { Card } from "../../shared/types/card.js";
 import { deduplicateByArt } from "../../shared/utils/variant-allocation.js";
 
 const props = defineProps<{
-  deckId: string | null;
   deckName: string;
   deckCards?: DeckCard[];
 }>();
@@ -20,7 +18,6 @@ const emit = defineEmits<{
   updated: [];
 }>();
 
-const { beautifyDeck } = useDecks();
 const { replaceByName } = useDecklist();
 
 const mode = ref<BeautifyMode>("diverse");
@@ -61,20 +58,10 @@ async function handleAction() {
   status.value = "";
 
   try {
-    if (props.deckId) {
-      await beautifyDeck({
-        id: props.deckId,
-        options: {
-          mode: mode.value,
-          excludeRarities: [...excludeRarities.value],
-          excludePrintUnfriendly: excludePrintUnfriendly.value,
-        },
-      });
-      emit("updated");
-      emit("close");
-    } else {
-      await beautifyWorkingDeck();
-    }
+    // Always the working deck: the result lands as an unsaved, undoable edit
+    // regardless of whether the deck is saved. (The server beautify route
+    // mutated the saved copy and discarded unsaved edits on reload.)
+    await beautifyWorkingDeck();
   } catch (e) {
     status.value = "Beautify failed";
     console.error(e);

@@ -393,3 +393,111 @@ describe("useDecklist undo/redo", () => {
     expect(deck.items.value.find((i) => i.localId === "2")).toBeUndefined();
   });
 });
+
+describe("useDecklist save state", () => {
+  let deck: ReturnType<typeof useDecklist>;
+  let n = 0;
+
+  function savedDeck(id: string, ids: string[]) {
+    return {
+      id, name: `Deck ${id}`, createdAt: "", updatedAt: "",
+      cards: ids.map((c) => ({ count: 1, card: makeCard(c) })),
+    };
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    deck = useDecklist();
+    deck.closeDeck();
+    deck.loadSavedDeck(savedDeck(`saved-${++n}`, ["1", "2"]));
+  });
+
+  it("a freshly loaded deck is clean; an edit makes it dirty", () => {
+    expect(deck.isDirty.value).toBe(false);
+    deck.addCard(makeCard("3"));
+    expect(deck.isDirty.value).toBe(true);
+  });
+
+  it("renameDeck changes the name without touching the dirty state", () => {
+    deck.addCard(makeCard("3"));
+    deck.renameDeck("Renamed");
+    expect(deck.currentDeckName.value).toBe("Renamed");
+    expect(deck.isDirty.value).toBe(true);
+    // and renaming a clean deck keeps it clean
+    deck.markSaved(deck.currentDeckId.value!, "Renamed");
+    deck.renameDeck("Again");
+    expect(deck.isDirty.value).toBe(false);
+  });
+
+  it("markSaved resets the dirty baseline", () => {
+    deck.addCard(makeCard("3"));
+    deck.markSaved(deck.currentDeckId.value!, deck.currentDeckName.value);
+    expect(deck.isDirty.value).toBe(false);
+  });
+
+  it("clear empties the cards but keeps the deck loaded and dirty", () => {
+    const id = deck.currentDeckId.value;
+    deck.clear();
+    expect(deck.items.value.length).toBe(0);
+    expect(deck.currentDeckId.value).toBe(id);
+    expect(deck.isDirty.value).toBe(true);
+  });
+
+  it("undo after clear restores cards and the clean baseline", () => {
+    const id = deck.currentDeckId.value;
+    deck.clear();
+    deck.undo();
+    expect(deck.items.value.length).toBe(2);
+    expect(deck.currentDeckId.value).toBe(id);
+    expect(deck.isDirty.value).toBe(false);
+  });
+
+  it("closeDeck drops identity and history", () => {
+    deck.addCard(makeCard("3"));
+    deck.closeDeck();
+    expect(deck.items.value.length).toBe(0);
+    expect(deck.currentDeckId.value).toBeNull();
+    expect(deck.currentDeckName.value).toBe("");
+    expect(deck.isDirty.value).toBe(false);
+    expect(deck.canUndo.value).toBe(false);
+  });
+
+  it("undo/redo carry the deck identity across an import in 'new' mode", () => {
+    const id = deck.currentDeckId.value;
+    deck.importDeck([makeItem("9")], "new", "Pasted decklist");
+    expect(deck.currentDeckId.value).toBeNull();
+    expect(deck.importSource.value).toBe("Pasted decklist");
+    deck.undo();
+    expect(deck.currentDeckId.value).toBe(id);
+    expect(deck.isDirty.value).toBe(false);
+    deck.redo();
+    expect(deck.currentDeckId.value).toBeNull();
+    expect(deck.items.value[0].localId).toBe("9");
+  });
+
+  it("import 'replace' keeps the loaded deck's identity and makes it dirty", () => {
+    const id = deck.currentDeckId.value;
+    const name = deck.currentDeckName.value;
+    deck.importDeck([makeItem("9", 4)], "replace", "src");
+    expect(deck.currentDeckId.value).toBe(id);
+    expect(deck.currentDeckName.value).toBe(name);
+    expect(deck.items.value.map((i) => i.localId)).toEqual(["9"]);
+    expect(deck.isDirty.value).toBe(true);
+  });
+
+  it("import 'merge' adds counts into the loaded deck and makes it dirty", () => {
+    const id = deck.currentDeckId.value;
+    deck.importDeck([makeItem("1", 2), makeItem("9")], "merge", "src");
+    expect(deck.currentDeckId.value).toBe(id);
+    expect(deck.getDeckCount("test", "1")).toBe(3);
+    expect(deck.getDeckCount("test", "9")).toBe(1);
+    expect(deck.isDirty.value).toBe(true);
+  });
+
+  it("an unsaved deck is dirty iff it has cards", () => {
+    deck.closeDeck();
+    expect(deck.isDirty.value).toBe(false);
+    deck.addCard(makeCard("1"));
+    expect(deck.isDirty.value).toBe(true);
+  });
+});

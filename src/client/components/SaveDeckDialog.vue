@@ -3,6 +3,8 @@ import { ref } from "vue";
 
 const props = defineProps<{
   initialName?: string;
+  /** Dialog heading; defaults to "Save Deck". Duplicate passes "Duplicate Deck". */
+  title?: string;
 }>();
 
 const emit = defineEmits<{
@@ -21,7 +23,7 @@ function handleSave() {
 <template>
   <div class="dialog-overlay" @click="emit('close')">
     <div class="dialog save-deck-dialog" @click.stop>
-      <h3>Save Deck</h3>
+      <h3>{{ title ?? "Save Deck" }}</h3>
       <input
         v-model="name"
         type="text"

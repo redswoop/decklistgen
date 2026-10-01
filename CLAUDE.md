@@ -136,8 +136,8 @@ Deck printing starts in **print mode** on the deck grid (Deck → Print): tiles 
 
 - [ ] Add an e2e test: deck search adds the card to the deck (not preview) when clicking a search result. (Sort/group persistence is covered by `e2e/card-grid-sort-group.spec.ts`; the old artCard items are obsolete — `artCard` has no producer and is slated for removal, see CARD_IDENTITY.md.)
 - [ ] **Card identity convergence** — the registry model (Card / Artwork / Printing, app-minted ids, collapse same-art printings on import) described in CARD_IDENTITY.md §5. Not started; ship-blocking for custom cards.
-- [ ] **Restore skipped e2e specs.** The following describe blocks are `test.describe.skip` after the CSS-renderer migration changed the UI structure they exercised. Each needs to be re-walked against the current app and rewritten — not just selector renames. Tackle one at a time when next touching the relevant component:
-  - `e2e/save-deck.spec.ts` "Deck Save Flow" — save/clear moved from DecklistPanel to DeckContextBar (`.dcb-save-btn`)
+- [ ] **Deck versions / history** — snapshot `cards` on every save with an optional label, plus a History panel to view / restore / fork a version ("tag this layout"). Pass two of the save-mechanics work (pass one, 2026-10-01, fixed the dirty-state bugs and added Duplicate).
+- [ ] **Restore skipped e2e specs.** The following describe blocks are `test.describe.skip` after the CSS-renderer migration changed the UI structure they exercised. Each needs to be re-walked against the current app and rewritten — not just selector renames. Tackle one at a time when next touching the relevant component (`save-deck.spec.ts` was rewritten 2026-10-01):
   - `e2e/deck-sidebar-selection.spec.ts` "Deck Sidebar Selection" + "DeckView Toolbar Actions" — nav tab renamed Decks→Deck, sidebar selection model rebuilt
   - `e2e/mobile-browse-load.spec.ts` "Mobile Browse Initial Load" — mobile filter slide-over selectors drifted
   - `e2e/mobile-layout.spec.ts` "Mobile Layout" + "Desktop Layout" — mobile nav buttons and slide-over structure changed

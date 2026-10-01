@@ -59,18 +59,6 @@ function loadMeta(): DeckMeta {
 }
 
 const items = ref<DecklistItem[]>(loadItems());
-const undoStack = ref<DecklistItem[][]>([]);
-const redoStack = ref<DecklistItem[][]>([]);
-const MAX_UNDO = 50;
-
-function cloneItems(src: DecklistItem[]): DecklistItem[] {
-  return src.map(i => ({ ...i }));
-}
-
-function pushUndo() {
-  undoStack.value = [...undoStack.value.slice(-(MAX_UNDO - 1)), cloneItems(items.value)];
-  redoStack.value = [];
-}
 
 const meta = loadMeta();
 const currentDeckId = ref<string | null>(meta.deckId);
@@ -79,18 +67,65 @@ const importSource = ref<string | null>(meta.importSource);
 const importedAt = ref<string | null>(meta.importedAt);
 const lastSavedSnapshot = ref(meta.lastSavedSnapshot);
 
-watch(items, (val) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(val));
-}, { deep: true });
+// Undo entries carry the deck identity alongside the cards, so undoing a
+// clear/import/close puts the saved-deck handle (and its dirty baseline) back
+// too — otherwise the cards come back as an orphan "Untitled Deck" that would
+// save as a duplicate.
+interface UndoEntry {
+  items: DecklistItem[];
+  meta: DeckMeta;
+}
+const undoStack = ref<UndoEntry[]>([]);
+const redoStack = ref<UndoEntry[]>([]);
+const MAX_UNDO = 50;
 
-function saveMeta() {
-  localStorage.setItem(META_KEY, JSON.stringify({
+function cloneItems(src: DecklistItem[]): DecklistItem[] {
+  return src.map(i => ({ ...i }));
+}
+
+function captureMeta(): DeckMeta {
+  return {
     deckId: currentDeckId.value,
     deckName: currentDeckName.value,
     importSource: importSource.value,
     importedAt: importedAt.value,
     lastSavedSnapshot: lastSavedSnapshot.value,
-  }));
+  };
+}
+
+function restoreMeta(m: DeckMeta) {
+  currentDeckId.value = m.deckId;
+  currentDeckName.value = m.deckName;
+  importSource.value = m.importSource;
+  importedAt.value = m.importedAt;
+  lastSavedSnapshot.value = m.lastSavedSnapshot;
+}
+
+function captureEntry(): UndoEntry {
+  return { items: cloneItems(items.value), meta: captureMeta() };
+}
+
+function applyEntry(e: UndoEntry) {
+  items.value = e.items;
+  restoreMeta(e.meta);
+}
+
+function pushUndo() {
+  undoStack.value = [...undoStack.value.slice(-(MAX_UNDO - 1)), captureEntry()];
+  redoStack.value = [];
+}
+
+function resetHistory() {
+  undoStack.value = [];
+  redoStack.value = [];
+}
+
+watch(items, (val) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(val));
+}, { deep: true });
+
+function saveMeta() {
+  localStorage.setItem(META_KEY, JSON.stringify(captureMeta()));
 }
 
 watch(
@@ -146,25 +181,39 @@ export function useDecklist() {
     items.value = items.value.filter((i) => i.count > 0);
   }
 
+  /** Empty the cards but keep the deck loaded — a saved deck just becomes dirty. Undoable. */
   function clear() {
     pushUndo();
     items.value = [];
-    currentDeckId.value = null;
-    currentDeckName.value = "";
-    importSource.value = null;
-    importedAt.value = null;
-    lastSavedSnapshot.value = "";
   }
 
-  function importDeck(newItems: DecklistItem[], mode: "merge" | "replace", source?: string) {
+  /** Drop the loaded deck entirely: no cards, no identity. Like switching
+   *  decks, this starts fresh undo history (the old deck may be deleted). */
+  function closeDeck() {
+    resetHistory();
+    items.value = [];
+    restoreMeta({ deckId: null, deckName: "", importSource: null, importedAt: null, lastSavedSnapshot: "" });
+  }
+
+  /** Import cards into the working deck.
+   *  - "new": start a fresh (unsaved) deck from the import
+   *  - "replace": swap the loaded deck's cards for the import, keeping its identity (dirty)
+   *  - "merge": add the import's counts into the loaded deck (dirty)
+   *  The import never touches the server; a normal Save does. */
+  function importDeck(newItems: DecklistItem[], mode: "new" | "merge" | "replace", source?: string) {
     pushUndo();
+    if (mode === "new") {
+      items.value = newItems;
+      restoreMeta({
+        deckId: null, deckName: "", lastSavedSnapshot: "",
+        importSource: source ?? null, importedAt: new Date().toISOString(),
+      });
+      return;
+    }
     if (mode === "replace") {
       items.value = newItems;
       importSource.value = source ?? null;
       importedAt.value = new Date().toISOString();
-      currentDeckId.value = null;
-      currentDeckName.value = "";
-      lastSavedSnapshot.value = "";
       return;
     }
     // Merge: add counts for matching cards, append new ones
@@ -192,8 +241,7 @@ export function useDecklist() {
       pushUndo();
     } else {
       // Switching to a different deck — fresh undo history
-      undoStack.value = [];
-      redoStack.value = [];
+      resetHistory();
     }
     items.value = deck.cards.map((dc) => ({
       setCode: dc.card.setCode,
@@ -211,11 +259,17 @@ export function useDecklist() {
     lastSavedSnapshot.value = currentSnapshot();
   }
 
-  /** Mark the current deck as just-saved */
+  /** Mark the current deck as just-saved: the server now holds exactly these cards. */
   function markSaved(deckId: string, name: string) {
     currentDeckId.value = deckId;
     currentDeckName.value = name;
     lastSavedSnapshot.value = currentSnapshot();
+  }
+
+  /** Rename only. Leaves the dirty baseline alone — a rename says nothing about
+   *  whether the cards have been saved. */
+  function renameDeck(name: string) {
+    currentDeckName.value = name;
   }
 
   /** Get DeckCard[] for saving to server */
@@ -311,15 +365,15 @@ export function useDecklist() {
 
   function undo() {
     if (!undoStack.value.length) return;
-    redoStack.value = [...redoStack.value, cloneItems(items.value)];
-    items.value = undoStack.value[undoStack.value.length - 1];
+    redoStack.value = [...redoStack.value, captureEntry()];
+    applyEntry(undoStack.value[undoStack.value.length - 1]);
     undoStack.value = undoStack.value.slice(0, -1);
   }
 
   function redo() {
     if (!redoStack.value.length) return;
-    undoStack.value = [...undoStack.value, cloneItems(items.value)];
-    items.value = redoStack.value[redoStack.value.length - 1];
+    undoStack.value = [...undoStack.value, captureEntry()];
+    applyEntry(redoStack.value[redoStack.value.length - 1]);
     redoStack.value = redoStack.value.slice(0, -1);
   }
 
@@ -359,7 +413,7 @@ export function useDecklist() {
   }
 
   return {
-    items, addCard, incrementCard, removeCard, sweepZeroCount, clear, importDeck,
+    items, addCard, incrementCard, removeCard, sweepZeroCount, clear, closeDeck, importDeck,
     totalCards, countColor, stats, DECK_SIZE,
     hasZeroCount: computed(() => items.value.some((i) => i.count === 0)),
     toText, isInDeck, getDeckCount,
@@ -368,7 +422,7 @@ export function useDecklist() {
     // Deck management
     currentDeckId, currentDeckName, isDirty,
     importSource, importedAt,
-    loadSavedDeck, markSaved, toDeckCards,
+    loadSavedDeck, markSaved, renameDeck, toDeckCards,
     // Per-card art override
     setCardArtCard,
     // Per-printing swap (move all copies of one printing to another)

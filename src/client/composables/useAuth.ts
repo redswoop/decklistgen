@@ -1,6 +1,7 @@
 import { ref, computed } from "vue";
 import { api } from "../lib/client.js";
 import type { User } from "../../shared/types/user.js";
+import { useDecklist } from "./useDecklist.js";
 
 const currentUser = ref<User | null>(null);
 const needsSetup = ref(false);
@@ -90,6 +91,11 @@ export function useAuth() {
       await api.logout();
     } catch {}
     currentUser.value = null;
+    // A saved-deck handle belongs to the account that just left; keep a
+    // never-saved working deck (it's local) but drop a loaded one so the next
+    // sign-in can't "Save" into someone else's deck id.
+    const { currentDeckId, closeDeck } = useDecklist();
+    if (currentDeckId.value) closeDeck();
   }
 
   return {

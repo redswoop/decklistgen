@@ -4,7 +4,6 @@ import { api } from "../lib/client.js";
 import { useAuth } from "./useAuth.js";
 import { useActingAs } from "./useActingAs.js";
 import type { SavedDeck, DeckCard } from "../../shared/types/deck.js";
-import type { BeautifyOptions } from "../../shared/types/beautify.js";
 
 const DECKS_KEY = ["decks"] as const;
 
@@ -50,12 +49,6 @@ export function useDecks() {
     onSuccess: invalidate,
   });
 
-  const beautifyMutation = useMutation({
-    mutationFn: ({ id, options }: { id: string; options: BeautifyOptions }) =>
-      api.beautifyDeck(id, options),
-    onSuccess: invalidate,
-  });
-
   async function fetchDeck(id: string): Promise<SavedDeck> {
     return api.getDeck(id);
   }
@@ -67,7 +60,6 @@ export function useDecks() {
     updateDeck: updateMutation.mutateAsync,
     deleteDeck: deleteMutation.mutateAsync,
     copyDeck: copyMutation.mutateAsync,
-    beautifyDeck: beautifyMutation.mutateAsync,
     fetchDeck,
     invalidate,
   };

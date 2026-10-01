@@ -54,6 +54,32 @@ See also: [CLAUDE.md](./CLAUDE.md) (commands, conventions), [CARD_LAB.md](./CARD
   - Leaves (`components/lightbox/`): `VersionThumb`, `CardStatsPanel`,
     `CardZoom`, `LightboxDevTools`.
 
+## Working deck + save
+
+- **`useDecklist`** — the working deck singleton (cards + identity + undo),
+  persisted to localStorage. Identity is `currentDeckId` / `currentDeckName`
+  plus `lastSavedSnapshot`, the card list as of the last full save; `isDirty`
+  compares against it (an unsaved deck is dirty iff it has cards). Undo entries
+  carry the identity too, so undoing a clear/import/close restores the saved-deck
+  handle instead of leaving an orphan. `clear()` empties the cards and keeps the
+  deck loaded (an edit); `closeDeck()` drops the deck and its history (a
+  switch); `renameDeck()` never touches the dirty baseline; `markSaved()` is
+  only called after a full save landed.
+- **`useDeckSave`** — the one writer to the server: `saveCurrent()` (PUT in
+  place) and `saveAsNew(name)` (POST + adopt), both toast on failure and return
+  a boolean. Serves the context-bar Save, save-before-print (awaited, print mode
+  only opens on success), the name dialog, Duplicate, and "new" imports.
+- **`DeckContextBar.vue`** — the Save button is always labelled Save; disabled
+  with a reason (sign in / no changes / add cards). Rename is inline.
+- **`WorkingDeckView.vue`** — toolbar: Beautify always edits the working deck
+  (dirty, undoable); Import replace/merge only edit the working deck (the normal
+  Save commits them); Duplicate opens the name dialog as "Duplicate Deck" with
+  "(Copy)" suggested and switches to the new deck; Clear is an edit; Delete
+  closes.
+- **`DeckGalleryView.vue`** — deck cards + ⋯ menu (Rename / Duplicate via the
+  server copy route / Delete); dirty guard before opening another deck, New
+  Deck, or admin act-as.
+
 ## Card grid
 
 - **`CardGrid.vue`** — controller; keeps the virtualizer + container-sizing +

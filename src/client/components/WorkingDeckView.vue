@@ -12,6 +12,7 @@ import { gridForPaper } from "../../shared/utils/print-grid.js";
 import { summarizePrint } from "../../shared/utils/print-summary.js";
 import { useDecklist } from "../composables/useDecklist.js";
 import { useDecks } from "../composables/useDecks.js";
+import { useDeckSave } from "../composables/useDeckSave.js";
 import { useAuth } from "../composables/useAuth.js";
 import { usePrintPlan } from "../composables/usePrintPlan.js";
 import { generateCleanImage } from "../composables/usePokeproxy.js";
@@ -23,18 +24,18 @@ const emit = defineEmits<{
   "preview-card": [card: Card, cards: Card[]];
   export: [];
   import: [];
-  save: [];
-  "save-update": [];
+  duplicate: [];
 }>();
 
 const {
   items, totalCards, countColor, DECK_SIZE,
-  addCard, removeCard, clear, sweepZeroCount, hasZeroCount,
+  addCard, removeCard, clear, closeDeck, sweepZeroCount, hasZeroCount,
   currentDeckId, currentDeckName, isDirty,
-  toDeckCards, loadSavedDeck,
+  toDeckCards,
 } = useDecklist();
 
-const { fetchDeck, deleteDeck } = useDecks();
+const { deleteDeck } = useDecks();
+const { saveCurrent } = useDeckSave();
 const { isLoggedIn } = useAuth();
 
 /** If an art override is set, return a card with the art card's imageBase for display */
@@ -120,12 +121,18 @@ const deleteTooltip = computed(() => {
   return "Delete this saved deck";
 });
 
+const duplicateTooltip = computed(() => {
+  if (!isLoggedIn.value) return "Sign in to duplicate decks";
+  if (!currentDeckId.value) return "Save the deck first to duplicate it";
+  return "Make a copy of this deck and switch to it";
+});
+
 async function handleDelete() {
   if (!currentDeckId.value) return;
   const id = currentDeckId.value;
   showDeleteConfirm.value = false;
   await deleteDeck(id);
-  clear();
+  closeDeck();
 }
 
 function handleSweep() {
@@ -175,10 +182,9 @@ function handlePrint() {
 
 async function handleSaveAndPrint() {
   showSaveBeforePrint.value = false;
-  emit("save-update");
-  // Brief delay to let the save complete before opening print
-  await new Promise((r) => setTimeout(r, 300));
-  enterPrintMode();
+  // Only enter print mode once the server actually has the deck; a failed
+  // save toasts and leaves the user on the (still dirty) build view.
+  if (await saveCurrent()) enterPrintMode();
 }
 
 function handlePrinted() {
@@ -186,12 +192,9 @@ function handlePrinted() {
   showPrintDialog.value = false;
 }
 
-async function handleBeautifyUpdated() {
+function handleBeautifyUpdated() {
+  // Beautify edits the working deck in place (dirty, undoable); Save commits it.
   showBeautify.value = false;
-  if (currentDeckId.value) {
-    const deck = await fetchDeck(currentDeckId.value);
-    loadSavedDeck(deck);
-  }
 }
 </script>
 
@@ -254,7 +257,13 @@ async function handleBeautifyUpdated() {
             :disabled="!hasZeroCount"
             :title="hasZeroCount ? 'Remove cards with 0 copies from the deck' : 'No cards with 0 copies to sweep'"
           >Sweep</button>
-          <button class="dm-action-btn dm-action-btn-danger" @click="clear()" :disabled="items.length === 0">Clear</button>
+          <button class="dm-action-btn dm-action-btn-danger" @click="clear()" :disabled="items.length === 0" title="Remove every card (undoable; the deck stays loaded)">Clear</button>
+          <button
+            class="dm-action-btn"
+            :disabled="!currentDeckId || !isLoggedIn"
+            :title="duplicateTooltip"
+            @click="emit('duplicate')"
+          >Duplicate</button>
           <button
             class="dm-action-btn dm-action-btn-danger"
             :disabled="!currentDeckId || !isLoggedIn"
@@ -267,7 +276,6 @@ async function handleBeautifyUpdated() {
 
     <BeautifyDialog
       v-if="showBeautify"
-      :deck-id="currentDeckId"
       :deck-name="currentDeckName || 'Working Deck'"
       :deck-cards="toDeckCards()"
       @close="showBeautify = false"

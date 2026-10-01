@@ -18,7 +18,7 @@ const emit = defineEmits<{
 }>();
 
 const { decks, isLoading, fetchDeck, deleteDeck, copyDeck, updateDeck } = useDecks();
-const { loadSavedDeck, isDirty, currentDeckId, clear } = useDecklist();
+const { loadSavedDeck, isDirty, currentDeckId, closeDeck } = useDecklist();
 const { isLoggedIn, isAdmin, currentUser } = useAuth();
 const { actingAsUserId, actingAsUser, setActingAs, clearActingAs } = useActingAs();
 
@@ -51,7 +51,7 @@ function onSelectUser(e: Event) {
   const id = (e.target as HTMLSelectElement).value;
   const target: AdminUser | "self" =
     !id || id === currentUser.value?.id ? "self" : allUsers.value.find((u) => u.id === id) ?? "self";
-  if (isDirty.value && currentDeckId.value) {
+  if (isDirty.value) {
     pendingActAs.value = target;
     dirtyGuardTarget.value = "__actas__";
     return;
@@ -60,7 +60,7 @@ function onSelectUser(e: Event) {
 }
 
 function applyActAs(target: AdminUser | "self") {
-  clear();
+  closeDeck();
   if (target === "self") clearActingAs();
   else setActingAs(target);
 }
@@ -107,7 +107,7 @@ function confirmDirtySwitch() {
   if (dirtyGuardNewDeck.value) {
     dirtyGuardNewDeck.value = false;
     dirtyGuardTarget.value = null;
-    clear();
+    closeDeck();
     emit("new-deck");
     return;
   }
@@ -122,7 +122,7 @@ function handleNewDeck() {
     dirtyGuardTarget.value = "__new__";
     return;
   }
-  clear();
+  closeDeck();
   emit("new-deck");
 }
 
@@ -162,7 +162,7 @@ async function confirmDelete() {
   const id = deleteTarget.value.id;
   await deleteDeck(id);
   if (currentDeckId.value === id) {
-    clear();
+    closeDeck();
   }
   deleteTarget.value = null;
 }

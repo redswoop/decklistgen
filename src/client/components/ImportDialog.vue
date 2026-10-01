@@ -2,15 +2,15 @@
 import { ref, computed } from "vue";
 import { api } from "../lib/client.js";
 import { useDecklist, type DecklistItem } from "../composables/useDecklist.js";
-import { useDecks } from "../composables/useDecks.js";
+import { useDeckSave } from "../composables/useDeckSave.js";
 import { useAuth } from "../composables/useAuth.js";
 import type { LimitlessPlayer, ImportResult } from "../../shared/types/decklist.js";
 import { cardImageUrl } from "../../shared/utils/card-image-url.js";
 
 const emit = defineEmits<{ close: [] }>();
 
-const { importDeck, markSaved, currentDeckName, currentDeckId, items } = useDecklist();
-const { createDeck } = useDecks();
+const { importDeck, currentDeckName, currentDeckId, items } = useDecklist();
+const { saveAsNew } = useDeckSave();
 const { isLoggedIn } = useAuth();
 
 const tab = ref<"paste" | "url">("paste");
@@ -36,8 +36,10 @@ if (currentDeckId.value && items.value.length > 0) {
   mode.value = "replace";
 }
 
+// Replace/merge keep the loaded deck's name; only a new deck takes one.
+const nameIsForNewDeck = computed(() => mode.value === "new");
 const nameInputPlaceholder = computed(() => {
-  if (mode.value === "replace" && currentDeckName.value) return currentDeckName.value;
+  if (!nameIsForNewDeck.value && currentDeckName.value) return currentDeckName.value;
   return "Deck name...";
 });
 
@@ -49,19 +51,28 @@ function filteredPlayers() {
   );
 }
 
-/** Save imported cards as a deck on the server */
-async function saveDeck(items: DecklistItem[], source: string, name: string) {
-  try {
-    const deck = await createDeck({
-      name,
-      cards: items.map((i) => ({ count: i.count, card: i.card })),
-      importedAt: new Date().toISOString(),
-      importSource: source || undefined,
-    });
-    markSaved(deck.id, deck.name);
-  } catch (e) {
-    console.warn("Save deck failed:", e);
+/** Land the import in the working deck per `mode`, and describe what happened.
+ *  "new" also saves the deck when signed in; replace/merge only dirty the loaded
+ *  deck — the normal Save commits them, so the server copy is never silently
+ *  swapped for a different deck. */
+async function applyImport(newItems: DecklistItem[], source: string, autoName: string): Promise<string> {
+  const total = newItems.reduce((s, c) => s + c.count, 0);
+  const mergeTarget = currentDeckName.value || "the working deck";
+  if (mode.value === "merge") {
+    importDeck(newItems, "merge", source);
+    return `Added ${total} cards to ${mergeTarget}. Save to keep them.`;
   }
+  if (mode.value === "replace" && currentDeckId.value) {
+    importDeck(newItems, "replace", source);
+    return `Replaced the cards in ${mergeTarget} (${total} cards). Save to keep them.`;
+  }
+  importDeck(newItems, "new", source);
+  if (!isLoggedIn.value) return `Imported ${total} cards to the working deck.`;
+  const name = deckName.value.trim() || autoName;
+  const saved = await saveAsNew(name);
+  return saved
+    ? `Imported ${total} cards (saved as "${name}").`
+    : `Imported ${total} cards to the working deck, but saving failed.`;
 }
 
 async function fetchPlayers() {
@@ -83,21 +94,10 @@ async function fetchPlayers() {
       }));
 
       const source = urlInput.value.trim();
-      const effectiveMode = mode.value === "new" ? "replace" : mode.value;
-      importDeck(newItems, effectiveMode, source);
-      const name = deckName.value.trim() || "Imported deck";
-      if (isLoggedIn.value) {
-        await saveDeck(newItems, source, name);
-      }
-
-      const total = result.cards.reduce((s, c) => s + c.count, 0);
-      const savedMsg = isLoggedIn.value ? ` (saved as "${name}")` : " to working deck";
+      success.value = await applyImport(newItems, source, "Imported deck");
       if (result.unresolved && result.unresolved.length > 0) {
         const names = result.unresolved.map((u) => `${u.count}x ${u.name}`).join(", ");
         error.value = `Could not resolve: ${names}`;
-        success.value = `Imported ${total} cards${savedMsg}.`;
-      } else {
-        success.value = `Imported ${total} cards${savedMsg}.`;
       }
       loading.value = false;
       return;
@@ -156,21 +156,11 @@ async function doImport() {
     }));
 
     const source = tab.value === "url" ? urlInput.value.trim() : "Pasted decklist";
-    const effectiveMode = mode.value === "new" ? "replace" : mode.value;
-    importDeck(newItems, effectiveMode, source);
-
-    const finalName = deckName.value.trim() || autoName;
-    if (isLoggedIn.value) {
-      await saveDeck(newItems, source, finalName);
-    }
-
-    const total = result.cards.reduce((s, c) => s + c.count, 0);
+    success.value = await applyImport(newItems, source, autoName);
     if (result.unresolved.length > 0) {
       const names = result.unresolved.map((u) => `${u.count}x ${u.name}`).join(", ");
       error.value = `Could not resolve: ${names}`;
     }
-    const savedMsg = isLoggedIn.value ? ` (saved as "${finalName}")` : " to working deck";
-    success.value = `Imported ${total} cards${savedMsg}.`;
   } catch (e) {
     error.value = (e instanceof Error ? e.message : String(e)) || "Import failed";
   } finally {
@@ -262,6 +252,8 @@ or PTCGO format:
           v-model="deckName"
           type="text"
           :placeholder="nameInputPlaceholder"
+          :disabled="!nameIsForNewDeck"
+          :title="nameIsForNewDeck ? 'Name for the new deck' : 'Replace and Merge keep the loaded deck\'s name'"
           class="import-input import-name-input"
         />
         <div class="import-mode">
