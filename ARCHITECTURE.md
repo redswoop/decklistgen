@@ -43,8 +43,10 @@ See also: [CLAUDE.md](./CLAUDE.md) (commands, conventions), [CARD_LAB.md](./CARD
   `cardChange` / `deckUpdated`. Composes:
   - `useCardNavigation` — search-set prev/next (stable `activeCard`).
   - `useCardVariants` — same-name variant set + selected `currentCard`.
-  - `useVariantDeckControl` — add/remove/swap into working or saved deck
-    (pure array math in `shared/utils/variant-deck-ops.ts`).
+  - `useVariantDeckControl` — add/remove/swap into the working deck. (It also
+    has a saved-deck path via `shared/utils/variant-deck-ops.ts`, but nothing
+    sets `savedDeckId` on the lightbox any more, so that path only runs in
+    unit tests.)
   - `useCardImageResolution` — bg/main/zoom images + generation state
     (pure version→URL in `lib/card-image-resolution.ts`).
   - `useVariantBulkGeneration` — "generate all variants".
