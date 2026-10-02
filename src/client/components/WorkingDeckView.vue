@@ -111,6 +111,7 @@ const showBatchGenerate = ref(false);
 const showPrintDialog = ref(false);
 const showSaveBeforePrint = ref(false);
 const showSweepConfirm = ref(false);
+const showClearConfirm = ref(false);
 const showDeleteConfirm = ref(false);
 
 watch(showPrintDialog, (open) => { if (!open) optionsVersion.value++; });
@@ -138,6 +139,11 @@ async function handleDelete() {
 function handleSweep() {
   sweepZeroCount();
   showSweepConfirm.value = false;
+}
+
+function handleClear() {
+  clear();
+  showClearConfirm.value = false;
 }
 
 // --- Card grid handlers ---
@@ -257,7 +263,7 @@ function handleBeautifyUpdated() {
             :disabled="!hasZeroCount"
             :title="hasZeroCount ? 'Remove cards with 0 copies from the deck' : 'No cards with 0 copies to sweep'"
           >Sweep</button>
-          <button class="dm-action-btn dm-action-btn-danger" @click="clear()" :disabled="items.length === 0" title="Remove every card (undoable; the deck stays loaded)">Clear</button>
+          <button class="dm-action-btn dm-action-btn-danger" @click="showClearConfirm = true" :disabled="items.length === 0" title="Remove every card (undoable; the deck stays loaded)">Clear</button>
           <button
             class="dm-action-btn"
             :disabled="!currentDeckId || !isLoggedIn"
@@ -305,6 +311,17 @@ function handleBeautifyUpdated() {
       :confirm-danger="false"
       @confirm="handleSaveAndPrint"
       @close="showSaveBeforePrint = false"
+    />
+
+    <ConfirmDialog
+      v-if="showClearConfirm"
+      title="Clear Deck"
+      :message="currentDeckId
+        ? `Remove every card from ${currentDeckName || 'this deck'}? The deck stays open and nothing is saved until you press Save. You can undo this.`
+        : 'Remove every card from the working deck? You can undo this.'"
+      confirm-label="Clear"
+      @confirm="handleClear"
+      @close="showClearConfirm = false"
     />
 
     <ConfirmDialog

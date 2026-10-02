@@ -143,6 +143,9 @@ test.describe("Deck Save Flow", () => {
     await openDeck(page, `${TAG}-clear`);
 
     await page.locator(".dm-action-btn", { hasText: "Clear" }).click();
+    const confirm = page.locator(".dialog", { hasText: "Clear Deck" });
+    await expect(confirm).toContainText("You can undo this");
+    await confirm.locator("button", { hasText: /^Clear$/ }).click();
     await expect(deckCount(page)).toHaveText("0/60");
     // Clearing a saved deck is an edit, not a close.
     await expect(page.locator(".dcb-name")).toHaveText(`${TAG}-clear`);
@@ -159,6 +162,7 @@ test.describe("Deck Save Flow", () => {
     const id = await apiCreateDeck(page, `${TAG}-empty`, [["sv01-001", 2]]);
     await openDeck(page, `${TAG}-empty`);
     await page.locator(".dm-action-btn", { hasText: "Clear" }).click();
+    await page.locator(".dialog", { hasText: "Clear Deck" }).locator("button", { hasText: /^Clear$/ }).click();
     await saveBtn(page).click();
     await expect(saveBtn(page)).toBeDisabled();
     expect(await apiDeckTotal(page, id)).toBe(0);
