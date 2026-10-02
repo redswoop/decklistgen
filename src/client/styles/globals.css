@@ -2089,6 +2089,32 @@ body {
   gap: 6px;
 }
 
+/* Same-name-different-card group under the version grid */
+.lb-other-cards-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 6px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(127, 143, 166, 0.35);
+}
+
+.lb-other-cards-hint {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: #f0b429;
+  border: 1px solid rgba(240, 180, 41, 0.45);
+  cursor: help;
+}
+
+.lb-other-cards-grid {
+  opacity: 0.85;
+}
+
 /* lb-variant styles removed — replaced by CardThumb component */
 
 .lb-right {

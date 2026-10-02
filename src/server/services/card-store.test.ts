@@ -1,5 +1,7 @@
 import { describe, test, expect, beforeAll } from "bun:test";
 import { loadSet, getVariants, getCard, findCardBySetAndNumber } from "./card-store.js";
+import { IMAGE_STAND_INS } from "./image-stand-ins.js";
+import { getCardDetail } from "./card-detail.js";
 
 describe("getVariants — cross-set/era reprints", () => {
   beforeAll(async () => {
@@ -59,5 +61,33 @@ describe("30th anniversary sets", () => {
     expect(card?.name).toBe("Charizard");
     expect(card?.setCode).toBe("30CC");
     expect(card?.era).toBe("me");
+  });
+
+  test("Classic Collection cards borrow their original printing's scan", () => {
+    // TCGdex ships 30th-c with no `image`; all 30 cards must map to a stand-in.
+    for (let n = 1; n <= 30; n++) {
+      const id = `30th-c-${String(n).padStart(3, "0")}`;
+      const card = getCard(id);
+      expect(card, id).toBeDefined();
+      expect(IMAGE_STAND_INS[id], id).toBeDefined();
+      expect(card!.imageBase, id).toBe(IMAGE_STAND_INS[id]);
+    }
+    expect(getCard("30th-c-001")?.imageBase).toBe("https://assets.tcgdex.net/en/base/base1/4");
+  });
+
+  test("leaked TCGdex HTML is scrubbed from detail text", async () => {
+    // Pikachu & Zekrom-GX ships with <span class="energy-symbol"> and <em>.
+    const detail = await getCardDetail("30th-c-008");
+    const tagBolt = detail?.attacks.find((a) => a.name.startsWith("Tag Bolt"));
+    expect(tagBolt?.effect).toContain("3 extra {L} Energy");
+    expect(tagBolt?.effect).toContain("(in addition to this attack's cost)");
+    for (const a of detail?.attacks ?? []) expect(a.effect ?? "").not.toMatch(/<[a-z/]/);
+    for (const a of detail?.abilities ?? []) expect(a.effect).not.toMatch(/<[a-z/]/);
+  });
+
+  test("an upstream image still beats the stand-in", () => {
+    // 30th-001 (main set) has a real TCGdex image and no stand-in entry.
+    expect(IMAGE_STAND_INS["30th-001"]).toBeUndefined();
+    expect(getCard("30th-001")?.imageBase).toBe("https://assets.tcgdex.net/en/me/30th/001");
   });
 });

@@ -41,6 +41,15 @@ export function useCardVariants(activeCard: Ref<Card>) {
     );
   });
 
+  // The by-name set also carries *different* cards that share the name
+  // (Raikou 30CC 012 vs MEG 048: different HP, different attack). Split them
+  // so the picker never presents one as a "version" of the other. Indices are
+  // positions in `variants`, so variantIndex keeps working across both groups.
+  const isSameCard = (v: Card) => v.mechanicsHash === currentCard.value.mechanicsHash;
+  const indexed = computed(() => (variants.value ?? []).map((card, index) => ({ card, index })));
+  const sameCardVariants = computed(() => indexed.value.filter(({ card }) => isSameCard(card)));
+  const otherSameNameCards = computed(() => indexed.value.filter(({ card }) => !isSameCard(card)));
+
   watch([variants, activeCardId], () => {
     if (!variants.value) return;
     variantIndex.value = variants.value.findIndex((c) => c.id === activeCard.value.id);
@@ -50,6 +59,6 @@ export function useCardVariants(activeCard: Ref<Card>) {
 
   return {
     activeCardId, rawVariants, variants, variantIndex, currentCard,
-    sameArtPrintings, hasMultipleVariants,
+    sameArtPrintings, sameCardVariants, otherSameNameCards, hasMultipleVariants,
   };
 }

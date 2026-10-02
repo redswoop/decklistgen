@@ -63,8 +63,10 @@ const { activeCard, searchIndex, prevCard, nextCard } =
 const isDeckContext = computed(() => props.source === "deck");
 
 // Same-name variant set + the selected printing.
-const { variants, variantIndex, currentCard, sameArtPrintings, hasMultipleVariants } =
-  useCardVariants(activeCard);
+const {
+  variants, variantIndex, currentCard, sameArtPrintings, sameCardVariants, otherSameNameCards,
+  hasMultipleVariants,
+} = useCardVariants(activeCard);
 
 // Variant-picker deck operations (working deck or saved deck).
 const {
@@ -128,9 +130,11 @@ function setVariantZoom(step: number) {
   localStorage.setItem(VARIANT_ZOOM_KEY, String(step));
 }
 
-// "Generate all same-name variants" in one click.
+// "Generate all versions" in one click — same card only; the other same-name
+// cards are different cards and get generated from their own lightbox.
+const sameCardList = computed(() => sameCardVariants.value.map(({ card }) => card));
 const { generatingAllVariants, generateAllVariantsDisabledReason, handleGenerateAllVariants } =
-  useVariantBulkGeneration(variants, isLoggedIn, isAuthorized);
+  useVariantBulkGeneration(sameCardList, isLoggedIn, isAuthorized);
 
 // Tags
 const tags = computed(() =>
@@ -294,15 +298,15 @@ function handlePrintJumbo() {
             <div v-if="hasMultipleVariants" class="lb-variants-section">
               <div class="lb-variants-header">
                 <span v-if="isDeckContext && totalNameCount > 0" class="lb-variants-status">{{ totalNameCount }} in deck</span>
-                <span v-else class="lb-variants-status">{{ variants?.length ?? 0 }} variants</span>
+                <span v-else class="lb-variants-status">{{ sameCardVariants.length }} {{ sameCardVariants.length === 1 ? 'version' : 'versions' }}</span>
                 <button
                   class="lb-generate-variants-btn"
                   :disabled="generateAllVariantsDisabledReason !== null"
-                  :title="generateAllVariantsDisabledReason ?? 'Queue all variants for generation'"
+                  :title="generateAllVariantsDisabledReason ?? 'Queue all versions of this card for generation'"
                   data-testid="lb-generate-variants-btn"
                   @click="handleGenerateAllVariants"
                 >
-                  {{ generatingAllVariants ? 'Queuing...' : `Generate ${variants?.length ?? 0}` }}
+                  {{ generatingAllVariants ? 'Queuing...' : `Generate ${sameCardVariants.length}` }}
                 </button>
                 <input
                   type="range"
@@ -313,9 +317,9 @@ function handlePrintJumbo() {
                   @input="setVariantZoom(+($event.target as HTMLInputElement).value)"
                 />
               </div>
-              <div class="lb-variants-grid" :style="{ gridTemplateColumns: `repeat(auto-fill, minmax(${ZOOM_STEPS[variantZoom]}px, 1fr))` }">
+              <div class="lb-variants-grid" data-testid="lb-same-card-grid" :style="{ gridTemplateColumns: `repeat(auto-fill, minmax(${ZOOM_STEPS[variantZoom]}px, 1fr))` }">
                 <CardThumb
-                  v-for="(v, i) in variants"
+                  v-for="{ card: v, index: i } in sameCardVariants"
                   :key="v.id"
                   :card="v"
                   :image-mode="imageMode"
@@ -331,6 +335,33 @@ function handlePrintJumbo() {
                   @swap="handleVariantSwap(v)"
                 />
               </div>
+
+              <!-- Same name, different card (other HP / attacks / abilities).
+                   Browsable and addable, but never offered as a swap target —
+                   swapping deck copies for a different card is a silent deck change. -->
+              <template v-if="otherSameNameCards.length">
+                <div class="lb-other-cards-header" data-testid="lb-other-cards-header">
+                  <span class="lb-variants-status">
+                    {{ otherSameNameCards.length }} other {{ otherSameNameCards.length === 1 ? 'card' : 'cards' }} named {{ currentCard.name }}
+                  </span>
+                  <span class="lb-other-cards-hint" title="Same name, but different HP, attacks, or abilities — not interchangeable with the card above">different card</span>
+                </div>
+                <div class="lb-variants-grid lb-other-cards-grid" data-testid="lb-other-cards-grid" :style="{ gridTemplateColumns: `repeat(auto-fill, minmax(${ZOOM_STEPS[variantZoom]}px, 1fr))` }">
+                  <CardThumb
+                    v-for="{ card: v, index: i } in otherSameNameCards"
+                    :key="v.id"
+                    :card="v"
+                    :image-mode="imageMode"
+                    :count="getVariantDeckCount(v) || undefined"
+                    :show-remove="isDeckContext"
+                    :show-add="true"
+                    :active="i === variantIndex"
+                    @click="variantIndex = i"
+                    @add="handleVariantAdd(v)"
+                    @remove="handleVariantRemove(v)"
+                  />
+                </div>
+              </template>
             </div>
 
             <!-- Card stats: metadata, abilities, attacks, weakness/resist/retreat -->

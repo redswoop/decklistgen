@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { getCard, ensureCardLoaded } from "./card-store.js";
 import { inferEvolveFrom } from "./evolution-chain.js";
 import type { CardDetail } from "../../shared/types/card.js";
+import { cleanTcgdexCardText } from "../../shared/utils/clean-card-text.js";
 
 // Re-exported for existing callers (routes, MCP tools); the implementation
 // lives in card-store so evolution-chain can import it without a cycle.
@@ -31,7 +32,7 @@ export async function getCardDetail(cardId: string): Promise<CardDetail | null> 
   const jsonPath = join(CACHE_DIR, `${cardId}.json`);
   if (existsSync(jsonPath)) {
     try {
-      raw = JSON.parse(readFileSync(jsonPath, "utf-8"));
+      raw = cleanTcgdexCardText(JSON.parse(readFileSync(jsonPath, "utf-8")));
     } catch {}
   }
 

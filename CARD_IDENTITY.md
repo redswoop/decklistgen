@@ -65,7 +65,7 @@ carries a parenthetical.
 | Grid counts, print plan, membership | `card.id` | `WorkingDeckView.vue:56`, `print-plan.ts`, `customized-cards.ts:112` |
 | `getVariants(id)` (default) | name + hash; basic energy by **type across names** | `card-store.ts:225-246` |
 | `getVariants(id, byName)` | name only | same |
-| Lightbox variant picker | **by name**, then `deduplicateByArt` (hash+illustrator+tier) | `useCardVariants.ts` |
+| Lightbox variant picker | **by name**, then `deduplicateByArt` (hash+illustrator+tier); rendered as two groups — same hash as the displayed card ("versions", swappable) vs. different hash ("other cards named X", add-only, no swap) | `useCardVariants.ts` |
 | Beautify (server + client) | groups deck **by name**, fetches variants **by mechanics** using the *first* entry's id | `decks.ts:194-222`, `BeautifyDialog.vue:90-111` |
 | Grid fold "same art" | name + hash + tier — **ignores illustrator** | `fold-cards.ts:73-79` |
 | Grid fold "same card" | name + hash | `fold-cards.ts:89-92` |

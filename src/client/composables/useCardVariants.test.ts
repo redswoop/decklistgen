@@ -76,4 +76,27 @@ describe("useCardVariants", () => {
     expect(variantIndex.value).toBe(1);
     expect(currentCard.value.id).toBe("sv02-063");
   });
+
+  it("splits same-name different cards out of the version group, keeping shared indices", async () => {
+    // Prod's "Raikou" by-name set: 30CC 012 is a reprint of Vivid Voltage 50
+    // (110 HP, Amazing Shot); MEG 048 is a different card (120 HP).
+    const cc = { ...card("30th-c-012", "Hideki Ishikawa", "None", "8ad404b2"), name: "Raikou" } as Card;
+    const vv = { ...card("swsh4-50", "Hideki Ishikawa", "Amazing Rare", "8ad404b2"), name: "Raikou" } as Card;
+    const meg = { ...card("me01-048", "Kouki Saitou", "Rare", "5525a5dc"), name: "Raikou" } as Card;
+    rawVariants.value = [cc, meg, vv];
+    const { variants, variantIndex, currentCard, sameCardVariants, otherSameNameCards } = useCardVariants(ref(cc));
+    await nextTick();
+    // VV 50 is the same card + art as the opened CC printing, so it folds into it.
+    expect(variants.value?.map((v) => v.id)).toEqual(["30th-c-012", "me01-048"]);
+    expect(sameCardVariants.value.map(({ card: c, index }) => [c.id, index])).toEqual([["30th-c-012", 0]]);
+    expect(otherSameNameCards.value.map(({ card: c, index }) => [c.id, index])).toEqual([["me01-048", 1]]);
+
+    // Clicking the other card selects it via its shared index, and the
+    // grouping follows the card now in the main pane.
+    variantIndex.value = 1;
+    await nextTick();
+    expect(currentCard.value.id).toBe("me01-048");
+    expect(sameCardVariants.value.map(({ card: c }) => c.id)).toEqual(["me01-048"]);
+    expect(otherSameNameCards.value.map(({ card: c }) => c.id)).toEqual(["30th-c-012"]);
+  });
 });

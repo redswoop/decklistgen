@@ -5,6 +5,8 @@ import { isEx, isV, isVmax, isVstar, isAncient, isFuture, isTera } from "../../s
 import { isFullArt } from "../../shared/utils/detect-fullart.js";
 import { fetchSetCards } from "./tcgdex.js";
 import { computeMechanicsHash } from "./mechanics-hash.js";
+import { IMAGE_STAND_INS } from "./image-stand-ins.js";
+import { cleanTcgdexCardText } from "../../shared/utils/clean-card-text.js";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
@@ -45,6 +47,8 @@ const BASIC_ENERGY_FALLBACK_IMAGE: Record<string, string> = {
 
 function resolveImageBase(raw: TcgdexCard): string {
   if (raw.image) return raw.image;
+  const standIn = IMAGE_STAND_INS[raw.id];
+  if (standIn) return standIn;
   if (raw.category === "Energy") {
     const fallback = BASIC_ENERGY_FALLBACK_IMAGE[raw.name];
     if (fallback) return fallback;
@@ -53,6 +57,7 @@ function resolveImageBase(raw: TcgdexCard): string {
 }
 
 function normalizeCard(raw: TcgdexCard, setCode: string): Card {
+  cleanTcgdexCardText(raw);
   const tcgdexId = raw.set?.id ?? SET_MAP[setCode] ?? "";
   const category = (raw.category === "Pokemon" || raw.category === "Trainer" || raw.category === "Energy")
     ? raw.category : "Pokemon";
