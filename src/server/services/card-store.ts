@@ -7,6 +7,7 @@ import { fetchSetCards } from "./tcgdex.js";
 import { computeMechanicsHash } from "./mechanics-hash.js";
 import { IMAGE_STAND_INS } from "./image-stand-ins.js";
 import { cleanTcgdexCardText } from "../../shared/utils/clean-card-text.js";
+import { EFFECT_TAGS, tagCard, type EffectTag } from "../../shared/utils/effect-tags.js";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
@@ -56,8 +57,36 @@ function resolveImageBase(raw: TcgdexCard): string {
   return "";
 }
 
+/**
+ * TCGdex ships some reprints without effect text (the 30th-anniversary Ultra
+ * Ball, Switch, Poké Pad), so the tagger has nothing to read. Same-name Trainers
+ * are the same card, so a text-less printing borrows the tags of one that has
+ * text — whichever of the two happens to load first.
+ */
+const trainerTagsByName = new Map<string, EffectTag[]>();
+const textlessTrainers = new Map<string, Card[]>();
+
+function shareTrainerTags(card: Card, hasEffectText: boolean): void {
+  if (card.category !== "Trainer") return;
+  if (hasEffectText) {
+    if (!card.effectTags) return;
+    trainerTagsByName.set(card.name, card.effectTags);
+    for (const waiting of textlessTrainers.get(card.name) ?? []) waiting.effectTags = card.effectTags;
+    textlessTrainers.delete(card.name);
+    return;
+  }
+  const known = trainerTagsByName.get(card.name);
+  if (known) {
+    card.effectTags = known;
+    return;
+  }
+  const waiting = textlessTrainers.get(card.name);
+  if (waiting) waiting.push(card);
+  else textlessTrainers.set(card.name, [card]);
+}
+
 function normalizeCard(raw: TcgdexCard, setCode: string): Card {
-  cleanTcgdexCardText(raw);
+  cleanTcgdexCardText(raw); // before tagCard reads the effect text
   const tcgdexId = raw.set?.id ?? SET_MAP[setCode] ?? "";
   const category = (raw.category === "Pokemon" || raw.category === "Trainer" || raw.category === "Energy")
     ? raw.category : "Pokemon";
@@ -68,6 +97,7 @@ function normalizeCard(raw: TcgdexCard, setCode: string): Card {
   const parenMatch = raw.name.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
   const name = parenMatch ? parenMatch[1] : raw.name;
   const subtitle = parenMatch ? parenMatch[2] : undefined;
+  const effectTags = tagCard(raw);
 
   return {
     id: raw.id,
@@ -98,6 +128,7 @@ function normalizeCard(raw: TcgdexCard, setCode: string): Card {
     isPrintUnfriendly: computePrintUnfriendly(raw.id),
     mechanicsHash: computeMechanicsHash(raw),
     illustrator: raw.illustrator ?? "",
+    ...(effectTags.length ? { effectTags } : {}),
   };
 }
 
@@ -115,6 +146,7 @@ export async function loadSet(setCode: string): Promise<number> {
     const card = normalizeCard(raw, code);
     if (!cardIndex.has(card.id)) {
       cardIndex.set(card.id, card);
+      shareTrainerTags(card, !!raw.effect);
       count++;
     }
   }
@@ -280,12 +312,14 @@ export function getFilterOptions(): FilterOptions {
   const energyTypes = new Set<string>();
   const trainerTypes = new Set<string>();
   const sets = new Map<string, string>();
+  const effectTags = new Set<EffectTag>();
 
   for (const card of cards) {
     rarities.add(card.rarity);
     card.energyTypes.forEach((t) => energyTypes.add(t));
     if (card.trainerType) trainerTypes.add(card.trainerType);
     if (!sets.has(card.setCode)) sets.set(card.setCode, card.setName);
+    card.effectTags?.forEach((t) => effectTags.add(t));
   }
 
   const attrChecks: Array<[SpecialAttribute, keyof Card]> = [
@@ -303,5 +337,6 @@ export function getFilterOptions(): FilterOptions {
     trainerTypes: Array.from(trainerTypes).sort(),
     sets: Array.from(sets.entries()).map(([code, name]) => ({ code, name })),
     availableAttributes,
+    effectTags: EFFECT_TAGS.map((t) => t.id).filter((id) => effectTags.has(id)),
   };
 }

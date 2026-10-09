@@ -116,6 +116,7 @@ export function filtersToParams(filters: CardFilters): Record<string, string> {
   if (filters.isFullArt !== undefined) params.isFullArt = String(filters.isFullArt);
   if (filters.hasFoil !== undefined) params.hasFoil = String(filters.hasFoil);
   if (filters.nameSearch) params.nameSearch = filters.nameSearch;
+  if (filters.effectTags?.length) params.effectTags = filters.effectTags.join(",");
   return params;
 }
 

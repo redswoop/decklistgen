@@ -1,3 +1,5 @@
+import type { EffectTag } from "../utils/effect-tags.js";
+
 /** Enriched card model used throughout the app */
 export interface Card {
   id: string;              // "sv06.5-036"
@@ -28,6 +30,8 @@ export interface Card {
   isPrintUnfriendly: boolean;
   mechanicsHash: string;
   illustrator: string;
+  /** What the card does (see utils/effect-tags.ts). Absent when it has no tags. */
+  effectTags?: EffectTag[];
 }
 
 export interface CardAttack {

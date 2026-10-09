@@ -1,5 +1,6 @@
 import type { Card } from "../types/card.js";
 import type { CardFilters } from "../types/filters.js";
+import { hasEffectTag } from "./effect-tags.js";
 
 /** Match "CRE 063", "CRE063", "CRE-063", "sv06-036" patterns */
 const DECK_CODE_RE = /^([A-Za-z][A-Za-z0-9.]*?)[-\s]+(\d+)$|^([A-Za-z]{2,4})(\d{1,4})$/;
@@ -37,6 +38,10 @@ export function applyFilters(cards: Card[], filters: CardFilters): Card[] {
     }
     if (filters.isFullArt !== undefined && card.isFullArt !== filters.isFullArt) return false;
     if (filters.hasFoil !== undefined && card.hasFoil !== filters.hasFoil) return false;
+
+    if (filters.effectTags?.length) {
+      if (!filters.effectTags.every((tag) => hasEffectTag(card.effectTags, tag))) return false;
+    }
 
     if (filters.nameSearch) {
       const search = filters.nameSearch.trim();

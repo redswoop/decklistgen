@@ -162,7 +162,8 @@ const hasAnyFilter = computed(() => {
   if (isExternalMode.value) return true; // always show grid in external mode
   return !!(filters.sets?.length || filters.era || filters.category || filters.rarities?.length
     || filters.energyTypes?.length || filters.specialAttributes?.length
-    || filters.nameSearch || filters.trainerType || filters.isFullArt || filters.hasFoil);
+    || filters.nameSearch || filters.trainerType || filters.isFullArt || filters.hasFoil
+    || filters.effectTags?.length);
 });
 
 // Sorting / grouping / chunking helpers live in shared/utils/card-sort-group.
@@ -213,11 +214,19 @@ const virtualRows = computed(() => {
   return rows;
 });
 
-// Cards in display order (respects grouping) for lightbox navigation
+// Cards in display order (respects grouping) for lightbox navigation. Deduped:
+// "function" grouping lists a card under every facet it has, and the lightbox
+// finds its place by id, so a repeat would trap prev/next in a loop.
 const orderedCards = computed(() => {
+  const seen = new Set<string>();
   const result: Card[] = [];
   for (const row of virtualRows.value) {
-    if (row.type === "cards") result.push(...row.cards);
+    if (row.type !== "cards") continue;
+    for (const card of row.cards) {
+      if (seen.has(card.id)) continue;
+      seen.add(card.id);
+      result.push(card);
+    }
   }
   return result;
 });

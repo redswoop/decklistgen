@@ -7,6 +7,7 @@ import type { BeautifyMode } from "../../shared/types/beautify.js";
 import type { DeckCard } from "../../shared/types/deck.js";
 import type { Card } from "../../shared/types/card.js";
 import { deduplicateByArt } from "../../shared/utils/variant-allocation.js";
+import { groupDeckCardsForBeautify } from "../../shared/utils/beautify-groups.js";
 
 const props = defineProps<{
   deckName: string;
@@ -18,7 +19,7 @@ const emit = defineEmits<{
   updated: [];
 }>();
 
-const { replaceByName } = useDecklist();
+const { replaceEntries } = useDecklist();
 
 const mode = ref<BeautifyMode>("diverse");
 const excludeRarities = ref<Set<string>>(new Set());
@@ -74,17 +75,9 @@ async function beautifyWorkingDeck() {
   if (!props.deckCards) return;
   const excludeSet = new Set([...excludeRarities.value].map((r) => r.toLowerCase()));
 
-  const byName = new Map<string, { totalCount: number; cardId: string }>();
-  for (const dc of props.deckCards) {
-    const existing = byName.get(dc.card.name);
-    if (existing) {
-      existing.totalCount += dc.count;
-    } else {
-      byName.set(dc.card.name, { totalCount: dc.count, cardId: dc.card.id });
-    }
-  }
-
-  for (const [name, { totalCount, cardId }] of byName) {
+  // Grouped by name + mechanicsHash: same-name cards with different text are
+  // different cards and each group only ever replaces its own stacks.
+  for (const { totalCount, cardId, entries: fromEntries } of groupDeckCardsForBeautify(props.deckCards)) {
     try {
       const { variants: allVariants } = await api.getVariants(cardId);
       let variants = allVariants;
@@ -101,7 +94,7 @@ async function beautifyWorkingDeck() {
 
       if (mode.value === "best") {
         const best = getTopRarityVariants(variants)[0];
-        replaceByName(name, [{ card: best, count: totalCount }]);
+        replaceEntries(fromEntries, [{ card: best, count: totalCount }]);
       } else {
         const shuffled = shuffle(variants);
         const entries: { card: Card; count: number }[] = [];
@@ -112,7 +105,7 @@ async function beautifyWorkingDeck() {
           if (remainder > 0) remainder--;
           if (count > 0) entries.push({ card: v, count });
         }
-        replaceByName(name, entries);
+        replaceEntries(fromEntries, entries);
       }
     } catch {
       // Skip this card on error

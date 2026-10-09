@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeAll } from "bun:test";
-import { loadSet, getVariants, getCard, findCardBySetAndNumber } from "./card-store.js";
+import { loadSet, getVariants, getCard, findCardBySetAndNumber, getFilterOptions } from "./card-store.js";
+import { EFFECT_TAGS } from "../../shared/utils/effect-tags.js";
 import { IMAGE_STAND_INS } from "./image-stand-ins.js";
 import { getCardDetail } from "./card-detail.js";
 
@@ -89,5 +90,49 @@ describe("30th anniversary sets", () => {
     // 30th-001 (main set) has a real TCGdex image and no stand-in entry.
     expect(IMAGE_STAND_INS["30th-001"]).toBeUndefined();
     expect(getCard("30th-001")?.imageBase).toBe("https://assets.tcgdex.net/en/me/30th/001");
+  });
+});
+
+describe("function tags", () => {
+  beforeAll(async () => {
+    // SSP has tagged Supporters/Items plus untagged Tools; 30C has the text-less
+    // Ultra Ball reprint and SVI a printing that carries the effect text.
+    await loadSet("SSP");
+    await loadSet("30C");
+    await loadSet("SVI");
+  }, 120_000);
+
+  test("Supporters and Items are stamped from their effect text", () => {
+    expect(getCard("sv08-170")?.name).toBe("Cyrano");
+    expect(getCard("sv08-170")?.effectTags).toEqual(["search:pokemon"]);
+    expect(getCard("sv08-186")?.name).toBe("Scramble Switch");
+    expect(getCard("sv08-186")?.effectTags).toEqual(["switch", "energy-move"]);
+  });
+
+  test("every printing of a card carries the same tags", () => {
+    expect(getCard("sv08-179")?.effectTags).toEqual(["gust"]);
+    expect(getCard("sv08-234")?.effectTags).toEqual(["gust"]);
+    expect(getCard("sv08-246")?.effectTags).toEqual(["gust"]);
+  });
+
+  test("untagged cards have no effectTags field at all", () => {
+    expect(getCard("sv08-169")?.name).toBe("Counter Gain"); // a Tool
+    expect(getCard("sv08-169")).not.toHaveProperty("effectTags");
+    expect(getCard("sv08-238")).not.toHaveProperty("effectTags"); // Pikachu ex
+  });
+
+  test("a reprint shipped without effect text borrows a same-name printing's tags", () => {
+    expect(getCard("30th-128")?.name).toBe("Ultra Ball");
+    expect(getCard("30th-128")?.effectTags).toEqual(["search:pokemon"]);
+    expect(getCard("30th-127")?.name).toBe("Switch");
+    expect(getCard("30th-127")?.effectTags).toEqual(["switch"]);
+  });
+
+  test("getFilterOptions lists the tags in play, in registry order", () => {
+    const { effectTags } = getFilterOptions();
+    expect(effectTags).toContain("gust");
+    expect(effectTags).toContain("search:pokemon");
+    const registryOrder = EFFECT_TAGS.map((t) => t.id).filter((id) => effectTags.includes(id));
+    expect(effectTags).toEqual(registryOrder);
   });
 });

@@ -89,6 +89,34 @@ See also: [CLAUDE.md](./CLAUDE.md) (commands, conventions), [CARD_LAB.md](./CARD
     `shared/utils/card-sort-group.ts`).
   - `useCardSearch` — debounced deck-context add-card search.
 
+## Function tags
+
+What a card *does* (draw, gust, energy accel, …), inferred from printed effect
+text — no hand-curated card list. Supporters and Items only so far; Tools,
+Stadiums, abilities and attacks are untagged rather than half-right.
+
+- **`shared/utils/effect-tags.ts`** — the vocabulary (`EFFECT_FACETS` /
+  `EFFECT_TAGS`: id, label, facet, description) and the pure tagger
+  (`tagEffectText`, `tagCard`). Tags are flat and multi-valued; the `x:y` prefix
+  is the family (`search` matches `search:pokemon`, see `hasEffectTag`).
+  Per-name corrections live in `shared/constants/effect-tag-overrides.ts`.
+- **Stamped at load**: `card-store.ts` `normalizeCard` sets `Card.effectTags`
+  (absent when empty). Tags are derived, never stored, so renaming one is a code
+  change with no migration. Reprints TCGdex ships without effect text borrow a
+  same-name printing's tags (`shareTrainerTags`).
+- **Filter**: `CardFilters.effectTags` — all listed tags must match
+  (`filter-cards.ts`). One field serves the Browse "Does" chips in
+  `InlineFilterBar.vue` (`?tags=`), `GET /api/cards?effectTags=`, and the MCP
+  `search_cards` tool; MCP `get_filter_options` also returns the registry.
+- **Group**: `GroupBy "function"` in `card-sort-group.ts` buckets by facet. A
+  card sits under every facet it has a tag in, so `CardGrid` dedupes the
+  lightbox nav list.
+- **Audit surface**: `lightbox/CardStatsPanel.vue` shows a card's tags.
+- **Changing a rule**: edit the regex, then add or fix the card's row in
+  `effect-tags.test.ts` using its real printed text. Saved decks hold `Card`
+  snapshots, so cards added before a tagging change keep their old tags (or
+  none) until re-added.
+
 ## Gallery
 
 - **`GalleryView.vue`** — controller. Composes `useGalleryFilter`

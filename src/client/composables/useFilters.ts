@@ -1,5 +1,6 @@
 import { reactive, ref, watch } from "vue";
 import type { CardFilters, SpecialAttribute } from "../../shared/types/filters.js";
+import { isEffectTag } from "../../shared/utils/effect-tags.js";
 
 const filters = reactive<CardFilters>({});
 const page = ref(1);
@@ -17,6 +18,7 @@ function filtersToParams(): URLSearchParams {
   if (filters.specialAttributes?.length) p.set("attrs", filters.specialAttributes.join(","));
   if (filters.isFullArt) p.set("fullart", "1");
   if (filters.hasFoil) p.set("foil", "1");
+  if (filters.effectTags?.length) p.set("tags", filters.effectTags.join(","));
   if (filters.nameSearch) p.set("q", filters.nameSearch);
   if (page.value > 1) p.set("page", String(page.value));
 
@@ -65,6 +67,11 @@ function readUrl() {
   if (p.get("fullart") === "1") filters.isFullArt = true;
   if (p.get("foil") === "1") filters.hasFoil = true;
 
+  // Drop ids that aren't (or are no longer) tags, so an old link can't leave an
+  // invisible filter with no chip to turn it off.
+  const tags = p.get("tags")?.split(",").filter(isEffectTag);
+  if (tags?.length) filters.effectTags = tags;
+
   const q = p.get("q");
   if (q) filters.nameSearch = q;
 
@@ -98,6 +105,7 @@ export function useFilters() {
   function setFullArt(value?: boolean) { filters.isFullArt = value; }
   function setFoil(value?: boolean) { filters.hasFoil = value; }
   function setNameSearch(name: string) { filters.nameSearch = name || undefined; }
+  function setEffectTags(tags: string[]) { filters.effectTags = tags.length ? tags : undefined; }
 
   function reset() {
     filters.sets = undefined;
@@ -109,6 +117,7 @@ export function useFilters() {
     filters.specialAttributes = undefined;
     filters.isFullArt = undefined;
     filters.hasFoil = undefined;
+    filters.effectTags = undefined;
     filters.nameSearch = undefined;
     page.value = 1;
   }
@@ -117,6 +126,6 @@ export function useFilters() {
     filters, page,
     setSets, setEra, setCategory, setTrainerType,
     setRarities, setEnergyTypes, setSpecialAttrs,
-    setFullArt, setFoil, setNameSearch, reset,
+    setFullArt, setFoil, setNameSearch, setEffectTags, reset,
   };
 }

@@ -146,16 +146,40 @@ describe("useDecklist undo/redo", () => {
     expect(deck.items.value[0].localId).toBe("1");
   });
 
-  it("undo after replaceByName restores old entries", () => {
+  it("undo after replaceEntries restores old entries", () => {
     const card1 = makeCard("1", "Pikachu");
     deck.addCard(card1);
     const newCard = makeCard("2", "Pikachu");
-    deck.replaceByName("Pikachu", [{ card: newCard, count: 2 }]);
+    deck.replaceEntries([{ setCode: "test", localId: "1" }], [{ card: newCard, count: 2 }]);
     expect(deck.items.value[0].localId).toBe("2");
     expect(deck.items.value[0].count).toBe(2);
     deck.undo();
     expect(deck.items.value[0].localId).toBe("1");
     expect(deck.items.value[0].count).toBe(1);
+  });
+
+  it("replaceEntries leaves same-name stacks it was not asked to replace", () => {
+    // Raikou 30CC 012 and Raikou MEG 048 share a name but are different cards.
+    deck.addCard(makeCard("012", "Raikou"));
+    deck.addCard(makeCard("048", "Raikou"));
+    deck.addCard(makeCard("048", "Raikou"));
+    const bestClassic = makeCard("012-alt", "Raikou");
+    deck.replaceEntries([{ setCode: "test", localId: "012" }], [{ card: bestClassic, count: 1 }]);
+    const byId = Object.fromEntries(deck.items.value.map((i) => [i.localId, i.count]));
+    expect(byId).toEqual({ "048": 2, "012-alt": 1 });
+  });
+
+  it("replaceEntries removes every listed stack and folds into an existing target", () => {
+    deck.addCard(makeCard("1", "Nest Ball"));
+    deck.addCard(makeCard("2", "Nest Ball"));
+    deck.addCard(makeCard("3", "Nest Ball"));
+    deck.replaceEntries(
+      [{ setCode: "test", localId: "1" }, { setCode: "test", localId: "2" }],
+      [{ card: makeCard("3", "Nest Ball"), count: 2 }],
+    );
+    expect(deck.items.value).toHaveLength(1);
+    expect(deck.items.value[0].localId).toBe("3");
+    expect(deck.items.value[0].count).toBe(3);
   });
 
   it("redo after undo re-applies the mutation", () => {

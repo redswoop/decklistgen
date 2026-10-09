@@ -4,11 +4,12 @@ import { useFilters } from "../composables/useFilters.js";
 import { useSets, useFilterOptions } from "../composables/useCards.js";
 import { useEraLoader } from "../composables/useEraLoader.js";
 import type { SpecialAttribute } from "../../shared/types/filters.js";
+import { EFFECT_FACETS, EFFECT_TAGS, type EffectTag } from "../../shared/utils/effect-tags.js";
 
 const {
   filters, setSets, setEra, setCategory, setTrainerType,
   setRarities, setEnergyTypes, setSpecialAttrs,
-  setFullArt, setFoil, reset,
+  setFullArt, setFoil, setEffectTags, reset,
 } = useFilters();
 
 const { data: sets } = useSets();
@@ -109,11 +110,43 @@ const isAttrEnabled = (attr: SpecialAttribute) =>
 
 const isEnergyTypeEnabled = computed(() => isPokemonCategory.value);
 
+// Function tags, laid out one cluster per facet.
+type TagDef = (typeof EFFECT_TAGS)[number];
+const TAG_FACETS = EFFECT_FACETS.map((facet) => ({
+  ...facet,
+  tags: EFFECT_TAGS.filter((t) => t.facet === facet.id),
+}));
+
+// Only Supporters and Items carry function tags so far.
+const isTaggedCategory = computed(() =>
+  (!filters.category || filters.category === "Trainer")
+  && (!filters.trainerType || filters.trainerType === "Supporter" || filters.trainerType === "Item")
+);
+
+const isTagActive = (id: EffectTag) => filters.effectTags?.includes(id) ?? false;
+
+// A selected tag stays clickable so it can always be turned off.
+const isTagEnabled = (id: EffectTag) =>
+  isTagActive(id)
+  || (isTaggedCategory.value && (filterOpts.value?.effectTags?.includes(id) ?? false));
+
+function tagTitle(tag: TagDef) {
+  if (isTagEnabled(tag.id)) return tag.description;
+  if (!isTaggedCategory.value) return `${tag.description} — only Supporters and Items are tagged so far`;
+  return `${tag.description} — no loaded card has this tag`;
+}
+
+function handleTagChange(id: EffectTag, e: Event) {
+  const checked = (e.target as HTMLInputElement).checked;
+  const current = filters.effectTags ?? [];
+  setEffectTags(checked ? [...current, id] : current.filter((t) => t !== id));
+}
+
 const hasActiveFilters = computed(() => {
   return !!(
     filters.category || filters.trainerType || filters.rarities?.length ||
     filters.energyTypes?.length || filters.specialAttributes?.length ||
-    filters.isFullArt || filters.hasFoil
+    filters.isFullArt || filters.hasFoil || filters.effectTags?.length
   );
 });
 </script>
@@ -214,6 +247,27 @@ const hasActiveFilters = computed(() => {
         <input type="checkbox" :checked="filters.hasFoil === true" @change="handleFoilChange" />
         Foil
       </label>
+    </div>
+
+    <div class="ifb-row ifb-row-tags">
+      <span class="ifb-row-label" title="Filter by what a card does. Pick several to require all of them.">Does</span>
+      <span v-for="facet in TAG_FACETS" :key="facet.id" class="ifb-facet" :title="facet.label">
+        <label
+          v-for="tag in facet.tags"
+          :key="tag.id"
+          :class="['ifb-chip', { disabled: !isTagEnabled(tag.id), active: isTagActive(tag.id) }]"
+          :title="tagTitle(tag)"
+          :data-effect-tag="tag.id"
+        >
+          <input
+            type="checkbox"
+            :checked="isTagActive(tag.id)"
+            :disabled="!isTagEnabled(tag.id)"
+            @change="handleTagChange(tag.id, $event)"
+          />
+          {{ tag.label }}
+        </label>
+      </span>
     </div>
   </div>
 </template>

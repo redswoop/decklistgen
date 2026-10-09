@@ -143,6 +143,31 @@ describe("MCP server", () => {
     if (payload.url) expect(payload.url).toMatch(/low\.png$/);
   });
 
+  test("search_cards filters by function tag and returns each card's tags", async () => {
+    const client = await connectedClient();
+    const result = await client.callTool({
+      name: "search_cards",
+      arguments: { sets: ["CEL"], effectTags: ["draw"], pageSize: 10 },
+    });
+    const payload = JSON.parse(firstTextContent(result as never));
+    expect(payload.total).toBeGreaterThan(0);
+    for (const card of payload.cards) {
+      expect(card.name).toBe("Professor's Research");
+      expect(card.effectTags).toEqual(["draw", "hand-refresh"]);
+    }
+  });
+
+  test("get_filter_options carries the function-tag vocabulary", async () => {
+    const client = await connectedClient();
+    const result = await client.callTool({ name: "get_filter_options", arguments: {} });
+    const payload = JSON.parse(firstTextContent(result as never));
+    expect(payload.effectTags).toContain("draw");
+    const gust = payload.effectTagRegistry.tags.find((t: { id: string }) => t.id === "gust");
+    expect(gust).toMatchObject({ label: "Gust", facet: "board" });
+    expect(typeof gust.description).toBe("string");
+    expect(payload.effectTagRegistry.facets.map((f: { id: string }) => f.id)).toContain("board");
+  });
+
   test("load_set rejects unknown set codes", async () => {
     const client = await connectedClient();
     const result = await client.callTool({

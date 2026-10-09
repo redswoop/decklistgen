@@ -394,13 +394,24 @@ export function useDecklist() {
     return items.value.find((i) => i.setCode === setCode && i.localId === localId)?.count ?? 0;
   }
 
-  /** Replace all entries for a card name with new entries */
-  function replaceByName(name: string, newEntries: { card: Card; count: number }[]) {
+  /** Replace exactly the given stacks with new entries, as one undo step.
+   *  Keyed by printing (setCode + localId), never by name: same-name cards with
+   *  different text are different cards and must not be swept up together. */
+  function replaceEntries(
+    from: { setCode: string; localId: string }[],
+    newEntries: { card: Card; count: number }[],
+  ) {
     pushUndo();
-    // Remove all entries with this name
-    items.value = items.value.filter((i) => i.name !== name);
-    // Add new entries
+    const drop = new Set(from.map((k) => `${k.setCode}\0${k.localId}`));
+    items.value = items.value.filter((i) => !drop.has(`${i.setCode}\0${i.localId}`));
     for (const entry of newEntries) {
+      const existing = items.value.find(
+        (i) => i.setCode === entry.card.setCode && i.localId === entry.card.localId,
+      );
+      if (existing) {
+        existing.count += entry.count;
+        continue;
+      }
       items.value.push({
         setCode: entry.card.setCode,
         localId: entry.card.localId,
@@ -417,7 +428,7 @@ export function useDecklist() {
     totalCards, countColor, stats, DECK_SIZE,
     hasZeroCount: computed(() => items.value.some((i) => i.count === 0)),
     toText, isInDeck, getDeckCount,
-    replaceByName,
+    replaceEntries,
     undo, redo, canUndo, canRedo,
     // Deck management
     currentDeckId, currentDeckName, isDirty,

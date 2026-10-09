@@ -2250,6 +2250,21 @@ body {
   margin: 0;
 }
 
+/* Function tags */
+.lb-effect-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.lb-effect-tag {
+  padding: 2px 8px;
+  border: 1px solid #0f3460;
+  border-radius: 12px;
+  font-size: 11px;
+  color: #7f8fa6;
+}
+
 /* Weakness / Resistance / Retreat */
 .lb-wrr {
   display: flex;
@@ -4421,7 +4436,8 @@ body {
   gap: 6px;
 }
 
-.ifb-row-expanded {
+.ifb-row-expanded,
+.ifb-row-tags {
   margin-top: 6px;
   padding-top: 6px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -4573,6 +4589,27 @@ body {
 .ifb-chip.disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.ifb-row-label {
+  font-size: 11px;
+  color: #7f8fa6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* One cluster of function-tag chips per facet, split by a hairline. */
+.ifb-facet {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-right: 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ifb-facet:last-child {
+  padding-right: 0;
+  border-right: none;
 }
 
 /* ═══ Deck Context Panel (right side in browse) ═══ */

@@ -2,12 +2,19 @@
 // Lightbox card stats: stage/evolve line, flavor text, abilities, attacks,
 // trainer/energy effect, and weakness/resistance/retreat. Presentational; reads
 // the current card + its detail. Styling uses the global .lb-* rules.
+import { computed } from "vue";
 import type { Card, CardDetail } from "../../../shared/types/card.js";
+import { effectTagDef } from "../../../shared/utils/effect-tags.js";
 
-defineProps<{
+const props = defineProps<{
   card: Card;
   detail: CardDetail | undefined;
 }>();
+
+// Function tags inferred from the effect text, shown so a wrong one is easy to spot.
+const effectTags = computed(() =>
+  (props.detail?.effectTags ?? props.card.effectTags ?? []).flatMap((id) => effectTagDef(id) ?? []),
+);
 
 const ENERGY_COLORS: Record<string, string> = {
   Grass: "#439837", Fire: "#e4613e", Water: "#3099e1",
@@ -80,6 +87,17 @@ function energyColor(type: string): string {
   <!-- Trainer / Energy effect -->
   <div v-if="!detail?.attacks?.length && !detail?.abilities?.length && card.category !== 'Pokemon'" class="lb-section">
     <p v-if="detail?.description" class="lb-effect-text">{{ detail.description }}</p>
+  </div>
+
+  <!-- Function tags -->
+  <div v-if="effectTags.length" class="lb-section lb-effect-tags">
+    <span
+      v-for="tag in effectTags"
+      :key="tag.id"
+      class="lb-effect-tag"
+      :title="tag.description"
+      :data-effect-tag="tag.id"
+    >{{ tag.label }}</span>
   </div>
 
   <!-- Weakness / Resistance / Retreat -->

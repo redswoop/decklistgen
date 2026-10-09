@@ -10,6 +10,7 @@ import {
 import { ensureCardLoaded, getCardDetail } from "../../services/card-detail.js";
 import { applyFilters } from "../../../shared/utils/filter-cards.js";
 import type { CardFilters, SpecialAttribute } from "../../../shared/types/filters.js";
+import { EFFECT_FACETS, EFFECT_TAGS } from "../../../shared/utils/effect-tags.js";
 import { asJson } from "../util.js";
 
 const specialAttributes = [
@@ -33,6 +34,12 @@ const searchInputSchema = {
   specialAttributes: z.array(z.enum(specialAttributes)).optional(),
   isFullArt: z.boolean().optional(),
   hasFoil: z.boolean().optional(),
+  effectTags: z.array(z.string()).optional().describe(
+    "Function tags the card must have (all of them) — what the card does, inferred from its " +
+    "effect text. A bare prefix matches its family ('search' matches 'search:pokemon'). " +
+    `Valid tags: ${EFFECT_TAGS.map((t) => t.id).join(", ")}. Only Supporters and Items are ` +
+    "tagged so far; matching cards carry their full tag list in `effectTags`.",
+  ),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(200).default(60),
 };
@@ -60,6 +67,7 @@ export function registerCardTools(server: McpServer): void {
       if (args.specialAttributes) filters.specialAttributes = args.specialAttributes;
       if (args.isFullArt !== undefined) filters.isFullArt = args.isFullArt;
       if (args.hasFoil !== undefined) filters.hasFoil = args.hasFoil;
+      if (args.effectTags?.length) filters.effectTags = args.effectTags;
 
       const page = args.page;
       const pageSize = args.pageSize;
@@ -117,10 +125,15 @@ export function registerCardTools(server: McpServer): void {
       title: "Get valid filter values",
       description:
         "Return the universe of valid filter values (rarities, energy types, trainer types, " +
-        "etc.) derived from currently-loaded cards. Useful before constructing a search_cards call.",
+        "etc.) derived from currently-loaded cards, plus the function-tag vocabulary " +
+        "(`effectTagRegistry`: every tag with its facet and meaning). Useful before " +
+        "constructing a search_cards call.",
       inputSchema: {},
     },
-    async () => asJson(getFilterOptions()),
+    async () => asJson({
+      ...getFilterOptions(),
+      effectTagRegistry: { facets: EFFECT_FACETS, tags: EFFECT_TAGS },
+    }),
   );
 
   server.registerTool(

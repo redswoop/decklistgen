@@ -90,6 +90,30 @@ describe("groupCards", () => {
   });
 });
 
+describe("groupCards function", () => {
+  const iono = card({ id: "iono", category: "Trainer", effectTags: ["draw", "hand-refresh", "disrupt:hand"] });
+  const boss = card({ id: "boss", category: "Trainer", effectTags: ["gust"] });
+  const cheren = card({ id: "cheren", category: "Trainer", effectTags: ["draw"] });
+  const pikachu = card({ id: "pikachu" });
+
+  it("buckets by facet in registry order, untagged cards last", () => {
+    const groups = groupCards([pikachu, boss, cheren], "function");
+    expect(groups.map(([label, cs]) => [label, cs.map((c) => c.id)])).toEqual([
+      ["Draw", ["cheren"]],
+      ["Gust & Switch", ["boss"]],
+      ["Other", ["pikachu"]],
+    ]);
+  });
+
+  it("lists a card under every facet it has a tag in, once per facet", () => {
+    const groups = groupCards([iono, cheren], "function");
+    expect(groups.map(([label, cs]) => [label, cs.map((c) => c.id)])).toEqual([
+      ["Draw", ["iono", "cheren"]],
+      ["Disruption", ["iono"]],
+    ]);
+  });
+});
+
 describe("groupCards printCategory", () => {
   it("buckets by print filter in fixed order: Pokémon … Special Energy, Basic Energy", () => {
     const cards = [

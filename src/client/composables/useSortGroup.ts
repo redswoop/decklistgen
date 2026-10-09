@@ -33,6 +33,7 @@ export const groupByOptions: { value: GroupBy; label: string }[] = [
   { value: "energyType", label: "Energy Type" },
   { value: "rarity", label: "Rarity" },
   { value: "category", label: "Category" },
+  { value: "function", label: "Function" },
 ];
 
 export const sortByOptions: { value: SortBy; label: string }[] = [

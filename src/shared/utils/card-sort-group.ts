@@ -1,9 +1,13 @@
 import type { Card } from "../types/card.js";
 import { getRarityRank } from "./rarity-rank.js";
 import { printCategoryOf, printCategoryLabel, PRINT_CATEGORY_ORDER } from "./print-plan.js";
+import { EFFECT_FACET_LABELS, UNTAGGED_FACET_LABEL, facetLabelsOf } from "./effect-tags.js";
 
-/** `printCategory` is the deck grid's print-mode grouping: one bucket per print filter. */
-export type GroupBy = "none" | "set" | "energyType" | "rarity" | "category" | "printCategory";
+/**
+ * `printCategory` is the deck grid's print-mode grouping: one bucket per print filter.
+ * `function` buckets by what a card does (effect-tag facets).
+ */
+export type GroupBy = "none" | "set" | "energyType" | "rarity" | "category" | "function" | "printCategory";
 export type SortBy = "alpha" | "rarity" | "type" | "set" | "count";
 export type SortDir = "asc" | "desc";
 
@@ -48,31 +52,46 @@ export function sortCards(
 }
 
 const PRINT_CATEGORY_RANK = new Map(PRINT_CATEGORY_ORDER.map((c, i) => [printCategoryLabel(c), i]));
+const FACET_RANK = new Map(EFFECT_FACET_LABELS.map((label, i) => [label, i]));
+
+/** The group label(s) a card falls under. Only "function" can yield more than one. */
+function groupKeys(card: Card, by: GroupBy): string[] {
+  switch (by) {
+    case "set": return [`${card.setName} (${card.setCode})`];
+    case "energyType": return [card.energyTypes[0] ?? "Colorless"];
+    case "rarity": return [card.rarity];
+    case "category": return [card.trainerType ?? card.category];
+    case "function": {
+      const facets = facetLabelsOf(card.effectTags);
+      return facets.length ? facets : [UNTAGGED_FACET_LABEL];
+    }
+    case "printCategory": return [printCategoryLabel(printCategoryOf(card))];
+    default: return [""];
+  }
+}
 
 /**
  * Bucket cards by the chosen grouping key, returning [label, cards] entries.
  * Entries are sorted alphabetically by label except for "set", which keeps the
- * input (set-code) ordering, and "printCategory", which follows
- * PRINT_CATEGORY_ORDER (Pokémon first, basic energy last).
+ * input (set-code) ordering, "printCategory", which follows
+ * PRINT_CATEGORY_ORDER (Pokémon first, basic energy last), and "function",
+ * which follows the effect-tag facet order with untagged cards last. Under
+ * "function" a card appears in every facet it has a tag in (Iono is under both
+ * Draw and Disruption), so group counts can sum past the card count.
  */
 export function groupCards(cards: Card[], by: GroupBy): [string, Card[]][] {
   const map = new Map<string, Card[]>();
   for (const card of cards) {
-    let key: string;
-    switch (by) {
-      case "set": key = `${card.setName} (${card.setCode})`; break;
-      case "energyType": key = card.energyTypes[0] ?? "Colorless"; break;
-      case "rarity": key = card.rarity; break;
-      case "category": key = card.trainerType ?? card.category; break;
-      case "printCategory": key = printCategoryLabel(printCategoryOf(card)); break;
-      default: key = "";
+    for (const key of groupKeys(card, by)) {
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(card);
     }
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(card);
   }
   const entries = Array.from(map.entries());
   if (by === "printCategory") {
     entries.sort((a, b) => (PRINT_CATEGORY_RANK.get(a[0]) ?? 99) - (PRINT_CATEGORY_RANK.get(b[0]) ?? 99));
+  } else if (by === "function") {
+    entries.sort((a, b) => (FACET_RANK.get(a[0]) ?? 99) - (FACET_RANK.get(b[0]) ?? 99));
   } else if (by !== "set") {
     entries.sort((a, b) => a[0].localeCompare(b[0]));
   }

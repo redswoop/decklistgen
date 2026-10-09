@@ -138,4 +138,35 @@ describe("applyFilters", () => {
       expect(result).toEqual([pokemon]);
     });
   });
+
+  describe("effectTags", () => {
+    const iono = makeCard({ id: "t1", name: "Iono", category: "Trainer", trainerType: "Supporter", energyTypes: [], effectTags: ["draw", "hand-refresh", "disrupt:hand"] });
+    const research = makeCard({ id: "t2", name: "Professor's Research", category: "Trainer", trainerType: "Supporter", energyTypes: [], effectTags: ["draw", "hand-refresh"] });
+    const ultraBall = makeCard({ id: "t3", name: "Ultra Ball", category: "Trainer", trainerType: "Item", energyTypes: [], effectTags: ["search:pokemon"] });
+    const untagged = makeCard({ id: "p1", name: "Pikachu" });
+    const cards = [iono, research, ultraBall, untagged];
+
+    test("keeps only cards carrying the tag", () => {
+      expect(applyFilters(cards, { effectTags: ["draw"] })).toEqual([iono, research]);
+    });
+
+    test("several tags must all be present", () => {
+      expect(applyFilters(cards, { effectTags: ["draw", "disrupt:hand"] })).toEqual([iono]);
+    });
+
+    test("a bare prefix matches the whole family", () => {
+      expect(applyFilters(cards, { effectTags: ["search"] })).toEqual([ultraBall]);
+      expect(applyFilters(cards, { effectTags: ["disrupt"] })).toEqual([iono]);
+    });
+
+    test("untagged cards never match, and an empty list filters nothing", () => {
+      expect(applyFilters(cards, { effectTags: ["gust"] })).toEqual([]);
+      expect(applyFilters(cards, { effectTags: [] })).toEqual(cards);
+    });
+
+    test("combines with the other filters", () => {
+      expect(applyFilters(cards, { effectTags: ["draw"], nameSearch: "iono" })).toEqual([iono]);
+      expect(applyFilters(cards, { effectTags: ["search"], trainerType: "Supporter" })).toEqual([]);
+    });
+  });
 });

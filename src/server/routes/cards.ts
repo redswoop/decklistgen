@@ -25,6 +25,7 @@ function parseFilters(query: Record<string, string>): CardFilters {
   if (query.isFullArt !== undefined) filters.isFullArt = query.isFullArt === "true";
   if (query.hasFoil !== undefined) filters.hasFoil = query.hasFoil === "true";
   if (query.nameSearch) filters.nameSearch = query.nameSearch;
+  if (query.effectTags) filters.effectTags = query.effectTags.split(",");
   return filters;
 }
 

@@ -115,3 +115,33 @@ describe("GET /cards/evolutions", () => {
     expect(evolutions[0].id).toBe(MOCK_CARD_ID);
   });
 });
+
+describe("GET /cards?effectTags=", () => {
+  beforeAll(async () => {
+    await loadSet("CEL");
+  });
+
+  test("returns only cards carrying every requested tag", async () => {
+    const res = await app.request("/cards?sets=CEL&effectTags=draw,hand-refresh");
+    expect(res.status).toBe(200);
+    const { cards, total } = await res.json();
+    expect(total).toBeGreaterThan(0);
+    for (const card of cards) {
+      expect(card.name).toBe("Professor's Research");
+      expect(card.effectTags).toEqual(["draw", "hand-refresh"]);
+    }
+  });
+
+  test("a tag no card in the set has matches nothing", async () => {
+    const res = await app.request("/cards?sets=CEL&effectTags=gust");
+    const { total } = await res.json();
+    expect(total).toBe(0);
+  });
+
+  test("GET /cards/filters reports the tags in play", async () => {
+    const res = await app.request("/cards/filters");
+    const options = await res.json();
+    expect(options.effectTags).toContain("draw");
+    expect(options.effectTags).toContain("hand-refresh");
+  });
+});
