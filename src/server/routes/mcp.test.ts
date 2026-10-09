@@ -1,9 +1,14 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { Hono } from "hono";
 import mcpRouter from "./mcp.js";
+import { sessionMiddleware } from "../middleware/auth.js";
+import { createUser, deleteUser } from "../services/user-store.js";
+import { createApiToken } from "../services/api-token-store.js";
+import type { AppEnv } from "../types.js";
 
 function makeApp() {
-  const app = new Hono();
+  const app = new Hono<AppEnv>();
+  app.use("*", sessionMiddleware);
   app.route("/api/mcp", mcpRouter);
   return app;
 }
@@ -18,10 +23,14 @@ function rpc(method: string, params: unknown, id: number | string = 1) {
   return JSON.stringify({ jsonrpc: "2.0", id, method, params });
 }
 
-async function call(app: ReturnType<typeof makeApp>, body: string): Promise<{ status: number; json: unknown }> {
-  const res = await app.request("/api/mcp", {
+async function call(
+  app: ReturnType<typeof makeApp>,
+  body: string,
+  opts: { path?: string; headers?: Record<string, string> } = {},
+): Promise<{ status: number; json: unknown }> {
+  const res = await app.request(opts.path ?? "/api/mcp", {
     method: "POST",
-    headers: baseHeaders,
+    headers: { ...baseHeaders, ...(opts.headers ?? {}) },
     body,
   });
   const text = await res.text();
@@ -77,5 +86,52 @@ describe("POST /api/mcp (Streamable HTTP transport)", () => {
     const parsed = JSON.parse(text);
     expect(Array.isArray(parsed.sets)).toBe(true);
     expect(parsed.total).toBeGreaterThan(0);
+  });
+});
+
+describe("MCP auth plumbing", () => {
+  const PREFIX = `mcp-route-${Date.now()}`;
+  let userId: string;
+  let token: string;
+
+  beforeAll(async () => {
+    const u = await createUser({ email: `${PREFIX}@test.local`, password: "testpassword1", displayName: "Mcp Route", isAuthorized: true });
+    userId = u.id;
+    token = createApiToken(userId, "route test").token;
+  });
+  afterAll(() => deleteUser(userId));
+
+  function whoami(res: { json: unknown }) {
+    const payload = res.json as { result?: { isError?: boolean; content?: Array<{ text?: string }> } };
+    return { isError: !!payload.result?.isError, data: JSON.parse(payload.result?.content?.[0]?.text ?? "null") };
+  }
+
+  test("anonymous POST is served but deck tools refuse", async () => {
+    const res = await call(makeApp(), rpc("tools/call", { name: "whoami", arguments: {} }, 4));
+    expect(res.status).toBe(200);
+    expect(whoami(res).isError).toBe(true);
+  });
+
+  test("Authorization: Bearer identifies the caller", async () => {
+    const res = await call(makeApp(), rpc("tools/call", { name: "whoami", arguments: {} }, 5), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+    expect(whoami(res)).toMatchObject({ isError: false, data: { id: userId, displayName: "Mcp Route" } });
+  });
+
+  test("/api/mcp/t/<token> identifies the caller for URL-only clients", async () => {
+    const res = await call(makeApp(), rpc("tools/call", { name: "whoami", arguments: {} }, 6), {
+      path: `/api/mcp/t/${token}`,
+    });
+    expect(res.status).toBe(200);
+    expect(whoami(res).data.id).toBe(userId);
+  });
+
+  test("/api/mcp/t/<bad token> is a 401, not an anonymous session", async () => {
+    const res = await call(makeApp(), rpc("tools/call", { name: "whoami", arguments: {} }, 7), {
+      path: "/api/mcp/t/dg_bogus",
+    });
+    expect(res.status).toBe(401);
   });
 });

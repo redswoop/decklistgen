@@ -4,6 +4,7 @@ import { useAuth } from "../composables/useAuth.js";
 
 const emit = defineEmits<{
   (e: "open-admin"): void;
+  (e: "open-tokens"): void;
 }>();
 
 const { currentUser, isAdmin, isAuthorized, logout } = useAuth();
@@ -41,6 +42,11 @@ function handleAdmin() {
   open.value = false;
   emit("open-admin");
 }
+
+function handleTokens() {
+  open.value = false;
+  emit("open-tokens");
+}
 </script>
 
 <template>
@@ -62,6 +68,7 @@ function handleAdmin() {
       </div>
       <div class="user-menu-divider" />
       <button v-if="isAdmin" class="user-menu-item" @click="handleAdmin">Admin Panel</button>
+      <button class="user-menu-item" @click="handleTokens">API Tokens</button>
       <button class="user-menu-item" @click="handleLogout">Log Out</button>
       </div>
     </Teleport>

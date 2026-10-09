@@ -9,10 +9,8 @@ import {
   copyDeck,
 } from "../services/deck-store.js";
 import { getVariants } from "../services/card-store.js";
-import type { Card } from "../../shared/types/card.js";
 import type { BeautifyOptions } from "../../shared/types/beautify.js";
-import { getTopRarityVariants } from "../../shared/utils/rarity-rank.js";
-import { deduplicateByArt } from "../../shared/utils/variant-allocation.js";
+import { beautifyDeckCards } from "../services/deck-beautify.js";
 import { logAction, getClientIp } from "../services/logger.js";
 import { findUserById } from "../services/user-store.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -154,31 +152,7 @@ app.post("/:id/copy", async (c) => {
   return c.json(copy, 201);
 });
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function spreadRoundRobin(variants: Card[], totalCount: number): SavedDeck["cards"] {
-  if (variants.length === 0) return [];
-  const result: SavedDeck["cards"] = [];
-  const perVariant = Math.floor(totalCount / variants.length);
-  let remainder = totalCount % variants.length;
-  for (const variant of variants) {
-    const count = perVariant + (remainder > 0 ? 1 : 0);
-    if (remainder > 0) remainder--;
-    if (count > 0) {
-      result.push({ count, card: variant });
-    }
-  }
-  return result;
-}
-
-/** Beautify card variants in a deck (replaces diversify) */
+/** Beautify card variants in a deck (same algorithm as the Beautify dialog and the MCP tool). */
 app.post("/:id/beautify", async (c) => {
   const user = c.get("user")!;
   const eff = resolveEffectiveUserId(c);
@@ -187,58 +161,10 @@ app.post("/:id/beautify", async (c) => {
   if (!deck) return c.json({ error: "Deck not found" }, 404);
 
   const body = await c.req.json<BeautifyOptions>();
-  const { mode, excludeRarities = [], excludePrintUnfriendly = true } = body;
-  const excludeSet = new Set(excludeRarities.map((r) => r.toLowerCase()));
+  const { cards } = beautifyDeckCards(deck.cards, (id) => getVariants(id), body);
 
-  // Group cards by name
-  const byName = new Map<string, { totalCount: number; cardId: string; entries: { cardId: string; count: number }[] }>();
-  for (const entry of deck.cards) {
-    const existing = byName.get(entry.card.name);
-    if (existing) {
-      existing.totalCount += entry.count;
-      existing.entries.push({ cardId: entry.card.id, count: entry.count });
-    } else {
-      byName.set(entry.card.name, {
-        totalCount: entry.count,
-        cardId: entry.card.id,
-        entries: [{ cardId: entry.card.id, count: entry.count }],
-      });
-    }
-  }
-
-  const newCards: SavedDeck["cards"] = [];
-  for (const [name, { totalCount, cardId }] of byName) {
-    let variants = getVariants(cardId);
-    if (excludePrintUnfriendly) {
-      variants = variants.filter((v) => !v.isPrintUnfriendly);
-    }
-    if (excludeSet.size > 0) {
-      variants = variants.filter((v) => !excludeSet.has(v.rarity.toLowerCase()));
-    }
-    // Skip cards with no image (e.g. unreleased promos)
-    variants = variants.filter((v) => !!v.imageBase);
-
-    // Deduplicate same-art printings — one representative per unique artwork
-    variants = deduplicateByArt(variants);
-
-    if (variants.length === 0) {
-      const original = deck.cards.find((c) => c.card.name === name)!;
-      newCards.push({ count: totalCount, card: original.card });
-      continue;
-    }
-
-    if (mode === "best") {
-      // Single highest-rarity variant, all copies on it
-      const best = getTopRarityVariants(variants)[0];
-      newCards.push({ count: totalCount, card: best });
-    } else {
-      // Diverse: spread across as many unique arts as possible
-      newCards.push(...spreadRoundRobin(shuffle(variants), totalCount));
-    }
-  }
-
-  const updated = await updateDeck(deck.id, eff, { cards: newCards });
-  logAction("deck.beautify", getClientIp(c), { deckId: c.req.param("id"), mode, actingAs: eff !== user.id ? eff : undefined });
+  const updated = await updateDeck(deck.id, eff, { cards });
+  logAction("deck.beautify", getClientIp(c), { deckId: c.req.param("id"), mode: body.mode, actingAs: eff !== user.id ? eff : undefined });
   return c.json({ deck: updated });
 });
 

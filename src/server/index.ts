@@ -45,12 +45,17 @@ app.use("*", async (c, next) => {
   c.header("Referrer-Policy", "strict-origin-when-cross-origin");
 });
 
+/** Keep URL-carried credentials (MCP token path) out of the access log. */
+function redactSecrets(path: string): string {
+  return path.replace(/^(\/api\/mcp\/t\/)[^/]+/, "$1[redacted]");
+}
+
 app.use("*", async (c, next) => {
   const start = Date.now();
   await next();
   logAccess({
     method: c.req.method,
-    path: c.req.path,
+    path: redactSecrets(c.req.path),
     status: c.res.status,
     ms: Date.now() - start,
     ip: getClientIp(c),

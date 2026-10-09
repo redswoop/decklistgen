@@ -45,6 +45,16 @@ describe("MCP server", () => {
     expect(names).toContain("get_public_deck");
     expect(names).toContain("get_card_image_url");
     expect(names).toContain("proxy_status");
+    // Deck management + simulators + art (need an authenticated context to *use*, always advertised)
+    for (const t of [
+      "whoami", "list_users", "list_decks", "find_decks", "get_deck", "create_deck", "rename_deck",
+      "delete_deck", "copy_deck", "set_deck_visibility", "add_cards", "remove_cards", "set_card_count",
+      "swap_card_printing", "set_card_art", "edit_deck", "replace_deck_cards", "beautify_deck", "check_deck_legality",
+      "export_deck_text", "simulate_opening_hands", "simulate_setup", "deck_art_status",
+      "generate_deck_art", "get_generation_queue", "cancel_generation_job",
+    ]) {
+      expect(names).toContain(t);
+    }
   });
 
   test("list_sets returns set entries", async () => {

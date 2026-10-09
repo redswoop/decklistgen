@@ -4,6 +4,8 @@ import { createUser, findUserByEmail, findUserById, verifyPassword, getUserCount
 import { createSession, deleteSession } from "../services/session-store.js";
 import { findMagicLink, redeemMagicLink } from "../services/magic-link-store.js";
 import { validateInviteCode, incrementInviteUse } from "../services/invite-store.js";
+import { createApiToken, listApiTokens, revokeApiToken } from "../services/api-token-store.js";
+import { requireAuth } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 
 const app = new Hono<AppEnv>();
@@ -185,6 +187,33 @@ app.get("/me", (c) => {
   }
   if (!user) return c.json({ error: "Not authenticated" }, 401);
   return c.json(user);
+});
+
+// --- API tokens (bearer auth for the MCP endpoint and scripts) ---
+
+/** List the caller's tokens (metadata only — plaintext is never stored). */
+app.get("/tokens", requireAuth, (c) => {
+  const user = c.get("user")!;
+  return c.json({ tokens: listApiTokens(user.id) });
+});
+
+/** Mint a token. The plaintext is in this response and nowhere else. */
+app.post("/tokens", requireAuth, async (c) => {
+  const user = c.get("user")!;
+  const body = await c.req.json<{ label?: string }>().catch(() => ({} as { label?: string }));
+  const label = (body.label ?? "").trim();
+  if (!label) return c.json({ error: "label is required" }, 400);
+  if (label.length > 80) return c.json({ error: "label must be 80 characters or fewer" }, 400);
+  const created = createApiToken(user.id, label);
+  return c.json(created, 201);
+});
+
+/** Revoke one of the caller's tokens. */
+app.delete("/tokens/:id", requireAuth, (c) => {
+  const user = c.get("user")!;
+  const ok = revokeApiToken(user.id, c.req.param("id"));
+  if (!ok) return c.json({ error: "Token not found" }, 404);
+  return c.json({ ok: true });
 });
 
 export { app as authRouter };

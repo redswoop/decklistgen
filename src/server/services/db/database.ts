@@ -99,6 +99,21 @@ function initSchema(db: Database) {
   `);
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS api_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      last_used_at TEXT
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id)
+  `);
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS migrations (
       name TEXT PRIMARY KEY,
       ran_at TEXT NOT NULL

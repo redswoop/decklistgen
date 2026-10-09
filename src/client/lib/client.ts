@@ -5,7 +5,7 @@ import type { DecklistEntry, DecklistOutput, LimitlessPlayer, ImportResult } fro
 import type { SavedDeck, DeckSummary, DeckCard } from "../../shared/types/deck.js";
 import type { CustomizedCardsResponse } from "../../shared/types/customized-card.js";
 import type { BeautifyOptions } from "../../shared/types/beautify.js";
-import type { User, AdminUser, MagicLink, InviteCode } from "../../shared/types/user.js";
+import type { User, AdminUser, MagicLink, InviteCode, ApiToken } from "../../shared/types/user.js";
 import type { QueueJob } from "../../shared/types/queue.js";
 
 const BASE = "/api";
@@ -137,6 +137,11 @@ export const api = {
   register: (data: { email: string; password: string; displayName: string; inviteCode?: string }) =>
     post<User>("/auth/register", data),
   logout: () => post<{ ok: boolean }>("/auth/logout", {}),
+
+  // API tokens (bearer auth for the MCP endpoint)
+  listApiTokens: () => get<{ tokens: ApiToken[] }>("/auth/tokens"),
+  createApiToken: (label: string) => post<ApiToken & { token: string }>("/auth/tokens", { label }),
+  revokeApiToken: (id: string) => del<{ ok: boolean }>(`/auth/tokens/${id}`),
 
   // Magic link endpoints
   validateMagicLink: (token: string) =>

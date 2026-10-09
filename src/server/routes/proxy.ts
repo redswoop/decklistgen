@@ -4,7 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import sharp from "sharp";
 import { getCard } from "../services/card-store.js";
 import { ping as comfyPing, COMFYUI_URL } from "../services/comfyui.js";
-import { submitJob, listJobs, getJob, cancelJob, clearCompleted } from "../services/gen-queue.js";
+import { listJobs, getJob, cancelJob, clearCompleted } from "../services/gen-queue.js";
 import { getPromptForCard, saveCardPrompt } from "../services/prompt-db.js";
 import { getCustomizedCards, deleteCardArtifacts } from "../services/customized-cards.js";
 import {
@@ -13,40 +13,15 @@ import {
   ensureSourceImage,
   loadCardData,
 } from "../services/pokeproxy/cache.js";
+import { getArtStatus, queueCardGeneration } from "../services/card-generation.js";
 import { requireAuth, requireAuthorized } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { logAction, getClientIp } from "../services/logger.js";
 import { isValidCardId } from "../../shared/validation.js";
 
-
-const FULLART_DEFAULT_PROMPT =
-  "Expand the illustration from the reference image into a large, detailed scene. " +
-  "Remove all text, headers, and other non-illustrative elements.";
-
-function hasFile(cardId: string, suffix: string): boolean {
-  return existsSync(cachePath(cardId, suffix));
-}
-
-function getStatus(cardId: string) {
-  const hasClean = hasFile(cardId, "_clean.png");
-  const hasComposite = hasFile(cardId, "_composite.png");
-
-  // mtime of the newest cleaned image — used by client for cache-busting across page reloads
-  let mtime = 0;
-  if (hasComposite) {
-    try { mtime = Math.max(mtime, statSync(cachePath(cardId, "_composite.png")).mtimeMs); } catch {}
-  }
-  if (hasClean) {
-    try { mtime = Math.max(mtime, statSync(cachePath(cardId, "_clean.png")).mtimeMs); } catch {}
-  }
-
-  return {
-    hasClean,
-    hasComposite,
-    hasFullart: hasFile(cardId, "_fullart.png"),
-    mtime: mtime || undefined,
-  };
-}
+// Art-status + generate plumbing lives in services/card-generation.ts so the
+// MCP tools share it with these routes.
+const getStatus = getArtStatus;
 
 
 const app = new Hono<AppEnv>();
@@ -75,7 +50,7 @@ app.post("/status/batch", async (c) => {
     if (!isValidCardId(cardId)) continue;
     const status = getStatus(cardId);
     if (!includeGenInfo) {
-      results[cardId] = status;
+      results[cardId] = { ...status };
       continue;
     }
     // Enrich with generation info: skip, isStale, staleSummary
@@ -211,71 +186,19 @@ app.post("/generate/:cardId", requireAuthorized, async (c) => {
   const mode = c.req.query("mode") === "fullart" ? "fullart" : "clean";
   logAction("proxy.generate", getClientIp(c), { cardId, seed: seedParam, force, mode });
   const promptOverride = c.req.query("prompt") || undefined;
-  const seed = seedParam ? Math.max(0, Math.min(999999999, parseInt(seedParam, 10) || 0)) : force ? Math.floor(Math.random() * 999999) : 42;
-
-  // Resolve prompt before queuing
-  const cardData = loadCardData(cardId);
-  let prompt: string;
-  let ruleName: string;
-
-  if (promptOverride) {
-    prompt = promptOverride;
-    ruleName = "manual-override";
-  } else {
-    const result = getPromptForCard(cardData);
-    if (mode === "fullart") {
-      prompt = result.prompt || FULLART_DEFAULT_PROMPT;
-      ruleName = result.skip ? "fullart-default" : result.ruleName;
-    } else {
-      if (result.skip) {
-        return c.json({ cardId, status: "skipped", rule: result.ruleName });
-      }
-      if (!result.prompt) {
-        return c.json({ cardId, status: "no_prompt", rule: result.ruleName }, 400);
-      }
-      prompt = result.prompt;
-      ruleName = result.ruleName;
-    }
-  }
-
-  const existsSuffix = mode === "fullart" ? "_fullart.png" : "_composite.png";
-  if (!force && hasFile(cardId, existsSuffix)) {
-    // Check if existing clean is stale (generated with a different rule or prompt)
-    const metaSuffix = mode === "fullart" ? "_fullart_meta.json" : "_clean_meta.json";
-    const metaPath = cachePath(cardId, metaSuffix);
-    let stale = false;
-    if (existsSync(metaPath)) {
-      try {
-        const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
-        if (meta.rule !== ruleName || meta.prompt !== prompt) {
-          stale = true;
-        }
-      } catch {}
-    }
-    if (!stale) {
-      return c.json({ cardId, status: "already_exists" });
-    }
-    // Stale clean — fall through to re-generate
-  }
-
-  // Resolve card name + image base for queue display
-  await ensureCardLoaded(cardId);
-  const card = getCard(cardId);
+  const seed = seedParam ? (parseInt(seedParam, 10) || 0) : undefined;
   const user = c.get("user")!;
 
-  const job = submitJob({
+  const outcome = await queueCardGeneration({
     cardId,
-    cardName: card?.name || cardId,
-    cardImageBase: card?.imageBase || "",
     mode,
     force,
     seed,
-    prompt,
-    ruleName,
+    promptOverride,
     submittedBy: user.displayName || user.email,
   });
-
-  return c.json({ jobId: job.id, cardId, status: "queued" });
+  if (outcome.status === "no_prompt") return c.json(outcome, 400);
+  return c.json(outcome);
 });
 
 // --- Queue endpoints ---

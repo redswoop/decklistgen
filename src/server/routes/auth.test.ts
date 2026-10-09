@@ -103,3 +103,61 @@ describe("POST /auth/register", () => {
     expect(user.email).toBe(email);
   });
 });
+
+describe("API tokens (/auth/tokens)", () => {
+  async function registerAndCookie(): Promise<string> {
+    const email = `${TEST_PREFIX}-tok-${Math.random().toString(36).slice(2)}@test.local`;
+    createdEmails.push(email);
+    const res = await jsonPost("/auth/register", { email, password: "testpassword1", displayName: "Tok" });
+    expect(res.status).toBe(201);
+    const cookie = res.headers.get("set-cookie") ?? "";
+    return cookie.split(";")[0];
+  }
+
+  test("requires a session", async () => {
+    expect((await req("/auth/tokens")).status).toBe(401);
+    expect((await jsonPost("/auth/tokens", { label: "x" })).status).toBe(401);
+  });
+
+  test("mint → list → use as bearer → revoke", async () => {
+    const cookie = await registerAndCookie();
+    const mint = await req("/auth/tokens", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ label: "remote claude" }),
+    });
+    expect(mint.status).toBe(201);
+    const created = await mint.json();
+    expect(created.token.startsWith("dg_")).toBe(true);
+    expect(created.label).toBe("remote claude");
+
+    const list = await req("/auth/tokens", { headers: { Cookie: cookie } });
+    const { tokens } = await list.json();
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].id).toBe(created.id);
+    expect(JSON.stringify(tokens)).not.toContain(created.token);
+
+    // The bearer token authenticates like a session.
+    const me = await req("/auth/me", { headers: { Authorization: `Bearer ${created.token}` } });
+    expect(me.status).toBe(200);
+    expect((await me.json()).displayName).toBe("Tok");
+
+    const del = await req(`/auth/tokens/${created.id}`, { method: "DELETE", headers: { Cookie: cookie } });
+    expect(del.status).toBe(200);
+    const meAfter = await req("/auth/me", { headers: { Authorization: `Bearer ${created.token}` } });
+    expect(meAfter.status).toBe(401);
+    expect((await req(`/auth/tokens/${created.id}`, { method: "DELETE", headers: { Cookie: cookie } })).status).toBe(404);
+  });
+
+  test("label is required and bounded", async () => {
+    const cookie = await registerAndCookie();
+    const h = { "Content-Type": "application/json", Cookie: cookie };
+    expect((await req("/auth/tokens", { method: "POST", headers: h, body: "{}" })).status).toBe(400);
+    expect((await req("/auth/tokens", { method: "POST", headers: h, body: JSON.stringify({ label: "x".repeat(81) }) })).status).toBe(400);
+  });
+
+  test("a garbage bearer header is just anonymous", async () => {
+    const me = await req("/auth/me", { headers: { Authorization: "Bearer dg_garbage" } });
+    expect(me.status).toBe(401);
+  });
+});

@@ -147,6 +147,23 @@ See also: [CLAUDE.md](./CLAUDE.md) (commands, conventions), [CARD_LAB.md](./CARD
   `lib/{date-format,magic-link-status,invite-code-form}.ts`. Styles:
   `styles/admin.css` + `styles/sync.css`.
 
+## MCP server
+
+- **`src/server/mcp/server.ts`** — `createMcpServer(ctx)`; `ctx.user` is the
+  caller (null = anonymous). **`context.ts`** — `requireUser`,
+  `requireAuthorizedUser`, `effectiveUserId` (admin `actAsUserId` ≙ REST
+  `X-Act-As-User`). Tools by area in `tools/`: `sets`, `cards`, `decklist`,
+  `public-decks`, `proxy` (anonymous OK); `users`, `decks`, `sim`, `art` (need
+  identity). Transports: `routes/mcp.ts` (HTTP, bearer or `/t/<token>` path),
+  `cli/mcp.ts` (stdio, `DECKLISTGEN_API_TOKEN`).
+- Services the tools share with REST: `deck-beautify.ts` (pure beautify, the
+  name + mechanicsHash grouping), `deck-sim.ts` (server-side hand / setup sims +
+  plain-language `interpretation`), `card-generation.ts` (art status + queueing,
+  also used by `routes/proxy.ts`), `api-token-store.ts`.
+- Client: `ApiTokensDialog.vue` (user menu → API Tokens) mints / lists / revokes
+  tokens via `api.{list,create,revoke}ApiToken`.
+- Full catalogue and conventions: MCP.md.
+
 ## Shared building blocks
 
 - Reusable components: `ConfirmDialog.vue` (used across deck + gallery flows),

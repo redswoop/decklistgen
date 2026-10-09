@@ -1,6 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import { getCookie } from "hono/cookie";
 import { validateSession } from "../services/session-store.js";
+import { validateApiToken, TOKEN_PREFIX } from "../services/api-token-store.js";
 import type { User } from "../../shared/types/user.js";
 import type { AppEnv } from "../types.js";
 
@@ -20,10 +21,18 @@ export const sessionMiddleware = createMiddleware<AppEnv>(async (c, next) => {
     const user = validateSession(sessionId);
     c.set("user", user);
   } else {
-    c.set("user", null);
+    c.set("user", bearerUser(c.req.header("Authorization")));
   }
   await next();
 });
+
+/** Resolve an `Authorization: Bearer dg_…` API token to its user; null otherwise. */
+export function bearerUser(header: string | undefined): User | null {
+  if (!header) return null;
+  const m = /^Bearer\s+(\S+)$/i.exec(header.trim());
+  if (!m || !m[1].startsWith(TOKEN_PREFIX)) return null;
+  return validateApiToken(m[1]);
+}
 
 /** Block unauthenticated requests with 401. */
 export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {

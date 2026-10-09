@@ -30,6 +30,7 @@ import AuthPage from "./components/AuthPage.vue";
 import UserMenu from "./components/UserMenu.vue";
 import ActingAsBanner from "./components/ActingAsBanner.vue";
 import AdminPanel from "./components/AdminPanel.vue";
+import ApiTokensDialog from "./components/ApiTokensDialog.vue";
 import ToastContainer from "./components/ToastContainer.vue";
 import { useDecklist } from "./composables/useDecklist.js";
 import { useDeckSave } from "./composables/useDeckSave.js";
@@ -75,6 +76,7 @@ const { currentView, previewCardId } = useRoute();
 const queueIsActive = computed(() => currentView.value === 'queue');
 useQueue(queueIsActive);
 const showAdmin = ref(false);
+const showApiTokens = ref(false);
 
 const { items, totalCards, toText, currentDeckName, currentDeckId, undo, redo } = useDecklist();
 const { saveAsNew } = useDeckSave();
@@ -249,7 +251,7 @@ function handleTabClick(tab: string) {
         <span>{{ rightPanelLabel }}</span>
       </button>
       <button v-if="!isLoggedIn" class="sign-in-btn" @click="showAuthDialog = true">Sign In</button>
-      <UserMenu v-else @open-admin="showAdmin = true" />
+      <UserMenu v-else @open-admin="showAdmin = true" @open-tokens="showApiTokens = true" />
     </div>
 
     <!-- Admin "acting as another user" banner (whole deck tab) -->
@@ -446,6 +448,7 @@ function handleTabClick(tab: string) {
       v-if="showAdmin && isAdmin"
       @close="showAdmin = false"
     />
+    <ApiTokensDialog v-if="showApiTokens" @close="showApiTokens = false" />
     <BrowseGenerateDialog
       :open="showBrowseGenerate"
       :effective-count="browseEffectiveCount"

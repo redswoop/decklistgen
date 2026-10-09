@@ -33,3 +33,11 @@ export interface InviteCode {
   createdBy: string;
   createdAt: string;
 }
+
+/** A bearer token for the MCP endpoint / scripts. The plaintext is only returned at creation. */
+export interface ApiToken {
+  id: string;
+  label: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}

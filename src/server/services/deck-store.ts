@@ -145,3 +145,29 @@ export async function copyDeck(id: string, userId: string, newName: string): Pro
   await createDeck(userId, copy);
   return copy;
 }
+
+/**
+ * Case-insensitive substring search over deck names. Scoped to one user, or
+ * (admin use) across every user when `userId` is omitted — each row then
+ * carries the owner so the caller can tell whose deck it is.
+ */
+export async function searchDecks(
+  query: string,
+  userId?: string,
+): Promise<Array<DeckSummary & { ownerId: string; ownerEmail?: string }>> {
+  const like = `%${query.trim().toLowerCase()}%`;
+  const rows = (userId
+    ? getDb()
+        .query(
+          `SELECT d.*, u.display_name, u.email FROM decks d JOIN users u ON d.user_id = u.id
+           WHERE d.user_id = ? AND LOWER(d.name) LIKE ? ORDER BY d.updated_at DESC LIMIT 50`,
+        )
+        .all(userId, like)
+    : getDb()
+        .query(
+          `SELECT d.*, u.display_name, u.email FROM decks d JOIN users u ON d.user_id = u.id
+           WHERE LOWER(d.name) LIKE ? ORDER BY d.updated_at DESC LIMIT 50`,
+        )
+        .all(like)) as (DeckRow & { display_name: string; email: string })[];
+  return rows.map((r) => ({ ...toSummary(r), ownerId: r.user_id, ownerEmail: r.email }));
+}
