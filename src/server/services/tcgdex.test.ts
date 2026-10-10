@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fetchCard, isIncompleteCard, resetStaleRefreshTracking } from "./tcgdex.js";
+import { fetchCard, isIncompleteCard, resetStaleRefreshTracking, _setRetryDelaysForTests } from "./tcgdex.js";
 
 describe("isIncompleteCard", () => {
   test("a Stage 1/2 Pokémon with no evolveFrom is incomplete", () => {
@@ -37,6 +37,7 @@ describe("fetchCard stale-cache refresh", () => {
     dir = mkdtempSync(join(tmpdir(), "tcgdex-cache-"));
     process.env.TCGDEX_CACHE_DIR = dir;
     resetStaleRefreshTracking();
+    _setRetryDelaysForTests([0, 0, 0]);
     calls = [];
     respond = () => Response.json(fresh);
     globalThis.fetch = ((url: string | URL | Request) => {
@@ -47,6 +48,7 @@ describe("fetchCard stale-cache refresh", () => {
 
   afterEach(() => {
     globalThis.fetch = realFetch;
+    _setRetryDelaysForTests(null);
     delete process.env.TCGDEX_CACHE_DIR;
     rmSync(dir, { recursive: true, force: true });
   });
@@ -80,5 +82,59 @@ describe("fetchCard stale-cache refresh", () => {
     writeFileSync(join(dir, "zz01-001.json"), JSON.stringify(fresh));
     await fetchCard("zz01", "001");
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("fetchJson retries transient failures", () => {
+  let dir: string;
+  let calls: number;
+  const realFetch = globalThis.fetch;
+  let responses: Array<() => Response | Promise<Response>>;
+  const ok = () => Response.json({ id: "zz01-002", localId: "002", name: "Dreepy", category: "Pokemon", stage: "Basic" });
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "tcgdex-retry-"));
+    process.env.TCGDEX_CACHE_DIR = dir;
+    _setRetryDelaysForTests([0, 0, 0]);
+    calls = 0;
+    responses = [];
+    globalThis.fetch = (() => {
+      const next = responses[Math.min(calls, responses.length - 1)];
+      calls++;
+      return Promise.resolve().then(next);
+    }) as typeof fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    _setRetryDelaysForTests(null);
+    delete process.env.TCGDEX_CACHE_DIR;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("a 503 followed by a 200 succeeds on the second attempt", async () => {
+    responses = [() => new Response("down", { status: 503 }), ok];
+    const card = await fetchCard("zz01", "002");
+    expect(card.name).toBe("Dreepy");
+    expect(calls).toBe(2);
+  });
+
+  test("a network error is retried too", async () => {
+    responses = [() => { throw new TypeError("fetch failed"); }, ok];
+    const card = await fetchCard("zz01", "002");
+    expect(card.name).toBe("Dreepy");
+    expect(calls).toBe(2);
+  });
+
+  test("gives up after the configured retries and surfaces the last status", async () => {
+    responses = [() => new Response("down", { status: 503 })];
+    await expect(fetchCard("zz01", "002")).rejects.toThrow("HTTP 503");
+    expect(calls).toBe(4); // 1 + 3 retries
+  });
+
+  test("a 404 is not retried", async () => {
+    responses = [() => new Response("nope", { status: 404 }), ok];
+    await expect(fetchCard("zz01", "002")).rejects.toThrow("HTTP 404");
+    expect(calls).toBe(1);
   });
 });

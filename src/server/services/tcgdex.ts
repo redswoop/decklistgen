@@ -17,11 +17,43 @@ async function ensureCache() {
   if (!existsSync(dir)) await mkdir(dir, { recursive: true });
 }
 
+const RETRY_DELAYS_MS = [500, 1500, 4000];
+
+/** Test hook: shrink the backoff so retry tests don't sleep for real. */
+export function _setRetryDelaysForTests(delays: number[] | null): void {
+  retryDelays = delays ?? RETRY_DELAYS_MS;
+}
+let retryDelays = RETRY_DELAYS_MS;
+
+function isTransient(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+/**
+ * GET + JSON with retries on transient failures. TCGdex is a free community
+ * API and throws 503s now and then (it took down a CI run on 2026-10-09, where
+ * there is no cache/ to fall back on). 4xx other than 429 are not retried.
+ */
 async function fetchJson<T>(url: string): Promise<T> {
   console.log(`  Fetching: ${url}`);
-  const resp = await fetch(url, { headers: { "User-Agent": UA } });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${url}`);
-  return await resp.json() as T;
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt <= retryDelays.length; attempt++) {
+    if (attempt > 0) {
+      console.warn(`  Retry ${attempt}/${retryDelays.length} for ${url}: ${lastError?.message}`);
+      await new Promise((r) => setTimeout(r, retryDelays[attempt - 1]));
+    }
+    let resp: Response;
+    try {
+      resp = await fetch(url, { headers: { "User-Agent": UA } });
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      continue; // network error — retry
+    }
+    if (resp.ok) return await resp.json() as T;
+    lastError = new Error(`HTTP ${resp.status} for ${url}`);
+    if (!isTransient(resp.status)) throw lastError;
+  }
+  throw lastError ?? new Error(`Fetch failed for ${url}`);
 }
 
 /**
