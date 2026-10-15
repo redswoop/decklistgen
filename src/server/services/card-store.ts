@@ -1,15 +1,20 @@
-import type { Card, TcgdexCard } from "../../shared/types/card.js";
+import type { Card, Era, TcgdexCard } from "../../shared/types/card.js";
 import type { FilterOptions, SpecialAttribute } from "../../shared/types/filters.js";
 import { SET_MAP, REVERSE_SET_MAP, getEra, canonicalSetNumber } from "../../shared/constants/set-codes.js";
 import { isEx, isV, isVmax, isVstar, isAncient, isFuture, isTera } from "../../shared/utils/detect-attributes.js";
 import { isFullArt } from "../../shared/utils/detect-fullart.js";
 import { fetchSetCards } from "./tcgdex.js";
+import { getCustomSetCards, isCustomSet, registerCustomSets } from "./custom-sets.js";
 import { computeMechanicsHash } from "./mechanics-hash.js";
 import { IMAGE_STAND_INS } from "./image-stand-ins.js";
 import { cleanTcgdexCardText } from "../../shared/utils/clean-card-text.js";
 import { EFFECT_TAGS, tagCard, type EffectTag } from "../../shared/utils/effect-tags.js";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+
+// Custom sets must be in SET_MAP before anything iterates it (loadEra, the
+// sets route, import resolution), so register them as soon as the store loads.
+registerCustomSets();
 
 /** In-memory card index, lazily populated per set */
 const cardIndex = new Map<string, Card>();
@@ -139,7 +144,7 @@ export async function loadSet(setCode: string): Promise<number> {
   const tcgdexId = SET_MAP[code];
   if (!tcgdexId) throw new Error(`Unknown set code: ${code}`);
 
-  const rawCards = await fetchSetCards(tcgdexId);
+  const rawCards = isCustomSet(code) ? getCustomSetCards(code) : await fetchSetCards(tcgdexId);
   let count = 0;
   for (const raw of rawCards) {
     if (raw.stage === "V-UNION") continue;
@@ -191,7 +196,7 @@ export function isSetLoaded(code: string): boolean {
   return loadedSets.has(code.toUpperCase());
 }
 
-export async function loadEra(era: "sv" | "swsh" | "me"): Promise<{ loaded: number; sets: string[] }> {
+export async function loadEra(era: Era): Promise<{ loaded: number; sets: string[] }> {
   const seen = new Set<string>();
   const codes: string[] = [];
   for (const [code, tcgdexId] of Object.entries(SET_MAP)) {

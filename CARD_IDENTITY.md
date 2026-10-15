@@ -192,3 +192,14 @@ this section used to describe) in favour of collapsing on the way *in*.
 4. Tighten the hash.
 5. Custom cards: `source: "local"` Card + Artwork with a local image; the lab
    page as the editor.
+
+### Interim: custom sets (shipped 2026-10-14)
+
+Until the registry exists, custom cards ride the Printing identity as a
+pseudo-set: `custom-sets/<folder>/set.json` defines a set whose id starts with
+`custom-` (era `custom`), and `services/custom-sets.ts` registers it into
+`SET_MAP` so every consumer in §2 keys it exactly like a TCGdex printing
+(`custom-feel-007`). The committed artwork PNG is served as the card's clean
+art (`resolveArtFile`). One printing per custom card, so none of the variant /
+fold / Beautify ambiguities above apply; the registry migration will turn each
+into a `source: "local"` Card + Artwork.

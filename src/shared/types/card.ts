@@ -1,5 +1,9 @@
 import type { EffectTag } from "../utils/effect-tags.js";
 
+/** Card eras. `custom` is the pseudo-era of locally defined sets (see
+ *  server/services/custom-sets.ts) — never a TCGdex set. */
+export type Era = "sv" | "swsh" | "me" | "custom";
+
 /** Enriched card model used throughout the app */
 export interface Card {
   id: string;              // "sv06.5-036"
@@ -14,7 +18,7 @@ export interface Card {
   setId: string;
   setCode: string;
   setName: string;
-  era: "sv" | "swsh" | "me";
+  era: Era;
   hp?: number;
   stage?: string;
   retreat?: number;
@@ -107,7 +111,7 @@ export interface SetInfo {
   code: string;     // PTCGL code ("SFA")
   tcgdexId: string; // TCGdex ID ("sv06.5")
   name: string;     // "Shrouded Fable"
-  era: "sv" | "swsh" | "me";
+  era: Era;
   cardCount?: number;
   loaded: boolean;
 }

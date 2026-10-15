@@ -1,0 +1,167 @@
+{
+  "code": "FEEL",
+  "id": "custom-feel",
+  "name": "Feelings Deck",
+  "cards": [
+    {
+      "localId": "001",
+      "name": "Kettlit",
+      "category": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": ["Fire"],
+      "retreat": 1,
+      "rarity": "Custom",
+      "illustrator": "Feelings Deck",
+      "description": "Weakness: Teasing",
+      "abilities": [
+        { "type": "Ability", "name": "Early Whistle", "effect": "Everyone backs off and gives space. Nobody says \"calm down.\" Playing this early never gets you in trouble." }
+      ],
+      "attacks": [
+        { "cost": ["Fire"], "name": "Let Off Steam", "effect": "Five big slow breaths, like blowing out birthday candles." },
+        { "cost": ["Fire", "Fire"], "name": "Cool Down", "effect": "Take a 5-minute break somewhere quiet. Grown-ups always say yes to this one." }
+      ],
+      "art": { "banner": "Getting Heated", "caption": "Play it at Warm, not at Volcano", "meter": ["Warm", "Hot", "Volcano"] }
+    },
+    {
+      "localId": "002",
+      "name": "Anglurk",
+      "category": "Pokemon",
+      "stage": "Basic",
+      "hp": 70,
+      "types": ["Darkness"],
+      "retreat": 1,
+      "rarity": "Custom",
+      "illustrator": "Feelings Deck",
+      "description": "Weakness: Biting",
+      "abilities": [
+        { "type": "Ability", "name": "Spot the Hook", "effect": "Whatever is winding me up stops now, even if you didn't mean it that way. You don't have to agree. You just stop." }
+      ],
+      "attacks": [
+        { "cost": ["Darkness"], "name": "Don't Bite", "effect": "Walk away from the lure. Bait only works if you bite." },
+        { "cost": ["Darkness", "Colorless"], "name": "Name It", "effect": "Say it calmly: \"That's winding me up.\" Not \"you're trying to make me mad.\"" }
+      ],
+      "art": { "banner": "You're Baiting Me", "caption": "What you're doing is winding me up" }
+    },
+    {
+      "localId": "003",
+      "name": "Staticub",
+      "category": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": ["Lightning"],
+      "retreat": 1,
+      "rarity": "Custom",
+      "illustrator": "Feelings Deck",
+      "description": "Weakness: Noise",
+      "abilities": [
+        { "type": "Ability", "name": "Overload", "effect": "Everyone turns the volume down, backs up a step, and stops asking questions." }
+      ],
+      "attacks": [
+        { "cost": ["Lightning"], "name": "Unplug", "effect": "Headphones on, or go somewhere quiet." },
+        { "cost": ["Lightning", "Lightning"], "name": "Ground Out", "effect": "Lie under something heavy, like a blanket or pillows, until the sparks stop." }
+      ],
+      "art": { "banner": "Too Much!", "caption": "Too loud, too close, too many things" }
+    },
+    {
+      "localId": "004",
+      "name": "Grumblock",
+      "category": "Pokemon",
+      "stage": "Basic",
+      "hp": 80,
+      "types": ["Colorless"],
+      "retreat": 2,
+      "rarity": "Custom",
+      "illustrator": "Feelings Deck",
+      "description": "Weakness: Taking it personally",
+      "abilities": [
+        { "type": "Ability", "name": "Wrong Target Shield", "effect": "This mad isn't for you, so don't take it personally. Anyone can hold this card up as a question: \"Is this a Grumblock?\"" }
+      ],
+      "attacks": [
+        { "cost": ["Colorless"], "name": "Point It Out", "effect": "Point at the thing you're actually mad at." },
+        { "cost": ["Colorless", "Colorless"], "name": "Call a Teammate", "effect": "Ask someone to help with the stuck thing." }
+      ],
+      "art": { "banner": "Not At You", "caption": "I'm mad at a thing, not at you" }
+    },
+    {
+      "localId": "005",
+      "name": "Balancroc",
+      "category": "Pokemon",
+      "stage": "Basic",
+      "hp": 90,
+      "types": ["Fighting"],
+      "retreat": 2,
+      "rarity": "Custom",
+      "illustrator": "Feelings Deck",
+      "description": "Weakness: Interrupting",
+      "abilities": [
+        { "type": "Ability", "name": "Hear Me Out", "effect": "You get one calm sentence, and a grown-up has to listen to the whole thing. One sentence, not the whole trial." }
+      ],
+      "attacks": [
+        { "cost": ["Fighting"], "name": "State Your Case", "effect": "Say what happened in one calm sentence." },
+        { "cost": ["Fighting", "Fighting"], "name": "Take Turns", "effect": "Set a timer so everybody gets a fair go." }
+      ],
+      "art": { "banner": "That's Not Fair", "caption": "Play when the rules feel broken" }
+    },
+    {
+      "localId": "006",
+      "name": "Shellter",
+      "category": "Pokemon",
+      "stage": "Basic",
+      "hp": 70,
+      "types": ["Water"],
+      "retreat": 0,
+      "rarity": "Custom",
+      "illustrator": "Feelings Deck",
+      "description": "Weakness: Being followed",
+      "abilities": [
+        { "type": "Ability", "name": "Shell Up", "effect": "Nobody follows you, talks to you, or bugs you while this card is out. Retreat pauses things, it doesn't cancel them. Chores and consequences are still waiting when you come back." }
+      ],
+      "attacks": [
+        { "cost": ["Water"], "name": "Hide Out", "effect": "Go to your safe spot. Pick it ahead of time." },
+        { "cost": ["Water", "Water"], "name": "Come Back Out", "effect": "When you're ready, come back and flip this card face-down." }
+      ],
+      "art": { "banner": "Retreat", "caption": "I need space. Don't follow me" }
+    },
+    {
+      "localId": "007",
+      "name": "Haltadon",
+      "category": "Pokemon",
+      "stage": "Basic",
+      "hp": 100,
+      "types": ["Metal"],
+      "retreat": 2,
+      "rarity": "Custom",
+      "illustrator": "Feelings Deck",
+      "description": "Weakness: \"One more time\"",
+      "abilities": [
+        { "type": "Ability", "name": "Final Whistle", "effect": "The rough stuff stops the second this card is shown. No \"one more time.\" The other player asks, \"Are you okay?\" Not for quitting a game you're losing. That's a Shellter." }
+      ],
+      "attacks": [
+        { "cost": ["Metal"], "name": "Freeze", "effect": "Everyone stops moving. Hands off." },
+        { "cost": ["Metal", "Colorless"], "name": "Say It", "effect": "Say what has to stop: \"No more tickling.\"" }
+      ],
+      "art": { "banner": "Game Over", "caption": "Roughhousing, tickling, chasing, teasing" }
+    },
+    {
+      "localId": "008",
+      "name": "Pacifawn",
+      "category": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": ["Grass"],
+      "retreat": 1,
+      "rarity": "Custom",
+      "illustrator": "Feelings Deck",
+      "description": "Weakness: Bringing it back up",
+      "abilities": [
+        { "type": "Ability", "name": "Fresh Start", "effect": "A truce takes both players. Once the other player bumps fists, the fight is over and neither of you brings it back up. Grown-ups can still talk about it later." }
+      ],
+      "attacks": [
+        { "cost": ["Grass"], "name": "Shake On It", "effect": "Offer a high five, fist bump, or pinky shake. The other player is allowed to say \"not yet.\"" },
+        { "cost": ["Grass", "Colorless"], "name": "New Game", "effect": "Pick something fun to do together." }
+      ],
+      "art": { "banner": "Truce", "caption": "I'm okay now. Are we good?" }
+    }
+  ]
+}

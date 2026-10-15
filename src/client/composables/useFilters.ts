@@ -1,3 +1,4 @@
+import type { Era } from "../../shared/types/card.js";
 import { reactive, ref, watch } from "vue";
 import type { CardFilters, SpecialAttribute } from "../../shared/types/filters.js";
 import { isEffectTag } from "../../shared/utils/effect-tags.js";
@@ -96,7 +97,7 @@ watch([() => ({ ...filters }), page], () => {
 
 export function useFilters() {
   function setSets(sets: string[]) { filters.sets = sets.length ? sets : undefined; }
-  function setEra(era?: "sv" | "swsh" | "me" | "all") { filters.era = era; }
+  function setEra(era?: Era | "all") { filters.era = era; }
   function setCategory(category?: "Pokemon" | "Trainer" | "Energy") { filters.category = category; }
   function setTrainerType(trainerType?: string) { filters.trainerType = trainerType; }
   function setRarities(rarities: string[]) { filters.rarities = rarities.length ? rarities : undefined; }

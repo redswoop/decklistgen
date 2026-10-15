@@ -21,6 +21,11 @@ describe("getEra", () => {
     expect(getEra("mee")).toBe("me");
   });
 
+  test("classifies locally defined sets as custom", () => {
+    expect(getEra("custom-feel")).toBe("custom");
+    expect(getEra("custom-anything")).toBe("custom");
+  });
+
   test("classifies the 30th anniversary sets as Mega Evolution", () => {
     expect(getEra("30th")).toBe("me");
     expect(getEra("30th-c")).toBe("me");

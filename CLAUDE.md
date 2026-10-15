@@ -95,6 +95,19 @@ data/              # Persistent data files (prompts.json etc.)
 
 - **No disappearing buttons.** Never use `v-if` to hide a button based on state. Instead, always render it as `disabled` with a `title` tooltip explaining why the action is unavailable. Users should always see what actions exist, even when they can't use them yet.
 
+## Custom sets
+
+Cards that are not on TCGdex (the Feelings Deck) live in `custom-sets/<folder>/`:
+`set.json` (code, `custom-`-prefixed id, name, cards in TCGdex shape) plus
+`art/<localId>.png`, a 750×1050 full-bleed artwork composed from `art/src/<localId>.svg`
+by `bun cli/custom-set-art.ts custom-sets/<folder>` (resvg; the PNGs are committed, prod never
+renders). `services/custom-sets.ts` registers each set into `SET_MAP` at startup under the
+`custom` era, `loadSet` reads the cards from disk, `getCardDetail` reads the raw card from the
+set file, and the artwork doubles as the card's clean art (`resolveArtFile` in
+`pokeproxy/cache.ts`), so a custom card searches, decks, imports (`FEEL 7`), renders and
+prints like any other with no ComfyUI pass. Custom cards are never Standard-legal. This is the
+interim path for custom cards; the art registry in CARD_IDENTITY.md §5 remains the target.
+
 ## Gallery
 
 The Gallery (Vue view `GalleryView.vue`, backed by `GET /gallery/cards`) previews every rendered card across the deck + a reference card set. Use it to spot regressions in the CSS renderer, audit which cards still need clean art, and inspect the cleaning pipeline (Source / Cleaned tabs). When adding new visual cases worth scrutinizing, extend `TEST_CARDS` in `src/server/routes/gallery.ts`.
@@ -127,7 +140,7 @@ Deck printing starts in **print mode** on the deck grid (Deck → Print): tiles 
 
 - Anonymous users can browse cards, build local WIP decks, import/export, and beautify. Server-side features (save, generate, print) require sign-in.
 - Auth middleware: `sessionMiddleware` (resolves user on every request), `requireAuth` (401 if no user), `requireAuthorized` (403 if not authorized/admin)
-- Public API routes: `/api/cards`, `/api/sets`, `/api/decklist`, `/api/public/decks`, `/api/pokeproxy/status`, `/api/pokeproxy/image`
+- Public API routes: `/api/cards`, `/api/sets`, `/api/custom-sets`, `/api/decklist`, `/api/public/decks`, `/api/pokeproxy/status`, `/api/pokeproxy/image`
 - Protected API routes: `/api/decks` (requireAuth on all), `/api/pokeproxy/generate` (requireAuthorized), `/api/pokeproxy/queue` (requireAuth)
 - API tokens (`api_tokens` table, `services/api-token-store.ts`): `Authorization: Bearer dg_…` resolves to the token's user in `sessionMiddleware` when no session cookie is present; the MCP route also accepts `/api/mcp/t/<token>`. Minted/revoked via `/api/auth/tokens` (user menu → API Tokens). See MCP.md.
 - Client auth state: `useAuth()` composable (singleton refs). `useAuthDialog()` for triggering sign-in dialog from any component.

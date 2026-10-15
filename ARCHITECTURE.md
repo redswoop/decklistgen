@@ -117,6 +117,24 @@ Stadiums, abilities and attacks are untagged rather than half-right.
   snapshots, so cards added before a tagging change keep their old tags (or
   none) until re-added.
 
+## Custom sets
+
+Locally defined cards (`custom-sets/<folder>/set.json` + `art/*.png`), see CLAUDE.md.
+
+- **`server/services/custom-sets.ts`** — discovery + registration into the shared
+  set maps (`registerCustomSets`, run when `card-store` loads), card lookup
+  (`getCustomSetCards`, `getCustomCardRaw`), artwork path (`getCustomArtPath`).
+- **Hooks**: `card-store.loadSet` (reads from disk for custom codes),
+  `card-detail.getCardDetail` (raw from the set file), `pokeproxy/cache.ts`
+  `resolveArtFile` (custom PNG stands in for `cache/<id>.png` and `_clean.png`;
+  used by `card-generation.getArtStatus`, the `/api/pokeproxy/image` route and
+  the gallery), `set-codes.getEra` (`custom-` prefix → `custom` era).
+- **`server/routes/custom-sets.ts`** — `GET /api/custom-sets` (list) and
+  `GET /api/custom-sets/art/:id/<file>` (the artwork; a custom card's
+  `imageBase` points here).
+- **`cli/custom-set-art.ts`** — composes `art/src/<localId>.svg` + the card's
+  `art` block (banner / caption / meter) into the 750×1050 PNG with resvg.
+
 ## Gallery
 
 - **`GalleryView.vue`** — controller. Composes `useGalleryFilter`

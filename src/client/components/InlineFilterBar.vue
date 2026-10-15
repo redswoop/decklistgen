@@ -3,6 +3,7 @@ import { ref, computed, watch } from "vue";
 import { useFilters } from "../composables/useFilters.js";
 import { useSets, useFilterOptions } from "../composables/useCards.js";
 import { useEraLoader } from "../composables/useEraLoader.js";
+import type { Era } from "../../shared/types/card.js";
 import type { SpecialAttribute } from "../../shared/types/filters.js";
 import { EFFECT_FACETS, EFFECT_TAGS, type EffectTag } from "../../shared/utils/effect-tags.js";
 
@@ -46,7 +47,7 @@ function formatSetLabel(code: string) {
 }
 
 function handleEraChange(e: Event) {
-  const val = (e.target as HTMLSelectElement).value as "sv" | "swsh" | "me" | "all";
+  const val = (e.target as HTMLSelectElement).value as Era | "all";
   sidebarEra.value = val;
   setEra(val);
   setSets([]);
@@ -159,6 +160,7 @@ const hasActiveFilters = computed(() => {
         <option value="sv">Scarlet &amp; Violet</option>
         <option value="swsh">Sword &amp; Shield</option>
         <option value="me">Mega Evolution</option>
+        <option value="custom">Custom</option>
       </select>
 
       <select class="ifb-select ifb-select-wide" value="" @change="handleSetSelectChange">

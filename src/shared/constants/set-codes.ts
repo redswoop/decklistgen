@@ -1,3 +1,5 @@
+import type { Era } from "../types/card.js";
+
 /** Maps PTCGL-style set codes to TCGdex set IDs */
 export const SET_MAP: Record<string, string> = {
   // Scarlet & Violet era
@@ -123,8 +125,18 @@ for (const [code, id] of Object.entries(SET_MAP)) {
   }
 }
 
+/** Prefix every locally defined (non-TCGdex) set id carries, e.g. "custom-feel". */
+export const CUSTOM_SET_PREFIX = "custom-";
+
+export const ERAS: readonly Era[] = ["sv", "swsh", "me", "custom"];
+
+export function isEra(value: string): value is Era {
+  return (ERAS as readonly string[]).includes(value);
+}
+
 /** Determine era from TCGdex set ID */
-export function getEra(tcgdexId: string): "sv" | "swsh" | "me" {
+export function getEra(tcgdexId: string): Era {
+  if (tcgdexId.startsWith(CUSTOM_SET_PREFIX)) return "custom";
   // 30th / 30th-c sit in TCGdex's Mega Evolution serie despite the odd IDs
   if (tcgdexId.startsWith("me") || tcgdexId.startsWith("30th")) return "me";
   if (tcgdexId.startsWith("sv")) return "sv";

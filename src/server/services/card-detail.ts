@@ -4,6 +4,7 @@ import { getCard, ensureCardLoaded } from "./card-store.js";
 import { inferEvolveFrom } from "./evolution-chain.js";
 import type { CardDetail } from "../../shared/types/card.js";
 import { cleanTcgdexCardText } from "../../shared/utils/clean-card-text.js";
+import { getCustomCardRaw } from "./custom-sets.js";
 
 // Re-exported for existing callers (routes, MCP tools); the implementation
 // lives in card-store so evolution-chain can import it without a cycle.
@@ -29,8 +30,11 @@ export async function getCardDetail(cardId: string): Promise<CardDetail | null> 
   if (!card) return null;
 
   let raw: Record<string, unknown> = {};
+  const custom = getCustomCardRaw(cardId);
   const jsonPath = join(CACHE_DIR, `${cardId}.json`);
-  if (existsSync(jsonPath)) {
+  if (custom) {
+    raw = custom as unknown as Record<string, unknown>;
+  } else if (existsSync(jsonPath)) {
     try {
       raw = cleanTcgdexCardText(JSON.parse(readFileSync(jsonPath, "utf-8")));
     } catch {}

@@ -19,7 +19,7 @@ export function useEraLoader() {
     if (loadingEra.value) return;
     loadingEra.value = true;
     try {
-      await Promise.all([api.loadEra("sv"), api.loadEra("swsh"), api.loadEra("me")]);
+      await Promise.all([api.loadEra("sv"), api.loadEra("swsh"), api.loadEra("me"), api.loadEra("custom")]);
       invalidateAll();
     } finally {
       loadingEra.value = false;

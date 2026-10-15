@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { getCard } from "./card-store.js";
 import { submitJob, type SubmitOpts } from "./gen-queue.js";
 import { getPromptForCard } from "./prompt-db.js";
-import { cachePath, ensureCardLoaded, loadCardData } from "./pokeproxy/cache.js";
+import { cachePath, ensureCardLoaded, loadCardData, resolveArtFile } from "./pokeproxy/cache.js";
 import type { GenMode } from "../../shared/types/queue.js";
 
 /**
@@ -16,7 +16,7 @@ export const FULLART_DEFAULT_PROMPT =
   "Remove all text, headers, and other non-illustrative elements.";
 
 export function hasArtFile(cardId: string, suffix: string): boolean {
-  return existsSync(cachePath(cardId, suffix));
+  return resolveArtFile(cardId, suffix) !== undefined;
 }
 
 export interface ArtStatus {
@@ -34,7 +34,7 @@ export function getArtStatus(cardId: string): ArtStatus {
     try { mtime = Math.max(mtime, statSync(cachePath(cardId, "_composite.png")).mtimeMs); } catch {}
   }
   if (hasClean) {
-    try { mtime = Math.max(mtime, statSync(cachePath(cardId, "_clean.png")).mtimeMs); } catch {}
+    try { mtime = Math.max(mtime, statSync(resolveArtFile(cardId, "_clean.png")!).mtimeMs); } catch {}
   }
   return { hasClean, hasComposite, hasFullart: hasArtFile(cardId, "_fullart.png"), mtime: mtime || undefined };
 }

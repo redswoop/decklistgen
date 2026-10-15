@@ -6,11 +6,15 @@ import { getPromptForCard, saveCardPrompt } from "../services/prompt-db.js";
 import { getCard, loadSet, isSetLoaded } from "../services/card-store.js";
 import { REVERSE_SET_MAP } from "../../shared/constants/set-codes.js";
 import type { TcgdexCard } from "../../shared/types/card.js";
+import { resolveArtFile } from "../services/pokeproxy/cache.js";
+import { getCustomCardRaw } from "../services/custom-sets.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../cache");
 
 /** Load card data from cached JSON file */
 function loadCachedCard(cardId: string): Record<string, unknown> | null {
+  const custom = getCustomCardRaw(cardId);
+  if (custom) return custom as unknown as Record<string, unknown>;
   const jsonPath = join(CACHE_DIR, `${cardId}.json`);
   if (!existsSync(jsonPath)) return null;
   try {
@@ -48,6 +52,8 @@ const TEST_CARDS = [
   { label: "EnergyBasic Dark", cardId: "sv06.5-098" },
   { label: "EnergyBasic Metal", cardId: "sv06.5-099" },
   { label: "EnergySpecial", cardId: "sv09-190" },
+  // Custom set (custom-sets/feelings): long ability text, no damage, no weakness
+  { label: "Custom Feelings", cardId: "custom-feel-007" },
 ];
 
 const app = new Hono();
@@ -69,9 +75,9 @@ function buildGalleryCard(cardId: string, label = "") {
     trainerType: storeCard.trainerType,
     set: { name: storeCard.setName, id: storeCard.setId },
   } : null);
-  const hasClean = existsSync(join(CACHE_DIR, `${cardId}_clean.png`));
+  const hasClean = resolveArtFile(cardId, "_clean.png") !== undefined;
   const hasComposite = existsSync(join(CACHE_DIR, `${cardId}_composite.png`));
-  const hasSource = existsSync(join(CACHE_DIR, `${cardId}.png`));
+  const hasSource = resolveArtFile(cardId, ".png") !== undefined;
   let cleanMeta: Record<string, unknown> | null = null;
   const metaPath = join(CACHE_DIR, `${cardId}_clean_meta.json`);
   if (existsSync(metaPath)) {

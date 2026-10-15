@@ -1,8 +1,9 @@
+import type { Era } from "./card.js";
 import type { EffectTag } from "../utils/effect-tags.js";
 
 export interface CardFilters {
   sets?: string[];
-  era?: "sv" | "swsh" | "me" | "all";
+  era?: Era | "all";
   category?: "Pokemon" | "Trainer" | "Energy";
   trainerType?: string;
   rarities?: string[];

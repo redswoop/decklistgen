@@ -14,6 +14,7 @@ import { adminRouter } from "./routes/admin.js";
 import adminSyncRouter from "./routes/admin-sync.js";
 import { publicDecksRouter } from "./routes/public-decks.js";
 import mcpRouter from "./routes/mcp.js";
+import customSetsRouter from "./routes/custom-sets.js";
 import { sessionMiddleware } from "./middleware/auth.js";
 import { rateLimit } from "./middleware/rate-limit.js";
 import { logAccess, getClientIp } from "./services/logger.js";
@@ -86,6 +87,7 @@ app.route("/api/admin", adminRouter);
 app.route("/api/admin/sync", adminSyncRouter);
 app.route("/api/public/decks", publicDecksRouter);
 app.route("/api/sets", setsRouter);
+app.route("/api/custom-sets", customSetsRouter);
 app.route("/api/cards", cardsRouter);
 app.route("/api/decklist", decklistRouter);
 app.route("/api/decks", decksRouter);
@@ -114,14 +116,15 @@ console.log(`DecklistGen server listening on :${port}`);
 // Each loadEra is internally idempotent, so this is safe across restarts.
 async function preloadAllEras() {
   const start = Date.now();
-  console.log("Preloading all eras (sv, swsh, me)...");
+  console.log("Preloading all eras (sv, swsh, me, custom)...");
   const results = await Promise.allSettled([
     loadEra("sv"),
     loadEra("swsh"),
     loadEra("me"),
+    loadEra("custom"),
   ]);
   const totals = results.map((r, i) => {
-    const era = ["sv", "swsh", "me"][i];
+    const era = ["sv", "swsh", "me", "custom"][i];
     if (r.status === "fulfilled") return `${era}=${r.value.loaded}`;
     return `${era}=ERR(${r.reason instanceof Error ? r.reason.message : String(r.reason)})`;
   });

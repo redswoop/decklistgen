@@ -12,6 +12,7 @@ import {
   ensureCardLoaded,
   ensureSourceImage,
   loadCardData,
+  resolveArtFile,
 } from "../services/pokeproxy/cache.js";
 import { getArtStatus, queueCardGeneration } from "../services/card-generation.js";
 import { requireAuth, requireAuthorized } from "../middleware/auth.js";
@@ -95,13 +96,13 @@ app.get("/image/:cardId/:type", async (c) => {
   }
 
   const suffix = type === "source" ? ".png" : `_${type}.png`;
-  const filePath = cachePath(cardId, suffix);
-  if (!existsSync(filePath) && type === "source") {
+  if (!resolveArtFile(cardId, suffix) && type === "source") {
     // Originals are fetched on demand so the print page can load them
     // same-origin (needed to rasterize page PNGs in the browser).
     await ensureSourceImage(cardId);
   }
-  if (!existsSync(filePath)) {
+  const filePath = resolveArtFile(cardId, suffix);
+  if (!filePath) {
     return c.json({ error: "Not found" }, 404);
   }
 

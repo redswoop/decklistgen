@@ -44,6 +44,9 @@ COPY --from=builder /app/src/ src/
 # Copy data files (prompts.json etc.)
 COPY --from=builder /app/data/ data/
 
+# Locally defined card sets (set.json + art PNGs); not under the data volume
+COPY --from=builder /app/custom-sets/ custom-sets/
+
 # Persistent volumes
 VOLUME ["/app/cache", "/app/data"]
 

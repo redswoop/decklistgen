@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { getCard, loadSet, isSetLoaded } from "../card-store.js";
 import { REVERSE_SET_MAP } from "../../../shared/constants/set-codes.js";
 import { cardImageUrl } from "../../../shared/utils/card-image-url.js";
+import { getCustomArtPath, getCustomCardRaw } from "../custom-sets.js";
 
 const CACHE_DIR = join(import.meta.dir, "../../../../cache");
 
@@ -16,8 +17,22 @@ export function cachePath(cardId: string, suffix: string): string {
   return join(CACHE_DIR, `${cardId}${suffix}`);
 }
 
+/**
+ * Where a card's art file lives: `cache/<id><suffix>` when the pipeline has
+ * produced one, else — for the source scan and the clean art only — a custom
+ * set's artwork, which is already clean. Undefined when neither exists.
+ */
+export function resolveArtFile(cardId: string, suffix: string): string | undefined {
+  const cached = cachePath(cardId, suffix);
+  if (existsSync(cached)) return cached;
+  if (suffix === ".png" || suffix === "_clean.png") return getCustomArtPath(cardId);
+  return undefined;
+}
+
 /** Load card data from cache JSON or card store. */
 export function loadCardData(cardId: string): Record<string, unknown> {
+  const custom = getCustomCardRaw(cardId);
+  if (custom) return custom as unknown as Record<string, unknown>;
   const jsonPath = cachePath(cardId, ".json");
   if (existsSync(jsonPath)) {
     try {
@@ -53,6 +68,7 @@ export async function ensureCardLoaded(cardId: string): Promise<void> {
 export async function ensureSourceImage(cardId: string): Promise<boolean> {
   const srcPath = cachePath(cardId, ".png");
   if (existsSync(srcPath)) return true;
+  if (getCustomArtPath(cardId)) return true; // served straight from the custom set
 
   await ensureCardLoaded(cardId);
   const card = getCard(cardId);
