@@ -1,11 +1,12 @@
 import { describe, test, expect, beforeAll } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createMcpServer } from "./server.js";
+import sharp from "sharp";
+import { createMcpServer, type McpContext } from "./server.js";
 import { loadSet } from "../services/card-store.js";
 
-async function connectedClient(): Promise<Client> {
-  const server = createMcpServer();
+async function connectedClient(ctx?: McpContext): Promise<Client> {
+  const server = createMcpServer(ctx);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
   const client = new Client({ name: "test-client", version: "0.0.0" }, { capabilities: {} });
@@ -23,6 +24,7 @@ describe("MCP server", () => {
   beforeAll(async () => {
     // Load one small set so search_cards / get_card have data to return
     await loadSet("CEL");
+    await loadSet("FEEL");
   });
 
   test("advertises every registered tool", async () => {
@@ -44,6 +46,7 @@ describe("MCP server", () => {
     expect(names).toContain("list_public_decks");
     expect(names).toContain("get_public_deck");
     expect(names).toContain("get_card_image_url");
+    expect(names).toContain("get_card_image");
     expect(names).toContain("proxy_status");
     // Deck management + simulators + art (need an authenticated context to *use*, always advertised)
     for (const t of [
@@ -141,6 +144,72 @@ describe("MCP server", () => {
     expect(typeof payload.url).toBe("string");
     // If TCGdex provides an imageBase, URL ends with /low.png; else it's empty.
     if (payload.url) expect(payload.url).toMatch(/low\.png$/);
+  });
+
+  test("get_card_image_url makes custom-set art and cached renders absolute", async () => {
+    const client = await connectedClient({ user: null, baseUrl: "https://decks.example.test" });
+    const result = await client.callTool({
+      name: "get_card_image_url",
+      arguments: { cardId: "custom-feel-001" },
+    });
+    const payload = JSON.parse(firstTextContent(result as never));
+    expect(payload.isCustom).toBe(true);
+    expect(payload.url).toBe("https://decks.example.test/api/custom-sets/art/custom-feel-001/high.png");
+    // The committed artwork doubles as the clean render; nothing composites a custom card.
+    expect(payload.images.source).toBe("https://decks.example.test/api/pokeproxy/image/custom-feel-001/source");
+    expect(payload.images.clean).toBe("https://decks.example.test/api/pokeproxy/image/custom-feel-001/clean");
+    expect(payload.images.composite).toBeUndefined();
+  });
+
+  test("get_card_image_url leaves TCGdex CDN links alone and relative paths relative without a baseUrl", async () => {
+    const client = await connectedClient();
+    const result = await client.callTool({ name: "get_card_image_url", arguments: { cardId: "cel25-1" } });
+    const payload = JSON.parse(firstTextContent(result as never));
+    expect(payload.isCustom).toBe(false);
+    if (payload.url) expect(payload.url).toMatch(/^https:\/\/.*\/high\.png$/);
+    expect(payload.images.source).toBe("/api/pokeproxy/image/cel25-1/source");
+  });
+
+  test("get_card_image returns custom-set art inline, resized, JPEG by default", async () => {
+    const client = await connectedClient({ user: null, baseUrl: "https://decks.example.test" });
+    const result = await client.callTool({
+      name: "get_card_image",
+      arguments: { cardId: "custom-feel-001", type: "clean", width: 200 },
+    });
+    expect(result.isError).toBeFalsy();
+    const content = (result as { content: Array<{ type: string; data?: string; mimeType?: string }> }).content;
+    const image = content.find((b) => b.type === "image");
+    expect(image?.mimeType).toBe("image/jpeg");
+    const meta = await sharp(Buffer.from(image!.data!, "base64")).metadata();
+    expect(meta.format).toBe("jpeg");
+    expect(meta.width).toBe(200);
+    const info = JSON.parse(firstTextContent(result as never));
+    expect(info).toMatchObject({ cardId: "custom-feel-001", name: "Kettlit", type: "clean", format: "jpeg", width: 200 });
+    expect(info.url).toBe("https://decks.example.test/api/pokeproxy/image/custom-feel-001/clean?w=200");
+  });
+
+  test("get_card_image can return the lossless PNG", async () => {
+    const client = await connectedClient();
+    const result = await client.callTool({
+      name: "get_card_image",
+      arguments: { cardId: "custom-feel-001", type: "source", width: 120, format: "png" },
+    });
+    const content = (result as { content: Array<{ type: string; data?: string; mimeType?: string }> }).content;
+    const image = content.find((b) => b.type === "image");
+    expect(image?.mimeType).toBe("image/png");
+    const meta = await sharp(Buffer.from(image!.data!, "base64")).metadata();
+    expect(meta.format).toBe("png");
+    expect(meta.width).toBe(120);
+  });
+
+  test("get_card_image fails cleanly for a render that does not exist", async () => {
+    const client = await connectedClient();
+    const result = await client.callTool({
+      name: "get_card_image",
+      arguments: { cardId: "custom-feel-001", type: "fullart" },
+    });
+    expect(result.isError).toBe(true);
+    expect(firstTextContent(result as never)).toContain("No fullart image");
   });
 
   test("search_cards filters by function tag and returns each card's tags", async () => {

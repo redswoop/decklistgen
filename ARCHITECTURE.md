@@ -196,16 +196,19 @@ Locally defined cards (`custom-sets/<folder>/set.json` + `art/*.png`), see CLAUD
 ## MCP server
 
 - **`src/server/mcp/server.ts`** — `createMcpServer(ctx)`; `ctx.user` is the
-  caller (null = anonymous). **`context.ts`** — `requireUser`,
-  `requireAuthorizedUser`, `effectiveUserId` (admin `actAsUserId` ≙ REST
-  `X-Act-As-User`). Tools by area in `tools/`: `sets`, `cards`, `decklist`,
+  caller (null = anonymous), `ctx.baseUrl` the public origin for image links
+  (`publicBaseUrl()` in `routes/mcp.ts`: `PUBLIC_URL` → `X-Forwarded-*` →
+  request URL). **`context.ts`** — `requireUser`, `requireAuthorizedUser`,
+  `effectiveUserId` (admin `actAsUserId` ≙ REST `X-Act-As-User`), `absoluteUrl`. Tools by area in `tools/`: `sets`, `cards`, `decklist`,
   `public-decks`, `proxy` (anonymous OK); `users`, `decks`, `sim`, `art` (need
   identity). Transports: `routes/mcp.ts` (HTTP, bearer or `/t/<token>` path),
   `cli/mcp.ts` (stdio, `DECKLISTGEN_API_TOKEN`).
 - Services the tools share with REST: `deck-beautify.ts` (pure beautify, the
   name + mechanicsHash grouping), `deck-sim.ts` (server-side hand / setup sims +
   plain-language `interpretation`), `card-generation.ts` (art status + queueing,
-  also used by `routes/proxy.ts`), `api-token-store.ts`.
+  also used by `routes/proxy.ts`), `pokeproxy/cache.ts` (`readArtImage` — the
+  bytes behind `/api/pokeproxy/image` and MCP `get_card_image`),
+  `api-token-store.ts`.
 - Client: `ApiTokensDialog.vue` (user menu → API Tokens) mints / lists / revokes
   tokens via `api.{list,create,revoke}ApiToken`.
 - Full catalogue and conventions: MCP.md.

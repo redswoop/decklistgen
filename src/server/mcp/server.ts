@@ -36,7 +36,7 @@ export function createMcpServer(ctx: McpContext = ANONYMOUS): McpServer {
   registerCardTools(server);
   registerDecklistTools(server);
   registerPublicDeckTools(server);
-  registerProxyTools(server);
+  registerProxyTools(server, ctx);
   registerUserTools(server, ctx);
   registerDeckTools(server, ctx);
   registerSimTools(server, ctx);

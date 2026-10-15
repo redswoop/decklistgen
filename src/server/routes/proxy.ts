@@ -1,7 +1,5 @@
 import { Hono } from "hono";
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
-import sharp from "sharp";
+import { existsSync, readFileSync } from "node:fs";
 import { getCard } from "../services/card-store.js";
 import { ping as comfyPing, COMFYUI_URL } from "../services/comfyui.js";
 import { listJobs, getJob, cancelJob, clearCompleted } from "../services/gen-queue.js";
@@ -10,9 +8,9 @@ import { getCustomizedCards, deleteCardArtifacts } from "../services/customized-
 import {
   cachePath,
   ensureCardLoaded,
-  ensureSourceImage,
+  isArtType,
   loadCardData,
-  resolveArtFile,
+  readArtImage,
 } from "../services/pokeproxy/cache.js";
 import { getArtStatus, queueCardGeneration } from "../services/card-generation.js";
 import { requireAuth, requireAuthorized } from "../middleware/auth.js";
@@ -91,48 +89,16 @@ app.get("/image/:cardId/:type", async (c) => {
   const cardId = c.req.param("cardId");
   if (!isValidCardId(cardId)) return c.json({ error: "Invalid card ID" }, 400);
   const type = c.req.param("type");
-  if (type !== "clean" && type !== "composite" && type !== "source" && type !== "fullart") {
+  if (!isArtType(type)) {
     return c.json({ error: "type must be 'clean', 'composite', 'source', or 'fullart'" }, 400);
   }
 
-  const suffix = type === "source" ? ".png" : `_${type}.png`;
-  if (!resolveArtFile(cardId, suffix) && type === "source") {
-    // Originals are fetched on demand so the print page can load them
-    // same-origin (needed to rasterize page PNGs in the browser).
-    await ensureSourceImage(cardId);
-  }
-  const filePath = resolveArtFile(cardId, suffix);
-  if (!filePath) {
+  const wParam = c.req.query("w");
+  const data = await readArtImage(cardId, type, wParam ? parseInt(wParam, 10) || 0 : 0);
+  if (!data) {
     return c.json({ error: "Not found" }, 404);
   }
-
-  const wParam = c.req.query("w");
-  const targetWidth = wParam ? Math.max(16, Math.min(2048, parseInt(wParam, 10) || 0)) : 0;
-
-  if (!targetWidth) {
-    const data = await readFile(filePath);
-    return new Response(data, {
-      headers: {
-        "Content-Type": "image/png",
-        "Cache-Control": "public, max-age=86400",
-      },
-    });
-  }
-
-  // Serve a resized thumbnail, cached on disk
-  const thumbPath = cachePath(cardId, `${suffix.replace(".png", "")}_w${targetWidth}.png`);
-  const sourceMtime = statSync(filePath).mtimeMs;
-  const thumbExists = existsSync(thumbPath);
-  const thumbFresh = thumbExists && statSync(thumbPath).mtimeMs >= sourceMtime;
-
-  if (!thumbFresh) {
-    const data = await readFile(filePath);
-    const resized = await sharp(data).resize({ width: targetWidth }).png().toBuffer();
-    await writeFile(thumbPath, resized);
-  }
-
-  const thumbData = await readFile(thumbPath);
-  return new Response(thumbData, {
+  return new Response(data, {
     headers: {
       "Content-Type": "image/png",
       "Cache-Control": "public, max-age=86400",

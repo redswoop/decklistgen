@@ -46,7 +46,7 @@ use the same token against `/api/decks` etc.
 `get_card`, `get_card_variants`, `get_variant_groups`, `get_filter_options`,
 `parse_ptcgo_text`, `import_limitless`, `import_limitless_player`,
 `format_decklist`, `list_public_decks`, `get_public_deck`, `get_card_image_url`,
-`proxy_status`.
+`get_card_image`, `proxy_status`.
 
 **Identity** — `whoami`, `list_users` (admin).
 
@@ -87,6 +87,18 @@ the raw stats **and** an `interpretation: string[]` of plain-language takeaways
 derived server-side (`src/server/services/deck-sim.ts`), so a remote Claude can
 discuss the result without re-deriving the model. See SETUP_SIM.md for what the
 model does and doesn't cover — the CIs are sampling error only.
+
+**Images** — `get_card_image_url` returns links: `url` is the original scan
+(TCGdex CDN, or this server's `/api/custom-sets/art/…` for a custom card) and
+`images` holds this server's `/api/pokeproxy/image/<id>/<type>` link for every
+render in its cache (`source` / `clean` / `composite` / `fullart`; `?w=<px>`
+for a thumbnail). `get_card_image` returns the picture itself as an MCP image
+block (`width` default 512, `0` = full size; JPEG unless `format: "png"`) — the only way a remote
+Claude can see a render that exists solely in this server's cache, custom-set
+art in particular. Server-relative paths are made absolute from the context's
+`baseUrl`: the HTTP transport derives it from `PUBLIC_URL`, else
+`X-Forwarded-Proto` / `X-Forwarded-Host`, else the request URL; stdio reads
+`DECKLISTGEN_URL` and otherwise leaves paths relative.
 
 **Artwork** — `deck_art_status` (which printings have clean / full-art renders),
 `generate_deck_art` (queue ComfyUI jobs for missing or all printings; per-card

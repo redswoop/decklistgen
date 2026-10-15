@@ -10,9 +10,21 @@ import { asJson } from "./util.js";
  */
 export interface McpContext {
   user: User | null;
+  /**
+   * Public origin of this server (`https://decks.example.com`), used to turn
+   * server-relative image paths into URLs a remote client can fetch. Absent
+   * (stdio with no DECKLISTGEN_URL) the tools fall back to relative paths.
+   */
+  baseUrl?: string;
 }
 
 export const ANONYMOUS: McpContext = { user: null };
+
+/** Prefix a server-relative path with the context's public origin, when known. */
+export function absoluteUrl(ctx: McpContext, path: string): string {
+  if (!path.startsWith("/")) return path;
+  return ctx.baseUrl ? `${ctx.baseUrl}${path}` : path;
+}
 
 export type Resolved<T> = { ok: true; value: T } | { ok: false; result: CallToolResult };
 

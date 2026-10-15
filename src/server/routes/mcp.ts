@@ -23,8 +23,22 @@ const app = new Hono<AppEnv>();
  *     claude.ai custom connectors. The token segment is redacted from the
  *     access log in index.ts.
  */
+/**
+ * The origin remote clients should use for links we hand back (card images).
+ * `PUBLIC_URL` wins; otherwise trust the reverse proxy's X-Forwarded-* headers,
+ * else the request URL itself.
+ */
+export function publicBaseUrl(req: Request): string {
+  const env = process.env.PUBLIC_URL?.replace(/\/+$/, "");
+  if (env) return env;
+  const url = new URL(req.url);
+  const proto = req.headers.get("x-forwarded-proto")?.split(",")[0].trim() || url.protocol.replace(/:$/, "");
+  const host = req.headers.get("x-forwarded-host")?.split(",")[0].trim() || url.host;
+  return `${proto}://${host}`;
+}
+
 async function serve(req: Request, user: User | null): Promise<Response> {
-  const server = createMcpServer({ user });
+  const server = createMcpServer({ user, baseUrl: publicBaseUrl(req) });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,

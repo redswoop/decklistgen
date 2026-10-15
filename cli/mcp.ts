@@ -17,7 +17,9 @@
  *   }
  *
  * Without DECKLISTGEN_API_TOKEN the server is anonymous: browse tools work,
- * deck / art / sim tools refuse. Mint a token from the web UI (user menu →
+ * deck / art / sim tools refuse. Set DECKLISTGEN_URL to the running server's
+ * public origin so image URLs come back absolute (get_card_image returns the
+ * bytes either way). Mint a token from the web UI (user menu →
  * API Tokens). For the running server (local or NAS) prefer the HTTP endpoint:
  *   claude mcp add --transport http decklistgen https://<host>/api/mcp \
  *     --header "Authorization: Bearer dg_…"
@@ -32,7 +34,8 @@ async function main(): Promise<void> {
   if (token && !user) {
     console.error("DECKLISTGEN_API_TOKEN is set but not valid for this data/ directory — running anonymously.");
   }
-  const server = createMcpServer({ user });
+  const baseUrl = process.env.DECKLISTGEN_URL?.replace(/\/+$/, "") || undefined;
+  const server = createMcpServer({ user, baseUrl });
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

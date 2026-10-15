@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { Hono } from "hono";
-import mcpRouter from "./mcp.js";
+import mcpRouter, { publicBaseUrl } from "./mcp.js";
 import { sessionMiddleware } from "../middleware/auth.js";
 import { createUser, deleteUser } from "../services/user-store.js";
 import { createApiToken } from "../services/api-token-store.js";
@@ -133,5 +133,30 @@ describe("MCP auth plumbing", () => {
       path: "/api/mcp/t/dg_bogus",
     });
     expect(res.status).toBe(401);
+  });
+});
+
+describe("publicBaseUrl", () => {
+  test("uses the request origin by default", () => {
+    expect(publicBaseUrl(new Request("http://localhost:3001/api/mcp"))).toBe("http://localhost:3001");
+  });
+
+  test("trusts the reverse proxy's X-Forwarded-* headers", () => {
+    const req = new Request("http://10.0.0.5:1996/api/mcp/t/dg_x", {
+      headers: { "x-forwarded-proto": "https", "x-forwarded-host": "decks.example.test" },
+    });
+    expect(publicBaseUrl(req)).toBe("https://decks.example.test");
+  });
+
+  test("PUBLIC_URL overrides everything", () => {
+    const prev = process.env.PUBLIC_URL;
+    process.env.PUBLIC_URL = "https://override.example.test/";
+    try {
+      const req = new Request("http://localhost:3001/api/mcp", { headers: { "x-forwarded-host": "nope" } });
+      expect(publicBaseUrl(req)).toBe("https://override.example.test");
+    } finally {
+      if (prev === undefined) delete process.env.PUBLIC_URL;
+      else process.env.PUBLIC_URL = prev;
+    }
   });
 });

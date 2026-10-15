@@ -3,9 +3,10 @@
  * outlived the SVG renderer. These back the clean-image pipeline:
  * `/api/pokeproxy/status`, `/api/pokeproxy/image`, `/api/pokeproxy/generate`.
  */
-import { existsSync, readFileSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import sharp from "sharp";
 import { getCard, loadSet, isSetLoaded } from "../card-store.js";
 import { REVERSE_SET_MAP } from "../../../shared/constants/set-codes.js";
 import { cardImageUrl } from "../../../shared/utils/card-image-url.js";
@@ -81,4 +82,44 @@ export async function ensureSourceImage(cardId: string): Promise<boolean> {
   await mkdir(CACHE_DIR, { recursive: true });
   await writeFile(srcPath, Buffer.from(await resp.arrayBuffer()));
   return true;
+}
+
+/** The image kinds a card can have: the original scan and the pipeline's renders. */
+export const ART_TYPES = ["source", "clean", "composite", "fullart"] as const;
+export type ArtType = (typeof ART_TYPES)[number];
+
+export function isArtType(value: string): value is ArtType {
+  return (ART_TYPES as readonly string[]).includes(value);
+}
+
+export function artSuffix(type: ArtType): string {
+  return type === "source" ? ".png" : `_${type}.png`;
+}
+
+export const MAX_THUMB_WIDTH = 2048;
+
+/**
+ * Read a card's image as PNG bytes — full size, or resized to `width` pixels
+ * (clamped to 16…2048; the thumbnail is cached on disk next to the original and
+ * rebuilt when the original is newer). The source scan is fetched from TCGdex
+ * on a miss. Undefined when the card has no such image.
+ */
+export async function readArtImage(cardId: string, type: ArtType, width = 0): Promise<Buffer | undefined> {
+  const suffix = artSuffix(type);
+  if (type === "source" && !resolveArtFile(cardId, suffix)) await ensureSourceImage(cardId);
+  const filePath = resolveArtFile(cardId, suffix);
+  if (!filePath) return undefined;
+
+  const targetWidth = width ? Math.max(16, Math.min(MAX_THUMB_WIDTH, Math.floor(width) || 0)) : 0;
+  if (!targetWidth) return readFile(filePath);
+
+  const thumbPath = cachePath(cardId, `${suffix.replace(".png", "")}_w${targetWidth}.png`);
+  const sourceMtime = statSync(filePath).mtimeMs;
+  const thumbFresh = existsSync(thumbPath) && statSync(thumbPath).mtimeMs >= sourceMtime;
+  if (!thumbFresh) {
+    const resized = await sharp(await readFile(filePath)).resize({ width: targetWidth }).png().toBuffer();
+    await mkdir(CACHE_DIR, { recursive: true });
+    await writeFile(thumbPath, resized);
+  }
+  return readFile(thumbPath);
 }
