@@ -48,10 +48,24 @@ describe("custom sets — the committed Feelings Deck", () => {
     expect(kettlit.id).toBe("custom-feel-001");
     expect(kettlit.image).toBe("/api/custom-sets/art/custom-feel-001");
     expect(kettlit.set).toEqual({ id: "custom-feel", name: "Feelings Deck", cardCount: { official: 8, total: 8 } });
-    expect(kettlit.abilities?.[0]?.name).toBe("Early Whistle");
-    expect(kettlit.attacks?.map((a) => a.name)).toEqual(["Let Off Steam", "Cool Down"]);
+    expect(kettlit.abilities?.[0]?.name).toBe("Everyone Else");
+    expect(kettlit.attacks?.map((a) => a.name)).toEqual(["I'm getting mad."]);
     expect(getCustomCardRaw("custom-feel-001")).toBe(kettlit);
     expect(getCustomCardRaw("sv01-001")).toBeUndefined();
+  });
+
+  test("every card follows the two-line grammar: an 'Everyone Else' ability and one say-line attack", () => {
+    // Mirrors the Feelings Deck page: the big line is what you're saying
+    // (the attack), the small line is what everybody else does (the
+    // ability), and every card closes with the one rule.
+    for (const c of getCustomSetCards("FEEL")) {
+      expect(c.abilities?.map((a) => a.name)).toEqual(["Everyone Else"]);
+      expect(c.abilities?.[0]?.effect.length).toBeGreaterThan(0);
+      expect(c.attacks?.length).toBe(1);
+      expect(c.attacks?.[0]?.cost).toEqual([c.types?.[0]]);
+      expect(c.attacks?.[0]?.name.length).toBeGreaterThan(0);
+      expect(c.attacks?.[0]?.effect).toStartWith('When you get this card, say "OK."');
+    }
   });
 
   test("every card has a committed artwork PNG", () => {
@@ -86,9 +100,10 @@ describe("custom sets — card store, detail and import resolution", () => {
   test("getCardDetail carries the ability and attacks without a cache JSON", async () => {
     const detail = await getCardDetail("custom-feel-006");
     expect(detail?.name).toBe("Shellter");
-    expect(detail?.abilities[0]?.name).toBe("Shell Up");
-    expect(detail?.attacks.map((a) => a.name)).toEqual(["Hide Out", "Come Back Out"]);
-    expect(detail?.attacks[1]?.cost).toEqual(["Water", "Water"]);
+    expect(detail?.abilities[0]?.name).toBe("Everyone Else");
+    expect(detail?.abilities[0]?.effect).toBe("Don't follow me. I'll come back.");
+    expect(detail?.attacks.map((a) => a.name)).toEqual(["I need to be alone."]);
+    expect(detail?.attacks[0]?.cost).toEqual(["Water"]);
     expect(detail?.attacks[0]?.damage).toBeUndefined();
     expect(detail?.retreat).toBe(0);
   });
